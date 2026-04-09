@@ -20,10 +20,9 @@ import { CreateUserSchema } from './dto/create-user.dto';
 
 /**
  * User management endpoints scoped to an organization.
- * All endpoints require org admin role.
- * For now, we use SuperAdminGuard as a placeholder until org-level guards are built.
- * In production, this should use an OrgRoles("admin") guard.
+ * All endpoints require super admin authentication via SuperAdminGuard.
  */
+@UseGuards(SuperAdminGuard)
 @Controller('api/organizations/:orgId/users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
