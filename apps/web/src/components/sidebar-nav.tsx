@@ -10,6 +10,10 @@ import {
   LogOut,
   Menu,
   X,
+  FolderTree,
+  Camera,
+  SlidersHorizontal,
+  Server,
 } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
@@ -34,6 +38,10 @@ const adminNavItems: NavItem[] = [
   { label: "Organizations", href: "/admin/organizations", icon: Building2 },
   { label: "Packages", href: "/admin/packages", icon: Package },
   { label: "System Settings", href: "/admin/settings", icon: Settings },
+  { label: "Projects", href: "/admin/projects", icon: FolderTree },
+  { label: "Cameras", href: "/admin/cameras", icon: Camera },
+  { label: "Stream Profiles", href: "/admin/stream-profiles", icon: SlidersHorizontal },
+  { label: "Stream Engine", href: "/admin/stream-engine", icon: Server },
 ];
 
 interface SidebarNavProps {
