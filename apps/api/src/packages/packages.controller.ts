@@ -14,7 +14,7 @@ import { PackagesService } from './packages.service';
 import { CreatePackageSchema } from './dto/create-package.dto';
 import { UpdatePackageSchema } from './dto/update-package.dto';
 
-@Controller('admin/packages')
+@Controller('api/admin/packages')
 @UseGuards(SuperAdminGuard)
 export class PackagesController {
   constructor(private readonly packagesService: PackagesService) {}

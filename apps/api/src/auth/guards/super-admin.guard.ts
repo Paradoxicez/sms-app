@@ -5,7 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Request } from 'express';
-import { auth } from '../auth.config';
+import { getAuth } from '../auth.config';
 
 @Injectable()
 export class SuperAdminGuard implements CanActivate {
@@ -13,7 +13,6 @@ export class SuperAdminGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<Request>();
     const headers = new Headers();
 
-    // Convert Express headers to standard Headers
     for (const [key, value] of Object.entries(request.headers)) {
       if (typeof value === 'string') {
         headers.set(key, value);
@@ -22,13 +21,13 @@ export class SuperAdminGuard implements CanActivate {
       }
     }
 
+    const auth = getAuth();
     const session = await auth.api.getSession({ headers });
 
     if (!session) {
       throw new UnauthorizedException('Not authenticated');
     }
 
-    // Better Auth admin plugin sets role = "admin" for super admins
     if (session.user.role !== 'admin') {
       throw new UnauthorizedException('Super admin access required');
     }

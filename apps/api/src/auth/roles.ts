@@ -1,46 +1,6 @@
-import { createAccessControl } from 'better-auth/plugins/access';
-import { defaultStatements, adminAc } from 'better-auth/plugins/admin/access';
+import { loadBetterAuthAccess } from './esm-loader';
 
-const statement = {
-  ...defaultStatements,
-  camera: ['create', 'read', 'update', 'delete', 'start', 'stop'],
-  stream: ['view', 'manage'],
-  apiKey: ['create', 'read', 'revoke'],
-  recording: ['view', 'manage'],
-} as const;
-
-export const ac = createAccessControl(statement);
-
-export const viewerRole = ac.newRole({
-  camera: ['read'],
-  stream: ['view'],
-});
-
-export const developerRole = ac.newRole({
-  camera: ['read'],
-  stream: ['view'],
-  apiKey: ['create', 'read', 'revoke'],
-});
-
-export const operatorRole = ac.newRole({
-  camera: ['create', 'read', 'update', 'delete', 'start', 'stop'],
-  stream: ['view', 'manage'],
-  recording: ['view', 'manage'],
-});
-
-export const adminRole = ac.newRole({
-  camera: ['create', 'read', 'update', 'delete', 'start', 'stop'],
-  stream: ['view', 'manage'],
-  apiKey: ['create', 'read', 'revoke'],
-  recording: ['view', 'manage'],
-  ...adminAc.statements,
-});
-
-export const superAdminRole = ac.newRole({
-  ...adminAc.statements,
-});
-
-// Export role-to-default-permissions map for use by permissions.ts
+// Role-to-default-permissions map (static, no ESM dependency)
 export const ROLE_PERMISSIONS: Record<string, Set<string>> = {
   viewer: new Set(['camera:read', 'stream:view']),
   developer: new Set([
@@ -78,3 +38,53 @@ export const ROLE_PERMISSIONS: Record<string, Set<string>> = {
     'recording:manage',
   ]),
 };
+
+const statement = {
+  camera: ['create', 'read', 'update', 'delete', 'start', 'stop'],
+  stream: ['view', 'manage'],
+  apiKey: ['create', 'read', 'revoke'],
+  recording: ['view', 'manage'],
+} as const;
+
+let _ac: any;
+let _roles: { viewerRole: any; developerRole: any; operatorRole: any; adminRole: any; superAdminRole: any };
+
+export async function initAccessControl() {
+  if (_ac) return { ac: _ac, ..._roles };
+
+  const { createAccessControl, defaultStatements, adminAc } = await loadBetterAuthAccess();
+
+  _ac = createAccessControl({ ...defaultStatements, ...statement });
+
+  const viewerRole = _ac.newRole({
+    camera: ['read'],
+    stream: ['view'],
+  });
+
+  const developerRole = _ac.newRole({
+    camera: ['read'],
+    stream: ['view'],
+    apiKey: ['create', 'read', 'revoke'],
+  });
+
+  const operatorRole = _ac.newRole({
+    camera: ['create', 'read', 'update', 'delete', 'start', 'stop'],
+    stream: ['view', 'manage'],
+    recording: ['view', 'manage'],
+  });
+
+  const adminRole = _ac.newRole({
+    camera: ['create', 'read', 'update', 'delete', 'start', 'stop'],
+    stream: ['view', 'manage'],
+    apiKey: ['create', 'read', 'revoke'],
+    recording: ['view', 'manage'],
+    ...adminAc.statements,
+  });
+
+  const superAdminRole = _ac.newRole({
+    ...adminAc.statements,
+  });
+
+  _roles = { viewerRole, developerRole, operatorRole, adminRole, superAdminRole };
+  return { ac: _ac, ..._roles };
+}

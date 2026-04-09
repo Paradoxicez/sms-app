@@ -10,7 +10,7 @@ import { UsersModule } from './users/users.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    ClsModule.forRoot({ middleware: { mount: true } }),
+    ClsModule.forRoot({ global: true, middleware: { mount: true } }),
     PrismaModule,
     AuthModule,
     TenancyModule,

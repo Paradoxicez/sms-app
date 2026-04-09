@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import { SuperAdminGuard } from '../auth/guards/super-admin.guard';
-import { auth } from '../auth/auth.config';
+import { getAuth } from '../auth/auth.config';
 import { UsersService } from './users.service';
 import { InviteUserSchema } from './dto/invite-user.dto';
 import { CreateUserSchema } from './dto/create-user.dto';
@@ -24,7 +24,7 @@ import { CreateUserSchema } from './dto/create-user.dto';
  * For now, we use SuperAdminGuard as a placeholder until org-level guards are built.
  * In production, this should use an OrgRoles("admin") guard.
  */
-@Controller('organizations/:orgId/users')
+@Controller('api/organizations/:orgId/users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
@@ -37,6 +37,7 @@ export class UsersController {
         headers.set(key, value.join(', '));
       }
     }
+    const auth = getAuth();
     const session = await auth.api.getSession({ headers });
     if (!session) {
       throw new UnauthorizedException('Not authenticated');

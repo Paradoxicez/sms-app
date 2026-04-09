@@ -15,7 +15,7 @@ import {
   UpdateOrganizationSchema,
 } from './dto/create-organization.dto';
 
-@Controller('admin/organizations')
+@Controller('api/admin/organizations')
 @UseGuards(SuperAdminGuard)
 export class OrganizationsController {
   constructor(private readonly organizationsService: OrganizationsService) {}
