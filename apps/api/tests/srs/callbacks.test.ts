@@ -6,6 +6,7 @@ describe('SRS Callback Controller', () => {
   let controller: SrsCallbackController;
   let mockStatusService: any;
   let mockStatusGateway: any;
+  let mockPlaybackService: any;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -14,13 +15,26 @@ describe('SRS Callback Controller', () => {
       transition: vi.fn().mockResolvedValue(undefined),
       incrementViewers: vi.fn().mockReturnValue(1),
       decrementViewers: vi.fn().mockReturnValue(0),
+      getViewerCount: vi.fn().mockReturnValue(0),
     };
 
     mockStatusGateway = {
       broadcastViewerCount: vi.fn(),
     };
 
-    controller = new SrsCallbackController(mockStatusService, mockStatusGateway);
+    mockPlaybackService = {
+      verifyToken: vi.fn().mockResolvedValue({
+        sessionId: 'sess-1',
+        cameraId: 'cam-1',
+        orgId: 'org-1',
+        domains: [],
+        allowNoReferer: true,
+        maxViewers: 0,
+      }),
+      matchDomain: vi.fn().mockReturnValue(true),
+    };
+
+    controller = new SrsCallbackController(mockStatusService, mockStatusGateway, mockPlaybackService);
   });
 
   describe('on_publish', () => {
@@ -54,13 +68,16 @@ describe('SRS Callback Controller', () => {
   });
 
   describe('on_play', () => {
-    it('should increment viewer count', async () => {
+    it('should verify token and increment viewer count', async () => {
       const result = await controller.onPlay({
         action: 'on_play',
         app: 'live',
         stream: 'org-1/cam-1',
+        param: '?token=valid-token',
+        pageUrl: 'https://example.com',
       });
 
+      expect(mockPlaybackService.verifyToken).toHaveBeenCalledWith('valid-token', 'cam-1', 'org-1');
       expect(mockStatusService.incrementViewers).toHaveBeenCalledWith('cam-1');
       expect(mockStatusGateway.broadcastViewerCount).toHaveBeenCalledWith('org-1', 'cam-1', 1);
       expect(result).toEqual({ code: 0 });
