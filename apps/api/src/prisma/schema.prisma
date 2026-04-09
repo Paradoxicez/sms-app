@@ -159,3 +159,110 @@ model UserPermissionOverride {
 
   @@unique([userId, orgId, permission])
 }
+
+// ─────────────────────────────────────────────
+// Phase 2: Camera & Stream Management
+// ─────────────────────────────────────────────
+
+model Project {
+  id          String   @id @default(uuid())
+  orgId       String
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sites       Site[]
+
+  @@index([orgId])
+}
+
+model Site {
+  id          String   @id @default(uuid())
+  orgId       String
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  location    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  cameras     Camera[]
+
+  @@index([orgId])
+  @@index([projectId])
+}
+
+model Camera {
+  id              String         @id @default(uuid())
+  orgId           String
+  siteId          String
+  site            Site           @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  name            String
+  streamUrl       String
+  description     String?
+  location        Json?
+  tags            String[]       @default([])
+  thumbnail       String?
+  status          String         @default("offline")
+  needsTranscode  Boolean        @default(false)
+  codecInfo       Json?
+  streamProfileId String?
+  streamProfile   StreamProfile? @relation(fields: [streamProfileId], references: [id], onDelete: SetNull)
+  lastOnlineAt    DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([orgId])
+  @@index([siteId])
+  @@index([status])
+}
+
+model StreamProfile {
+  id           String   @id @default(uuid())
+  orgId        String
+  name         String
+  codec        String   @default("auto")
+  preset       String?  @default("veryfast")
+  resolution   String?
+  fps          Int?
+  videoBitrate String?
+  audioCodec   String   @default("aac")
+  audioBitrate String?  @default("128k")
+  isDefault    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  cameras      Camera[]
+
+  @@index([orgId])
+}
+
+model OrgSettings {
+  id                   String   @id @default(uuid())
+  orgId                String   @unique
+  defaultProfileId     String?
+  maxReconnectAttempts Int      @default(10)
+  autoStartOnBoot      Boolean  @default(false)
+  defaultRecordingMode String   @default("none")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([orgId])
+}
+
+model SystemSettings {
+  id             String   @id @default(uuid())
+  hlsFragment    Int      @default(2)
+  hlsWindow      Int      @default(10)
+  hlsEncryption  Boolean  @default(false)
+  rtmpPort       Int      @default(1935)
+  srtPort        Int      @default(10080)
+  webrtcPort     Int      @default(8000)
+  httpPort       Int      @default(8080)
+  apiPort        Int      @default(1985)
+  timeoutSeconds Int      @default(30)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
