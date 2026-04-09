@@ -36,7 +36,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 Plans:
 - [x] 01-01-PLAN.md -- Scaffold monorepo, Docker Compose, Prisma schema, Vitest infrastructure
-- [ ] 01-02-PLAN.md -- Better Auth + RBAC plugins, RLS tenant isolation, System org seed
+- [x] 01-02-PLAN.md -- Better Auth + RBAC plugins, RLS tenant isolation, System org seed
 - [ ] 01-03-PLAN.md -- Package CRUD, Organization management, User management APIs
 - [ ] 01-04-PLAN.md -- Frontend: sign-in page, admin panel, organizations + packages UI
 **UI hint**: yes
