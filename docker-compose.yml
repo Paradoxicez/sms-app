@@ -14,6 +14,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - sms-network
 
   redis:
     image: redis:7-alpine
@@ -24,6 +26,33 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - sms-network
+
+  srs:
+    image: ossrs/srs:6
+    ports:
+      - "1935:1935"
+      - "1985:1985"
+      - "8080:8080"
+      - "8000:8000/udp"
+      - "10080:10080/udp"
+    volumes:
+      - ./config/srs.conf:/usr/local/srs/conf/srs.conf
+      - srs_data:/usr/local/srs/objs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:1985/api/v1/versions"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sms-network
+
+networks:
+  sms-network:
+    driver: bridge
 
 volumes:
   postgres_data:
+  srs_data:
