@@ -6,10 +6,13 @@ import {
   Delete,
   Param,
   Body,
+  Res,
   UseGuards,
   BadRequestException,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { ClsService } from 'nestjs-cls';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { CamerasService } from './cameras.service';
@@ -148,5 +151,76 @@ export class CamerasController {
     });
 
     return result;
+  }
+
+  // ─── HLS Preview Proxy (D-14: internal preview via backend proxy) ────
+
+  private readonly logger = new Logger(CamerasController.name);
+  private readonly srsBaseUrl = process.env.SRS_HTTP_URL || 'http://localhost:8080';
+
+  @Get('cameras/:id/preview/playlist.m3u8')
+  async proxyPlaylist(@Param('id') id: string, @Res() res: Response) {
+    const camera = await this.camerasService.findCameraById(id);
+    if (!camera) {
+      throw new NotFoundException('Camera not found');
+    }
+
+    const orgId = this.getOrgId();
+    const srsUrl = `${this.srsBaseUrl}/live/${orgId}/${camera.id}.m3u8`;
+
+    try {
+      const upstream = await fetch(srsUrl);
+      if (!upstream.ok) {
+        res.status(upstream.status).send('Stream not available');
+        return;
+      }
+
+      let m3u8 = await upstream.text();
+      // Rewrite segment URLs to go through proxy
+      m3u8 = m3u8.replace(
+        /^(?!#)(.+\.(ts|m4s|mp4))$/gm,
+        `/api/cameras/${id}/preview/$1`,
+      );
+
+      res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.send(m3u8);
+    } catch (err) {
+      this.logger.warn(`HLS proxy error for camera ${id}: ${err}`);
+      res.status(502).send('Stream engine unavailable');
+    }
+  }
+
+  @Get('cameras/:id/preview/:segment')
+  async proxySegment(
+    @Param('id') id: string,
+    @Param('segment') segment: string,
+    @Res() res: Response,
+  ) {
+    const camera = await this.camerasService.findCameraById(id);
+    if (!camera) {
+      throw new NotFoundException('Camera not found');
+    }
+
+    const orgId = this.getOrgId();
+    const srsUrl = `${this.srsBaseUrl}/live/${orgId}/${segment}`;
+
+    try {
+      const upstream = await fetch(srsUrl);
+      if (!upstream.ok) {
+        res.status(upstream.status).send('Segment not available');
+        return;
+      }
+
+      const contentType = upstream.headers.get('content-type') || 'video/mp2t';
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Cache-Control', 'public, max-age=30');
+
+      const buffer = Buffer.from(await upstream.arrayBuffer());
+      res.send(buffer);
+    } catch (err) {
+      this.logger.warn(`HLS segment proxy error for camera ${id}: ${err}`);
+      res.status(502).send('Stream engine unavailable');
+    }
   }
 }
