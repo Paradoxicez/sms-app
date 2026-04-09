@@ -104,7 +104,8 @@ Developers can get a secure HLS playback URL for any registered camera via a sin
 - **Deployment**: Docker Compose (single server, self-hosted)
 - **UI Design**: Preserve existing UI patterns from screenshots (green theme, sidebar nav, card-based dashboard)
 - **Security Model**: Session-based playback URLs + domain allowlist + API key (proven sufficient in v1)
-- **Tech Stack**: To be determined by research — let best practices guide the choice
+- **Tech Stack**: NestJS + Next.js + PostgreSQL + Prisma + Redis + Better Auth + SRS + FFmpeg + MinIO
+- **Auth**: Better Auth — provides built-in organizations, RBAC, sessions, invitations (replaces Passport.js)
 
 ## Key Decisions
 
@@ -115,6 +116,7 @@ Developers can get a secure HLS playback URL for any registered camera via a sin
 | No billing in v1 | Super admin manages plans manually; avoids Stripe complexity in initial build | -- Pending |
 | Docker Compose deploy | Start simple, single server; can migrate to K8s later | -- Pending |
 | Research SRS before finalizing API | Don't design APIs that the stream engine can't support natively | -- Pending |
+| Better Auth over Passport.js | Built-in orgs, RBAC, sessions, invitations — reduces Phase 1 scope significantly | -- Pending |
 
 ## Evolution
 
