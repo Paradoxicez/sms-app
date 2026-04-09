@@ -53,17 +53,17 @@
 
 - [x] **PLAY-01**: API endpoint `POST /cameras/{id}/sessions` returns time-limited HLS playback URL
 - [x] **PLAY-02**: JWT-signed playback tokens with camera scope, domain restriction, expiry
-- [ ] **PLAY-03**: Domain allowlist enforcement on HLS playback (wildcard subdomain support)
+- [x] **PLAY-03**: Domain allowlist enforcement on HLS playback (wildcard subdomain support)
 - [x] **PLAY-04**: Session TTL configurable per policy (default 2 hours for live CCTV)
 - [x] **PLAY-05**: Viewer concurrency limits per camera enforced at session creation
 - [ ] **PLAY-06**: Embed code generation (iframe snippet + hls.js snippet)
-- [ ] **PLAY-07**: HLS segment encryption via SRS hls_keys with backend key serving for authenticated sessions
+- [x] **PLAY-07**: HLS segment encryption via SRS hls_keys with backend key serving for authenticated sessions
 
 ### Policies
 
 - [x] **POL-01**: Playback policies with TTL range, rate limit, viewer concurrency limit, domain allowlist
 - [x] **POL-02**: Policy resolution order: Camera > Site > Project > System defaults
-- [ ] **POL-03**: Three-tier rate limiting (global, per-tenant, per-API-key) with standard headers
+- [x] **POL-03**: Three-tier rate limiting (global, per-tenant, per-API-key) with standard headers
 
 ### Recordings
 
@@ -143,14 +143,14 @@
 | STREAM-08 | Phase 2 | Complete |
 | PLAY-01 | Phase 3 | Complete |
 | PLAY-02 | Phase 3 | Complete |
-| PLAY-03 | Phase 3 | Pending |
+| PLAY-03 | Phase 3 | Complete |
 | PLAY-04 | Phase 3 | Complete |
 | PLAY-05 | Phase 3 | Complete |
 | PLAY-06 | Phase 3 | Pending |
-| PLAY-07 | Phase 3 | Pending |
+| PLAY-07 | Phase 3 | Complete |
 | POL-01 | Phase 3 | Complete |
 | POL-02 | Phase 3 | Complete |
-| POL-03 | Phase 3 | Pending |
+| POL-03 | Phase 3 | Complete |
 | DEV-01 | Phase 4 | Pending |
 | DEV-02 | Phase 4 | Pending |
 | DEV-03 | Phase 4 | Pending |

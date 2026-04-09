@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 03-01-PLAN.md
-last_updated: "2026-04-09T18:32:53.996Z"
+stopped_at: Completed 03-02-PLAN.md
+last_updated: "2026-04-09T18:41:02.654Z"
 last_activity: 2026-04-09
 progress:
   total_phases: 7
   completed_phases: 2
   total_plans: 15
-  completed_plans: 13
-  percent: 87
+  completed_plans: 14
+  percent: 93
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-09)
 ## Current Position
 
 Phase: 03 (playback-security) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-04-09
 
@@ -65,6 +65,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 02 P05 | 850s | 2 tasks | 22 files |
 | Phase 02 P06 | 481s | 2 tasks | 9 files |
 | Phase 03 P01 | 440s | 2 tasks | 15 files |
+| Phase 03 P02 | 323s | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -99,6 +100,9 @@ Recent decisions affecting current work:
 - [Phase 03]: PoliciesModule @Global() for cross-module PoliciesService injection
 - [Phase 03]: Domains field: empty array = valid override (allow all), null = inherit
 - [Phase 03]: JWT_PLAYBACK_SECRET auto-generates in dev, GET /playback/sessions/:id public for embeds
+- [Phase 03]: ThrottlerModule uses in-memory storage (not Redis) for single-server deployment simplicity
+- [Phase 03]: SRS callbacks exempt from rate limiting via @SkipThrottle; verifyTokenMinimal for key serving (no scope check)
+- [Phase 03]: m3u8 proxy rewrites #EXT-X-KEY URIs with token for seamless hls.js authenticated key fetching
 
 ### Pending Todos
 
@@ -112,6 +116,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-09T18:32:53.994Z
-Stopped at: Completed 03-01-PLAN.md
+Last session: 2026-04-09T18:41:02.652Z
+Stopped at: Completed 03-02-PLAN.md
 Resume file: None
