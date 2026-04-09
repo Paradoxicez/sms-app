@@ -3,6 +3,7 @@ import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { FfmpegService } from '../ffmpeg/ffmpeg.service';
 import { StreamProfile } from '../ffmpeg/ffmpeg-command.builder';
+import { StatusService } from '../../status/status.service';
 
 export const MAX_BACKOFF_MS = 300_000; // 5 minutes
 const BASE_BACKOFF_MS = 1_000; // 1 second
@@ -23,17 +24,13 @@ export function calculateBackoff(attempt: number): number {
   return Math.min(backoff, MAX_BACKOFF_MS);
 }
 
-export interface StatusServiceInterface {
-  transition(cameraId: string, orgId: string, newStatus: string): Promise<void>;
-}
-
-@Processor('stream:ffmpeg')
+@Processor('stream-ffmpeg')
 export class StreamProcessor extends WorkerHost {
   private readonly logger = new Logger(StreamProcessor.name);
 
   constructor(
     private readonly ffmpegService: FfmpegService,
-    private readonly statusService: StatusServiceInterface,
+    private readonly statusService: StatusService,
   ) {
     super();
   }

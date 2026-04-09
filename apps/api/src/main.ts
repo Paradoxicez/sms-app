@@ -7,13 +7,12 @@ async function bootstrap() {
 
   app.enableCors({
     origin: [
-      'http://localhost:3000',
       'http://localhost:3002',
     ],
     credentials: true,
   });
 
-  const port = process.env.PORT || 3001;
+  const port = process.env.PORT || 3003;
   await app.listen(port);
   console.log(`SMS Platform API running on http://localhost:${port}`);
 }

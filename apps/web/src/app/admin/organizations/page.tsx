@@ -19,7 +19,7 @@ interface Organization {
   _count?: { members: number };
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3003";
 
 export default function OrganizationsPage() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);

@@ -9,7 +9,7 @@ import { StreamProfileController } from './stream-profile.controller';
 
 @Module({
   imports: [
-    BullModule.registerQueue({ name: 'stream:ffmpeg' }),
+    BullModule.registerQueue({ name: 'stream-ffmpeg' }),
   ],
   controllers: [StreamsController, StreamProfileController],
   providers: [StreamsService, FfmpegService, StreamProcessor, StreamProfileService],

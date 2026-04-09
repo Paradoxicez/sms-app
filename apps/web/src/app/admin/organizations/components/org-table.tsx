@@ -37,7 +37,7 @@ interface OrgTableProps {
   onRefetch: () => void;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3003";
 
 export function OrgTable({ organizations, isLoading, onRefetch }: OrgTableProps) {
   async function handleDeactivate(orgId: string) {

@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
 import { CreateStreamProfileDto } from './dto/create-stream-profile.dto';
 import { UpdateStreamProfileDto } from './dto/update-stream-profile.dto';
 
@@ -8,7 +8,7 @@ export class StreamProfileService {
   private readonly logger = new Logger(StreamProfileService.name);
 
   constructor(
-    @Inject('TENANCY_CLIENT') private readonly prisma: PrismaClient,
+    @Inject(TENANCY_CLIENT) private readonly prisma: any,
   ) {}
 
   async create(orgId: string, dto: CreateStreamProfileDto) {

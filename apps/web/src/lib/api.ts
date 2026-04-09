@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
 
 /**
  * Fetch helper that includes credentials and handles common error patterns.

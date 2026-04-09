@@ -48,7 +48,7 @@ interface CreateOrgDialogProps {
   onSuccess: () => void;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3003";
 
 export function CreateOrgDialog({ open, onOpenChange, onSuccess }: CreateOrgDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);

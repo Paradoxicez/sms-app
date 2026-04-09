@@ -43,7 +43,7 @@ const FEATURE_TOGGLES = [
   { key: "audit_log", label: "Audit Log" },
 ];
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3003";
 
 export function CreatePackageDialog({ open, onOpenChange, onSuccess }: CreatePackageDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);

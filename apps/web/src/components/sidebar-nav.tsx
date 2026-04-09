@@ -6,7 +6,6 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Building2,
   Package,
-  Settings,
   LogOut,
   Menu,
   X,
@@ -37,7 +36,6 @@ interface NavItem {
 const adminNavItems: NavItem[] = [
   { label: "Organizations", href: "/admin/organizations", icon: Building2 },
   { label: "Packages", href: "/admin/packages", icon: Package },
-  { label: "System Settings", href: "/admin/settings", icon: Settings },
   { label: "Projects", href: "/admin/projects", icon: FolderTree },
   { label: "Cameras", href: "/admin/cameras", icon: Camera },
   { label: "Stream Profiles", href: "/admin/stream-profiles", icon: SlidersHorizontal },

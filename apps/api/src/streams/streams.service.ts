@@ -3,11 +3,8 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
 import { FfmpegService } from './ffmpeg/ffmpeg.service';
+import { StatusService } from '../status/status.service';
 import { StreamJobData, calculateBackoff, MAX_BACKOFF_MS } from './processors/stream.processor';
-
-export interface StatusServiceInterface {
-  transition(cameraId: string, orgId: string, newStatus: string): Promise<void>;
-}
 
 @Injectable()
 export class StreamsService {
@@ -15,9 +12,9 @@ export class StreamsService {
 
   constructor(
     @Inject(TENANCY_CLIENT) private readonly prisma: any,
-    @InjectQueue('stream:ffmpeg') private readonly streamQueue: Queue,
+    @InjectQueue('stream-ffmpeg') private readonly streamQueue: Queue,
     private readonly ffmpegService: FfmpegService,
-    private readonly statusService: StatusServiceInterface,
+    private readonly statusService: StatusService,
   ) {}
 
   async startStream(cameraId: string): Promise<void> {

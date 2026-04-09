@@ -1,7 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { writeFileSync } from 'fs';
 import { join } from 'path';
+import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
 import { SrsApiService } from '../srs/srs-api.service';
 import { UpdateSystemSettingsDto } from './dto/update-system-settings.dto';
 import { UpdateOrgSettingsDto } from './dto/update-org-settings.dto';
@@ -20,7 +20,7 @@ export class SettingsService {
   private readonly logger = new Logger(SettingsService.name);
 
   constructor(
-    private readonly prisma: PrismaClient,
+    @Inject(TENANCY_CLIENT) private readonly prisma: any,
     private readonly srsApiService: SrsApiService,
   ) {}
 
