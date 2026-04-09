@@ -773,22 +773,22 @@ function calculateBackoff(attemptsMade: number): number {
 | A5 | `hls_use_fmp4 on` works with hls.js 1.6.x for playback | Architecture | If fMP4 has compatibility issues, fall back to MPEG-TS segments |
 | A6 | BullMQ custom backoff function is supported via `backoff.type: 'custom'` | Code Examples | May need to use built-in exponential with cap instead |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **FFmpeg Deployment Strategy**
    - What we know: FFmpeg is not on host machine. Need it available for API process.
    - What's unclear: Install in API Docker image vs. separate sidecar container vs. Alpine + static FFmpeg binary
-   - Recommendation: Install in API Dockerfile (`apt-get install -y ffmpeg`) -- simplest approach, same container as Node.js
+   - RESOLVED: Install in API Dockerfile (`apt-get install -y ffmpeg`) -- simplest approach, same container as Node.js
 
 2. **SRS Config File Location**
    - What we know: SRS reads from `/usr/local/srs/conf/srs.conf` inside container
    - What's unclear: Whether to mount from host `./config/srs.conf` or generate dynamically and write to Docker volume
-   - Recommendation: Mount from `./config/srs.conf` (committed to repo as template), regenerate and overwrite via API when settings change
+   - RESOLVED: Mount from `./config/srs.conf` (committed to repo as template), regenerate and overwrite via API when settings change
 
 3. **Stream Key Convention**
    - What we know: SRS uses `app/stream` pattern for RTMP URLs
    - What's unclear: Best naming convention for multi-tenant streams
-   - Recommendation: `live/{orgId}/{cameraId}` -- unique per camera, includes org isolation
+   - RESOLVED: `live/{orgId}/{cameraId}` -- unique per camera, includes org isolation
 
 ## Environment Availability
 
