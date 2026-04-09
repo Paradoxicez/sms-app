@@ -53,13 +53,15 @@ Plans:
   3. Camera status reflects real state (online/offline/degraded/reconnecting) and auto-reconnects on failure with exponential backoff
   4. Operator can assign a stream profile (passthrough or transcode) and H.265 cameras are auto-detected and transcoded to H.264
   5. Operator can manage stream engine settings (HLS config, ports, timeouts) via web UI without editing config files
-**Plans**: TBD
+**Plans**: 6 plans
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
-- [ ] 02-03: TBD
-- [ ] 02-04: TBD
+- [ ] 02-01-PLAN.md -- Prisma schema, Docker Compose SRS, srs.conf, API Dockerfile with FFmpeg, npm dependencies
+- [ ] 02-02-PLAN.md -- Camera CRUD with Project > Site > Camera hierarchy, ffprobe test connection, H.265 detection
+- [ ] 02-03-PLAN.md -- FFmpeg process manager with BullMQ, camera status state machine, SRS callbacks, Socket.IO gateway
+- [ ] 02-04-PLAN.md -- Stream profile CRUD with validation, stream engine settings with srs.conf generation
+- [ ] 02-05-PLAN.md -- Camera management frontend: projects, cameras, detail page with HLS preview and stream controls
+- [ ] 02-06-PLAN.md -- Stream Profiles UI, Stream Engine Settings UI, Bulk Import dialog
 **UI hint**: yes
 
 ### Phase 3: Playback & Security
@@ -155,7 +157,7 @@ Note: Phases 5, 6, and 7 depend on Phase 2 (not on each other) and can be parall
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation & Multi-Tenant | 4/6 | Gap closure planned | - |
-| 2. Stream Engine & Camera Management | 0/4 | Not started | - |
+| 2. Stream Engine & Camera Management | 0/6 | Planned | - |
 | 3. Playback & Security | 0/3 | Not started | - |
 | 4. Developer Experience | 0/3 | Not started | - |
 | 5. Dashboard & Monitoring | 0/3 | Not started | - |
