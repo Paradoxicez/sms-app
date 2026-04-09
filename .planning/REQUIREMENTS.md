@@ -32,11 +32,11 @@
 
 ### Stream Engine (SRS + FFmpeg)
 
-- [ ] **STREAM-01**: FFmpeg process manager — spawn, supervise, restart, kill per camera
-- [ ] **STREAM-02**: RTSP pull via FFmpeg → RTMP push to SRS pipeline (automatic on camera start)
+- [ ] **STREAM-01**: FFmpeg process manager -- spawn, supervise, restart, kill per camera
+- [ ] **STREAM-02**: RTSP pull via FFmpeg -> RTMP push to SRS pipeline (automatic on camera start)
 - [ ] **STREAM-03**: SRS delivers HLS output (fMP4 segments, 2s fragments, AES-128 encryption)
 - [ ] **STREAM-04**: SRS HTTP callbacks integration (on_publish, on_unpublish, on_play, on_stop, on_hls, on_dvr)
-- [ ] **STREAM-05**: Stream profiles — passthrough (-c copy) or transcode (H.264, configurable resolution/FPS/bitrate/audio)
+- [ ] **STREAM-05**: Stream profiles -- passthrough (-c copy) or transcode (H.264, configurable resolution/FPS/bitrate/audio)
 - [ ] **STREAM-06**: H.265 camera auto-detection via ffprobe and automatic transcoding to H.264
 - [ ] **STREAM-07**: Stream engine settings manageable via web UI (HLS config, RTMP port, timeouts)
 - [ ] **STREAM-08**: WebRTC (WHEP) output support as low-latency alternative to HLS
@@ -46,7 +46,7 @@
 - [ ] **CLUSTER-01**: Data model supports multiple SRS nodes (origin + edge) with role and status
 - [ ] **CLUSTER-02**: Admin can add/remove SRS edge nodes via web UI
 - [ ] **CLUSTER-03**: Backend auto-generates srs.conf for each node and triggers reload
-- [ ] **CLUSTER-04**: Load balancing — playback sessions routed to least-loaded edge node
+- [ ] **CLUSTER-04**: Load balancing -- playback sessions routed to least-loaded edge node
 - [ ] **CLUSTER-05**: Node health monitoring via SRS `/api/v1/summaries` with auto-failover
 
 ### Playback & Security
@@ -110,7 +110,7 @@
 | P2P/WebRTC-only delivery | HLS + optional WHEP covers all use cases |
 | Mobile native app | Web-first platform, responsive dashboard is sufficient |
 | Real-time chat/intercom | Not relevant to CCTV surveillance use case |
-| Camera PTZ control | Hardware-specific, requires ONVIF integration — defer to v2+ |
+| Camera PTZ control | Hardware-specific, requires ONVIF integration -- defer to v2+ |
 | Self-service billing in v1 | Super admin manages plans manually to avoid payment gateway complexity |
 
 ## Traceability
@@ -156,11 +156,6 @@
 | DEV-03 | Phase 4 | Pending |
 | DEV-04 | Phase 4 | Pending |
 | DEV-05 | Phase 4 | Pending |
-| CLUSTER-01 | Phase 5 | Pending |
-| CLUSTER-02 | Phase 5 | Pending |
-| CLUSTER-03 | Phase 5 | Pending |
-| CLUSTER-04 | Phase 5 | Pending |
-| CLUSTER-05 | Phase 5 | Pending |
 | DASH-01 | Phase 5 | Pending |
 | DASH-02 | Phase 5 | Pending |
 | DASH-03 | Phase 5 | Pending |
@@ -168,17 +163,22 @@
 | DASH-05 | Phase 5 | Pending |
 | DASH-06 | Phase 5 | Pending |
 | DASH-07 | Phase 5 | Pending |
-| REC-01 | Phase 6 | Pending |
-| REC-02 | Phase 6 | Pending |
-| REC-03 | Phase 6 | Pending |
-| REC-04 | Phase 6 | Pending |
-| REC-05 | Phase 6 | Pending |
+| CLUSTER-01 | Phase 6 | Pending |
+| CLUSTER-02 | Phase 6 | Pending |
+| CLUSTER-03 | Phase 6 | Pending |
+| CLUSTER-04 | Phase 6 | Pending |
+| CLUSTER-05 | Phase 6 | Pending |
+| REC-01 | Phase 7 | Pending |
+| REC-02 | Phase 7 | Pending |
+| REC-03 | Phase 7 | Pending |
+| REC-04 | Phase 7 | Pending |
+| REC-05 | Phase 7 | Pending |
 
 **Coverage:**
 - v1 requirements: 49 total
 - Mapped to phases: 49
-- Unmapped: 0 ✓
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-09*
-*Last updated: 2026-04-09 after initial definition*
+*Last updated: 2026-04-08 after roadmap creation (DASH and CLUSTER split into separate phases, REC moved to Phase 7)*
