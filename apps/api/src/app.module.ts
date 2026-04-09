@@ -7,6 +7,7 @@ import { TenancyModule } from './tenancy/tenancy.module';
 import { AdminModule } from './admin/admin.module';
 import { UsersModule } from './users/users.module';
 import { FeaturesModule } from './features/features.module';
+import { CamerasModule } from './cameras/cameras.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { FeaturesModule } from './features/features.module';
     AdminModule,
     UsersModule,
     FeaturesModule,
+    CamerasModule,
   ],
 })
 export class AppModule {}
