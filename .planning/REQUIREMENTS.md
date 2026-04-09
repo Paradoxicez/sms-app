@@ -24,18 +24,18 @@
 
 - [x] **CAM-01**: Register camera with RTSP/SRT URL, name, location (lat/lng), tags
 - [x] **CAM-02**: Project > Site > Camera hierarchy for organizing cameras
-- [ ] **CAM-03**: Start/stop stream per camera (spawns/kills FFmpeg process)
-- [ ] **CAM-04**: Camera status monitoring with state machine (online/offline/degraded/connecting/reconnecting)
-- [ ] **CAM-05**: Auto-reconnect with exponential backoff on stream failure
+- [x] **CAM-03**: Start/stop stream per camera (spawns/kills FFmpeg process)
+- [x] **CAM-04**: Camera status monitoring with state machine (online/offline/degraded/connecting/reconnecting)
+- [x] **CAM-05**: Auto-reconnect with exponential backoff on stream failure
 - [x] **CAM-06**: Test connection via ffprobe before registering camera (returns codec, resolution, FPS)
 - [ ] **CAM-07**: Bulk camera import via CSV/JSON with validation and preview
 
 ### Stream Engine (SRS + FFmpeg)
 
-- [ ] **STREAM-01**: FFmpeg process manager -- spawn, supervise, restart, kill per camera
-- [ ] **STREAM-02**: RTSP pull via FFmpeg -> RTMP push to SRS pipeline (automatic on camera start)
+- [x] **STREAM-01**: FFmpeg process manager -- spawn, supervise, restart, kill per camera
+- [x] **STREAM-02**: RTSP pull via FFmpeg -> RTMP push to SRS pipeline (automatic on camera start)
 - [x] **STREAM-03**: SRS delivers HLS output (fMP4 segments, 2s fragments, AES-128 encryption)
-- [ ] **STREAM-04**: SRS HTTP callbacks integration (on_publish, on_unpublish, on_play, on_stop, on_hls, on_dvr)
+- [x] **STREAM-04**: SRS HTTP callbacks integration (on_publish, on_unpublish, on_play, on_stop, on_hls, on_dvr)
 - [ ] **STREAM-05**: Stream profiles -- passthrough (-c copy) or transcode (H.264, configurable resolution/FPS/bitrate/audio)
 - [x] **STREAM-06**: H.265 camera auto-detection via ffprobe and automatic transcoding to H.264
 - [ ] **STREAM-07**: Stream engine settings manageable via web UI (HLS config, RTMP port, timeouts)
@@ -128,15 +128,15 @@
 | TENANT-05 | Phase 1 | Complete |
 | CAM-01 | Phase 2 | Complete |
 | CAM-02 | Phase 2 | Complete |
-| CAM-03 | Phase 2 | Pending |
-| CAM-04 | Phase 2 | Pending |
-| CAM-05 | Phase 2 | Pending |
+| CAM-03 | Phase 2 | Complete |
+| CAM-04 | Phase 2 | Complete |
+| CAM-05 | Phase 2 | Complete |
 | CAM-06 | Phase 2 | Complete |
 | CAM-07 | Phase 2 | Pending |
-| STREAM-01 | Phase 2 | Pending |
-| STREAM-02 | Phase 2 | Pending |
+| STREAM-01 | Phase 2 | Complete |
+| STREAM-02 | Phase 2 | Complete |
 | STREAM-03 | Phase 2 | Complete |
-| STREAM-04 | Phase 2 | Pending |
+| STREAM-04 | Phase 2 | Complete |
 | STREAM-05 | Phase 2 | Pending |
 | STREAM-06 | Phase 2 | Complete |
 | STREAM-07 | Phase 2 | Pending |
