@@ -13,6 +13,7 @@ import {
   Camera,
   SlidersHorizontal,
   Server,
+  ShieldCheck,
 } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
@@ -40,6 +41,7 @@ const adminNavItems: NavItem[] = [
   { label: "Cameras", href: "/admin/cameras", icon: Camera },
   { label: "Stream Profiles", href: "/admin/stream-profiles", icon: SlidersHorizontal },
   { label: "Stream Engine", href: "/admin/stream-engine", icon: Server },
+  { label: "Policies", href: "/admin/policies", icon: ShieldCheck },
 ];
 
 interface SidebarNavProps {
