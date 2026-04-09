@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 3 UI-SPEC approved
-last_updated: "2026-04-09T18:17:25.471Z"
-last_activity: 2026-04-09 -- Phase 3 planning complete
+stopped_at: Completed 03-01-PLAN.md
+last_updated: "2026-04-09T18:32:53.996Z"
+last_activity: 2026-04-09
 progress:
   total_phases: 7
   completed_phases: 2
   total_plans: 15
-  completed_plans: 12
-  percent: 80
+  completed_plans: 13
+  percent: 87
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-09)
 
 **Core value:** Developers can get a secure HLS playback URL for any registered camera via a single API call, and embed it on their website immediately.
-**Current focus:** Phase 02 — stream-engine-camera-management
+**Current focus:** Phase 03 — playback-security
 
 ## Current Position
 
-Phase: 3
-Plan: Not started
+Phase: 03 (playback-security) — EXECUTING
+Plan: 2 of 3
 Status: Ready to execute
-Last activity: 2026-04-09 -- Phase 3 planning complete
+Last activity: 2026-04-09
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -64,6 +64,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 02 P04 | 317s | 2 tasks | 14 files |
 | Phase 02 P05 | 850s | 2 tasks | 22 files |
 | Phase 02 P06 | 481s | 2 tasks | 9 files |
+| Phase 03 P01 | 440s | 2 tasks | 15 files |
 
 ## Accumulated Context
 
@@ -95,6 +96,9 @@ Recent decisions affecting current work:
 - [Phase 02]: srs.conf generated from template literal with conditional hls_keys block, written on settings save + SRS reload
 - [Phase 02]: base-ui component API differs from Radix: render prop instead of asChild, null for indeterminate Progress, String wrapper for Select onValueChange
 - [Phase 02]: Bulk import uses browser-side CSV/JSON parsing with server-side Zod re-validation for defense in depth
+- [Phase 03]: PoliciesModule @Global() for cross-module PoliciesService injection
+- [Phase 03]: Domains field: empty array = valid override (allow all), null = inherit
+- [Phase 03]: JWT_PLAYBACK_SECRET auto-generates in dev, GET /playback/sessions/:id public for embeds
 
 ### Pending Todos
 
@@ -108,6 +112,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-09T17:54:09.063Z
-Stopped at: Phase 3 UI-SPEC approved
-Resume file: .planning/phases/03-playback-security/03-UI-SPEC.md
+Last session: 2026-04-09T18:32:53.994Z
+Stopped at: Completed 03-01-PLAN.md
+Resume file: None

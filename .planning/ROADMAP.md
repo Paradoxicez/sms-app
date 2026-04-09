@@ -77,7 +77,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 03-01-PLAN.md -- Prisma schema (Policy + PlaybackSession), Policy CRUD with per-field merge resolution, Playback session creation with JWT signing via jose
+- [x] 03-01-PLAN.md -- Prisma schema (Policy + PlaybackSession), Policy CRUD with per-field merge resolution, Playback session creation with JWT signing via jose
 - [ ] 03-02-PLAN.md -- SRS on_play callback JWT + domain verification, HLS encryption key serving, three-tier rate limiting with @nestjs/throttler
 - [ ] 03-03-PLAN.md -- Frontend: Policy management pages, embed code dialog on camera detail, public embed player page at /embed/{session}
 
