@@ -14,10 +14,10 @@
 
 ### Multi-Tenant
 
-- [ ] **TENANT-01**: Organization isolation with shared-schema + org_id on all tables (PostgreSQL RLS)
+- [x] **TENANT-01**: Organization isolation with shared-schema + org_id on all tables (PostgreSQL RLS)
 - [ ] **TENANT-02**: Super admin can create/edit/deactivate organizations
-- [ ] **TENANT-03**: Package system with configurable limits (camera count, concurrent viewers, bandwidth, storage)
-- [ ] **TENANT-04**: Feature toggles per package (recordings, webhooks, map, audit log, etc.)
+- [x] **TENANT-03**: Package system with configurable limits (camera count, concurrent viewers, bandwidth, storage)
+- [x] **TENANT-04**: Feature toggles per package (recordings, webhooks, map, audit log, etc.)
 - [ ] **TENANT-05**: Per-org user management (invite, assign roles, deactivate)
 
 ### Camera Management
@@ -121,10 +121,10 @@
 | AUTH-02 | Phase 1 | Pending |
 | AUTH-03 | Phase 1 | Pending |
 | AUTH-04 | Phase 1 | Pending |
-| TENANT-01 | Phase 1 | Pending |
+| TENANT-01 | Phase 1 | Complete |
 | TENANT-02 | Phase 1 | Pending |
-| TENANT-03 | Phase 1 | Pending |
-| TENANT-04 | Phase 1 | Pending |
+| TENANT-03 | Phase 1 | Complete |
+| TENANT-04 | Phase 1 | Complete |
 | TENANT-05 | Phase 1 | Pending |
 | CAM-01 | Phase 2 | Pending |
 | CAM-02 | Phase 2 | Pending |
