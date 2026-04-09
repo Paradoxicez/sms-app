@@ -39,7 +39,7 @@ Plans:
 - [x] 01-02-PLAN.md -- Better Auth + RBAC plugins, RLS tenant isolation, System org seed
 - [x] 01-03-PLAN.md -- Package CRUD, Organization management, User management APIs
 - [x] 01-04-PLAN.md -- Frontend: sign-in page, admin panel, organizations + packages UI
-- [ ] 01-05-PLAN.md -- Gap closure: RLS policies on tenant-scoped tables, UsersController guard
+- [x] 01-05-PLAN.md -- Gap closure: RLS policies on tenant-scoped tables, UsersController guard
 - [ ] 01-06-PLAN.md -- Gap closure: Feature toggle enforcement (backend guard + frontend hook)
 **UI hint**: yes
 
