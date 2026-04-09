@@ -514,27 +514,23 @@ export class CameraController {
 | A4 | `nestjs-cls` v6.2.0 is compatible with NestJS 11.x | Standard Stack | Medium -- may need version adjustment |
 | A5 | Better Auth `secondaryStorage` can use ioredis directly for session caching | Architecture Patterns | Low -- Redis adapter may have specific interface requirements |
 
-## Open Questions
+## Open Questions (Resolved)
 
-1. **Better Auth + Prisma 7 compatibility**
+1. **Better Auth + Prisma 7 compatibility** -- RESOLVED
    - What we know: Better Auth docs reference Prisma 7 output path requirement
-   - What's unclear: Whether `npx auth generate` produces Prisma 7-compatible schema out of the box
-   - Recommendation: Test during setup; may need manual schema adjustment
+   - Resolution: Use explicit `output` path in Prisma generator config (`output: "./generated/client"`). Run `npx auth generate` first, then adjust output path. Test during Plan 01 Task 2.
 
-2. **RLS policy management strategy**
+2. **RLS policy management strategy** -- RESOLVED
    - What we know: Prisma cannot manage RLS policies natively
-   - What's unclear: Best practice for applying RLS policies in CI/CD -- separate SQL files? Prisma `$executeRaw` in seed?
-   - Recommendation: Use raw SQL migration files alongside Prisma migrations; apply in order
+   - Resolution: Maintain RLS policies in `apps/api/src/prisma/rls.policies.sql`. Apply after Prisma migrations via `prisma.$executeRawUnsafe()` in a setup script or CI step. Phase 1 creates the SQL file; actual RLS enforcement activates when tenant-scoped tables are created in future phases.
 
-3. **D-02: Role + custom override model**
+3. **D-02: Role + custom override model** -- RESOLVED
    - What we know: Better Auth supports custom roles via `createAccessControl()` and dynamic access control
-   - What's unclear: Whether Better Auth's `dynamicAccessControl` feature can store per-user permission overrides (add/remove from role template)
-   - Recommendation: Evaluate `dynamicAccessControl` feature; if insufficient, store overrides in a custom `user_permission_overrides` table
+   - Resolution: Better Auth's `dynamicAccessControl` compatibility is uncertain. Use custom `UserPermissionOverride` table in Prisma schema with columns (id, userId, orgId, permission, action: "grant"|"deny", @@unique([userId, orgId, permission])). A `checkPermission()` helper in `apps/api/src/auth/permissions.ts` checks role defaults from `ROLE_PERMISSIONS` map, then applies overrides from the table. This delivers D-02 fully without depending on uncertain Better Auth features.
 
-4. **Database role separation for RLS**
+4. **Database role separation for RLS** -- RESOLVED
    - What we know: RLS needs a non-superuser role to be enforced
-   - What's unclear: How to configure Prisma to use different database roles for migrations vs runtime
-   - Recommendation: Use two database URLs -- one with owner role for migrations, one with app_user role for runtime
+   - Resolution: Use two database URLs -- `DATABASE_URL` (owner role) for Prisma migrations, `DATABASE_APP_URL` (app_user role) for runtime. Phase 1 creates the `app_user` role in `rls.policies.sql`. Runtime Prisma connection will switch to `app_user` when RLS policies are activated in future phases.
 
 ## Environment Availability
 
