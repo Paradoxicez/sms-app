@@ -1,0 +1,161 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ─────────────────────────────────────────────
+// Better Auth managed tables
+// ─────────────────────────────────────────────
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Custom fields
+  role      String?  @default("viewer")
+  banned    Boolean? @default(false)
+  banReason String?
+  banExpires DateTime?
+
+  // Relations
+  sessions             Session[]
+  accounts             Account[]
+  members              Member[]
+  permissionOverrides  UserPermissionOverride[]
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ipAddress  String?
+  userAgent  String?
+  userId     String
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Better Auth organization + admin fields
+  activeOrganizationId String?
+  impersonatedBy       String?
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// Better Auth organization tables
+// ─────────────────────────────────────────────
+
+model Organization {
+  id        String   @id
+  name      String
+  slug      String   @unique
+  logo      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  metadata  String?
+
+  // Custom fields
+  packageId String?
+  package   Package? @relation(fields: [packageId], references: [id])
+  isActive  Boolean  @default(true)
+
+  // Relations
+  members              Member[]
+  invitations          Invitation[]
+  permissionOverrides  UserPermissionOverride[]
+}
+
+model Member {
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           String       @default("viewer")
+  createdAt      DateTime     @default(now())
+}
+
+model Invitation {
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           String?
+  status         String       @default("pending")
+  expiresAt      DateTime
+  inviterId      String
+  createdAt      DateTime     @default(now())
+}
+
+// ─────────────────────────────────────────────
+// Custom application tables
+// ─────────────────────────────────────────────
+
+/// Package defines the plan/tier assigned to an organization.
+/// Managed by super admin only (not org-scoped, no RLS needed).
+model Package {
+  id               String   @id @default(uuid())
+  name             String
+  description      String?
+  maxCameras       Int
+  maxViewers       Int
+  maxBandwidthMbps Int
+  maxStorageGb     Int
+  features         Json     @default("{}")
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  organizations Organization[]
+}
+
+/// Per-user permission overrides within an organization (D-02).
+/// Allows Org Admin to grant or deny specific permissions beyond the role defaults.
+model UserPermissionOverride {
+  id         String       @id @default(uuid())
+  userId     String
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orgId      String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  permission String       // e.g. "camera:create", "stream:view"
+  action     String       @default("grant") // "grant" or "deny"
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@unique([userId, orgId, permission])
+}

@@ -1,15 +1,13 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
-
-// PrismaClient will be imported from generated client after Prisma is installed (Task 2)
-// For now, this is a placeholder to allow TypeScript compilation
+import { PrismaClient } from '@prisma/client';
 
 @Injectable()
-export class PrismaService implements OnModuleInit, OnModuleDestroy {
+export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   async onModuleInit() {
-    // Will call this.$connect() once PrismaClient is available
+    await this.$connect();
   }
 
   async onModuleDestroy() {
-    // Will call this.$disconnect() once PrismaClient is available
+    await this.$disconnect();
   }
 }
