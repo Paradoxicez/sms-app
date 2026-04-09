@@ -5,6 +5,7 @@ status: draft
 shadcn_initialized: false
 preset: green-theme
 created: 2026-04-09
+revised: 2026-04-09
 ---
 
 # Phase 1 — UI Design Contract
@@ -49,8 +50,8 @@ Exceptions: Touch targets for mobile menu toggle and sidebar collapse button mus
 
 | Role | Size | Weight | Line Height | Usage |
 |------|------|--------|-------------|-------|
-| Body | 14px | 400 (regular) | 1.5 | Paragraphs, table cells, descriptions |
-| Label | 13px | 500 (medium) | 1.4 | Form labels, table headers, metadata, badges |
+| Body | 14px | 400 (regular) | 1.5 | Paragraphs, table cells, descriptions, form labels, metadata |
+| Label | 12px | 400 (regular) | 1.4 | Table column headers, badges, helper text, timestamps |
 | Heading | 20px | 600 (semibold) | 1.2 | Page titles, card headers, section headings |
 | Display | 28px | 600 (semibold) | 1.2 | Dashboard stats, welcome heading, auth page title |
 
@@ -68,7 +69,7 @@ Font stack: `'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif`
 | Destructive | hsl(0 84% 60%) | Destructive action buttons, error text, error borders |
 
 ### Accent reserved for (exhaustive list):
-- Primary action buttons ("Create Organization", "Invite User", "Save")
+- Primary action buttons ("Create Organization", "Create Package", "Invite User", "Create User", "Save Settings", "Save Package", "Sign In")
 - Active sidebar navigation item (background highlight + left border indicator)
 - Toggle/switch active state
 - Status badge "active" / "online"
@@ -87,6 +88,18 @@ Font stack: `'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif`
 
 ---
 
+## Focal Points
+
+| Screen | Focal Point | Rationale |
+|--------|-------------|-----------|
+| Sign-in | Sign In button (centered, accent, full-width) | Single user action on the page |
+| Organizations list | "Create Organization" button (top-right of page header) | Primary CTA for the screen; table is secondary |
+| Packages list | "Create Package" button (top-right of page header) | Primary CTA; package table is secondary |
+| Users list | "Invite User" / "Create User" button (top-right of page header) | Primary CTA; user table is secondary |
+| Empty states | Primary CTA button below empty state body | Only actionable element on an otherwise blank screen |
+
+---
+
 ## Component Inventory (Phase 1)
 
 ### shadcn components to install:
@@ -98,7 +111,7 @@ Font stack: `'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif`
 | Label | Form field labels |
 | Card | Organization cards, package cards, user list items |
 | Table | Organizations list, users list, packages list |
-| Dialog | Create org, invite user, create package, confirmations |
+| Dialog | Create org, invite user, create user, create package, confirmations |
 | AlertDialog | Destructive confirmations (deactivate org, remove user, delete package) |
 | DropdownMenu | User menu (top-right), row actions on tables |
 | Badge | Role badges, org status, package assignment |
@@ -155,7 +168,10 @@ Font stack: `'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif`
 | Super admin - Organizations page | "Create Organization" | Plus |
 | Super admin - Packages page | "Create Package" | Plus |
 | Org admin - Users page | "Invite User" | UserPlus |
+| Org admin - Users page (secondary) | "Create User" | UserPlus |
 | Auth - Sign in page | "Sign In" | none |
+| Package editor - save | "Save Package" | none |
+| Settings page - save | "Save Settings" | none |
 
 ### Empty States
 
@@ -173,10 +189,10 @@ Empty state layout: Centered vertically in content area. Icon (from Lucide, mute
 |---------|------|
 | Auth - invalid credentials | Invalid email or password. Please try again. |
 | Permission denied | You don't have permission to perform this action. Contact your organization admin. |
-| Network error | Something went wrong. Check your connection and try again. |
+| Network error | Could not connect to the server. Check your connection and try again. |
 | Form validation | Inline under each field: "{Field} is required." / "{Field} must be at least {n} characters." |
 
-Error text: 13px, destructive color, displayed below the relevant input with 4px gap.
+Error text: 12px, destructive color, displayed below the relevant input with 4px gap.
 
 ### Destructive Confirmations
 
