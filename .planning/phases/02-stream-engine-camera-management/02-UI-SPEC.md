@@ -223,11 +223,11 @@ Error text: 12px, destructive color, displayed below the relevant element with 4
 
 | Action | Dialog Title | Dialog Body | Confirm Button | Extra |
 |--------|-------------|-------------|----------------|-------|
-| Delete Camera | Delete Camera | This will permanently remove "{camera_name}" and all associated stream data. This action cannot be undone. | "Delete" (destructive) | none |
-| Delete Project | Delete Project | This will delete the project "{project_name}" and all sites and cameras within it. Type the project name to confirm. | "Delete" (destructive) | Text input confirmation required |
-| Delete Site | Delete Site | This will delete the site "{site_name}" and all cameras within it. | "Delete" (destructive) | none |
+| Delete Camera | Delete Camera | This will permanently remove "{camera_name}" and all associated stream data. This action cannot be undone. | "Delete Camera" (destructive) | none |
+| Delete Project | Delete Project | This will delete the project "{project_name}" and all sites and cameras within it. Type the project name to confirm. | "Delete Project" (destructive) | Text input confirmation required |
+| Delete Site | Delete Site | This will delete the site "{site_name}" and all cameras within it. | "Delete Site" (destructive) | none |
 | Stop Stream | Stop Stream | This will stop the live stream for "{camera_name}". Viewers will be disconnected. | "Stop Stream" (destructive) | none |
-| Delete Stream Profile | Delete Profile | Cameras using this profile will fall back to the default passthrough profile. | "Delete" (destructive) | none |
+| Delete Stream Profile | Delete Profile | Cameras using this profile will fall back to the default passthrough profile. | "Delete Profile" (destructive) | none |
 
 All destructive dialogs use AlertDialog. Confirm button uses destructive variant. Cancel on the left, destructive confirm on the right.
 
