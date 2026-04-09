@@ -10,6 +10,7 @@ import { UsersModule } from './users/users.module';
 import { FeaturesModule } from './features/features.module';
 import { CamerasModule } from './cameras/cameras.module';
 import { StreamsModule } from './streams/streams.module';
+import { StatusModule } from './status/status.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { StreamsModule } from './streams/streams.module';
     UsersModule,
     FeaturesModule,
     CamerasModule,
+    StatusModule,
     StreamsModule,
   ],
 })
