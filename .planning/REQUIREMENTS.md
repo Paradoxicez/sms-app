@@ -34,12 +34,12 @@
 
 - [ ] **STREAM-01**: FFmpeg process manager -- spawn, supervise, restart, kill per camera
 - [ ] **STREAM-02**: RTSP pull via FFmpeg -> RTMP push to SRS pipeline (automatic on camera start)
-- [ ] **STREAM-03**: SRS delivers HLS output (fMP4 segments, 2s fragments, AES-128 encryption)
+- [x] **STREAM-03**: SRS delivers HLS output (fMP4 segments, 2s fragments, AES-128 encryption)
 - [ ] **STREAM-04**: SRS HTTP callbacks integration (on_publish, on_unpublish, on_play, on_stop, on_hls, on_dvr)
 - [ ] **STREAM-05**: Stream profiles -- passthrough (-c copy) or transcode (H.264, configurable resolution/FPS/bitrate/audio)
 - [ ] **STREAM-06**: H.265 camera auto-detection via ffprobe and automatic transcoding to H.264
 - [ ] **STREAM-07**: Stream engine settings manageable via web UI (HLS config, RTMP port, timeouts)
-- [ ] **STREAM-08**: WebRTC (WHEP) output support as low-latency alternative to HLS
+- [x] **STREAM-08**: WebRTC (WHEP) output support as low-latency alternative to HLS
 
 ### SRS Cluster
 
@@ -135,12 +135,12 @@
 | CAM-07 | Phase 2 | Pending |
 | STREAM-01 | Phase 2 | Pending |
 | STREAM-02 | Phase 2 | Pending |
-| STREAM-03 | Phase 2 | Pending |
+| STREAM-03 | Phase 2 | Complete |
 | STREAM-04 | Phase 2 | Pending |
 | STREAM-05 | Phase 2 | Pending |
 | STREAM-06 | Phase 2 | Pending |
 | STREAM-07 | Phase 2 | Pending |
-| STREAM-08 | Phase 2 | Pending |
+| STREAM-08 | Phase 2 | Complete |
 | PLAY-01 | Phase 3 | Pending |
 | PLAY-02 | Phase 3 | Pending |
 | PLAY-03 | Phase 3 | Pending |
