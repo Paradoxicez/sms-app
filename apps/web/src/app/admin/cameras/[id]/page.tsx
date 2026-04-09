@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Play, Square, Loader2 } from 'lucide-react';
+import { Play, Square, Loader2, Code2 } from 'lucide-react';
 
 import { apiFetch } from '@/lib/api';
 import { useCameraStatus } from '@/hooks/use-camera-status';
@@ -38,9 +38,18 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { CameraStatusDot } from '../components/camera-status-badge';
 import { HlsPlayer } from '../components/hls-player';
 import { TestConnectionCard } from '../components/test-connection-card';
+import { EmbedCodeDialog } from '../components/embed-code-dialog';
+import { SessionsTable } from '../components/sessions-table';
+import { ResolvedPolicyCard } from '../../policies/components/resolved-policy-card';
 
 type CameraStatus = 'online' | 'offline' | 'degraded' | 'connecting' | 'reconnecting';
 
@@ -104,6 +113,9 @@ export default function CameraDetailPage() {
   const [editLng, setEditLng] = useState('');
   const [editTags, setEditTags] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Embed dialog
+  const [embedOpen, setEmbedOpen] = useState(false);
 
   // Stream profiles
   const [profiles, setProfiles] = useState<StreamProfile[]>([]);
@@ -238,6 +250,7 @@ export default function CameraDetailPage() {
   }
 
   return (
+    <TooltipProvider>
     <div className="space-y-6">
       {/* Breadcrumb */}
       <Breadcrumb>
@@ -279,6 +292,22 @@ export default function CameraDetailPage() {
           <h1 className="text-xl font-semibold">{camera.name}</h1>
         </div>
 
+        <div className="flex items-center gap-2">
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setEmbedOpen(true)}
+                >
+                  <Code2 className="h-4 w-4" />
+                </Button>
+              }
+            />
+            <TooltipContent>Embed Code</TooltipContent>
+          </Tooltip>
+
         {isStreamActive || camera.status === 'reconnecting' ? (
           <Button
             variant="outline"
@@ -306,6 +335,7 @@ export default function CameraDetailPage() {
             {streamAction === 'starting' ? 'Starting...' : 'Start Stream'}
           </Button>
         )}
+        </div>
       </div>
 
       {error && (
@@ -321,6 +351,7 @@ export default function CameraDetailPage() {
           <TabsTrigger value="details">Details</TabsTrigger>
           <TabsTrigger value="stream-profile">Stream Profile</TabsTrigger>
           <TabsTrigger value="logs">Logs</TabsTrigger>
+          <TabsTrigger value="policy">Policy</TabsTrigger>
         </TabsList>
 
         {/* Preview Tab */}
@@ -508,7 +539,23 @@ export default function CameraDetailPage() {
             </p>
           </div>
         </TabsContent>
+
+        {/* Policy Tab */}
+        <TabsContent value="policy" className="space-y-6">
+          <ResolvedPolicyCard cameraId={cameraId} />
+
+          <div>
+            <h3 className="mb-4 text-base font-semibold">Playback Sessions</h3>
+            <SessionsTable cameraId={cameraId} />
+          </div>
+        </TabsContent>
       </Tabs>
+
+      <EmbedCodeDialog
+        cameraId={cameraId}
+        open={embedOpen}
+        onOpenChange={setEmbedOpen}
+      />
 
       {/* Stop Stream AlertDialog */}
       <AlertDialog open={stopDialogOpen} onOpenChange={setStopDialogOpen}>
@@ -531,5 +578,6 @@ export default function CameraDetailPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </TooltipProvider>
   );
 }
