@@ -1,0 +1,120 @@
+import {
+  Injectable,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
+import { randomUUID, createHash } from 'crypto';
+import { PrismaService } from '../prisma/prisma.service';
+import { InviteUserDto } from './dto/invite-user.dto';
+import { CreateUserDto } from './dto/create-user.dto';
+
+@Injectable()
+export class UsersService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async inviteUser(orgId: string, inviterId: string, dto: InviteUserDto) {
+    return this.prisma.invitation.create({
+      data: {
+        id: randomUUID(),
+        organizationId: orgId,
+        email: dto.email,
+        role: dto.role,
+        status: 'pending',
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        inviterId,
+      },
+    });
+  }
+
+  async createUser(orgId: string, dto: CreateUserDto) {
+    const userId = randomUUID();
+
+    // Create user
+    const user = await this.prisma.user.create({
+      data: {
+        id: userId,
+        name: dto.name,
+        email: dto.email,
+        emailVerified: true, // Admin-created accounts are pre-verified
+      },
+    });
+
+    // Create credential account (password hashed with scrypt via Better Auth pattern)
+    // For direct creation we store a simple hash; Better Auth will handle its own auth flow
+    const hashedPassword = createHash('sha256').update(dto.password).digest('hex');
+    await this.prisma.account.create({
+      data: {
+        id: randomUUID(),
+        accountId: userId,
+        providerId: 'credential',
+        userId,
+        password: hashedPassword,
+      },
+    });
+
+    // Add as org member
+    const member = await this.prisma.member.create({
+      data: {
+        id: randomUUID(),
+        organizationId: orgId,
+        userId,
+        role: dto.role,
+      },
+    });
+
+    return { user, member };
+  }
+
+  async listMembers(orgId: string) {
+    return this.prisma.member.findMany({
+      where: { organizationId: orgId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+  }
+
+  async updateRole(orgId: string, userId: string, role: string) {
+    const result = await this.prisma.member.updateMany({
+      where: { organizationId: orgId, userId },
+      data: { role },
+    });
+    if (result.count === 0) {
+      throw new NotFoundException(`Member not found in organization`);
+    }
+    return result;
+  }
+
+  async removeMember(orgId: string, userId: string) {
+    // Check if user is an admin
+    const member = await this.prisma.member.findFirst({
+      where: { organizationId: orgId, userId },
+    });
+    if (!member) {
+      throw new NotFoundException(`Member not found in organization`);
+    }
+
+    if (member.role === 'admin') {
+      const adminCount = await this.prisma.member.count({
+        where: { organizationId: orgId, role: 'admin' },
+      });
+      if (adminCount <= 1) {
+        throw new ForbiddenException('Cannot remove the last admin');
+      }
+    }
+
+    await this.prisma.member.deleteMany({
+      where: { organizationId: orgId, userId },
+    });
+
+    return { removed: true };
+  }
+}
