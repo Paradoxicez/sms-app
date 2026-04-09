@@ -24,23 +24,50 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO app_user;
 
 -- ─────────────────────────────────────────────────────────────
--- RLS Policy Notes
+-- RLS Policies on Tenant-Scoped Tables
 -- ─────────────────────────────────────────────────────────────
 --
 -- The Package table is NOT org-scoped (super admin manages globally),
 -- so no RLS policy is needed on Package.
 --
--- RLS policies will be added per-table as tenant-scoped tables are
--- created in future phases. Phase 1 establishes the infrastructure:
---   - app_user role (RLS-enforced)
---   - Schema grants
---
--- Pattern for future phases:
---   ALTER TABLE <table_name> ENABLE ROW LEVEL SECURITY;
---   CREATE POLICY tenant_isolation_<table> ON <table_name>
---     USING (org_id = current_setting('app.current_org_id')::uuid)
---     WITH CHECK (org_id = current_setting('app.current_org_id')::uuid);
+-- The Organization table itself has no RLS -- super admin needs to
+-- list all orgs. Organization isolation happens via the Member table
+-- (users can only see orgs they're members of).
 --
 -- The set_config('app.current_org_id', ..., TRUE) call is made via
--- Prisma Client Extension in prisma-tenancy.extension.ts (Phase 1 Plan 3).
+-- Prisma Client Extension in prisma-tenancy.extension.ts.
 -- ─────────────────────────────────────────────────────────────
+
+-- Enable + Force RLS on tenant-scoped tables
+ALTER TABLE "Member" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "Member" FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE "Invitation" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "Invitation" FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE "UserPermissionOverride" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "UserPermissionOverride" FORCE ROW LEVEL SECURITY;
+
+-- Tenant isolation policies (filter rows by app.current_org_id)
+CREATE POLICY tenant_isolation_member ON "Member"
+  USING ("organizationId" = current_setting('app.current_org_id', true)::text)
+  WITH CHECK ("organizationId" = current_setting('app.current_org_id', true)::text);
+
+CREATE POLICY tenant_isolation_invitation ON "Invitation"
+  USING ("organizationId" = current_setting('app.current_org_id', true)::text)
+  WITH CHECK ("organizationId" = current_setting('app.current_org_id', true)::text);
+
+CREATE POLICY tenant_isolation_permission_override ON "UserPermissionOverride"
+  USING ("orgId" = current_setting('app.current_org_id', true)::text)
+  WITH CHECK ("orgId" = current_setting('app.current_org_id', true)::text);
+
+-- Superuser bypass: allow access when app.current_org_id is not set (NULL or empty)
+-- Used by: seeds, migrations, super admin operations without org context
+CREATE POLICY superuser_bypass_member ON "Member"
+  USING (current_setting('app.current_org_id', true) IS NULL OR current_setting('app.current_org_id', true) = '');
+
+CREATE POLICY superuser_bypass_invitation ON "Invitation"
+  USING (current_setting('app.current_org_id', true) IS NULL OR current_setting('app.current_org_id', true) = '');
+
+CREATE POLICY superuser_bypass_permission_override ON "UserPermissionOverride"
+  USING (current_setting('app.current_org_id', true) IS NULL OR current_setting('app.current_org_id', true) = '');
