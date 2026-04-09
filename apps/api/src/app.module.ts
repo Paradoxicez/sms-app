@@ -13,6 +13,7 @@ import { StreamsModule } from './streams/streams.module';
 import { StatusModule } from './status/status.module';
 import { SrsModule } from './srs/srs.module';
 import { SettingsModule } from './settings/settings.module';
+import { PoliciesModule } from './policies/policies.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { SettingsModule } from './settings/settings.module';
     StreamsModule,
     SrsModule,
     SettingsModule,
+    PoliciesModule,
   ],
 })
 export class AppModule {}

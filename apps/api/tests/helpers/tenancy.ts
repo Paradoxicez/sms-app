@@ -57,6 +57,8 @@ export async function createTestPackage(
  * Cleans up all test data in the correct order to respect foreign key constraints.
  */
 export async function cleanupTestData(prisma: PrismaClient) {
+  await prisma.playbackSession.deleteMany();
+  await prisma.policy.deleteMany();
   await prisma.camera.deleteMany();
   await prisma.site.deleteMany();
   await prisma.project.deleteMany();

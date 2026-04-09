@@ -173,6 +173,7 @@ model Project {
   updatedAt   DateTime @updatedAt
 
   sites       Site[]
+  policy      Policy?
 
   @@index([orgId])
 }
@@ -189,6 +190,7 @@ model Site {
   updatedAt   DateTime @updatedAt
 
   cameras     Camera[]
+  policy      Policy?
 
   @@index([orgId])
   @@index([projectId])
@@ -213,6 +215,9 @@ model Camera {
   lastOnlineAt    DateTime?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
+
+  policy            Policy?
+  playbackSessions  PlaybackSession[]
 
   @@index([orgId])
   @@index([siteId])
@@ -265,4 +270,64 @@ model SystemSettings {
   timeoutSeconds Int      @default(30)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// Phase 3: Playback & Security
+// ─────────────────────────────────────────────
+
+enum PolicyLevel {
+  SYSTEM
+  PROJECT
+  SITE
+  CAMERA
+}
+
+model Policy {
+  id              String       @id @default(uuid())
+  orgId           String?      // null for SYSTEM level
+  level           PolicyLevel
+  name            String
+  description     String?
+
+  ttlSeconds      Int?         // Session TTL in seconds (null = inherit)
+  maxViewers      Int?         // Max concurrent viewers, 0 = unlimited (null = inherit)
+  domains         String[]     @default([])  // Domain allowlist, empty = allow all
+  allowNoReferer  Boolean?     // Allow requests without Referer (null = inherit)
+  rateLimit       Int?         // Per-API-key requests per minute (null = inherit)
+
+  cameraId        String?      @unique
+  camera          Camera?      @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+  siteId          String?      @unique
+  site            Site?        @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  projectId       String?      @unique
+  project         Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([orgId])
+  @@index([level])
+}
+
+model PlaybackSession {
+  id              String       @id @default(uuid())
+  orgId           String
+  cameraId        String
+  camera          Camera       @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+  token           String       @unique
+  hlsUrl          String
+
+  ttlSeconds      Int
+  maxViewers      Int
+  domains         String[]     @default([])
+  allowNoReferer  Boolean      @default(true)
+
+  expiresAt       DateTime
+  createdAt       DateTime     @default(now())
+
+  @@index([orgId])
+  @@index([cameraId])
+  @@index([token])
+  @@index([expiresAt])
 }
