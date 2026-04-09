@@ -74,12 +74,12 @@ Plans:
   3. Playback is rejected when the requesting domain is not in the allowlist
   4. Viewer concurrency limits are enforced -- excess viewers are rejected at session creation
   5. Policy inheritance resolves correctly: Camera policy overrides Site, which overrides Project, which overrides System defaults
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 03-01: TBD
-- [ ] 03-02: TBD
-- [ ] 03-03: TBD
+- [ ] 03-01-PLAN.md -- Prisma schema (Policy + PlaybackSession), Policy CRUD with per-field merge resolution, Playback session creation with JWT signing via jose
+- [ ] 03-02-PLAN.md -- SRS on_play callback JWT + domain verification, HLS encryption key serving, three-tier rate limiting with @nestjs/throttler
+- [ ] 03-03-PLAN.md -- Frontend: Policy management pages, embed code dialog on camera detail, public embed player page at /embed/{session}
 
 ### Phase 4: Developer Experience
 **Goal**: Developers can programmatically manage cameras and streams using scoped API keys with full documentation and event notifications
@@ -158,7 +158,7 @@ Note: Phases 5, 6, and 7 depend on Phase 2 (not on each other) and can be parall
 |-------|----------------|--------|-----------|
 | 1. Foundation & Multi-Tenant | 4/6 | Gap closure planned | - |
 | 2. Stream Engine & Camera Management | 0/6 | Planned | - |
-| 3. Playback & Security | 0/3 | Not started | - |
+| 3. Playback & Security | 0/3 | Planned | - |
 | 4. Developer Experience | 0/3 | Not started | - |
 | 5. Dashboard & Monitoring | 0/3 | Not started | - |
 | 6. SRS Cluster & Scaling | 0/2 | Not started | - |
