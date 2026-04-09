@@ -22,7 +22,8 @@
     "nestjs-cls": "^6.2.0",
     "prisma": "^6.19.3",
     "reflect-metadata": "^0.2.0",
-    "rxjs": "^7.8.0"
+    "rxjs": "^7.8.0",
+    "zod": "^3.25.76"
   },
   "prisma": {
     "seed": "npx ts-node src/prisma/seed.ts"
