@@ -32,13 +32,15 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Users in one organization cannot see or access data from another organization (RLS enforced)
   4. Package limits (camera count, viewers, bandwidth, storage) are stored and queryable per organization
   5. Users see only the features enabled by their organization's package (feature toggles work)
-**Plans**: 4 plans
+**Plans**: 6 plans
 
 Plans:
 - [x] 01-01-PLAN.md -- Scaffold monorepo, Docker Compose, Prisma schema, Vitest infrastructure
 - [x] 01-02-PLAN.md -- Better Auth + RBAC plugins, RLS tenant isolation, System org seed
 - [x] 01-03-PLAN.md -- Package CRUD, Organization management, User management APIs
-- [ ] 01-04-PLAN.md -- Frontend: sign-in page, admin panel, organizations + packages UI
+- [x] 01-04-PLAN.md -- Frontend: sign-in page, admin panel, organizations + packages UI
+- [ ] 01-05-PLAN.md -- Gap closure: RLS policies on tenant-scoped tables, UsersController guard
+- [ ] 01-06-PLAN.md -- Gap closure: Feature toggle enforcement (backend guard + frontend hook)
 **UI hint**: yes
 
 ### Phase 2: Stream Engine & Camera Management
@@ -152,7 +154,7 @@ Note: Phases 5, 6, and 7 depend on Phase 2 (not on each other) and can be parall
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation & Multi-Tenant | 0/4 | Planning complete | - |
+| 1. Foundation & Multi-Tenant | 4/6 | Gap closure planned | - |
 | 2. Stream Engine & Camera Management | 0/4 | Not started | - |
 | 3. Playback & Security | 0/3 | Not started | - |
 | 4. Developer Experience | 0/3 | Not started | - |
