@@ -11,6 +11,7 @@ import { FeaturesModule } from './features/features.module';
 import { CamerasModule } from './cameras/cameras.module';
 import { StreamsModule } from './streams/streams.module';
 import { StatusModule } from './status/status.module';
+import { SrsModule } from './srs/srs.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { StatusModule } from './status/status.module';
     CamerasModule,
     StatusModule,
     StreamsModule,
+    SrsModule,
   ],
 })
 export class AppModule {}
