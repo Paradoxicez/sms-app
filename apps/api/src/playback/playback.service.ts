@@ -145,6 +145,24 @@ export class PlaybackService {
   }
 
   /**
+   * Verify a JWT playback token minimally -- checks signature and expiry only.
+   * No cameraId/orgId match required (used for HLS key serving).
+   * Returns decoded payload or null.
+   */
+  async verifyTokenMinimal(token: string) {
+    try {
+      const { payload } = await jwtVerify(token, this.jwtSecret);
+      return {
+        sub: payload.sub as string,
+        cam: payload.cam as string,
+        org: payload.org as string,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Get session by ID (for embed page).
    * Returns null if expired or not found.
    */

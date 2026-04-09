@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ClsModule } from 'nestjs-cls';
 import { BullModule } from '@nestjs/bullmq';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { TenancyModule } from './tenancy/tenancy.module';
@@ -39,6 +41,16 @@ import { PlaybackModule } from './playback/playback.module';
     SettingsModule,
     PoliciesModule,
     PlaybackModule,
+    ThrottlerModule.forRoot({
+      throttlers: [
+        { name: 'global', ttl: 60000, limit: 100 },
+        { name: 'tenant', ttl: 60000, limit: 60 },
+        { name: 'apikey', ttl: 60000, limit: 30 },
+      ],
+    }),
+  ],
+  providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })
 export class AppModule {}

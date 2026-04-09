@@ -1,8 +1,10 @@
 import { Body, Controller, Logger, Post } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { StatusService } from '../status/status.service';
 import { StatusGateway } from '../status/status.gateway';
 import { PlaybackService } from '../playback/playback.service';
 
+@SkipThrottle()
 @Controller('api/srs/callbacks')
 export class SrsCallbackController {
   private readonly logger = new Logger(SrsCallbackController.name);
