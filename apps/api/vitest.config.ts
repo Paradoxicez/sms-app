@@ -8,5 +8,6 @@ export default defineConfig({
     include: ['tests/**/*.test.ts'],
     testTimeout: 30000,
     passWithNoTests: true,
+    fileParallelism: false,
   },
 });
