@@ -18,17 +18,17 @@ created: 2026-04-10
 | Property | Value |
 |----------|-------|
 | **Framework** | vitest (already configured in Phase 2) |
-| **Config file** | `backend/vitest.config.ts` |
-| **Quick run command** | `cd backend && npx vitest run --reporter=verbose` |
-| **Full suite command** | `cd backend && npx vitest run` |
+| **Config file** | `apps/api/vitest.config.ts` |
+| **Quick run command** | `cd apps/api && npx vitest run --reporter=verbose` |
+| **Full suite command** | `cd apps/api && npx vitest run` |
 | **Estimated runtime** | ~15 seconds |
 
 ---
 
 ## Sampling Rate
 
-- **After every task commit:** Run `cd backend && npx vitest run --reporter=verbose`
-- **After every plan wave:** Run `cd backend && npx vitest run`
+- **After every task commit:** Run `cd apps/api && npx vitest run --reporter=verbose`
+- **After every plan wave:** Run `cd apps/api && npx vitest run`
 - **Before `/gsd-verify-work`:** Full suite must be green
 - **Max feedback latency:** 15 seconds
 
@@ -38,16 +38,17 @@ created: 2026-04-10
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 03-01-01 | 01 | 1 | PLAY-01 | T-03-01 | JWT signed session token with expiry | unit | `npx vitest run -t "session creation"` | ❌ W0 | ⬜ pending |
-| 03-01-02 | 01 | 1 | PLAY-02 | T-03-02 | Token rejected after TTL expires | unit | `npx vitest run -t "token expiry"` | ❌ W0 | ⬜ pending |
-| 03-01-03 | 01 | 1 | PLAY-03 | T-03-03 | Domain allowlist blocks unauthorized origins | unit | `npx vitest run -t "domain allowlist"` | ❌ W0 | ⬜ pending |
-| 03-02-01 | 02 | 1 | PLAY-04 | T-03-04 | SRS on_play callback verifies JWT | integration | `npx vitest run -t "on_play"` | ❌ W0 | ⬜ pending |
-| 03-02-02 | 02 | 1 | PLAY-05 | — | HLS URL returned with signed token | integration | `npx vitest run -t "playback URL"` | ❌ W0 | ⬜ pending |
-| 03-02-03 | 02 | 1 | PLAY-06 | T-03-05 | Viewer concurrency limit enforced | unit | `npx vitest run -t "concurrency"` | ❌ W0 | ⬜ pending |
-| 03-03-01 | 03 | 2 | POL-01 | — | Policy CRUD with level hierarchy | unit | `npx vitest run -t "policy"` | ❌ W0 | ⬜ pending |
-| 03-03-02 | 03 | 2 | POL-02 | — | Per-field merge resolves nearest level | unit | `npx vitest run -t "policy resolution"` | ❌ W0 | ⬜ pending |
-| 03-03-03 | 03 | 2 | POL-03 | — | Camera overrides Site overrides Project | unit | `npx vitest run -t "policy inheritance"` | ❌ W0 | ⬜ pending |
-| 03-03-04 | 03 | 2 | PLAY-07 | — | Embed page resolves session for playback | integration | `npx vitest run -t "embed"` | ❌ W0 | ⬜ pending |
+| 03-01-01 | 01 | 1 | POL-01 | T-03-04 | Policy CRUD with level hierarchy | unit | `npx vitest run -t "policy"` | ❌ W0 | ⬜ pending |
+| 03-01-02 | 01 | 1 | POL-02 | — | Per-field merge resolves nearest level | unit | `npx vitest run -t "policy resolution"` | ❌ W0 | ⬜ pending |
+| 03-01-03 | 01 | 1 | POL-02 | — | Camera overrides Site overrides Project | unit | `npx vitest run -t "policy inheritance"` | ❌ W0 | ⬜ pending |
+| 03-01-04 | 01 | 1 | PLAY-01 | T-03-01 | JWT signed session token with expiry | unit | `npx vitest run -t "session creation"` | ❌ W0 | ⬜ pending |
+| 03-01-05 | 01 | 1 | PLAY-02 | T-03-02 | Token rejected after TTL expires | unit | `npx vitest run -t "token expiry"` | ❌ W0 | ⬜ pending |
+| 03-01-06 | 01 | 1 | PLAY-03 | T-03-03 | Domain allowlist blocks unauthorized origins | unit | `npx vitest run -t "domain allowlist"` | ❌ W0 | ⬜ pending |
+| 03-02-01 | 02 | 2 | PLAY-04 | T-03-06 | SRS on_play callback verifies JWT | integration | `npx vitest run -t "on_play"` | ❌ W0 | ⬜ pending |
+| 03-02-02 | 02 | 2 | PLAY-05 | T-03-11 | Viewer concurrency limit enforced at on_play | unit | `npx vitest run -t "concurrency"` | ❌ W0 | ⬜ pending |
+| 03-02-03 | 02 | 2 | PLAY-07 | T-03-08 | HLS key served only to verified sessions | integration | `npx vitest run -t "key serving"` | ❌ W0 | ⬜ pending |
+| 03-02-04 | 02 | 2 | POL-03 | T-03-09 | Three-tier rate limiting configured | integration | `npx vitest run -t "rate limit"` | ❌ W0 | ⬜ pending |
+| 03-03-01 | 03 | 2 | PLAY-06 | — | Embed page resolves session for playback | integration | `npx vitest run -t "embed"` | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -55,10 +56,12 @@ created: 2026-04-10
 
 ## Wave 0 Requirements
 
-- [ ] `backend/src/playback/test/playback-session.service.spec.ts` — stubs for PLAY-01, PLAY-02, PLAY-03, PLAY-06
-- [ ] `backend/src/playback/test/srs-callback-security.spec.ts` — stubs for PLAY-04, PLAY-05
-- [ ] `backend/src/policy/test/policy.service.spec.ts` — stubs for POL-01, POL-02, POL-03
-- [ ] `backend/src/playback/test/embed.spec.ts` — stubs for PLAY-07
+- [ ] `apps/api/src/policies/test/policy.service.spec.ts` — stubs for POL-01, POL-02 (tasks 03-01-01, 03-01-02, 03-01-03)
+- [ ] `apps/api/src/playback/test/playback-session.service.spec.ts` — stubs for PLAY-01, PLAY-02, PLAY-03 (tasks 03-01-04, 03-01-05, 03-01-06)
+- [ ] `apps/api/src/srs/test/srs-callback-security.spec.ts` — stubs for PLAY-04, PLAY-05 (tasks 03-02-01, 03-02-02)
+- [ ] `apps/api/src/playback/test/key-serving.spec.ts` — stubs for PLAY-07 (task 03-02-03)
+- [ ] `apps/api/src/playback/test/rate-limiting.spec.ts` — stubs for POL-03 (task 03-02-04)
+- [ ] `apps/api/src/playback/test/embed.spec.ts` — stubs for PLAY-06 (task 03-03-01)
 
 *Existing vitest infrastructure from Phase 2 covers framework needs.*
 
