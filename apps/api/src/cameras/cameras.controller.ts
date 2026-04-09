@@ -21,6 +21,7 @@ import { CreateProjectSchema } from './dto/create-project.dto';
 import { CreateSiteSchema } from './dto/create-site.dto';
 import { CreateCameraSchema } from './dto/create-camera.dto';
 import { UpdateCameraSchema } from './dto/update-camera.dto';
+import { BulkImportSchema } from './dto/bulk-import.dto';
 
 @Controller('api')
 @UseGuards(AuthGuard)
@@ -125,6 +126,17 @@ export class CamerasController {
   @Delete('cameras/:id')
   async deleteCamera(@Param('id') id: string) {
     return this.camerasService.deleteCamera(id);
+  }
+
+  // ─── Bulk Import ────────────────────────────────
+
+  @Post('cameras/bulk-import')
+  async bulkImport(@Body() body: unknown) {
+    const parsed = BulkImportSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.camerasService.bulkImport(this.getOrgId(), parsed.data);
   }
 
   // ─── Test Connection ────────────────────────────

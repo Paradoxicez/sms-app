@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/popover';
 import { CameraStatusDot, CameraStatusBadge } from './components/camera-status-badge';
 import { CameraFormDialog } from './components/camera-form-dialog';
+import { BulkImportDialog } from './components/bulk-import-dialog';
 
 type CameraStatus = 'online' | 'offline' | 'degraded' | 'connecting' | 'reconnecting';
 
@@ -54,6 +55,7 @@ export default function CamerasPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<Set<CameraStatus>>(new Set());
 
   const fetchCameras = useCallback(async () => {
@@ -107,7 +109,7 @@ export default function CamerasPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Cameras</h1>
         <div className="flex gap-2">
-          <Button variant="outline" disabled>
+          <Button variant="outline" onClick={() => setImportDialogOpen(true)}>
             <Upload className="mr-2 h-4 w-4" />
             Import Cameras
           </Button>
@@ -234,6 +236,12 @@ export default function CamerasPage() {
       <CameraFormDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
+        onSuccess={fetchCameras}
+      />
+
+      <BulkImportDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
         onSuccess={fetchCameras}
       />
     </div>
