@@ -14,6 +14,7 @@ import { StatusModule } from './status/status.module';
 import { SrsModule } from './srs/srs.module';
 import { SettingsModule } from './settings/settings.module';
 import { PoliciesModule } from './policies/policies.module';
+import { PlaybackModule } from './playback/playback.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { PoliciesModule } from './policies/policies.module';
     SrsModule,
     SettingsModule,
     PoliciesModule,
+    PlaybackModule,
   ],
 })
 export class AppModule {}
