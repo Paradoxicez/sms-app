@@ -60,7 +60,7 @@ Plans:
 - [x] 02-02-PLAN.md -- Camera CRUD with Project > Site > Camera hierarchy, ffprobe test connection, H.265 detection
 - [x] 02-03-PLAN.md -- FFmpeg process manager with BullMQ, camera status state machine, SRS callbacks, Socket.IO gateway
 - [x] 02-04-PLAN.md -- Stream profile CRUD with validation, stream engine settings with srs.conf generation
-- [ ] 02-05-PLAN.md -- Camera management frontend: projects, cameras, detail page with HLS preview and stream controls
+- [x] 02-05-PLAN.md -- Camera management frontend: projects, cameras, detail page with HLS preview and stream controls
 - [ ] 02-06-PLAN.md -- Stream Profiles UI, Stream Engine Settings UI, Bulk Import dialog
 **UI hint**: yes
 
