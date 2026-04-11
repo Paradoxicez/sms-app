@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import Redis from 'ioredis';
 import { ApiKeysController } from './api-keys.controller';
@@ -7,6 +7,7 @@ import { ApiKeyGuard } from './api-key.guard';
 import { AuthOrApiKeyGuard } from './auth-or-apikey.guard';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { ApiKeyUsageProcessor } from './api-key-usage.processor';
+import { ApiKeyUsageMiddleware } from './api-key-usage.middleware';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { ApiKeyUsageProcessor } from './api-key-usage.processor';
     AuthOrApiKeyGuard,
     AuthGuard,
     ApiKeyUsageProcessor,
+    ApiKeyUsageMiddleware,
     {
       provide: REDIS_CLIENT,
       useFactory: () => {
@@ -31,4 +33,8 @@ import { ApiKeyUsageProcessor } from './api-key-usage.processor';
   ],
   exports: [ApiKeysService, ApiKeyGuard, AuthOrApiKeyGuard],
 })
-export class ApiKeysModule {}
+export class ApiKeysModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(ApiKeyUsageMiddleware).forRoutes('api/*');
+  }
+}
