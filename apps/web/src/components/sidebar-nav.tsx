@@ -14,6 +14,11 @@ import {
   SlidersHorizontal,
   Server,
   ShieldCheck,
+  Rocket,
+  Key,
+  Bell,
+  BookOpen,
+  ExternalLink,
 } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
@@ -42,6 +47,13 @@ const adminNavItems: NavItem[] = [
   { label: "Stream Profiles", href: "/admin/stream-profiles", icon: SlidersHorizontal },
   { label: "Stream Engine", href: "/admin/stream-engine", icon: Server },
   { label: "Policies", href: "/admin/policies", icon: ShieldCheck },
+];
+
+const developerNavItems: NavItem[] = [
+  { label: "Quick Start", href: "/admin/developer", icon: Rocket },
+  { label: "API Keys", href: "/admin/developer/api-keys", icon: Key },
+  { label: "Webhooks", href: "/admin/developer/webhooks", icon: Bell },
+  { label: "Docs", href: "/admin/developer/docs", icon: BookOpen },
 ];
 
 interface SidebarNavProps {
@@ -99,6 +111,38 @@ function NavContent({ userName, userEmail }: SidebarNavProps) {
             </Link>
           );
         })}
+
+        <Separator className="my-2" />
+        <p className="px-3 py-1 text-xs font-medium text-muted-foreground">Developer</p>
+        {developerNavItems.map((item) => {
+          const isActive =
+            pathname === item.href ||
+            (item.href !== "/admin/developer" && pathname.startsWith(item.href));
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                isActive
+                  ? "border-l-[3px] border-primary bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              <Icon className="h-4 w-4" />
+              {item.label}
+            </Link>
+          );
+        })}
+        <a
+          href="/api/docs"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <ExternalLink className="h-4 w-4" />
+          API Reference
+        </a>
       </nav>
 
       <Separator />
