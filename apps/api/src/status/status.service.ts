@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
 import { StatusGateway } from './status.gateway';
+import { WebhooksService } from '../webhooks/webhooks.service';
 
 @Injectable()
 export class StatusService {
@@ -18,6 +19,7 @@ export class StatusService {
   constructor(
     @Inject(TENANCY_CLIENT) private readonly prisma: any,
     private readonly statusGateway: StatusGateway,
+    private readonly webhooksService: WebhooksService,
   ) {}
 
   async transition(cameraId: string, orgId: string, newStatus: string): Promise<void> {
@@ -43,6 +45,24 @@ export class StatusService {
     });
 
     this.statusGateway.broadcastStatus(orgId, cameraId, newStatus);
+
+    // Emit webhook event for camera status changes per D-09
+    const webhookStatuses = ['online', 'offline', 'degraded', 'reconnecting'];
+    if (webhookStatuses.includes(newStatus)) {
+      this.webhooksService
+        .emitEvent(orgId, `camera.${newStatus}`, {
+          cameraId,
+          status: newStatus,
+          previousStatus: currentStatus,
+          timestamp: new Date().toISOString(),
+        })
+        .catch((err) => {
+          this.logger.warn(
+            `Failed to emit webhook for camera ${cameraId}: ${err.message}`,
+          );
+        });
+    }
+
     this.logger.log(`Camera ${cameraId}: ${currentStatus} -> ${newStatus}`);
   }
 
