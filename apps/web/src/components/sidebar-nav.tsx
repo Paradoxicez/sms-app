@@ -55,7 +55,7 @@ function NavContent({ userName, userEmail }: SidebarNavProps) {
 
   async function handleSignOut() {
     await authClient.signOut();
-    router.push("/auth/sign-in");
+    router.push("/sign-in");
   }
 
   const initials = userName

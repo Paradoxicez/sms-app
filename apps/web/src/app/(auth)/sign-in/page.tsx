@@ -48,8 +48,10 @@ export default function SignInPage() {
         password: data.password,
       });
 
+      console.log("sign-in result:", JSON.stringify(result));
+
       if (result.error) {
-        setError("Invalid email or password. Please try again.");
+        setError(`Auth error: ${result.error.message || JSON.stringify(result.error)}`);
         setIsLoading(false);
         return;
       }

@@ -5,7 +5,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import { SignJWT, jwtVerify } from 'jose';
+import * as jwt from 'jsonwebtoken';
 import { randomBytes } from 'crypto';
 import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
 import { PoliciesService } from '../policies/policies.service';
@@ -14,7 +14,7 @@ import { StatusService } from '../status/status.service';
 @Injectable()
 export class PlaybackService {
   private readonly logger = new Logger(PlaybackService.name);
-  private readonly jwtSecret: Uint8Array;
+  private readonly jwtSecret: string;
 
   constructor(
     @Inject(TENANCY_CLIENT) private readonly prisma: any,
@@ -23,10 +23,9 @@ export class PlaybackService {
   ) {
     const secret = process.env.JWT_PLAYBACK_SECRET;
     if (secret) {
-      this.jwtSecret = new TextEncoder().encode(secret);
+      this.jwtSecret = secret;
     } else {
-      const generated = randomBytes(32).toString('hex');
-      this.jwtSecret = new TextEncoder().encode(generated);
+      this.jwtSecret = randomBytes(32).toString('hex');
       this.logger.warn(
         'JWT_PLAYBACK_SECRET not set -- using generated random secret. Set JWT_PLAYBACK_SECRET in production.',
       );
@@ -81,16 +80,16 @@ export class PlaybackService {
     });
 
     // 5. Sign JWT
-    const token = await new SignJWT({
-      cam: cameraId,
-      org: orgId,
-      domains: resolved.domains,
-    })
-      .setProtectedHeader({ alg: 'HS256' })
-      .setSubject(session.id)
-      .setIssuedAt()
-      .setExpirationTime(`${resolved.ttlSeconds}s`)
-      .sign(this.jwtSecret);
+    const token = jwt.sign(
+      {
+        cam: cameraId,
+        org: orgId,
+        domains: resolved.domains,
+        sub: session.id,
+      },
+      this.jwtSecret,
+      { algorithm: 'HS256', expiresIn: resolved.ttlSeconds },
+    );
 
     // 6. Compute hlsUrl and update session
     const hlsUrl = `http://srs:8080/live/${orgId}/${cameraId}.m3u8?token=${token}`;
@@ -113,7 +112,7 @@ export class PlaybackService {
    */
   async verifyToken(token: string, cameraId: string, orgId: string) {
     try {
-      const { payload } = await jwtVerify(token, this.jwtSecret);
+      const payload = jwt.verify(token, this.jwtSecret) as jwt.JwtPayload;
 
       // Check claims match
       if (payload.cam !== cameraId || payload.org !== orgId) {
@@ -151,7 +150,7 @@ export class PlaybackService {
    */
   async verifyTokenMinimal(token: string) {
     try {
-      const { payload } = await jwtVerify(token, this.jwtSecret);
+      const payload = jwt.verify(token, this.jwtSecret) as jwt.JwtPayload;
       return {
         sub: payload.sub as string,
         cam: payload.cam as string,

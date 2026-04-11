@@ -55,6 +55,7 @@ export async function initAuth() {
     trustedOrigins: [
       process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
       'http://localhost:3002',
+      'http://localhost:3010',
     ],
   });
 

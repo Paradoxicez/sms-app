@@ -24,28 +24,28 @@ export function CodeBlock({ code }: CodeBlockProps) {
   }
 
   return (
-    <div className="relative rounded-md bg-[hsl(0,0%,9%)] p-3">
+    <div className="relative rounded-md bg-[hsl(0,0%,9%)] p-4">
       <Button
         type="button"
         variant="ghost"
         size="sm"
         onClick={handleCopy}
-        className="absolute right-2 top-2 h-8 text-xs text-white/70 hover:text-white hover:bg-white/10"
+        className="absolute right-2 top-2 h-7 text-xs text-white/70 hover:text-white hover:bg-white/10"
       >
         {copied ? (
           <>
-            <Check className="mr-1.5 h-3.5 w-3.5" />
+            <Check className="mr-1 h-3 w-3" />
             Copied!
           </>
         ) : (
           <>
-            <Copy className="mr-1.5 h-3.5 w-3.5" />
+            <Copy className="mr-1 h-3 w-3" />
             Copy
           </>
         )}
       </Button>
-      <pre className="overflow-x-auto pt-6">
-        <code className="font-mono text-xs text-white whitespace-pre">
+      <pre className="overflow-x-auto text-sm leading-relaxed">
+        <code className="font-mono text-xs text-white/90 whitespace-pre">
           {code}
         </code>
       </pre>

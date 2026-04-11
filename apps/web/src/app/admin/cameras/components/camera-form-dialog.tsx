@@ -157,7 +157,9 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess }: CameraFormDi
               <Label>Project *</Label>
               <Select value={projectId} onValueChange={(v) => setProjectId(String(v ?? ''))}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select project" />
+                  <SelectValue placeholder="Select project">
+                    {projects.find((p) => p.id === projectId)?.name}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {projects.map((p) => (
@@ -170,7 +172,9 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess }: CameraFormDi
               <Label>Site *</Label>
               <Select value={siteId} onValueChange={(v) => setSiteId(String(v ?? ''))} disabled={!projectId}>
                 <SelectTrigger>
-                  <SelectValue placeholder={projectId ? 'Select site' : 'Select project first'} />
+                  <SelectValue placeholder={projectId ? 'Select site' : 'Select project first'}>
+                    {sites.find((s) => s.id === siteId)?.name}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {sites.map((s) => (

@@ -300,6 +300,7 @@ export default function CameraDetailPage() {
                   variant="outline"
                   size="icon"
                   onClick={() => setEmbedOpen(true)}
+                  aria-label="Embed Code"
                 >
                   <Code2 className="h-4 w-4" />
                 </Button>

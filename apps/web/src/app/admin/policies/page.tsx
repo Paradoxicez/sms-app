@@ -1,21 +1,11 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { Plus, ShieldCheck, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb';
 import {
   Table,
   TableBody,
@@ -42,6 +32,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PolicyLevelBadge } from './components/policy-level-badge';
+import { CreatePolicyDialog } from './components/create-policy-dialog';
+import { EditPolicyDialog } from './components/edit-policy-dialog';
 
 type PolicyLevel = 'SYSTEM' | 'PROJECT' | 'SITE' | 'CAMERA';
 
@@ -69,12 +61,13 @@ function getScopeName(policy: Policy): string {
 }
 
 export default function PoliciesPage() {
-  const router = useRouter();
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deletePolicy, setDeletePolicy] = useState<Policy | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editPolicyId, setEditPolicyId] = useState<string | null>(null);
 
   const fetchPolicies = useCallback(async () => {
     setIsLoading(true);
@@ -110,21 +103,9 @@ export default function PoliciesPage() {
 
   return (
     <div className="space-y-6">
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink render={<Link href="/admin" />}>Admin</BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>Policies</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
-
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Playback Policies</h1>
-        <Button onClick={() => router.push('/admin/policies/new')}>
+        <Button onClick={() => setCreateOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Create Policy
         </Button>
@@ -152,7 +133,7 @@ export default function PoliciesPage() {
             sites, or cameras.
           </p>
           <Button
-            onClick={() => router.push('/admin/policies/new')}
+            onClick={() => setCreateOpen(true)}
             className="mt-4"
           >
             <Plus className="mr-2 h-4 w-4" />
@@ -170,7 +151,7 @@ export default function PoliciesPage() {
                 <TableHead>TTL</TableHead>
                 <TableHead>Max Viewers</TableHead>
                 <TableHead>Domains</TableHead>
-                <TableHead className="w-[50px]" />
+                <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -209,9 +190,7 @@ export default function PoliciesPage() {
                       />
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
-                          onClick={() =>
-                            router.push(`/admin/policies/${policy.id}`)
-                          }
+                          onClick={() => setEditPolicyId(policy.id)}
                         >
                           <Pencil className="mr-2 h-4 w-4" />
                           Edit
@@ -232,6 +211,21 @@ export default function PoliciesPage() {
           </Table>
         </div>
       )}
+
+      {/* Create policy dialog */}
+      <CreatePolicyDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onSuccess={fetchPolicies}
+      />
+
+      {/* Edit policy dialog */}
+      <EditPolicyDialog
+        policyId={editPolicyId}
+        open={!!editPolicyId}
+        onOpenChange={(open) => { if (!open) setEditPolicyId(null); }}
+        onSuccess={fetchPolicies}
+      />
 
       {/* Delete confirmation */}
       <AlertDialog

@@ -20,7 +20,7 @@ export default function AdminLayout({
       try {
         const session = await authClient.getSession();
         if (!session.data?.user) {
-          router.push("/auth/sign-in");
+          router.push("/sign-in");
           return;
         }
         // Role check: redirect non-admins to dashboard
@@ -28,12 +28,22 @@ export default function AdminLayout({
           router.push("/dashboard");
           return;
         }
+        // Ensure active organization is set
+        if (!session.data.session?.activeOrganizationId) {
+          const orgs = await authClient.organization.list();
+          if (orgs.data && orgs.data.length > 0) {
+            await authClient.organization.setActive({
+              organizationId: orgs.data[0].id,
+            });
+          }
+        }
+
         setUser({
           name: session.data.user.name,
           email: session.data.user.email,
         });
       } catch {
-        router.push("/auth/sign-in");
+        router.push("/sign-in");
       } finally {
         setLoading(false);
       }

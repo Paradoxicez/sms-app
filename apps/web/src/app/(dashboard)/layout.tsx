@@ -18,11 +18,11 @@ export default function DashboardLayout({
       try {
         const session = await authClient.getSession();
         if (!session.data?.user) {
-          router.push("/auth/sign-in");
+          router.push("/sign-in");
           return;
         }
       } catch {
-        router.push("/auth/sign-in");
+        router.push("/sign-in");
       } finally {
         setLoading(false);
       }

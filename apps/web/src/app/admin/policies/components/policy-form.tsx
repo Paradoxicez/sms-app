@@ -144,6 +144,11 @@ export function PolicyForm({ policy, onSubmit, isLoading }: PolicyFormProps) {
 
   const selectedCameraId = level === 'CAMERA' && entityId ? entityId : undefined;
 
+  const isSystem = level === 'SYSTEM';
+  const ttlPlaceholder = isSystem ? 'e.g., 7200' : '(inherited)';
+  const viewersPlaceholder = isSystem ? 'e.g., 10' : '(inherited)';
+  const ratePlaceholder = isSystem ? 'e.g., 100' : '(inherited)';
+
   return (
     <div className="grid gap-8 lg:grid-cols-2">
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -228,7 +233,7 @@ export function PolicyForm({ policy, onSubmit, isLoading }: PolicyFormProps) {
             type="number"
             value={ttlSeconds}
             onChange={(e) => setTtlSeconds(e.target.value)}
-            placeholder="(inherited)"
+            placeholder={ttlPlaceholder}
             min={1}
           />
         </div>
@@ -241,7 +246,7 @@ export function PolicyForm({ policy, onSubmit, isLoading }: PolicyFormProps) {
             type="number"
             value={maxViewers}
             onChange={(e) => setMaxViewers(e.target.value)}
-            placeholder="(inherited)"
+            placeholder={viewersPlaceholder}
             min={0}
           />
           <p className="text-xs text-muted-foreground">0 = unlimited</p>
@@ -276,7 +281,7 @@ export function PolicyForm({ policy, onSubmit, isLoading }: PolicyFormProps) {
             type="number"
             value={rateLimit}
             onChange={(e) => setRateLimit(e.target.value)}
-            placeholder="(inherited)"
+            placeholder={ratePlaceholder}
             min={1}
           />
           <p className="text-xs text-muted-foreground">requests/min</p>

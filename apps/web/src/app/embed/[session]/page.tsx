@@ -151,8 +151,7 @@ export default function EmbedPlayerPage() {
     >
       {state === 'loading' && (
         <Loader2
-          className="animate-spin"
-          style={{ width: 32, height: 32, color: '#fff' }}
+          className="animate-spin h-8 w-8 text-white"
         />
       )}
 

@@ -118,7 +118,7 @@ export class PoliciesService implements OnModuleInit {
 
   async remove(id: string) {
     const policy = await this.findOne(id);
-    if (policy.level === 'SYSTEM') {
+    if (policy.level === 'SYSTEM' && policy.name === 'System Default') {
       throw new BadRequestException('Cannot delete system default policy');
     }
     return this.prisma.policy.delete({ where: { id } });
