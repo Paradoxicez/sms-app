@@ -76,10 +76,10 @@
 ### Developer Experience
 
 - [x] **DEV-01**: API Keys scoped to project or site with usage tracking (requests/day, bandwidth)
-- [ ] **DEV-02**: Developer Portal with interactive API reference (curl examples + live responses)
+- [x] **DEV-02**: Developer Portal with interactive API reference (curl examples + live responses)
 - [ ] **DEV-03**: In-app documentation (API workflow guide, policies guide, stream profiles guide)
 - [ ] **DEV-04**: Webhook subscriptions for camera events (online/offline/degraded/reconnecting) with HMAC signatures
-- [ ] **DEV-05**: Batch playback session creation for multiple cameras in one API call
+- [x] **DEV-05**: Batch playback session creation for multiple cameras in one API call
 
 ### Dashboard & Monitoring
 
@@ -152,10 +152,10 @@
 | POL-02 | Phase 3 | Complete |
 | POL-03 | Phase 3 | Complete |
 | DEV-01 | Phase 4 | Complete |
-| DEV-02 | Phase 4 | Pending |
+| DEV-02 | Phase 4 | Complete |
 | DEV-03 | Phase 4 | Pending |
 | DEV-04 | Phase 4 | Pending |
-| DEV-05 | Phase 4 | Pending |
+| DEV-05 | Phase 4 | Complete |
 | DASH-01 | Phase 5 | Pending |
 | DASH-02 | Phase 5 | Pending |
 | DASH-03 | Phase 5 | Pending |

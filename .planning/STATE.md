@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-01-PLAN.md
-last_updated: "2026-04-11T18:26:32.196Z"
+stopped_at: Completed 04-02-PLAN.md
+last_updated: "2026-04-11T18:32:55.151Z"
 last_activity: 2026-04-11
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 20
-  completed_plans: 16
-  percent: 80
+  completed_plans: 17
+  percent: 85
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-09)
 ## Current Position
 
 Phase: 04 (Developer Experience) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Ready to execute
 Last activity: 2026-04-11
 
@@ -68,6 +68,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 03 P01 | 440s | 2 tasks | 15 files |
 | Phase 03 P02 | 323s | 2 tasks | 9 files |
 | Phase 04 P01 | 297s | 3 tasks | 13 files |
+| Phase 04 P02 | 275s | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -107,6 +108,9 @@ Recent decisions affecting current work:
 - [Phase 03]: m3u8 proxy rewrites #EXT-X-KEY URIs with token for seamless hls.js authenticated key fetching
 - [Phase 04]: REDIS_CLIENT as custom symbol provider for API key usage tracking (separate from BullMQ Redis)
 - [Phase 04]: findByHash uses raw PrismaService (not tenancy) for cross-org API key lookup during authentication
+- [Phase 04]: AuthOrApiKeyGuard replaces AuthGuard on session creation endpoints for dual auth (session + API key)
+- [Phase 04]: Batch playback sessions return partial results ({ sessions, errors }) rather than all-or-nothing
+- [Phase 04]: Internal endpoints excluded from Swagger via @ApiExcludeEndpoint
 
 ### Pending Todos
 
@@ -120,6 +124,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-11T18:26:32.191Z
-Stopped at: Completed 04-01-PLAN.md
+Last session: 2026-04-11T18:32:55.148Z
+Stopped at: Completed 04-02-PLAN.md
 Resume file: None
