@@ -5,20 +5,20 @@ import { ApiKeysController } from './api-keys.controller';
 import { ApiKeysService, REDIS_CLIENT } from './api-keys.service';
 import { ApiKeyGuard } from './api-key.guard';
 import { AuthOrApiKeyGuard } from './auth-or-apikey.guard';
-import { AuthGuard } from '../auth/guards/auth.guard';
+import { AuthModule } from '../auth/auth.module';
 import { ApiKeyUsageProcessor } from './api-key-usage.processor';
 import { ApiKeyUsageMiddleware } from './api-key-usage.middleware';
 
 @Module({
   imports: [
     BullModule.registerQueue({ name: 'api-key-usage' }),
+    AuthModule,
   ],
   controllers: [ApiKeysController],
   providers: [
     ApiKeysService,
     ApiKeyGuard,
     AuthOrApiKeyGuard,
-    AuthGuard,
     ApiKeyUsageProcessor,
     ApiKeyUsageMiddleware,
     {
