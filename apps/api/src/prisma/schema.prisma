@@ -331,3 +331,78 @@ model PlaybackSession {
   @@index([token])
   @@index([expiresAt])
 }
+
+// ─────────────────────────────────────────────
+// Phase 4: Developer Experience
+// ─────────────────────────────────────────────
+
+model ApiKey {
+  id          String    @id @default(uuid())
+  orgId       String
+  name        String
+  keyHash     String    @unique
+  prefix      String    // "sk_live_"
+  lastFour    String    // Last 4 chars of raw key for display
+  scope       String    // "PROJECT" or "SITE"
+  scopeId     String    // projectId or siteId
+  revokedAt   DateTime?
+  lastUsedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  usageRecords ApiKeyUsage[]
+
+  @@index([orgId])
+  @@index([keyHash])
+  @@index([scopeId])
+}
+
+model ApiKeyUsage {
+  id          String   @id @default(uuid())
+  apiKeyId    String
+  apiKey      ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  date        DateTime @db.Date
+  requests    Int      @default(0)
+  bandwidth   BigInt   @default(0)
+  createdAt   DateTime @default(now())
+
+  @@unique([apiKeyId, date])
+  @@index([apiKeyId])
+  @@index([date])
+}
+
+model WebhookSubscription {
+  id          String    @id @default(uuid())
+  orgId       String
+  name        String
+  url         String
+  secret      String
+  events      String[]  @default([])
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  deliveries  WebhookDelivery[]
+
+  @@index([orgId])
+  @@index([isActive])
+}
+
+model WebhookDelivery {
+  id               String              @id @default(uuid())
+  subscriptionId   String
+  subscription     WebhookSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  eventType        String
+  payload          Json
+  responseStatus   Int?
+  responseBody     String?
+  attempts         Int                 @default(0)
+  lastAttemptAt    DateTime?
+  completedAt      DateTime?
+  failedAt         DateTime?
+  createdAt        DateTime            @default(now())
+
+  @@index([subscriptionId])
+  @@index([eventType])
+  @@index([createdAt])
+}

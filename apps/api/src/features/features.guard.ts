@@ -6,6 +6,7 @@ import {
   SetMetadata,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { ClsService } from 'nestjs-cls';
 import { FeaturesService } from './features.service';
 
 export const FEATURE_KEY = 'required_feature';
@@ -22,6 +23,7 @@ export class FeatureGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly featuresService: FeaturesService,
+    private readonly cls: ClsService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -36,8 +38,8 @@ export class FeatureGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest();
-    // orgId can come from route params or from session's activeOrganizationId
-    const orgId = request.params?.orgId;
+    // orgId can come from route params or from CLS (set by AuthGuard or ApiKeyGuard)
+    const orgId = request.params?.orgId || this.cls.get('ORG_ID');
 
     if (!orgId) {
       throw new ForbiddenException(

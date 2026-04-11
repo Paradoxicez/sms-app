@@ -17,6 +17,7 @@ import { SrsModule } from './srs/srs.module';
 import { SettingsModule } from './settings/settings.module';
 import { PoliciesModule } from './policies/policies.module';
 import { PlaybackModule } from './playback/playback.module';
+import { ApiKeysModule } from './api-keys/api-keys.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { PlaybackModule } from './playback/playback.module';
     SettingsModule,
     PoliciesModule,
     PlaybackModule,
+    ApiKeysModule,
     ThrottlerModule.forRoot({
       throttlers: [
         { name: 'global', ttl: 60000, limit: 100 },
