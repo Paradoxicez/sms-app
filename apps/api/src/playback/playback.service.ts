@@ -107,6 +107,34 @@ export class PlaybackService {
   }
 
   /**
+   * Create playback sessions for multiple cameras in one call.
+   * Returns both successful sessions and per-camera errors.
+   */
+  async createBatchSessions(cameraIds: string[], orgId: string) {
+    const sessions: Array<{
+      cameraId: string;
+      sessionId: string;
+      hlsUrl: string;
+      expiresAt: Date;
+    }> = [];
+    const errors: Array<{ cameraId: string; error: string }> = [];
+
+    for (const cameraId of cameraIds) {
+      try {
+        const session = await this.createSession(cameraId, orgId);
+        sessions.push({ cameraId, ...session });
+      } catch (err: any) {
+        errors.push({
+          cameraId,
+          error: err.message || 'Failed to create session',
+        });
+      }
+    }
+
+    return { sessions, errors };
+  }
+
+  /**
    * Verify a JWT playback token.
    * Returns session data if valid, null if invalid.
    */

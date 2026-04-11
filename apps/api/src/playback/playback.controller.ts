@@ -15,8 +15,9 @@ import { Request, Response } from 'express';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { ClsService } from 'nestjs-cls';
-import { AuthGuard } from '../auth/guards/auth.guard';
+import { AuthOrApiKeyGuard } from '../api-keys/auth-or-apikey.guard';
 import { PlaybackService } from './playback.service';
+import { BatchSessionsSchema } from './dto/batch-sessions.dto';
 
 @ApiTags('Playback')
 @Controller('api')
@@ -39,14 +40,36 @@ export class PlaybackController {
    * Returns { sessionId, hlsUrl, expiresAt }
    */
   @Post('cameras/:cameraId/sessions')
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthOrApiKeyGuard)
   @ApiOperation({ summary: 'Create a playback session for a camera' })
   @ApiResponse({ status: 201, description: 'Playback session created with HLS URL' })
   @ApiResponse({ status: 400, description: 'Validation error' })
   @ApiResponse({ status: 404, description: 'Camera not found' })
+  @ApiSecurity('api-key')
   @ApiParam({ name: 'cameraId', description: 'Camera ID' })
   async createSession(@Param('cameraId') cameraId: string) {
     return this.playbackService.createSession(cameraId, this.getOrgId());
+  }
+
+  /**
+   * Create playback sessions for multiple cameras in one call.
+   * Returns { sessions: [...], errors: [...] }
+   */
+  @Post('playback/sessions/batch')
+  @UseGuards(AuthOrApiKeyGuard)
+  @ApiOperation({ summary: 'Create playback sessions for multiple cameras in one call' })
+  @ApiResponse({ status: 201, description: 'Batch sessions created with results and errors' })
+  @ApiResponse({ status: 400, description: 'Validation error or batch too large' })
+  @ApiSecurity('api-key')
+  async createBatchSessions(@Req() req: Request) {
+    const parsed = BatchSessionsSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.playbackService.createBatchSessions(
+      parsed.data.cameraIds,
+      this.getOrgId(),
+    );
   }
 
   /**
