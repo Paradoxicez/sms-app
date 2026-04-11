@@ -90,12 +90,15 @@ Plans:
   2. Developer can browse interactive API docs with curl examples and live responses
   3. Developer can subscribe to webhook events (camera.online, camera.offline, camera.degraded) and receives HMAC-signed payloads
   4. Developer can create playback sessions for multiple cameras in a single batch API call
-**Plans**: TBD
+**Plans**: 5 plans
 
 Plans:
-- [ ] 04-01: TBD
-- [ ] 04-02: TBD
-- [ ] 04-03: TBD
+- [ ] 04-01-PLAN.md -- Prisma schema (ApiKey, ApiKeyUsage, WebhookSubscription, WebhookDelivery), API key CRUD, ApiKeyGuard, usage tracking
+- [ ] 04-02-PLAN.md -- Swagger UI bootstrap at /api/docs, decorators on all controllers, batch playback sessions endpoint
+- [ ] 04-03-PLAN.md -- Webhook subscriptions CRUD, BullMQ delivery with HMAC-SHA256, StatusService event hook
+- [ ] 04-04-PLAN.md -- Frontend: Developer Portal pages (Quick Start, API Keys, Webhooks), sidebar nav
+- [ ] 04-05-PLAN.md -- In-app documentation: 5 guide pages (API Workflow, Policies, Stream Profiles, Webhooks, Streaming Basics)
+**UI hint**: yes
 
 ### Phase 5: Dashboard & Monitoring
 **Goal**: Operators and admins can monitor camera status, system health, and all platform activity through a real-time dashboard
@@ -159,7 +162,7 @@ Note: Phases 5, 6, and 7 depend on Phase 2 (not on each other) and can be parall
 | 1. Foundation & Multi-Tenant | 4/6 | Gap closure planned | - |
 | 2. Stream Engine & Camera Management | 0/6 | Planned | - |
 | 3. Playback & Security | 0/3 | Planned | - |
-| 4. Developer Experience | 0/3 | Not started | - |
+| 4. Developer Experience | 0/5 | Planned | - |
 | 5. Dashboard & Monitoring | 0/3 | Not started | - |
 | 6. SRS Cluster & Scaling | 0/2 | Not started | - |
 | 7. Recordings | 0/3 | Not started | - |
