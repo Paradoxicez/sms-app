@@ -10,6 +10,7 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiSecurity, ApiExcludeEndpoint } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -17,6 +18,7 @@ import { ClsService } from 'nestjs-cls';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { PlaybackService } from './playback.service';
 
+@ApiTags('Playback')
 @Controller('api')
 export class PlaybackController {
   constructor(
@@ -38,6 +40,11 @@ export class PlaybackController {
    */
   @Post('cameras/:cameraId/sessions')
   @UseGuards(AuthGuard)
+  @ApiOperation({ summary: 'Create a playback session for a camera' })
+  @ApiResponse({ status: 201, description: 'Playback session created with HLS URL' })
+  @ApiResponse({ status: 400, description: 'Validation error' })
+  @ApiResponse({ status: 404, description: 'Camera not found' })
+  @ApiParam({ name: 'cameraId', description: 'Camera ID' })
   async createSession(@Param('cameraId') cameraId: string) {
     return this.playbackService.createSession(cameraId, this.getOrgId());
   }
@@ -47,6 +54,10 @@ export class PlaybackController {
    * No AuthGuard -- accessible without authentication.
    */
   @Get('playback/sessions/:id')
+  @ApiOperation({ summary: 'Get session info (public, for embed page)' })
+  @ApiResponse({ status: 200, description: 'Session details' })
+  @ApiResponse({ status: 404, description: 'Session not found or expired' })
+  @ApiParam({ name: 'id', description: 'Session ID' })
   async getSession(@Param('id') id: string) {
     const session = await this.playbackService.getSession(id);
     if (!session) {
@@ -61,6 +72,7 @@ export class PlaybackController {
    * Key URL pattern: /api/playback/keys/{app}/{orgId}/{cameraId}-{seq}.key
    */
   @Get('playback/keys/*')
+  @ApiExcludeEndpoint()
   async serveHlsKey(
     @Req() req: Request,
     @Res() res: Response,
@@ -101,6 +113,7 @@ export class PlaybackController {
    * the viewer's token so hls.js can fetch decryption keys with authentication.
    */
   @Get('playback/stream/:orgId/:cameraId.m3u8')
+  @ApiExcludeEndpoint()
   async proxyM3u8(
     @Param('orgId') orgId: string,
     @Param('cameraId') cameraId: string,

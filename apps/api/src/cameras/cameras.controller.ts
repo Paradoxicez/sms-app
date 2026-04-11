@@ -12,6 +12,7 @@ import {
   NotFoundException,
   Logger,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiExcludeEndpoint } from '@nestjs/swagger';
 import { Response } from 'express';
 import { ClsService } from 'nestjs-cls';
 import { AuthGuard } from '../auth/guards/auth.guard';
@@ -23,6 +24,7 @@ import { CreateCameraSchema } from './dto/create-camera.dto';
 import { UpdateCameraSchema } from './dto/update-camera.dto';
 import { BulkImportSchema } from './dto/bulk-import.dto';
 
+@ApiTags('Cameras')
 @Controller('api')
 @UseGuards(AuthGuard)
 export class CamerasController {
@@ -43,6 +45,9 @@ export class CamerasController {
   // ─── Projects ──────────────────────────────────
 
   @Post('projects')
+  @ApiOperation({ summary: 'Create a new project' })
+  @ApiResponse({ status: 201, description: 'Project created' })
+  @ApiResponse({ status: 400, description: 'Validation error' })
   async createProject(@Body() body: unknown) {
     const result = CreateProjectSchema.safeParse(body);
     if (!result.success) {
@@ -52,16 +57,25 @@ export class CamerasController {
   }
 
   @Get('projects')
+  @ApiOperation({ summary: 'List all projects' })
+  @ApiResponse({ status: 200, description: 'List of projects' })
   async findAllProjects() {
     return this.camerasService.findAllProjects();
   }
 
   @Get('projects/:id')
+  @ApiOperation({ summary: 'Get a project by ID' })
+  @ApiResponse({ status: 200, description: 'Project details' })
+  @ApiParam({ name: 'id', description: 'Project ID' })
   async findProjectById(@Param('id') id: string) {
     return this.camerasService.findProjectById(id);
   }
 
   @Delete('projects/:id')
+  @ApiOperation({ summary: 'Delete a project' })
+  @ApiResponse({ status: 200, description: 'Project deleted' })
+  @ApiResponse({ status: 404, description: 'Project not found' })
+  @ApiParam({ name: 'id', description: 'Project ID' })
   async deleteProject(@Param('id') id: string) {
     return this.camerasService.deleteProject(id);
   }
@@ -69,6 +83,10 @@ export class CamerasController {
   // ─── Sites ──────────────────────────────────────
 
   @Post('projects/:projectId/sites')
+  @ApiOperation({ summary: 'Create a site within a project' })
+  @ApiResponse({ status: 201, description: 'Site created' })
+  @ApiResponse({ status: 400, description: 'Validation error' })
+  @ApiParam({ name: 'projectId', description: 'Project ID' })
   async createSite(
     @Param('projectId') projectId: string,
     @Body() body: unknown,
@@ -81,11 +99,18 @@ export class CamerasController {
   }
 
   @Get('projects/:projectId/sites')
+  @ApiOperation({ summary: 'List sites in a project' })
+  @ApiResponse({ status: 200, description: 'List of sites' })
+  @ApiParam({ name: 'projectId', description: 'Project ID' })
   async findSitesByProject(@Param('projectId') projectId: string) {
     return this.camerasService.findSitesByProject(projectId);
   }
 
   @Delete('sites/:id')
+  @ApiOperation({ summary: 'Delete a site' })
+  @ApiResponse({ status: 200, description: 'Site deleted' })
+  @ApiResponse({ status: 404, description: 'Site not found' })
+  @ApiParam({ name: 'id', description: 'Site ID' })
   async deleteSite(@Param('id') id: string) {
     return this.camerasService.deleteSite(id);
   }
@@ -93,6 +118,10 @@ export class CamerasController {
   // ─── Cameras ────────────────────────────────────
 
   @Post('sites/:siteId/cameras')
+  @ApiOperation({ summary: 'Add a camera to a site' })
+  @ApiResponse({ status: 201, description: 'Camera created' })
+  @ApiResponse({ status: 400, description: 'Validation error' })
+  @ApiParam({ name: 'siteId', description: 'Site ID' })
   async createCamera(
     @Param('siteId') siteId: string,
     @Body() body: unknown,
@@ -105,16 +134,25 @@ export class CamerasController {
   }
 
   @Get('cameras')
+  @ApiOperation({ summary: 'List all cameras' })
+  @ApiResponse({ status: 200, description: 'List of cameras' })
   async findAllCameras() {
     return this.camerasService.findAllCameras();
   }
 
   @Get('cameras/:id')
+  @ApiOperation({ summary: 'Get a camera by ID' })
+  @ApiResponse({ status: 200, description: 'Camera details' })
+  @ApiParam({ name: 'id', description: 'Camera ID' })
   async findCameraById(@Param('id') id: string) {
     return this.camerasService.findCameraById(id);
   }
 
   @Patch('cameras/:id')
+  @ApiOperation({ summary: 'Update a camera' })
+  @ApiResponse({ status: 200, description: 'Camera updated' })
+  @ApiResponse({ status: 400, description: 'Validation error' })
+  @ApiParam({ name: 'id', description: 'Camera ID' })
   async updateCamera(@Param('id') id: string, @Body() body: unknown) {
     const result = UpdateCameraSchema.safeParse(body);
     if (!result.success) {
@@ -124,6 +162,10 @@ export class CamerasController {
   }
 
   @Delete('cameras/:id')
+  @ApiOperation({ summary: 'Delete a camera' })
+  @ApiResponse({ status: 200, description: 'Camera deleted' })
+  @ApiResponse({ status: 404, description: 'Camera not found' })
+  @ApiParam({ name: 'id', description: 'Camera ID' })
   async deleteCamera(@Param('id') id: string) {
     return this.camerasService.deleteCamera(id);
   }
@@ -131,6 +173,9 @@ export class CamerasController {
   // ─── Bulk Import ────────────────────────────────
 
   @Post('cameras/bulk-import')
+  @ApiOperation({ summary: 'Bulk import cameras from CSV/JSON data' })
+  @ApiResponse({ status: 201, description: 'Import results with success/failure counts' })
+  @ApiResponse({ status: 400, description: 'Validation error' })
   async bulkImport(@Body() body: unknown) {
     const parsed = BulkImportSchema.safeParse(body);
     if (!parsed.success) {
@@ -142,6 +187,10 @@ export class CamerasController {
   // ─── Test Connection ────────────────────────────
 
   @Post('cameras/:id/test-connection')
+  @ApiOperation({ summary: 'Test camera RTSP/SRT connection and detect codecs' })
+  @ApiResponse({ status: 200, description: 'Connection test results with codec info' })
+  @ApiResponse({ status: 404, description: 'Camera not found' })
+  @ApiParam({ name: 'id', description: 'Camera ID' })
   async testConnection(@Param('id') id: string) {
     const camera = await this.camerasService.findCameraById(id);
     if (!camera) {
@@ -171,6 +220,7 @@ export class CamerasController {
   private readonly srsBaseUrl = process.env.SRS_HTTP_URL || 'http://localhost:8080';
 
   @Get('cameras/:id/preview/playlist.m3u8')
+  @ApiExcludeEndpoint()
   async proxyPlaylist(@Param('id') id: string, @Res() res: Response) {
     const camera = await this.camerasService.findCameraById(id);
     if (!camera) {
@@ -204,6 +254,7 @@ export class CamerasController {
   }
 
   @Get('cameras/:id/preview/:segment')
+  @ApiExcludeEndpoint()
   async proxySegment(
     @Param('id') id: string,
     @Param('segment') segment: string,
