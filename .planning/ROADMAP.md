@@ -95,7 +95,7 @@ Plans:
 Plans:
 - [x] 04-01-PLAN.md -- Prisma schema (ApiKey, ApiKeyUsage, WebhookSubscription, WebhookDelivery), API key CRUD, ApiKeyGuard, usage tracking
 - [x] 04-02-PLAN.md -- Swagger UI bootstrap at /api/docs, decorators on all controllers, batch playback sessions endpoint
-- [ ] 04-03-PLAN.md -- Webhook subscriptions CRUD, BullMQ delivery with HMAC-SHA256, StatusService event hook
+- [x] 04-03-PLAN.md -- Webhook subscriptions CRUD, BullMQ delivery with HMAC-SHA256, StatusService event hook
 - [ ] 04-04-PLAN.md -- Frontend: Developer Portal pages (Quick Start, API Keys, Webhooks), sidebar nav
 - [ ] 04-05-PLAN.md -- In-app documentation: 5 guide pages (API Workflow, Policies, Stream Profiles, Webhooks, Streaming Basics)
 **UI hint**: yes

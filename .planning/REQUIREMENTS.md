@@ -78,7 +78,7 @@
 - [x] **DEV-01**: API Keys scoped to project or site with usage tracking (requests/day, bandwidth)
 - [x] **DEV-02**: Developer Portal with interactive API reference (curl examples + live responses)
 - [ ] **DEV-03**: In-app documentation (API workflow guide, policies guide, stream profiles guide)
-- [ ] **DEV-04**: Webhook subscriptions for camera events (online/offline/degraded/reconnecting) with HMAC signatures
+- [x] **DEV-04**: Webhook subscriptions for camera events (online/offline/degraded/reconnecting) with HMAC signatures
 - [x] **DEV-05**: Batch playback session creation for multiple cameras in one API call
 
 ### Dashboard & Monitoring
@@ -154,7 +154,7 @@
 | DEV-01 | Phase 4 | Complete |
 | DEV-02 | Phase 4 | Complete |
 | DEV-03 | Phase 4 | Pending |
-| DEV-04 | Phase 4 | Pending |
+| DEV-04 | Phase 4 | Complete |
 | DEV-05 | Phase 4 | Complete |
 | DASH-01 | Phase 5 | Pending |
 | DASH-02 | Phase 5 | Pending |
