@@ -6,6 +6,8 @@ describe('Camera Status State Machine', () => {
   let service: StatusService;
   let mockPrisma: any;
   let mockGateway: any;
+  let mockWebhooksService: any;
+  let mockNotificationsService: any;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -22,7 +24,15 @@ describe('Camera Status State Machine', () => {
       },
     };
 
-    service = new StatusService(mockPrisma, mockGateway);
+    mockWebhooksService = {
+      emitEvent: vi.fn().mockResolvedValue(undefined),
+    };
+
+    mockNotificationsService = {
+      createForCameraEvent: vi.fn().mockResolvedValue(undefined),
+    };
+
+    service = new StatusService(mockPrisma, mockGateway, mockWebhooksService, mockNotificationsService);
   });
 
   // Valid transitions
@@ -126,7 +136,9 @@ describe('Viewer Counting', () => {
   beforeEach(() => {
     const mockPrisma = { camera: { findUnique: vi.fn(), update: vi.fn() } };
     const mockGateway = { broadcastStatus: vi.fn(), broadcastViewerCount: vi.fn() };
-    service = new StatusService(mockPrisma as any, mockGateway as any);
+    const mockWebhooks = { emitEvent: vi.fn().mockResolvedValue(undefined) };
+    const mockNotifications = { createForCameraEvent: vi.fn().mockResolvedValue(undefined) };
+    service = new StatusService(mockPrisma as any, mockGateway as any, mockWebhooks as any, mockNotifications as any);
   });
 
   it('should increment viewer count', () => {
