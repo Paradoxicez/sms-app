@@ -21,6 +21,7 @@ import { ApiKeysModule } from './api-keys/api-keys.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { AuditModule } from './audit/audit.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     WebhooksModule,
     AuditModule,
     NotificationsModule,
+    DashboardModule,
     ThrottlerModule.forRoot({
       throttlers: [
         { name: 'global', ttl: 60000, limit: 100 },

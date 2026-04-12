@@ -21,6 +21,12 @@ export class StatusGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.join(`org:${orgId}`);
       this.logger.log(`Client ${client.id} joined org:${orgId}`);
     }
+
+    const userId = client.handshake.query.userId as string;
+    if (userId) {
+      client.join(`user:${userId}`);
+      this.logger.log(`Client ${client.id} joined user:${userId}`);
+    }
   }
 
   handleDisconnect(client: Socket) {

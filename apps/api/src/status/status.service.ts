@@ -1,7 +1,8 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
 import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
 import { StatusGateway } from './status.gateway';
 import { WebhooksService } from '../webhooks/webhooks.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class StatusService {
@@ -20,6 +21,8 @@ export class StatusService {
     @Inject(TENANCY_CLIENT) private readonly prisma: any,
     private readonly statusGateway: StatusGateway,
     private readonly webhooksService: WebhooksService,
+    @Inject(forwardRef(() => NotificationsService))
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async transition(cameraId: string, orgId: string, newStatus: string): Promise<void> {
@@ -60,6 +63,16 @@ export class StatusService {
           this.logger.warn(
             `Failed to emit webhook for camera ${cameraId}: ${err.message}`,
           );
+        });
+    }
+
+    // Emit notification for camera status changes
+    const notifiableStatuses = ['online', 'offline', 'degraded', 'reconnecting'];
+    if (notifiableStatuses.includes(newStatus)) {
+      this.notificationsService
+        .createForCameraEvent(orgId, cameraId, newStatus, camera.name)
+        .catch((err) => {
+          this.logger.warn(`Failed to create notification: ${err.message}`);
         });
     }
 
