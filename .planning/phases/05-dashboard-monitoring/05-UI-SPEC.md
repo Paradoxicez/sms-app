@@ -59,9 +59,11 @@ Exceptions:
 | Role | Size | Weight | Line Height | Usage |
 |------|------|--------|-------------|-------|
 | Body | 14px | 400 (regular) | 1.5 | Table cells, log lines, audit entries, descriptions |
-| Label | 12px | 500 (medium) | 1.4 | Stat card labels, chart axis labels, badge text, muted captions |
+| Label | 12px | 400 (regular) | 1.4 | Stat card labels, chart axis labels, badge text, muted captions |
 | Heading | 20px | 600 (semibold) | 1.2 | Page titles ("Dashboard", "Map View", "Audit Log") |
-| Display | 28px | 700 (bold) | 1.1 | Stat card values (camera count, viewer count, bandwidth number) |
+| Display | 28px | 600 (semibold) | 1.1 | Stat card values (camera count, viewer count, bandwidth number) |
+
+Weights limited to 2: 400 (regular) for Body and Label roles, 600 (semibold) for Heading and Display roles. Hierarchy is conveyed through the 4 distinct sizes (12/14/20/28) rather than additional weight variation.
 
 Note: Existing codebase uses `text-sm` (14px), `text-xs` (12px), `text-xl` (20px) Tailwind classes. Map these directly.
 
