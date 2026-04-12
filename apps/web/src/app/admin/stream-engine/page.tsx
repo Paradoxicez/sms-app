@@ -24,6 +24,8 @@ import {
   CardTitle,
   CardDescription,
 } from '@/components/ui/card';
+import { useSrsLogs } from '@/hooks/use-srs-logs';
+import { LogViewer } from '@/components/srs-logs/log-viewer';
 
 interface SystemSettings {
   hlsFragment: number;
@@ -54,14 +56,25 @@ const RECORDING_MODES = [
 ];
 
 export default function StreamEnginePage() {
+  // TODO: In production, derive role from session/auth context
+  const userRole = 'admin';
+  const isAdmin = userRole === 'admin';
+
+  const [logsTabActive, setLogsTabActive] = useState(false);
+  const { logs, connected, clearLogs } = useSrsLogs(logsTabActive && isAdmin, userRole);
+
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-semibold">Stream Engine Settings</h1>
 
-      <Tabs defaultValue="system">
+      <Tabs
+        defaultValue="system"
+        onValueChange={(v) => setLogsTabActive(v === 'logs')}
+      >
         <TabsList>
           <TabsTrigger value="system">System</TabsTrigger>
           <TabsTrigger value="org">Organization Defaults</TabsTrigger>
+          {isAdmin && <TabsTrigger value="logs">Live Logs</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="system">
@@ -70,6 +83,21 @@ export default function StreamEnginePage() {
         <TabsContent value="org">
           <OrgSettingsTab />
         </TabsContent>
+        {isAdmin && (
+          <TabsContent value="logs">
+            <Card className="mt-4">
+              <CardHeader>
+                <CardTitle>SRS Live Logs</CardTitle>
+                <CardDescription>
+                  Real-time log output from the stream engine. Only visible to super admins.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <LogViewer logs={logs} connected={connected} onClear={clearLogs} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
