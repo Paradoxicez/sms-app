@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Play, Square, Loader2, Code2 } from 'lucide-react';
+import { Play, Square, Loader2, Code2, Copy, Clock, Users } from 'lucide-react';
 
 import { apiFetch } from '@/lib/api';
 import { useCameraStatus } from '@/hooks/use-camera-status';
@@ -50,6 +50,9 @@ import { TestConnectionCard } from '../components/test-connection-card';
 import { EmbedCodeDialog } from '../components/embed-code-dialog';
 import { SessionsTable } from '../components/sessions-table';
 import { ResolvedPolicyCard } from '../../policies/components/resolved-policy-card';
+import { AuditLogTable } from '@/components/audit/audit-log-table';
+import type { AuditLog } from '@/components/audit/audit-detail-dialog';
+import { Badge } from '@/components/ui/badge';
 
 type CameraStatus = 'online' | 'offline' | 'degraded' | 'connecting' | 'reconnecting';
 
@@ -116,6 +119,13 @@ export default function CameraDetailPage() {
 
   // Embed dialog
   const [embedOpen, setEmbedOpen] = useState(false);
+
+  // Activity tab (audit log)
+  const [activityEntries, setActivityEntries] = useState<AuditLog[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityHasMore, setActivityHasMore] = useState(false);
+  const activityCursorRef = useRef<string | null>(null);
+  const activityLoadedRef = useRef(false);
 
   // Stream profiles
   const [profiles, setProfiles] = useState<StreamProfile[]>([]);
@@ -228,6 +238,49 @@ export default function CameraDetailPage() {
     }
   }
 
+  const fetchActivity = useCallback(async (cursor?: string) => {
+    setActivityLoading(true);
+    try {
+      const params = new URLSearchParams({
+        resource: 'camera',
+        resourceId: cameraId,
+        take: '20',
+      });
+      if (cursor) params.set('cursor', cursor);
+      const res = await apiFetch<{ items: AuditLog[]; nextCursor: string | null }>(
+        `/api/audit-log?${params.toString()}`,
+      );
+      if (cursor) {
+        setActivityEntries((prev) => [...prev, ...res.items]);
+      } else {
+        setActivityEntries(res.items);
+      }
+      activityCursorRef.current = res.nextCursor;
+      setActivityHasMore(!!res.nextCursor);
+    } catch {
+      // Activity is non-critical
+    } finally {
+      setActivityLoading(false);
+    }
+  }, [cameraId]);
+
+  function handleActivityTabSelect() {
+    if (!activityLoadedRef.current) {
+      activityLoadedRef.current = true;
+      fetchActivity();
+    }
+  }
+
+  function handleActivityLoadMore() {
+    if (activityCursorRef.current) {
+      fetchActivity(activityCursorRef.current);
+    }
+  }
+
+  function handleCopyHlsUrl() {
+    navigator.clipboard.writeText(hlsSrc).catch(() => {});
+  }
+
   const isStreamActive = camera?.status === 'online' || camera?.status === 'connecting';
   const hlsSrc = `${API_BASE}/api/cameras/${cameraId}/preview/playlist.m3u8`;
 
@@ -299,6 +352,22 @@ export default function CameraDetailPage() {
                 <Button
                   variant="outline"
                   size="icon"
+                  onClick={handleCopyHlsUrl}
+                  aria-label="Copy HLS URL"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              }
+            />
+            <TooltipContent>Copy HLS URL</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="outline"
+                  size="icon"
                   onClick={() => setEmbedOpen(true)}
                   aria-label="Embed Code"
                 >
@@ -346,20 +415,35 @@ export default function CameraDetailPage() {
       )}
 
       {/* Tabs */}
-      <Tabs defaultValue="preview">
+      <Tabs defaultValue="preview" onValueChange={(val) => { if (val === 'activity') handleActivityTabSelect(); }}>
         <TabsList>
           <TabsTrigger value="preview">Preview</TabsTrigger>
           <TabsTrigger value="details">Details</TabsTrigger>
           <TabsTrigger value="stream-profile">Stream Profile</TabsTrigger>
-          <TabsTrigger value="logs">Logs</TabsTrigger>
+          <TabsTrigger value="activity">Activity</TabsTrigger>
           <TabsTrigger value="policy">Policy</TabsTrigger>
         </TabsList>
 
-        {/* Preview Tab */}
+        {/* Preview / Overview Tab */}
         <TabsContent value="preview" className="space-y-4">
+          {/* Status card */}
+          <div className="flex items-center gap-4 rounded-lg border p-4">
+            <Badge
+              variant={camera.status === 'online' ? 'default' : camera.status === 'offline' ? 'destructive' : 'secondary'}
+              className="text-sm px-3 py-1 capitalize"
+            >
+              {camera.status}
+            </Badge>
+            {camera.description && (
+              <span className="text-sm text-muted-foreground">{camera.description}</span>
+            )}
+          </div>
+
           {isStreamActive ? (
             <>
-              <HlsPlayer src={hlsSrc} />
+              <div className="max-w-2xl">
+                <HlsPlayer src={hlsSrc} />
+              </div>
               <div className="grid grid-cols-3 gap-4 sm:grid-cols-6">
                 <div>
                   <span className="text-xs text-muted-foreground">Resolution</span>
@@ -392,7 +476,7 @@ export default function CameraDetailPage() {
               </div>
             </>
           ) : (
-            <div className="flex aspect-video items-center justify-center rounded-lg bg-[hsl(0,0%,9%)]">
+            <div className="flex aspect-video max-w-2xl items-center justify-center rounded-lg bg-[hsl(0,0%,9%)]">
               <p className="text-sm text-muted-foreground">
                 Stream not active
               </p>
@@ -531,14 +615,20 @@ export default function CameraDetailPage() {
           </div>
         </TabsContent>
 
-        {/* Logs Tab */}
-        <TabsContent value="logs">
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <p className="text-xl font-semibold text-muted-foreground">No events recorded</p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Events will appear here once the camera starts streaming.
+        {/* Activity Tab */}
+        <TabsContent value="activity" className="space-y-4">
+          <div>
+            <h3 className="mb-1 text-base font-semibold">Camera Activity</h3>
+            <p className="text-sm text-muted-foreground">
+              Recent actions and events for this camera.
             </p>
           </div>
+          <AuditLogTable
+            entries={activityEntries}
+            loading={activityLoading}
+            onLoadMore={handleActivityLoadMore}
+            hasMore={activityHasMore}
+          />
         </TabsContent>
 
         {/* Policy Tab */}
