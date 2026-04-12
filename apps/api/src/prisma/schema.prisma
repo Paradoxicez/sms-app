@@ -406,3 +406,53 @@ model WebhookDelivery {
   @@index([eventType])
   @@index([createdAt])
 }
+
+// ─────────────────────────────────────────────
+// Phase 5: Dashboard & Monitoring
+// ─────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  orgId      String
+  userId     String?
+  action     String   // "create" | "update" | "delete"
+  resource   String   // "camera" | "project" | "site" | "policy" | "streamProfile" | "apiKey" | "webhook" | "user" | "organization" | "settings"
+  resourceId String?
+  method     String   // HTTP method: POST, PUT, PATCH, DELETE
+  path       String   // Request path
+  ip         String?
+  details    Json?    // Sanitized request body
+  createdAt  DateTime @default(now())
+
+  @@index([orgId, createdAt])
+  @@index([orgId, userId])
+  @@index([orgId, resource])
+  @@index([orgId, action])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  orgId     String
+  userId    String
+  type      String   // "camera.online" | "camera.offline" | "camera.degraded" | "camera.reconnecting" | "system.alert"
+  title     String
+  body      String?
+  data      Json?    // { cameraId, previousStatus, etc. }
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read, createdAt])
+  @@index([orgId, createdAt])
+}
+
+model NotificationPreference {
+  id        String   @id @default(uuid())
+  userId    String
+  orgId     String
+  eventType String   // "camera.online" | "camera.offline" | "camera.degraded" | "camera.reconnecting" | "system.alert"
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, orgId, eventType])
+}
