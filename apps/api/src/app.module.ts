@@ -20,6 +20,7 @@ import { PlaybackModule } from './playback/playback.module';
 import { ApiKeysModule } from './api-keys/api-keys.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { AuditModule } from './audit/audit.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { AuditModule } from './audit/audit.module';
     ApiKeysModule,
     WebhooksModule,
     AuditModule,
+    NotificationsModule,
     ThrottlerModule.forRoot({
       throttlers: [
         { name: 'global', ttl: 60000, limit: 100 },
