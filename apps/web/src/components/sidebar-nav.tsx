@@ -19,6 +19,9 @@ import {
   Bell,
   BookOpen,
   ExternalLink,
+  LayoutDashboard,
+  MapPin,
+  FileText,
 } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
@@ -47,6 +50,12 @@ const adminNavItems: NavItem[] = [
   { label: "Stream Profiles", href: "/admin/stream-profiles", icon: SlidersHorizontal },
   { label: "Stream Engine", href: "/admin/stream-engine", icon: Server },
   { label: "Policies", href: "/admin/policies", icon: ShieldCheck },
+];
+
+const monitoringNavItems: NavItem[] = [
+  { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
+  { label: "Map View", href: "/admin/map", icon: MapPin },
+  { label: "Audit Log", href: "/admin/audit-log", icon: FileText },
 ];
 
 const developerNavItems: NavItem[] = [
@@ -94,6 +103,27 @@ function NavContent({ userName, userEmail }: SidebarNavProps) {
       {/* Navigation */}
       <nav className="flex-1 space-y-1 px-3 py-4">
         {adminNavItems.map((item) => {
+          const isActive = pathname.startsWith(item.href);
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                isActive
+                  ? "border-l-[3px] border-primary bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              <Icon className="h-4 w-4" />
+              {item.label}
+            </Link>
+          );
+        })}
+
+        <Separator className="my-2" />
+        <p className="px-3 py-1 text-xs font-medium text-muted-foreground">Monitoring</p>
+        {monitoringNavItems.map((item) => {
           const isActive = pathname.startsWith(item.href);
           const Icon = item.icon;
           return (
