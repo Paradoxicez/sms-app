@@ -110,12 +110,14 @@ Plans:
   3. Admin can view audit log of all user actions with actor, timestamp, IP, and details
   4. Users receive notifications for camera events (online/offline/degraded) and system alerts
   5. Admin can view live SRS stream engine logs in the UI
-**Plans**: TBD
+**Plans**: 5 plans
 
 Plans:
-- [ ] 05-01: TBD
-- [ ] 05-02: TBD
-- [ ] 05-03: TBD
+- [ ] 05-01-PLAN.md -- Prisma schema (AuditLog, Notification, NotificationPreference), RLS, AuditModule, NotificationsModule, DashboardModule
+- [ ] 05-02-PLAN.md -- Frontend deps (Leaflet, chart), sidebar nav Monitoring section, Map View page with markers and HLS popup
+- [ ] 05-03-PLAN.md -- Dashboard page with stat cards, bandwidth/API charts, camera status table, system metrics
+- [ ] 05-04-PLAN.md -- Audit Log page with filters and detail dialog, SRS live log streaming gateway and viewer
+- [ ] 05-05-PLAN.md -- Notification bell/dropdown with real-time delivery, preferences, camera detail page redesign
 **UI hint**: yes
 
 ### Phase 6: SRS Cluster & Scaling
@@ -163,6 +165,6 @@ Note: Phases 5, 6, and 7 depend on Phase 2 (not on each other) and can be parall
 | 2. Stream Engine & Camera Management | 0/6 | Planned | - |
 | 3. Playback & Security | 0/3 | Planned | - |
 | 4. Developer Experience | 0/5 | Planned | - |
-| 5. Dashboard & Monitoring | 0/3 | Not started | - |
+| 5. Dashboard & Monitoring | 0/5 | Planned | - |
 | 6. SRS Cluster & Scaling | 0/2 | Not started | - |
 | 7. Recordings | 0/3 | Not started | - |
