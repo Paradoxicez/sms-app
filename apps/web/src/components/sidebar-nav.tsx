@@ -26,6 +26,7 @@ import {
 
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -90,12 +91,15 @@ function NavContent({ userName, userEmail }: SidebarNavProps) {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Logo */}
-      <div className="flex items-center gap-2 px-6 py-5">
-        <span className="text-xl font-bold text-primary">SMS</span>
-        <span className="rounded bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-          Admin
-        </span>
+      {/* Logo + Notification Bell */}
+      <div className="flex items-center justify-between px-6 py-5">
+        <div className="flex items-center gap-2">
+          <span className="text-xl font-bold text-primary">SMS</span>
+          <span className="rounded bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+            Admin
+          </span>
+        </div>
+        <NotificationBell />
       </div>
 
       <Separator />
@@ -227,7 +231,8 @@ export function SidebarNav({ userName, userEmail }: SidebarNavProps) {
             <NavContent userName={userName} userEmail={userEmail} />
           </SheetContent>
         </Sheet>
-        <span className="ml-3 text-lg font-bold text-primary">SMS</span>
+        <span className="ml-3 flex-1 text-lg font-bold text-primary">SMS</span>
+        <NotificationBell />
       </div>
     </>
   );
