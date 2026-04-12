@@ -84,7 +84,7 @@
 ### Dashboard & Monitoring
 
 - [x] **DASH-01**: Dashboard with camera status summary, bandwidth chart, API usage stats
-- [ ] **DASH-02**: Real-time camera status and viewer count updates via WebSocket
+- [x] **DASH-02**: Real-time camera status and viewer count updates via WebSocket
 - [x] **DASH-03**: Map view showing camera locations with status indicators and click-to-preview
 - [x] **DASH-04**: System metrics display (CPU, memory, storage, SRS node stats via Prometheus)
 - [x] **DASH-05**: Audit log tracking all user actions with actor, timestamp, IP, details
@@ -157,7 +157,7 @@
 | DEV-04 | Phase 4 | Complete |
 | DEV-05 | Phase 4 | Complete |
 | DASH-01 | Phase 5 | Complete |
-| DASH-02 | Phase 5 | Pending |
+| DASH-02 | Phase 5 | Complete |
 | DASH-03 | Phase 5 | Complete |
 | DASH-04 | Phase 5 | Complete |
 | DASH-05 | Phase 5 | Complete |

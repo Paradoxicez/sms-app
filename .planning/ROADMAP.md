@@ -114,7 +114,7 @@ Plans:
 
 Plans:
 - [x] 05-00-PLAN.md -- Wave 0: test stub files for Nyquist compliance (dashboard, audit, notifications, SRS logs)
-- [ ] 05-01-PLAN.md -- Prisma schema (AuditLog, Notification, NotificationPreference), RLS, AuditModule, NotificationsModule, DashboardModule
+- [x] 05-01-PLAN.md -- Prisma schema (AuditLog, Notification, NotificationPreference), RLS, AuditModule, NotificationsModule, DashboardModule
 - [ ] 05-02-PLAN.md -- Frontend deps (Leaflet, chart), sidebar nav Monitoring section, Map View page with markers and HLS popup
 - [ ] 05-03-PLAN.md -- Dashboard page with stat cards, bandwidth/API charts, camera status table, system metrics
 - [ ] 05-04-PLAN.md -- Audit Log page with filters and detail dialog, SRS live log streaming gateway and viewer
