@@ -83,13 +83,13 @@
 
 ### Dashboard & Monitoring
 
-- [ ] **DASH-01**: Dashboard with camera status summary, bandwidth chart, API usage stats
+- [x] **DASH-01**: Dashboard with camera status summary, bandwidth chart, API usage stats
 - [ ] **DASH-02**: Real-time camera status and viewer count updates via WebSocket
-- [ ] **DASH-03**: Map view showing camera locations with status indicators and click-to-preview
-- [ ] **DASH-04**: System metrics display (CPU, memory, storage, SRS node stats via Prometheus)
-- [ ] **DASH-05**: Audit log tracking all user actions with actor, timestamp, IP, details
-- [ ] **DASH-06**: Notification system for camera events and system alerts
-- [ ] **DASH-07**: Live stream engine logs viewable in UI (SRS log stream)
+- [x] **DASH-03**: Map view showing camera locations with status indicators and click-to-preview
+- [x] **DASH-04**: System metrics display (CPU, memory, storage, SRS node stats via Prometheus)
+- [x] **DASH-05**: Audit log tracking all user actions with actor, timestamp, IP, details
+- [x] **DASH-06**: Notification system for camera events and system alerts
+- [x] **DASH-07**: Live stream engine logs viewable in UI (SRS log stream)
 
 ## v2 Requirements
 
@@ -156,13 +156,13 @@
 | DEV-03 | Phase 4 | Complete |
 | DEV-04 | Phase 4 | Complete |
 | DEV-05 | Phase 4 | Complete |
-| DASH-01 | Phase 5 | Pending |
+| DASH-01 | Phase 5 | Complete |
 | DASH-02 | Phase 5 | Pending |
-| DASH-03 | Phase 5 | Pending |
-| DASH-04 | Phase 5 | Pending |
-| DASH-05 | Phase 5 | Pending |
-| DASH-06 | Phase 5 | Pending |
-| DASH-07 | Phase 5 | Pending |
+| DASH-03 | Phase 5 | Complete |
+| DASH-04 | Phase 5 | Complete |
+| DASH-05 | Phase 5 | Complete |
+| DASH-06 | Phase 5 | Complete |
+| DASH-07 | Phase 5 | Complete |
 | CLUSTER-01 | Phase 6 | Pending |
 | CLUSTER-02 | Phase 6 | Pending |
 | CLUSTER-03 | Phase 6 | Pending |
