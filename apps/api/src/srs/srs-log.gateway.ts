@@ -8,6 +8,7 @@ import {
 import { Server, Socket } from 'socket.io';
 import { ChildProcess, spawn } from 'child_process';
 import { createInterface } from 'readline';
+import { getAuth } from '../auth/auth.config';
 
 @WebSocketGateway({
   namespace: '/srs-logs',
@@ -27,9 +28,23 @@ export class SrsLogGateway
     process.env.SRS_LOG_PATH || '/usr/local/srs/objs/srs.log';
 
   async handleConnection(client: Socket) {
-    // D-16: Super admin only check
-    const role = client.handshake.query.role as string;
-    if (role !== 'admin') {
+    // D-16: Super admin only — validate from session, not client query params
+    const headers = new Headers();
+    const rawHeaders = client.handshake.headers;
+    for (const [key, value] of Object.entries(rawHeaders)) {
+      if (typeof value === 'string') {
+        headers.set(key, value);
+      }
+    }
+
+    try {
+      const auth = getAuth();
+      const session = await auth.api.getSession({ headers });
+      if (!session?.user?.role || session.user.role !== 'admin') {
+        client.disconnect(true);
+        return;
+      }
+    } catch {
       client.disconnect(true);
       return;
     }

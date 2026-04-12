@@ -6,6 +6,7 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { getAuth } from '../auth/auth.config';
 
 @WebSocketGateway({
   namespace: '/notifications',
@@ -17,11 +18,30 @@ export class NotificationsGateway
   @WebSocketServer() server!: Server;
   private readonly logger = new Logger(NotificationsGateway.name);
 
-  handleConnection(client: Socket) {
-    const userId = client.handshake.query.userId as string;
-    if (userId) {
+  async handleConnection(client: Socket) {
+    const headers = new Headers();
+    const rawHeaders = client.handshake.headers;
+    for (const [key, value] of Object.entries(rawHeaders)) {
+      if (typeof value === 'string') {
+        headers.set(key, value);
+      }
+    }
+
+    try {
+      const auth = getAuth();
+      const session = await auth.api.getSession({ headers });
+      if (!session?.user?.id) {
+        this.logger.warn(`Unauthenticated WebSocket connection rejected: ${client.id}`);
+        client.disconnect(true);
+        return;
+      }
+
+      const userId = session.user.id;
       client.join(`user:${userId}`);
-      this.logger.log(`Client ${client.id} joined user:${userId}`);
+      this.logger.log(`Client ${client.id} joined user:${userId} (session-verified)`);
+    } catch (err) {
+      this.logger.warn(`Session validation failed for ${client.id}: ${err}`);
+      client.disconnect(true);
     }
   }
 
