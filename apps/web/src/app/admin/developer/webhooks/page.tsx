@@ -48,7 +48,7 @@ interface Webhook {
   name: string;
   url: string;
   events: string[];
-  active: boolean;
+  isActive: boolean;
   createdAt: string;
 }
 
@@ -82,15 +82,15 @@ export default function WebhooksPage() {
     try {
       await apiFetch(`/api/webhooks/${webhook.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ active: !webhook.active }),
+        body: JSON.stringify({ isActive: !webhook.isActive }),
       });
       setWebhooks((prev) =>
         prev.map((w) =>
-          w.id === webhook.id ? { ...w, active: !w.active } : w,
+          w.id === webhook.id ? { ...w, isActive: !w.isActive } : w,
         ),
       );
       toast.success(
-        webhook.active ? "Webhook paused" : "Webhook activated",
+        webhook.isActive ? "Webhook paused" : "Webhook activated",
       );
     } catch {
       toast.error("Failed to update webhook");
@@ -198,7 +198,7 @@ export default function WebhooksPage() {
                   </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <Switch
-                      checked={webhook.active}
+                      checked={webhook.isActive}
                       onCheckedChange={() => handleToggleActive(webhook)}
                     />
                   </TableCell>

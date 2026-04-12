@@ -36,7 +36,7 @@ interface WebhookDetail {
   name: string;
   url: string;
   events: string[];
-  active: boolean;
+  isActive: boolean;
   createdAt: string;
 }
 
@@ -75,11 +75,11 @@ export default function WebhookDetailPage() {
     try {
       await apiFetch(`/api/webhooks/${webhook.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ active: !webhook.active }),
+        body: JSON.stringify({ active: !webhook.isActive }),
       });
-      setWebhook({ ...webhook, active: !webhook.active });
+      setWebhook({ ...webhook, active: !webhook.isActive });
       toast.success(
-        webhook.active ? "Webhook paused" : "Webhook activated",
+        webhook.isActive ? "Webhook paused" : "Webhook activated",
       );
     } catch {
       toast.error("Failed to update webhook");
@@ -169,11 +169,11 @@ export default function WebhookDetailPage() {
               </p>
               <div className="mt-1 flex items-center gap-2">
                 <Switch
-                  checked={webhook.active}
+                  checked={webhook.isActive}
                   onCheckedChange={handleToggleActive}
                 />
                 <span className="text-sm">
-                  {webhook.active ? "Active" : "Paused"}
+                  {webhook.isActive ? "Active" : "Paused"}
                 </span>
               </div>
             </div>
