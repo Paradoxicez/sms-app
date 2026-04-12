@@ -118,7 +118,7 @@ Plans:
 - [x] 05-02-PLAN.md -- Frontend deps (Leaflet, chart), sidebar nav Monitoring section, Map View page with markers and HLS popup
 - [x] 05-03-PLAN.md -- Dashboard page with stat cards, bandwidth/API charts, camera status table, system metrics
 - [x] 05-04-PLAN.md -- Audit Log page with filters and detail dialog, SRS live log streaming gateway and viewer
-- [ ] 05-05-PLAN.md -- Notification bell/dropdown with real-time delivery, preferences, camera detail page redesign
+- [x] 05-05-PLAN.md -- Notification bell/dropdown with real-time delivery, preferences, camera detail page redesign
 **UI hint**: yes
 
 ### Phase 6: SRS Cluster & Scaling
