@@ -19,8 +19,16 @@ export default function MapViewPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await apiFetch<MapCamera[]>('/api/cameras');
-      setCameras(Array.isArray(data) ? data : []);
+      const data = await apiFetch<Array<Record<string, unknown>>>('/api/cameras');
+      const mapped: MapCamera[] = (Array.isArray(data) ? data : []).map((c) => ({
+        id: c.id as string,
+        name: c.name as string,
+        status: c.status as string,
+        latitude: (c.location as { lat?: number } | null)?.lat ?? null,
+        longitude: (c.location as { lng?: number } | null)?.lng ?? null,
+        viewerCount: (c.viewerCount as number) ?? 0,
+      }));
+      setCameras(mapped);
     } catch {
       setError('Could not load cameras. Check your connection and try again.');
     } finally {
