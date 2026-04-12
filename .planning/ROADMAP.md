@@ -110,9 +110,10 @@ Plans:
   3. Admin can view audit log of all user actions with actor, timestamp, IP, and details
   4. Users receive notifications for camera events (online/offline/degraded) and system alerts
   5. Admin can view live SRS stream engine logs in the UI
-**Plans**: 5 plans
+**Plans**: 6 plans
 
 Plans:
+- [ ] 05-00-PLAN.md -- Wave 0: test stub files for Nyquist compliance (dashboard, audit, notifications, SRS logs)
 - [ ] 05-01-PLAN.md -- Prisma schema (AuditLog, Notification, NotificationPreference), RLS, AuditModule, NotificationsModule, DashboardModule
 - [ ] 05-02-PLAN.md -- Frontend deps (Leaflet, chart), sidebar nav Monitoring section, Map View page with markers and HLS popup
 - [ ] 05-03-PLAN.md -- Dashboard page with stat cards, bandwidth/API charts, camera status table, system metrics
