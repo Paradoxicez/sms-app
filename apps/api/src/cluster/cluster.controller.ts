@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuthGuard } from '../auth/guards/auth.guard';
+import { SuperAdminGuard } from '../auth/guards/super-admin.guard';
 import { ClusterService } from './cluster.service';
 import { CreateNodeSchema } from './dto/create-node.dto';
 import { UpdateNodeSchema } from './dto/update-node.dto';
@@ -33,7 +34,7 @@ function serializeNode(node: any) {
 
 @ApiTags('Cluster')
 @Controller('api/cluster')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, SuperAdminGuard)
 export class ClusterController {
   private readonly logger = new Logger(ClusterController.name);
 

@@ -58,11 +58,17 @@ export class ClusterService implements OnModuleInit {
   }
 
   async create(dto: CreateNodeDto) {
+    // T-06-02: Validate connection before persisting node
+    const connectionTest = await this.testConnection(dto.apiUrl, 'EDGE', dto.hlsUrl);
+    if (!connectionTest.success) {
+      this.logger.warn(`Edge node connection test failed for ${dto.apiUrl}: ${connectionTest.error}`);
+    }
+
     return this.prisma.srsNode.create({
       data: {
         name: dto.name,
         role: 'EDGE',
-        status: 'CONNECTING',
+        status: connectionTest.success ? 'CONNECTING' : 'OFFLINE',
         apiUrl: dto.apiUrl,
         hlsUrl: dto.hlsUrl,
         hlsPort: dto.hlsPort ?? 8080,
