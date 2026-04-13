@@ -21,6 +21,73 @@ export class RecordingsService {
     private readonly minioService: MinioService,
   ) {}
 
+  async checkAndAlertStorageQuota(orgId: string): Promise<void> {
+    const quota = await this.checkStorageQuota(orgId);
+
+    if (quota.usagePercent < 80) return;
+
+    // Check if alert was already sent within the last hour to avoid spam
+    const oneHourAgo = new Date();
+    oneHourAgo.setHours(oneHourAgo.getHours() - 1);
+
+    const recentAlert = await this.rawPrisma.notification.findFirst({
+      where: {
+        orgId,
+        type: 'system.alert',
+        title: { contains: 'Storage' },
+        createdAt: { gte: oneHourAgo },
+      },
+    });
+
+    if (recentAlert) return;
+
+    // Get org package for display
+    const org = await this.rawPrisma.organization.findUnique({
+      where: { id: orgId },
+      include: { package: true },
+    });
+    const maxGb = org?.package?.maxStorageGb ?? 0;
+
+    if (quota.usagePercent >= 90) {
+      // Get org admin users for notification
+      const adminMembers = await this.rawPrisma.member.findMany({
+        where: { organizationId: orgId, role: { in: ['owner', 'admin'] } },
+        select: { userId: true },
+      });
+
+      for (const member of adminMembers) {
+        await this.rawPrisma.notification.create({
+          data: {
+            orgId,
+            userId: member.userId,
+            type: 'system.alert',
+            title: 'Storage nearly full',
+            body: `Storage usage is at ${quota.usagePercent}% of your ${maxGb} GB quota. New recordings may be blocked.`,
+            data: { usagePercent: quota.usagePercent, maxStorageGb: maxGb },
+          },
+        });
+      }
+    } else if (quota.usagePercent >= 80) {
+      const adminMembers = await this.rawPrisma.member.findMany({
+        where: { organizationId: orgId, role: { in: ['owner', 'admin'] } },
+        select: { userId: true },
+      });
+
+      for (const member of adminMembers) {
+        await this.rawPrisma.notification.create({
+          data: {
+            orgId,
+            userId: member.userId,
+            type: 'system.alert',
+            title: 'Storage usage high',
+            body: `Storage usage is at ${quota.usagePercent}% of your ${maxGb} GB quota. Consider adjusting retention policies.`,
+            data: { usagePercent: quota.usagePercent, maxStorageGb: maxGb },
+          },
+        });
+      }
+    }
+  }
+
   async startRecording(cameraId: string, orgId: string) {
     // Check camera exists and is online
     const camera = await this.prisma.camera.findUnique({
@@ -180,6 +247,11 @@ export class RecordingsService {
     this.logger.debug(
       `Archived segment: recording=${recordingId}, seq=${data.seqNo}, size=${size}`,
     );
+
+    // Check storage quota and send alerts if needed
+    this.checkAndAlertStorageQuota(orgId).catch((err) => {
+      this.logger.warn(`Failed to check storage quota alert for org=${orgId}: ${(err as Error).message}`);
+    });
   }
 
   async checkStorageQuota(orgId: string): Promise<{
