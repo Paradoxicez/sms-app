@@ -1,7 +1,7 @@
 ---
 phase: 7
 slug: recordings
-status: draft
+status: approved
 shadcn_initialized: true
 preset: base-nova
 created: 2026-04-13
@@ -108,7 +108,7 @@ Added as 6th tab "Recordings" alongside existing tabs: Preview, Details, Stream 
 - Left side: Recording status indicator
   - When not recording: `<Button variant="default">` with `<Circle>` icon -- "Start Recording"
   - When recording: `<Button variant="destructive">` with `<Square>` icon -- "Stop Recording" + pulsing red dot `<Badge>` "REC" with `animate-pulse`
-  - Schedule button: `<Button variant="outline">` with `<Clock>` icon -- "Schedule" opens schedule dialog
+  - Schedule button: `<Button variant="outline">` with `<Clock>` icon -- "Set Schedule" opens schedule dialog
 - Right side: Storage usage inline indicator
   - Text: "42.3 GB / 100 GB used" in Label size (12px)
   - `<Progress>` bar (120px wide, 8px height) with color per storage threshold
@@ -142,7 +142,7 @@ Added as 6th tab "Recordings" alongside existing tabs: Preview, Details, Stream 
 - Duration: "2h 15m" formatted
 - Size: "1.2 GB" formatted
 - Status: `<Badge>` -- "Complete" (green), "Recording" (red pulse), "Processing" (amber)
-- Actions: `<Button variant="ghost" size="icon">` for Download, `<Button variant="ghost" size="icon">` for Delete (trash icon)
+- Actions: `<Button variant="ghost" size="icon" aria-label="Download recording">` for Download, `<Button variant="ghost" size="icon" aria-label="Delete recording">` for Delete (trash icon)
 
 ### B. Recording Schedule Dialog
 
@@ -154,7 +154,7 @@ Added as 6th tab "Recordings" alongside existing tabs: Preview, Details, Stream 
   - For Weekly: Day checkboxes (Mon-Sun) + time range
   - For Custom: List of specific time windows with add/remove
   - Toggle: `<Switch>` "Enable schedule" with label
-- Footer: "Save Schedule" primary button + "Cancel" secondary button
+- Footer: "Save Schedule" primary button + "Discard" secondary button
 - Active schedules listed below form as removable chips/badges
 
 ### C. Retention Settings (within camera Settings tab or as sub-section)
@@ -163,7 +163,7 @@ Added as 6th tab "Recordings" alongside existing tabs: Preview, Details, Stream 
 - `<Select>` for retention period: "7 days", "14 days", "30 days", "60 days", "90 days", "Custom"
 - Custom: `<Input type="number">` with "days" suffix label
 - Muted helper text: "Leave empty to use organization default (currently 30 days)"
-- "Save" button, form state tracked for unsaved changes
+- "Save Retention Policy" button, form state tracked for unsaved changes
 
 ### D. Storage Quota Card (Organization Settings or Dashboard integration)
 
@@ -183,7 +183,7 @@ Added as 6th tab "Recordings" alongside existing tabs: Preview, Details, Stream 
 - Filter bar: `<Select>` for camera, date range picker (two date inputs), `<Select>` for status
 - shadcn `<Table>` with columns: Camera, Date, Time Range, Duration, Size, Status
 - Camera column: camera name as link to camera detail Recordings tab
-- Bulk actions: checkbox column + "Delete Selected" destructive button in toolbar
+- Bulk actions: checkbox column + "Delete Selected Recordings" destructive button in toolbar
 
 ---
 
@@ -193,7 +193,7 @@ Added as 6th tab "Recordings" alongside existing tabs: Preview, Details, Stream 
 |---------|------|
 | Primary CTA | "Start Recording" (begins recording for selected camera) |
 | Stop CTA | "Stop Recording" (stops active recording) |
-| Schedule CTA | "Schedule" (opens recording schedule dialog) |
+| Schedule CTA | "Set Schedule" (opens recording schedule dialog) |
 | Empty state heading (no recordings) | "No recordings yet" |
 | Empty state body (no recordings) | "Start recording to capture footage from this camera. Use the Start Recording button or set up a schedule." |
 | Empty state heading (no recordings for date) | "No recordings for this date" |
@@ -204,7 +204,7 @@ Added as 6th tab "Recordings" alongside existing tabs: Preview, Details, Stream 
 | Error: Playback load failed | "Unable to load recording. The footage may still be processing or the file may be unavailable." |
 | Error: Storage quota exceeded | "Storage quota reached. Delete older recordings or contact your administrator to increase storage limits." |
 | Destructive: Delete recording | "Delete Recording": "This will permanently delete this recording and free up storage space. This action cannot be undone." |
-| Destructive: Delete selected recordings | "Delete Selected": "This will permanently delete the selected recordings. This action cannot be undone." |
+| Destructive: Delete selected recordings | "Delete Selected Recordings": "This will permanently delete the selected recordings. This action cannot be undone." |
 | Destructive: Stop recording | "Stop Recording": "This will stop the current recording. The footage captured so far will be saved." |
 | Storage warning (80%) | "Storage usage is high. Consider adjusting retention policies or deleting old recordings." |
 | Storage critical (90%) | "Storage nearly full. New recordings may be blocked when quota is reached." |
@@ -272,11 +272,11 @@ No third-party registries declared. All components from shadcn official registry
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: PASS
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** approved (2026-04-13, revision 1)
