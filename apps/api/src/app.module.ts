@@ -23,6 +23,7 @@ import { AuditModule } from './audit/audit.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { ClusterModule } from './cluster/cluster.module';
+import { RecordingsModule } from './recordings/recordings.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { ClusterModule } from './cluster/cluster.module';
     NotificationsModule,
     DashboardModule,
     ClusterModule,
+    RecordingsModule,
     ThrottlerModule.forRoot({
       throttlers: [
         { name: 'global', ttl: 60000, limit: 100 },

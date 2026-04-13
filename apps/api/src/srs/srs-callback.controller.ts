@@ -3,6 +3,8 @@ import { SkipThrottle } from '@nestjs/throttler';
 import { StatusService } from '../status/status.service';
 import { StatusGateway } from '../status/status.gateway';
 import { PlaybackService } from '../playback/playback.service';
+import { RecordingsService } from '../recordings/recordings.service';
+import { onHlsCallbackSchema } from '../recordings/dto/on-hls-callback.dto';
 
 @SkipThrottle()
 @Controller('api/srs/callbacks')
@@ -13,6 +15,7 @@ export class SrsCallbackController {
     private readonly statusService: StatusService,
     private readonly statusGateway: StatusGateway,
     private readonly playbackService: PlaybackService,
+    private readonly recordingsService: RecordingsService,
   ) {}
 
   @Post('on-publish')
@@ -96,7 +99,54 @@ export class SrsCallbackController {
 
   @Post('on-hls')
   async onHls(@Body() body: any) {
-    this.logger.debug(`HLS segment: ${JSON.stringify(body)}`);
+    const parsed = onHlsCallbackSchema.safeParse(body);
+    if (!parsed.success) {
+      this.logger.warn(`Invalid on_hls callback: ${JSON.stringify(parsed.error.issues)}`);
+      return { code: 0 };
+    }
+
+    const { orgId, cameraId } = this.parseStreamKey(parsed.data.stream, parsed.data.app);
+    if (!orgId || !cameraId) {
+      return { code: 0 }; // Internal stream, skip
+    }
+
+    try {
+      const recording = await this.recordingsService.getActiveRecording(cameraId, orgId);
+      if (!recording) {
+        return { code: 0 }; // Not recording, skip
+      }
+
+      const quota = await this.recordingsService.checkStorageQuota(orgId);
+      if (!quota.allowed) {
+        this.logger.warn(`Storage quota exceeded for org=${orgId}, skipping archive`);
+        return { code: 0 };
+      }
+
+      // Resolve file path for the API container
+      // SRS sends relative path like ./objs/nginx/html/live/...
+      // Map to the mount point the API container uses
+      const hlsMountPath = process.env.SRS_HLS_PATH || '/srs-hls';
+      const segmentFile = parsed.data.file.replace(/^\.\/objs\/nginx\/html/, hlsMountPath);
+      const m3u8File = parsed.data.m3u8.replace(/^\.\/objs\/nginx\/html/, hlsMountPath);
+
+      // T-07-01: Path validation - reject path traversal
+      if (segmentFile.includes('..') || m3u8File.includes('..')) {
+        this.logger.warn(`Path traversal attempt detected in on_hls callback`);
+        return { code: 0 };
+      }
+
+      await this.recordingsService.archiveSegment(recording.id, orgId, cameraId, {
+        filePath: segmentFile,
+        duration: parsed.data.duration,
+        seqNo: parsed.data.seq_no,
+        url: parsed.data.url,
+        m3u8Path: m3u8File,
+      });
+    } catch (err) {
+      // Fire-and-forget pattern: log error but don't block SRS
+      this.logger.error(`Failed to archive segment: ${(err as Error).message}`, (err as Error).stack);
+    }
+
     return { code: 0 };
   }
 
