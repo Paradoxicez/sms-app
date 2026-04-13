@@ -77,7 +77,7 @@ export default function WebhookDetailPage() {
         method: "PATCH",
         body: JSON.stringify({ active: !webhook.isActive }),
       });
-      setWebhook({ ...webhook, active: !webhook.isActive });
+      setWebhook({ ...webhook, isActive: !webhook.isActive });
       toast.success(
         webhook.isActive ? "Webhook paused" : "Webhook activated",
       );

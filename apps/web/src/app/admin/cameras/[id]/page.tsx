@@ -53,6 +53,7 @@ import { ResolvedPolicyCard } from '../../policies/components/resolved-policy-ca
 import { AuditLogTable } from '@/components/audit/audit-log-table';
 import type { AuditLog } from '@/components/audit/audit-detail-dialog';
 import { Badge } from '@/components/ui/badge';
+import { RecordingsTab } from '../components/recordings-tab';
 
 type CameraStatus = 'online' | 'offline' | 'degraded' | 'connecting' | 'reconnecting';
 
@@ -65,6 +66,9 @@ interface Camera {
   latitude?: number | null;
   longitude?: number | null;
   tags?: string[];
+  isRecording?: boolean;
+  retentionDays?: number | null;
+  orgId?: string;
   needsTranscode?: boolean;
   codecInfo?: {
     video?: string;
@@ -422,6 +426,7 @@ export default function CameraDetailPage() {
           <TabsTrigger value="stream-profile">Stream Profile</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
           <TabsTrigger value="policy">Policy</TabsTrigger>
+          <TabsTrigger value="recordings">Recordings</TabsTrigger>
         </TabsList>
 
         {/* Preview / Overview Tab */}
@@ -639,6 +644,18 @@ export default function CameraDetailPage() {
             <h3 className="mb-4 text-base font-semibold">Playback Sessions</h3>
             <SessionsTable cameraId={cameraId} />
           </div>
+        </TabsContent>
+
+        {/* Recordings Tab */}
+        <TabsContent value="recordings" className="space-y-4">
+          <RecordingsTab
+            camera={{
+              id: camera.id,
+              orgId: camera.orgId ?? '',
+              isRecording: camera.isRecording ?? false,
+              retentionDays: camera.retentionDays ?? null,
+            }}
+          />
         </TabsContent>
       </Tabs>
 
