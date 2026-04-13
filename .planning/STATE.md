@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Phase 6 UI-SPEC approved
-last_updated: "2026-04-13T05:10:29.030Z"
-last_activity: 2026-04-12
+status: executing
+stopped_at: Completed 06-01-PLAN.md
+last_updated: "2026-04-13T06:08:56.843Z"
+last_activity: 2026-04-13
 progress:
   total_phases: 7
   completed_phases: 5
-  total_plans: 26
-  completed_plans: 26
-  percent: 100
+  total_plans: 29
+  completed_plans: 27
+  percent: 93
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-09)
 
 **Core value:** Developers can get a secure HLS playback URL for any registered camera via a single API call, and embed it on their website immediately.
-**Current focus:** Phase 05 — dashboard-monitoring
+**Current focus:** Phase 06 — SRS Cluster & Scaling
 
 ## Current Position
 
-Phase: 6
-Plan: Not started
-Status: Phase complete — ready for verification
-Last activity: 2026-04-12
+Phase: 06 (SRS Cluster & Scaling) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
+Last activity: 2026-04-13
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -80,6 +80,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 05 P03 | 249s | 2 tasks | 7 files |
 | Phase 05 P04 | 284s | 2 tasks | 8 files |
 | Phase 05 P05 | 452s | 2 tasks | 7 files |
+| Phase 06 P01 | 426s | 3 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -136,6 +137,9 @@ Recent decisions affecting current work:
 - [Phase 05]: Socket.IO namespace /srs-logs separate from /camera-status for clean separation; single tail process shared across admin clients
 - [Phase 05]: NotificationBell self-fetches session data for Socket.IO independence from parent props
 - [Phase 05]: Camera detail preserved existing 5-tab structure; Logs tab replaced with Activity tab using AuditLogTable
+- [Phase 06]: SrsNode is system-level (no orgId/RLS) -- cluster management is super admin only
+- [Phase 06]: Tests in tests/cluster/ matching vitest convention; Zod DTOs matching project convention
+- [Phase 06]: Config generation as standalone functions for reuse across ClusterController and SettingsService
 
 ### Pending Todos
 
@@ -149,6 +153,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-13T05:10:29.027Z
-Stopped at: Phase 6 UI-SPEC approved
-Resume file: .planning/phases/06-srs-cluster-scaling/06-UI-SPEC.md
+Last session: 2026-04-13T06:08:56.840Z
+Stopped at: Completed 06-01-PLAN.md
+Resume file: None

@@ -43,9 +43,9 @@
 
 ### SRS Cluster
 
-- [ ] **CLUSTER-01**: Data model supports multiple SRS nodes (origin + edge) with role and status
-- [ ] **CLUSTER-02**: Admin can add/remove SRS edge nodes via web UI
-- [ ] **CLUSTER-03**: Backend auto-generates srs.conf for each node and triggers reload
+- [x] **CLUSTER-01**: Data model supports multiple SRS nodes (origin + edge) with role and status
+- [x] **CLUSTER-02**: Admin can add/remove SRS edge nodes via web UI
+- [x] **CLUSTER-03**: Backend auto-generates srs.conf for each node and triggers reload
 - [ ] **CLUSTER-04**: Load balancing -- playback sessions routed to least-loaded edge node
 - [ ] **CLUSTER-05**: Node health monitoring via SRS `/api/v1/summaries` with auto-failover
 
@@ -163,9 +163,9 @@
 | DASH-05 | Phase 5 | Complete |
 | DASH-06 | Phase 5 | Complete |
 | DASH-07 | Phase 5 | Complete |
-| CLUSTER-01 | Phase 6 | Pending |
-| CLUSTER-02 | Phase 6 | Pending |
-| CLUSTER-03 | Phase 6 | Pending |
+| CLUSTER-01 | Phase 6 | Complete |
+| CLUSTER-02 | Phase 6 | Complete |
+| CLUSTER-03 | Phase 6 | Complete |
 | CLUSTER-04 | Phase 6 | Pending |
 | CLUSTER-05 | Phase 6 | Pending |
 | REC-01 | Phase 7 | Pending |

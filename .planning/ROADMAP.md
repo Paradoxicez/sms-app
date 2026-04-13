@@ -133,7 +133,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 06-01-PLAN.md -- Prisma schema (SrsNode, NodeRole, NodeStatus), ClusterModule CRUD, SrsApiService multi-node refactor, nginx/SRS config generation
+- [x] 06-01-PLAN.md -- Prisma schema (SrsNode, NodeRole, NodeStatus), ClusterModule CRUD, SrsApiService multi-node refactor, nginx/SRS config generation
 - [ ] 06-02-PLAN.md -- Health monitoring via BullMQ (10s interval, 3-miss offline), playback routing to least-loaded edge, settings propagation
 - [ ] 06-03-PLAN.md -- Frontend: Cluster Nodes page with stat cards, node table, add/remove/detail dialogs, Socket.IO real-time updates
 **UI hint**: yes
