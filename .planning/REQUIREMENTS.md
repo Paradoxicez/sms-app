@@ -67,11 +67,11 @@
 
 ### Recordings
 
-- [ ] **REC-01**: Record camera streams via on_hls callback archiving segments to MinIO/S3
-- [ ] **REC-02**: Browse and playback recorded footage with time-range selection
-- [ ] **REC-03**: Start/stop recording per camera
-- [ ] **REC-04**: Configurable retention policies per camera and per plan
-- [ ] **REC-05**: Storage quota enforcement per organization with alerts
+- [x] **REC-01**: Record camera streams via on_hls callback archiving segments to MinIO/S3
+- [x] **REC-02**: Browse and playback recorded footage with time-range selection
+- [x] **REC-03**: Start/stop recording per camera
+- [x] **REC-04**: Configurable retention policies per camera and per plan
+- [x] **REC-05**: Storage quota enforcement per organization with alerts
 
 ### Developer Experience
 
@@ -168,11 +168,11 @@
 | CLUSTER-03 | Phase 6 | Complete |
 | CLUSTER-04 | Phase 6 | Complete |
 | CLUSTER-05 | Phase 6 | Complete |
-| REC-01 | Phase 7 | Pending |
-| REC-02 | Phase 7 | Pending |
-| REC-03 | Phase 7 | Pending |
-| REC-04 | Phase 7 | Pending |
-| REC-05 | Phase 7 | Pending |
+| REC-01 | Phase 7 | Complete |
+| REC-02 | Phase 7 | Complete |
+| REC-03 | Phase 7 | Complete |
+| REC-04 | Phase 7 | Complete |
+| REC-05 | Phase 7 | Complete |
 
 **Coverage:**
 - v1 requirements: 49 total
