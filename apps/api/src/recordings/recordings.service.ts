@@ -227,6 +227,75 @@ export class RecordingsService {
     };
   }
 
+  async getSegment(segmentId: string, orgId: string) {
+    const segment = await this.prisma.recordingSegment.findFirst({
+      where: { id: segmentId, orgId },
+    });
+    if (!segment) {
+      throw new NotFoundException(`Segment ${segmentId} not found`);
+    }
+    return segment;
+  }
+
+  async listSchedules(cameraId: string, orgId: string) {
+    return this.prisma.recordingSchedule.findMany({
+      where: { cameraId, orgId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async createSchedule(orgId: string, data: any) {
+    return this.prisma.recordingSchedule.create({
+      data: {
+        orgId,
+        cameraId: data.cameraId,
+        scheduleType: data.scheduleType,
+        config: data.config,
+        enabled: data.enabled ?? true,
+      },
+    });
+  }
+
+  async updateSchedule(id: string, orgId: string, data: any) {
+    const schedule = await this.prisma.recordingSchedule.findFirst({
+      where: { id, orgId },
+    });
+    if (!schedule) {
+      throw new NotFoundException(`Schedule ${id} not found`);
+    }
+    return this.prisma.recordingSchedule.update({
+      where: { id },
+      data: {
+        ...(data.scheduleType !== undefined && { scheduleType: data.scheduleType }),
+        ...(data.config !== undefined && { config: data.config }),
+        ...(data.enabled !== undefined && { enabled: data.enabled }),
+      },
+    });
+  }
+
+  async deleteSchedule(id: string, orgId: string) {
+    const schedule = await this.prisma.recordingSchedule.findFirst({
+      where: { id, orgId },
+    });
+    if (!schedule) {
+      throw new NotFoundException(`Schedule ${id} not found`);
+    }
+    await this.prisma.recordingSchedule.delete({ where: { id } });
+  }
+
+  async updateRetention(cameraId: string, orgId: string, retentionDays: number | null) {
+    const camera = await this.prisma.camera.findFirst({
+      where: { id: cameraId, orgId },
+    });
+    if (!camera) {
+      throw new NotFoundException(`Camera ${cameraId} not found`);
+    }
+    return this.prisma.camera.update({
+      where: { id: cameraId },
+      data: { retentionDays },
+    });
+  }
+
   async listRecordings(cameraId: string, orgId: string, date?: string) {
     const where: any = { cameraId, orgId };
     if (date) {
