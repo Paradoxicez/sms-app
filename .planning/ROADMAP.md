@@ -122,7 +122,7 @@ Plans:
 **UI hint**: yes
 
 ### Phase 6: SRS Cluster & Scaling
-**Goal**: Platform can scale HLS delivery across multiple SRS nodes with automatic failover
+**Goal**: Platform can scale HLS delivery across multiple nginx caching proxy edge nodes with automatic failover
 **Depends on**: Phase 2
 **Requirements**: CLUSTER-01, CLUSTER-02, CLUSTER-03, CLUSTER-04, CLUSTER-05
 **Success Criteria** (what must be TRUE):
@@ -130,11 +130,12 @@ Plans:
   2. Backend auto-generates srs.conf for each node and triggers config reload without downtime
   3. Playback sessions are routed to the least-loaded edge node automatically
   4. When an edge node goes down, active viewers are automatically failed over to a healthy node
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 06-01: TBD
-- [ ] 06-02: TBD
+- [ ] 06-01-PLAN.md -- Prisma schema (SrsNode, NodeRole, NodeStatus), ClusterModule CRUD, SrsApiService multi-node refactor, nginx/SRS config generation
+- [ ] 06-02-PLAN.md -- Health monitoring via BullMQ (10s interval, 3-miss offline), playback routing to least-loaded edge, settings propagation
+- [ ] 06-03-PLAN.md -- Frontend: Cluster Nodes page with stat cards, node table, add/remove/detail dialogs, Socket.IO real-time updates
 **UI hint**: yes
 
 ### Phase 7: Recordings
@@ -167,5 +168,5 @@ Note: Phases 5, 6, and 7 depend on Phase 2 (not on each other) and can be parall
 | 3. Playback & Security | 0/3 | Planned | - |
 | 4. Developer Experience | 0/5 | Planned | - |
 | 5. Dashboard & Monitoring | 0/5 | Planned | - |
-| 6. SRS Cluster & Scaling | 0/2 | Not started | - |
+| 6. SRS Cluster & Scaling | 0/3 | Planned | - |
 | 7. Recordings | 0/3 | Not started | - |
