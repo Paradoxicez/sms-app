@@ -216,8 +216,12 @@ model Camera {
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
+  retentionDays    Int?     // null = use org default (per D-10)
+  isRecording      Boolean  @default(false)
+
   policy            Policy?
   playbackSessions  PlaybackSession[]
+  recordings        Recording[]
 
   @@index([orgId])
   @@index([siteId])
@@ -251,6 +255,7 @@ model OrgSettings {
   maxReconnectAttempts Int      @default(10)
   autoStartOnBoot      Boolean  @default(false)
   defaultRecordingMode String   @default("none")
+  defaultRetentionDays Int      @default(30)
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
@@ -503,4 +508,64 @@ model SrsNode {
 
   @@index([role])
   @@index([status])
+}
+
+// -----------------------------------------
+// Phase 7: Recordings
+// -----------------------------------------
+
+model Recording {
+  id            String    @id @default(uuid())
+  orgId         String
+  cameraId      String
+  camera        Camera    @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+  status        String    @default("recording") // "recording" | "complete" | "error"
+  startedAt     DateTime  @default(now())
+  stoppedAt     DateTime?
+  totalSize     BigInt    @default(0)       // bytes
+  totalDuration Float     @default(0)       // seconds
+  initSegment   String?                     // MinIO object path to fMP4 init segment
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  segments      RecordingSegment[]
+
+  @@index([orgId])
+  @@index([cameraId])
+  @@index([orgId, cameraId, startedAt])
+  @@index([status])
+}
+
+model RecordingSegment {
+  id           String    @id @default(uuid())
+  orgId        String
+  recordingId  String
+  recording    Recording @relation(fields: [recordingId], references: [id], onDelete: Cascade)
+  cameraId     String
+  objectPath   String    // MinIO path: {cameraId}/{YYYY-MM-DD}/{HH-MM-SS}_{seq_no}.m4s
+  duration     Float     // seconds
+  size         BigInt    // bytes
+  seqNo        Int
+  timestamp    DateTime  // actual time of segment
+  createdAt    DateTime  @default(now())
+
+  @@index([orgId])
+  @@index([recordingId])
+  @@index([cameraId, timestamp])
+  @@index([orgId, cameraId, timestamp])
+}
+
+model RecordingSchedule {
+  id           String    @id @default(uuid())
+  orgId        String
+  cameraId     String
+  scheduleType String    // "daily" | "weekly" | "custom"
+  config       Json      // { startTime: "08:00", endTime: "18:00", days?: number[] }
+  enabled      Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([orgId])
+  @@index([cameraId])
+  @@index([enabled])
 }

@@ -29,6 +29,7 @@
     "ioredis": "^5.10.1",
     "jose": "^6.2.2",
     "jsonwebtoken": "^9.0.3",
+    "minio": "^8.0.7",
     "nestjs-cls": "^6.2.0",
     "prisma": "^6.19.3",
     "reflect-metadata": "^0.2.0",

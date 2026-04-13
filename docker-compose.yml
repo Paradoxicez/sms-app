@@ -40,9 +40,29 @@ services:
     volumes:
       - ./config/srs.conf:/usr/local/srs/conf/srs.conf
       - srs_data:/usr/local/srs/objs
+      - srs_hls:/usr/local/srs/objs/nginx/html
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:1985/api/v1/versions"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sms-network
+
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -56,3 +76,5 @@ networks:
 volumes:
   postgres_data:
   srs_data:
+  minio_data:
+  srs_hls:
