@@ -151,7 +151,7 @@ Plans:
 
 Plans:
 - [x] 07-00-PLAN.md -- Wave 0: test stub files for Nyquist compliance (archive, manifest, lifecycle, retention, quota, schedule)
-- [ ] 07-01-PLAN.md -- Docker Compose MinIO, Prisma schema (Recording, RecordingSegment, RecordingSchedule), MinioService, RecordingsService start/stop/archive, on_hls callback wiring
+- [x] 07-01-PLAN.md -- Docker Compose MinIO, Prisma schema (Recording, RecordingSegment, RecordingSchedule), MinioService, RecordingsService start/stop/archive, on_hls callback wiring
 - [ ] 07-02-PLAN.md -- ManifestService dynamic m3u8 generation, RetentionProcessor hourly cleanup, ScheduleProcessor BullMQ, storage quota alerts
 - [ ] 07-03-PLAN.md -- Frontend: Recordings tab on camera detail (calendar, timeline, player, controls), schedule dialog, retention settings, recordings admin page, sidebar nav
 **UI hint**: yes
