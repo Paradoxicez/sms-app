@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 06-01-PLAN.md
-last_updated: "2026-04-13T06:08:56.843Z"
+stopped_at: Completed 06-02-PLAN.md
+last_updated: "2026-04-13T06:17:04.086Z"
 last_activity: 2026-04-13
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 29
-  completed_plans: 27
-  percent: 93
+  completed_plans: 28
+  percent: 97
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-09)
 ## Current Position
 
 Phase: 06 (SRS Cluster & Scaling) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-04-13
 
@@ -81,6 +81,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 05 P04 | 284s | 2 tasks | 8 files |
 | Phase 05 P05 | 452s | 2 tasks | 7 files |
 | Phase 06 P01 | 426s | 3 tasks | 12 files |
+| Phase 06 P02 | 316s | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -140,6 +141,9 @@ Recent decisions affecting current work:
 - [Phase 06]: SrsNode is system-level (no orgId/RLS) -- cluster management is super admin only
 - [Phase 06]: Tests in tests/cluster/ matching vitest convention; Zod DTOs matching project convention
 - [Phase 06]: Config generation as standalone functions for reuse across ClusterController and SettingsService
+- [Phase 06]: BullMQ repeatable jobs for 10s health checks with per-node scheduling
+- [Phase 06]: Edge routing fallback: getLeastLoadedEdge() returns null -> use origin URL
+- [Phase 06]: Socket.IO /cluster-status namespace separate from /camera-status for admin broadcast
 
 ### Pending Todos
 
@@ -153,6 +157,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-13T06:08:56.840Z
-Stopped at: Completed 06-01-PLAN.md
+Last session: 2026-04-13T06:17:04.083Z
+Stopped at: Completed 06-02-PLAN.md
 Resume file: None
