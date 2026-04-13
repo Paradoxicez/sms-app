@@ -10,6 +10,7 @@ import { randomBytes } from 'crypto';
 import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
 import { PoliciesService } from '../policies/policies.service';
 import { StatusService } from '../status/status.service';
+import { ClusterService } from '../cluster/cluster.service';
 
 @Injectable()
 export class PlaybackService {
@@ -20,6 +21,7 @@ export class PlaybackService {
     @Inject(TENANCY_CLIENT) private readonly prisma: any,
     private readonly policiesService: PoliciesService,
     private readonly statusService: StatusService,
+    private readonly clusterService: ClusterService,
   ) {
     const secret = process.env.JWT_PLAYBACK_SECRET;
     if (secret) {
@@ -91,8 +93,12 @@ export class PlaybackService {
       { algorithm: 'HS256', expiresIn: resolved.ttlSeconds },
     );
 
-    // 6. Compute hlsUrl and update session
-    const hlsUrl = `http://srs:8080/live/${orgId}/${cameraId}.m3u8?token=${token}`;
+    // 6. Select least-loaded edge node for HLS delivery (per D-09, D-10, D-11)
+    const edgeNode = await this.clusterService.getLeastLoadedEdge();
+    const hlsBase = edgeNode
+      ? `${edgeNode.hlsUrl}/live/${orgId}/${cameraId}.m3u8`
+      : `http://srs:8080/live/${orgId}/${cameraId}.m3u8`;
+    const hlsUrl = `${hlsBase}?token=${token}`;
 
     const updated = await this.prisma.playbackSession.update({
       where: { id: session.id },

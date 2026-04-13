@@ -122,4 +122,10 @@ export class ClusterService implements OnModuleInit {
       orderBy: { viewers: 'asc' },
     });
   }
+
+  async incrementConfigVersion(): Promise<void> {
+    await this.prisma.srsNode.updateMany({
+      data: { configVersion: { increment: 1 } },
+    });
+  }
 }

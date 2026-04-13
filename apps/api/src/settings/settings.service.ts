@@ -3,6 +3,7 @@ import { writeFileSync } from 'fs';
 import { join } from 'path';
 import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
 import { SrsApiService } from '../srs/srs-api.service';
+import { ClusterService } from '../cluster/cluster.service';
 import { UpdateSystemSettingsDto } from './dto/update-system-settings.dto';
 import { UpdateOrgSettingsDto } from './dto/update-org-settings.dto';
 
@@ -22,6 +23,7 @@ export class SettingsService {
   constructor(
     @Inject(TENANCY_CLIENT) private readonly prisma: any,
     private readonly srsApiService: SrsApiService,
+    private readonly clusterService: ClusterService,
   ) {}
 
   // ─── System Settings ───────────────────────────
@@ -147,11 +149,30 @@ ${hlsKeysBlock}    }
     writeFileSync(configPath, config, 'utf-8');
     this.logger.log(`srs.conf regenerated at ${configPath}`);
 
+    // Reload origin SRS
     try {
       await this.srsApiService.reloadConfig();
-      this.logger.log('SRS configuration reloaded successfully');
+      this.logger.log('SRS origin configuration reloaded successfully');
     } catch (error) {
-      this.logger.warn('Failed to reload SRS config (SRS may not be running)', error);
+      this.logger.warn('Failed to reload SRS origin config (SRS may not be running)', error);
+    }
+
+    // Propagate config change to all edge nodes (per D-07)
+    try {
+      const edges = await this.clusterService.getOnlineEdges();
+      for (const edge of edges) {
+        try {
+          // Edge nginx proxies to origin -- config changes affect origin only.
+          // Log that edge will pick up changes via origin.
+          this.logger.log(`Edge node ${edge.name} will pick up config changes via origin`);
+        } catch (err) {
+          this.logger.warn(`Failed to notify edge ${edge.name}`, err);
+        }
+      }
+      // Increment configVersion on all nodes to signal config change
+      await this.clusterService.incrementConfigVersion();
+    } catch (error) {
+      this.logger.warn('Failed to propagate config to edges', error);
     }
   }
 }
