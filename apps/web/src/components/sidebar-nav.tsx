@@ -23,6 +23,7 @@ import {
   LayoutDashboard,
   MapPin,
   FileText,
+  Film,
 } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
@@ -59,6 +60,7 @@ const monitoringNavItems: NavItem[] = [
   { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
   { label: "Map View", href: "/admin/map", icon: MapPin },
   { label: "Audit Log", href: "/admin/audit-log", icon: FileText },
+  { label: "Recordings", href: "/admin/recordings", icon: Film },
 ];
 
 const developerNavItems: NavItem[] = [

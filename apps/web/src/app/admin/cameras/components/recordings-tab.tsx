@@ -37,6 +37,8 @@ import {
 import { HlsPlayer } from './hls-player';
 import { TimelineBar } from './timeline-bar';
 import { RecordingControls } from './recording-controls';
+import { ScheduleDialog } from './schedule-dialog';
+import { RetentionSettings } from './retention-settings';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
 
@@ -367,10 +369,20 @@ export function RecordingsTab({ camera }: RecordingsTabProps) {
         </Table>
       )}
 
-      {/* Schedule dialog slot -- wired in Task 2 */}
-      {scheduleOpen && (
-        <div />
-      )}
+      {/* Retention Settings */}
+      <RetentionSettings
+        cameraId={camera.id}
+        currentRetentionDays={camera.retentionDays}
+        orgDefaultDays={30}
+      />
+
+      {/* Schedule Dialog */}
+      <ScheduleDialog
+        cameraId={camera.id}
+        open={scheduleOpen}
+        onOpenChange={setScheduleOpen}
+        onSaved={handleRecordingChange}
+      />
 
       {/* Delete confirmation */}
       <AlertDialog
