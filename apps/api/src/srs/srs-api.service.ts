@@ -6,28 +6,33 @@ export class SrsApiService {
   private readonly baseUrl =
     process.env.SRS_API_URL || 'http://localhost:1985';
 
-  async getVersions(): Promise<any> {
-    const res = await fetch(`${this.baseUrl}/api/v1/versions`);
+  async getVersions(nodeApiUrl?: string): Promise<any> {
+    const url = nodeApiUrl || this.baseUrl;
+    const res = await fetch(`${url}/api/v1/versions`);
     return res.json();
   }
 
-  async getStreams(): Promise<any> {
-    const res = await fetch(`${this.baseUrl}/api/v1/streams`);
+  async getStreams(nodeApiUrl?: string): Promise<any> {
+    const url = nodeApiUrl || this.baseUrl;
+    const res = await fetch(`${url}/api/v1/streams`);
     return res.json();
   }
 
-  async getSummaries(): Promise<any> {
-    const res = await fetch(`${this.baseUrl}/api/v1/summaries`);
+  async getSummaries(nodeApiUrl?: string): Promise<any> {
+    const url = nodeApiUrl || this.baseUrl;
+    const res = await fetch(`${url}/api/v1/summaries`);
     return res.json();
   }
 
-  async getClients(): Promise<any> {
-    const res = await fetch(`${this.baseUrl}/api/v1/clients`);
+  async getClients(nodeApiUrl?: string): Promise<any> {
+    const url = nodeApiUrl || this.baseUrl;
+    const res = await fetch(`${url}/api/v1/clients`);
     return res.json();
   }
 
-  async reloadConfig(): Promise<void> {
-    await fetch(`${this.baseUrl}/api/v1/raw?rpc=reload`);
-    this.logger.log('SRS configuration reloaded');
+  async reloadConfig(nodeApiUrl?: string): Promise<void> {
+    const url = nodeApiUrl || this.baseUrl;
+    await fetch(`${url}/api/v1/raw?rpc=reload`);
+    this.logger.log(`SRS configuration reloaded on ${url}`);
   }
 }

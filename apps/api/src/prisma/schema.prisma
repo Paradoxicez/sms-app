@@ -456,3 +456,51 @@ model NotificationPreference {
 
   @@unique([userId, orgId, eventType])
 }
+
+// ─────────────────────────────────────────────
+// Phase 6: SRS Cluster & Scaling
+// ─────────────────────────────────────────────
+
+enum NodeRole {
+  ORIGIN
+  EDGE
+}
+
+enum NodeStatus {
+  ONLINE
+  OFFLINE
+  DEGRADED
+  CONNECTING
+}
+
+model SrsNode {
+  id            String     @id @default(uuid())
+  name          String
+  role          NodeRole
+  status        NodeStatus @default(CONNECTING)
+  apiUrl        String     // SRS API URL for origin (http://srs:1985), nginx status URL for edge
+  hlsUrl        String     // HLS endpoint URL (http://srs:8080 for origin, nginx port for edge)
+  hlsPort       Int        @default(8080)
+
+  // Health metrics (updated by health check job)
+  cpu           Float?
+  memory        Float?
+  bandwidth     BigInt?    @default(0)
+  viewers       Int        @default(0)
+  srsVersion    String?
+  uptime        Int?       // seconds
+
+  // Health check tracking
+  missedChecks  Int        @default(0)
+  lastHealthAt  DateTime?
+  configVersion Int        @default(0)
+
+  isLocal       Boolean    @default(true)  // Docker container vs remote
+  metadata      Json?
+
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([role])
+  @@index([status])
+}

@@ -22,6 +22,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
 import { AuditModule } from './audit/audit.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { ClusterModule } from './cluster/cluster.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     AuditModule,
     NotificationsModule,
     DashboardModule,
+    ClusterModule,
     ThrottlerModule.forRoot({
       throttlers: [
         { name: 'global', ttl: 60000, limit: 100 },
