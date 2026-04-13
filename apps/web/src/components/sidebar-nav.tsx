@@ -13,6 +13,7 @@ import {
   Camera,
   SlidersHorizontal,
   Server,
+  Network,
   ShieldCheck,
   Rocket,
   Key,
@@ -50,6 +51,7 @@ const adminNavItems: NavItem[] = [
   { label: "Cameras", href: "/admin/cameras", icon: Camera },
   { label: "Stream Profiles", href: "/admin/stream-profiles", icon: SlidersHorizontal },
   { label: "Stream Engine", href: "/admin/stream-engine", icon: Server },
+  { label: "Cluster Nodes", href: "/admin/cluster", icon: Network },
   { label: "Policies", href: "/admin/policies", icon: ShieldCheck },
 ];
 
