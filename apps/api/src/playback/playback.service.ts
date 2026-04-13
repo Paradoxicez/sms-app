@@ -4,6 +4,7 @@ import {
   Logger,
   ForbiddenException,
   NotFoundException,
+  forwardRef,
 } from '@nestjs/common';
 import * as jwt from 'jsonwebtoken';
 import { randomBytes } from 'crypto';
@@ -21,7 +22,7 @@ export class PlaybackService {
     @Inject(TENANCY_CLIENT) private readonly prisma: any,
     private readonly policiesService: PoliciesService,
     private readonly statusService: StatusService,
-    private readonly clusterService: ClusterService,
+    @Inject(forwardRef(() => ClusterService)) private readonly clusterService: ClusterService,
   ) {
     const secret = process.env.JWT_PLAYBACK_SECRET;
     if (secret) {

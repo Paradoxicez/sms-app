@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { PrismaModule } from '../prisma/prisma.module';
 import { SrsModule } from '../srs/srs.module';
@@ -11,7 +11,7 @@ import { ClusterGateway } from './cluster.gateway';
 @Module({
   imports: [
     PrismaModule,
-    SrsModule,
+    forwardRef(() => SrsModule),
     BullModule.registerQueue({ name: 'cluster-health' }),
   ],
   controllers: [ClusterController],

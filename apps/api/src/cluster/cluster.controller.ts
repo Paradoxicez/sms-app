@@ -22,6 +22,15 @@ import { SrsApiService } from '../srs/srs-api.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { Request } from 'express';
 
+/** Convert BigInt fields to Number for JSON serialization */
+function serializeNode(node: any) {
+  if (!node) return node;
+  return {
+    ...node,
+    bandwidth: node.bandwidth != null ? Number(node.bandwidth) : null,
+  };
+}
+
 @ApiTags('Cluster')
 @Controller('api/cluster')
 @UseGuards(AuthGuard)
@@ -38,7 +47,8 @@ export class ClusterController {
   @ApiOperation({ summary: 'List all cluster nodes' })
   @ApiResponse({ status: 200, description: 'Array of SrsNode records' })
   async findAll() {
-    return this.clusterService.findAll();
+    const nodes = await this.clusterService.findAll();
+    return nodes.map(serializeNode);
   }
 
   @Get('nodes/:id')
@@ -46,7 +56,7 @@ export class ClusterController {
   @ApiResponse({ status: 200, description: 'SrsNode record' })
   @ApiResponse({ status: 404, description: 'Node not found' })
   async findOne(@Param('id') id: string) {
-    return this.clusterService.findOne(id);
+    return serializeNode(await this.clusterService.findOne(id));
   }
 
   @Post('nodes')
@@ -56,7 +66,7 @@ export class ClusterController {
   async create(@Req() req: Request) {
     const parsed = CreateNodeSchema.safeParse(req.body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
-    return this.clusterService.create(parsed.data);
+    return serializeNode(await this.clusterService.create(parsed.data));
   }
 
   @Patch('nodes/:id')
@@ -65,7 +75,7 @@ export class ClusterController {
   async update(@Param('id') id: string, @Req() req: Request) {
     const parsed = UpdateNodeSchema.safeParse(req.body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
-    return this.clusterService.update(id, parsed.data);
+    return serializeNode(await this.clusterService.update(id, parsed.data));
   }
 
   @Delete('nodes/:id')
