@@ -147,12 +147,13 @@ Plans:
   2. User can browse recorded footage with time-range selection and play it back in the browser
   3. Retention policies auto-delete recordings older than the configured period per camera and per plan
   4. Storage quota is enforced per organization with alerts at threshold levels
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 07-01: TBD
-- [ ] 07-02: TBD
-- [ ] 07-03: TBD
+- [ ] 07-00-PLAN.md -- Wave 0: test stub files for Nyquist compliance (archive, manifest, lifecycle, retention, quota, schedule)
+- [ ] 07-01-PLAN.md -- Docker Compose MinIO, Prisma schema (Recording, RecordingSegment, RecordingSchedule), MinioService, RecordingsService start/stop/archive, on_hls callback wiring
+- [ ] 07-02-PLAN.md -- ManifestService dynamic m3u8 generation, RetentionProcessor hourly cleanup, ScheduleProcessor BullMQ, storage quota alerts
+- [ ] 07-03-PLAN.md -- Frontend: Recordings tab on camera detail (calendar, timeline, player, controls), schedule dialog, retention settings, recordings admin page, sidebar nav
 **UI hint**: yes
 
 ## Progress
@@ -169,4 +170,4 @@ Note: Phases 5, 6, and 7 depend on Phase 2 (not on each other) and can be parall
 | 4. Developer Experience | 0/5 | Planned | - |
 | 5. Dashboard & Monitoring | 0/5 | Planned | - |
 | 6. SRS Cluster & Scaling | 0/3 | Planned | - |
-| 7. Recordings | 0/3 | Not started | - |
+| 7. Recordings | 0/4 | Planned | - |
