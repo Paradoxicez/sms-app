@@ -3,8 +3,10 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Play, Square, Loader2, Code2, Copy, Clock, Users } from 'lucide-react';
+import { Play, Square, Loader2, Code2, Copy, Clock, Users, Trash2 } from 'lucide-react';
 
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
 import { useCameraStatus } from '@/hooks/use-camera-status';
 import { Button } from '@/components/ui/button';
@@ -108,9 +110,13 @@ export default function CameraDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const router = useRouter();
+
   // Stream control
   const [streamAction, setStreamAction] = useState<'idle' | 'starting' | 'stopping'>('idle');
   const [stopDialogOpen, setStopDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Edit form
   const [editName, setEditName] = useState('');
@@ -199,6 +205,18 @@ export default function CameraDetailPage() {
       setError('Failed to stop stream.');
     } finally {
       setStreamAction('idle');
+    }
+  }
+
+  async function handleDeleteCamera() {
+    setDeleting(true);
+    try {
+      await apiFetch(`/api/cameras/${cameraId}`, { method: 'DELETE' });
+      toast.success('Camera deleted');
+      router.push('/admin/cameras');
+    } catch {
+      toast.error('Failed to delete camera');
+      setDeleting(false);
     }
   }
 
@@ -380,6 +398,23 @@ export default function CameraDetailPage() {
               }
             />
             <TooltipContent>Embed Code</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setDeleteDialogOpen(true)}
+                  aria-label="Delete Camera"
+                  className="border-destructive text-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              }
+            />
+            <TooltipContent>Delete Camera</TooltipContent>
           </Tooltip>
 
         {isStreamActive || camera.status === 'reconnecting' ? (
@@ -664,6 +699,28 @@ export default function CameraDetailPage() {
         open={embedOpen}
         onOpenChange={setEmbedOpen}
       />
+
+      {/* Delete Camera AlertDialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Camera</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete &quot;{camera.name}&quot; and all associated recordings. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteCamera}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? 'Deleting...' : 'Delete Camera'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Stop Stream AlertDialog */}
       <AlertDialog open={stopDialogOpen} onOpenChange={setStopDialogOpen}>
