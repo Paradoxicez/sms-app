@@ -41,20 +41,24 @@ interface OrgTableProps {
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3003";
 
 export function OrgTable({ organizations, isLoading, onRefetch, onEdit }: OrgTableProps) {
-  async function handleDeactivate(orgId: string) {
+  async function handleToggleActive(org: Organization) {
+    const newActive = !org.isActive;
+    const action = newActive ? "activate" : "deactivate";
     try {
       const res = await fetch(
-        `${API_URL}/api/admin/organizations/${orgId}/deactivate`,
+        `${API_URL}/api/admin/organizations/${org.id}`,
         {
           method: "PATCH",
           credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ isActive: newActive }),
         }
       );
-      if (!res.ok) throw new Error("Failed to deactivate organization");
-      toast.success("Organization deactivated");
+      if (!res.ok) throw new Error(`Failed to ${action} organization`);
+      toast.success(`Organization ${action}d`);
       onRefetch();
     } catch {
-      toast.error("Failed to deactivate organization");
+      toast.error(`Failed to ${action} organization`);
     }
   }
 
@@ -130,12 +134,20 @@ export function OrgTable({ organizations, isLoading, onRefetch, onEdit }: OrgTab
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={() => onEdit?.(org)}>Edit</DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="text-destructive"
-                    onClick={() => handleDeactivate(org.id)}
-                  >
-                    Deactivate
-                  </DropdownMenuItem>
+                  {org.isActive ? (
+                    <DropdownMenuItem
+                      className="text-destructive"
+                      onClick={() => handleToggleActive(org)}
+                    >
+                      Deactivate
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem
+                      onClick={() => handleToggleActive(org)}
+                    >
+                      Activate
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </TableCell>

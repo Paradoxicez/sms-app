@@ -32,19 +32,21 @@ export default function PackagesPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingPackage, setEditingPackage] = useState<PackageItem | null>(null);
 
-  async function handleDeactivate(pkg: PackageItem) {
+  async function handleToggleActive(pkg: PackageItem) {
+    const newActive = !pkg.isActive;
+    const action = newActive ? "activate" : "deactivate";
     try {
       const res = await fetch(`${API_URL}/api/admin/packages/${pkg.id}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isActive: false }),
+        body: JSON.stringify({ isActive: newActive }),
       });
-      if (!res.ok) throw new Error("Failed to deactivate package");
-      toast.success("Package deactivated");
+      if (!res.ok) throw new Error(`Failed to ${action} package`);
+      toast.success(`Package ${action}d`);
       fetchPackages();
     } catch {
-      toast.error("Failed to deactivate package");
+      toast.error(`Failed to ${action} package`);
     }
   }
 
@@ -105,7 +107,7 @@ export default function PackagesPage() {
           packages={packages}
           isLoading={isLoading}
           onEdit={(pkg) => { setEditingPackage(pkg); setEditDialogOpen(true); }}
-          onDeactivate={handleDeactivate}
+          onToggleActive={handleToggleActive}
         />
       )}
 

@@ -34,10 +34,10 @@ interface PackageTableProps {
   packages: PackageItem[];
   isLoading: boolean;
   onEdit?: (pkg: PackageItem) => void;
-  onDeactivate?: (pkg: PackageItem) => void;
+  onToggleActive?: (pkg: PackageItem) => void;
 }
 
-export function PackageTable({ packages, isLoading, onEdit, onDeactivate }: PackageTableProps) {
+export function PackageTable({ packages, isLoading, onEdit, onToggleActive }: PackageTableProps) {
   if (isLoading) {
     return (
       <Table>
@@ -110,12 +110,20 @@ export function PackageTable({ packages, isLoading, onEdit, onDeactivate }: Pack
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={() => onEdit?.(pkg)}>Edit</DropdownMenuItem>
-                    <DropdownMenuItem
-                      className="text-destructive"
-                      onClick={() => onDeactivate?.(pkg)}
-                    >
-                      Deactivate
-                    </DropdownMenuItem>
+                    {pkg.isActive ? (
+                      <DropdownMenuItem
+                        className="text-destructive"
+                        onClick={() => onToggleActive?.(pkg)}
+                      >
+                        Deactivate
+                      </DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuItem
+                        onClick={() => onToggleActive?.(pkg)}
+                      >
+                        Activate
+                      </DropdownMenuItem>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </TableCell>

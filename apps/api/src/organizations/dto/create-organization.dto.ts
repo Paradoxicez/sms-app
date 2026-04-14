@@ -8,6 +8,8 @@ export const CreateOrganizationSchema = z.object({
 
 export type CreateOrganizationDto = z.infer<typeof CreateOrganizationSchema>;
 
-export const UpdateOrganizationSchema = CreateOrganizationSchema.partial();
+export const UpdateOrganizationSchema = CreateOrganizationSchema.partial().extend({
+  isActive: z.boolean().optional(),
+});
 
 export type UpdateOrganizationDto = z.infer<typeof UpdateOrganizationSchema>;
