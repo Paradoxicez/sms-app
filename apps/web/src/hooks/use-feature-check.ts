@@ -28,10 +28,10 @@ export function useFeatureCheck(featureKey: string): FeatureCheckResult {
           setEnabled(data.enabled);
         }
       } catch {
-        // If feature check fails (e.g., endpoint not available), default to enabled
-        // This prevents blocking the UI when the feature system is not yet deployed
+        // If feature check fails, default to disabled to prevent users hitting 403s
+        // The /api/features/check endpoint should be available; errors indicate real issues
         if (!cancelled) {
-          setEnabled(true);
+          setEnabled(false);
         }
       } finally {
         if (!cancelled) {

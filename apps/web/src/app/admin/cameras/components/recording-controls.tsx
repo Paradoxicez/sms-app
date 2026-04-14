@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { Circle, Square, Clock, Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -54,8 +55,8 @@ export function RecordingControls({
     try {
       await startRecording(cameraId);
       onRecordingChange();
-    } catch {
-      // Error handled by caller
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to start recording');
     } finally {
       setLoading(false);
     }
@@ -67,8 +68,8 @@ export function RecordingControls({
     try {
       await stopRecording(cameraId);
       onRecordingChange();
-    } catch {
-      // Error handled by caller
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to stop recording');
     } finally {
       setLoading(false);
     }

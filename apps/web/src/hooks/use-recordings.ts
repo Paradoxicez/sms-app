@@ -167,8 +167,21 @@ export function useStorageQuota() {
 
   const fetch = useCallback(async () => {
     try {
-      const data = await apiFetch<StorageQuota>('/api/recordings/storage');
-      setQuota(data);
+      const raw = await apiFetch<{
+        usageBytes: string;
+        limitBytes: string;
+        usagePercent: number;
+        allowed: boolean;
+      }>('/api/recordings/storage');
+      const usedBytes = Number(raw.usageBytes);
+      const limitBytes = Number(raw.limitBytes);
+      setQuota({
+        usedBytes,
+        limitBytes,
+        usedGb: usedBytes / (1024 * 1024 * 1024),
+        limitGb: limitBytes / (1024 * 1024 * 1024),
+        percentage: raw.usagePercent,
+      });
     } catch {
       // Non-critical
     } finally {
