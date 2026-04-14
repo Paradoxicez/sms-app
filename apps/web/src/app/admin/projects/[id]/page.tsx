@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Plus, MapPin, MoreHorizontal } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -135,7 +136,7 @@ export default function ProjectDetailPage() {
       setCreateOpen(false);
       fetchData();
     } catch {
-      setError('Failed to create site.');
+      toast.error('Failed to create site.');
     } finally {
       setCreating(false);
     }
@@ -162,7 +163,7 @@ export default function ProjectDetailPage() {
       setEditTarget(null);
       fetchData();
     } catch {
-      setError('Failed to update site.');
+      toast.error('Failed to update site.');
     } finally {
       setSavingSite(false);
     }
@@ -175,7 +176,7 @@ export default function ProjectDetailPage() {
       setDeleteTarget(null);
       fetchData();
     } catch {
-      setError('Failed to delete site.');
+      toast.error('Failed to delete site.');
     }
   }
 

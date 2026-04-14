@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { Plus, FolderTree, MoreHorizontal } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -103,7 +104,7 @@ export default function ProjectsPage() {
       setCreateOpen(false);
       fetchProjects();
     } catch {
-      setError('Failed to create project.');
+      toast.error('Failed to create project.');
     } finally {
       setCreating(false);
     }
@@ -130,7 +131,7 @@ export default function ProjectsPage() {
       setEditTarget(null);
       fetchProjects();
     } catch {
-      setError('Failed to update project.');
+      toast.error('Failed to update project.');
     } finally {
       setSaving(false);
     }
@@ -144,7 +145,7 @@ export default function ProjectsPage() {
       setConfirmName('');
       fetchProjects();
     } catch {
-      setError('Failed to delete project.');
+      toast.error('Failed to delete project.');
     }
   }
 
