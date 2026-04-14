@@ -61,7 +61,7 @@ export default function SignInPage() {
       if (session.data?.user?.role === "admin") {
         router.push("/admin");
       } else {
-        router.push("/dashboard");
+        router.push("/");
       }
     } catch {
       setError("Invalid email or password. Please try again.");
