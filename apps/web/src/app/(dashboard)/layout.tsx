@@ -21,6 +21,11 @@ export default function DashboardLayout({
           router.push("/sign-in");
           return;
         }
+        // Redirect admin users to admin panel
+        if (session.data.user.role === "admin") {
+          router.push("/admin");
+          return;
+        }
       } catch {
         router.push("/sign-in");
       } finally {
