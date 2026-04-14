@@ -44,6 +44,44 @@ async function main() {
     update: {},
   });
   console.log('Super admin membership created');
+
+  // Create Developer package with all features enabled
+  const devPackage = await prisma.package.upsert({
+    where: { id: 'dev-package-id' },
+    create: {
+      id: 'dev-package-id',
+      name: 'Developer',
+      description: 'Development package with all features enabled',
+      maxCameras: 100,
+      maxViewers: 1000,
+      maxBandwidthMbps: 10000,
+      maxStorageGb: 500,
+      features: {
+        recordings: true,
+        webhooks: true,
+        map: true,
+        auditLog: true,
+        apiKeys: true,
+      },
+    },
+    update: {
+      features: {
+        recordings: true,
+        webhooks: true,
+        map: true,
+        auditLog: true,
+        apiKeys: true,
+      },
+    },
+  });
+  console.log('Developer package:', devPackage.id);
+
+  // Assign Developer package to system org
+  await prisma.organization.update({
+    where: { id: 'system-org-id' },
+    data: { packageId: devPackage.id },
+  });
+  console.log('Developer package assigned to system org');
 }
 
 main()

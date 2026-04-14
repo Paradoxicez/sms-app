@@ -1,11 +1,14 @@
 import { Global, Module } from '@nestjs/common';
 import { FeaturesService } from './features.service';
 import { FeatureGuard } from './features.guard';
-import { FeaturesController } from './features.controller';
+import {
+  FeaturesController,
+  FeatureCheckController,
+} from './features.controller';
 
 @Global()
 @Module({
-  controllers: [FeaturesController],
+  controllers: [FeaturesController, FeatureCheckController],
   providers: [FeaturesService, FeatureGuard],
   exports: [FeaturesService, FeatureGuard],
 })
