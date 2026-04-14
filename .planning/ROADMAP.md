@@ -154,7 +154,7 @@ Plans:
 - [x] 07-01-PLAN.md -- Docker Compose MinIO, Prisma schema (Recording, RecordingSegment, RecordingSchedule), MinioService, RecordingsService start/stop/archive, on_hls callback wiring
 - [x] 07-02-PLAN.md -- ManifestService dynamic m3u8 generation, RetentionProcessor hourly cleanup, ScheduleProcessor BullMQ, storage quota alerts
 - [x] 07-03-PLAN.md -- Frontend: Recordings tab on camera detail (calendar, timeline, player, controls), schedule dialog, retention settings, recordings admin page, sidebar nav
-- [ ] 07-04-PLAN.md -- Gap closure: Seed dev Package with features, add /api/features/check endpoint, fix error feedback and storage quota mapping
+- [x] 07-04-PLAN.md -- Gap closure: Seed dev Package with features, add /api/features/check endpoint, fix error feedback and storage quota mapping
 **UI hint**: yes
 
 ## Progress
