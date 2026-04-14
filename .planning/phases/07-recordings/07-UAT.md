@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 07-recordings
 source: [07-00-SUMMARY.md, 07-01-SUMMARY.md, 07-02-SUMMARY.md, 07-03-SUMMARY.md]
 started: 2026-04-14T10:00:00Z
@@ -71,9 +71,19 @@ blocked: 1
   reason: "User reported: กดแล้วไม่มีอะไรเกิดขึ้น"
   severity: major
   test: 4
-  root_cause: ""
-  artifacts: []
-  missing: []
+  root_cause: "FeatureGuard blocks all RecordingsController endpoints (403) because org has no Package assigned. Frontend useFeatureCheck calls non-existent /api/features/check endpoint, defaults to enabled:true on error, so UI renders but API calls fail silently — catch block in handleStart swallows errors without user feedback."
+  artifacts:
+    - path: "apps/web/src/app/admin/cameras/components/recording-controls.tsx"
+      issue: "handleStart/handleStop catch blocks silently discard errors (lines 57, 72)"
+    - path: "apps/web/src/hooks/use-feature-check.ts"
+      issue: "Calls non-existent /api/features/check endpoint, defaults to enabled:true (line 24, 33)"
+    - path: "apps/api/src/features/features.controller.ts"
+      issue: "Missing /api/features/check endpoint — only has /api/organizations/:orgId/features"
+  missing:
+    - "Add error feedback to recording-controls.tsx catch blocks (toast or error state)"
+    - "Create /api/features/check endpoint OR fix useFeatureCheck to use existing endpoint"
+    - "Seed a Package with recordings:true for dev environment"
+    - "Fix storage quota response field name mismatch (usageBytes vs usedBytes)"
   debug_session: ""
 
 - truth: "กด Save จะอัปเดตนโยบาย retention สำหรับกล้องนั้น"
@@ -81,7 +91,13 @@ blocked: 1
   reason: "User reported: Failed to update retention policy."
   severity: major
   test: 7
-  root_cause: ""
-  artifacts: []
-  missing: []
+  root_cause: "Same FeatureGuard issue as test 4 — @RequireFeature(FeatureKey.RECORDINGS) at class level on RecordingsController blocks PUT /api/recordings/camera/:cameraId/retention with 403 because org has no Package with recordings feature enabled."
+  artifacts:
+    - path: "apps/api/src/recordings/recordings.controller.ts"
+      issue: "Class-level @RequireFeature(FeatureKey.RECORDINGS) gates all endpoints (line 31)"
+    - path: "apps/api/src/features/features.guard.ts"
+      issue: "Throws ForbiddenException when feature not enabled (lines 50-58)"
+  missing:
+    - "Seed a Package with recordings:true and assign to org"
+    - "Fix useFeatureCheck to accurately reflect feature state"
   debug_session: ""
