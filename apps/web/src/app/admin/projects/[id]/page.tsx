@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Plus, MapPin, Trash2 } from 'lucide-react';
+import { Plus, MapPin, MoreHorizontal } from 'lucide-react';
 
 import { apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -72,6 +78,12 @@ export default function ProjectDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Site | null>(null);
+
+  // Edit site
+  const [editTarget, setEditTarget] = useState<Site | null>(null);
+  const [editSiteName, setEditSiteName] = useState('');
+  const [editSiteDesc, setEditSiteDesc] = useState('');
+  const [savingSite, setSavingSite] = useState(false);
 
   // Create site form
   const [siteName, setSiteName] = useState('');
@@ -126,6 +138,33 @@ export default function ProjectDetailPage() {
       setError('Failed to create site.');
     } finally {
       setCreating(false);
+    }
+  }
+
+  function openEditSite(s: Site) {
+    setEditTarget(s);
+    setEditSiteName(s.name);
+    setEditSiteDesc(s.description || '');
+  }
+
+  async function handleEditSite(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editTarget || !editSiteName.trim()) return;
+    setSavingSite(true);
+    try {
+      await apiFetch(`/api/sites/${editTarget.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          name: editSiteName.trim(),
+          ...(editSiteDesc.trim() ? { description: editSiteDesc.trim() } : { description: null }),
+        }),
+      });
+      setEditTarget(null);
+      fetchData();
+    } catch {
+      setError('Failed to update site.');
+    } finally {
+      setSavingSite(false);
     }
   }
 
@@ -215,14 +254,15 @@ export default function ProjectDetailPage() {
                   {new Date(s.createdAt).toLocaleDateString()}
                 </TableCell>
                 <TableCell>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setDeleteTarget(s)}
-                    className="text-muted-foreground hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger className="inline-flex items-center justify-center h-8 w-8 rounded-md hover:bg-muted">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => openEditSite(s)}>Edit</DropdownMenuItem>
+                      <DropdownMenuItem className="text-destructive" onClick={() => setDeleteTarget(s)}>Delete</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </TableCell>
               </TableRow>
             ))}
@@ -287,6 +327,41 @@ export default function ProjectDetailPage() {
               <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={creating || !siteName.trim()}>
                 {creating ? 'Creating...' : 'Create Site'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Site Dialog */}
+      <Dialog open={!!editTarget} onOpenChange={(open) => { if (!open) setEditTarget(null); }}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Edit Site</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEditSite} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-site-name">Name *</Label>
+              <Input
+                id="edit-site-name"
+                value={editSiteName}
+                onChange={(e) => setEditSiteName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-site-desc">Description</Label>
+              <Input
+                id="edit-site-desc"
+                value={editSiteDesc}
+                onChange={(e) => setEditSiteDesc(e.target.value)}
+                placeholder="Optional description"
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditTarget(null)}>Cancel</Button>
+              <Button type="submit" disabled={savingSite || !editSiteName.trim()}>
+                {savingSite ? 'Saving...' : 'Save'}
               </Button>
             </DialogFooter>
           </form>

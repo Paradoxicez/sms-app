@@ -49,6 +49,11 @@ export class CamerasService {
     return project;
   }
 
+  async updateProject(id: string, dto: Partial<CreateProjectDto>) {
+    await this.findProjectById(id);
+    return this.tenancy.project.update({ where: { id }, data: dto });
+  }
+
   async deleteProject(id: string) {
     await this.findProjectById(id);
     return this.tenancy.project.delete({ where: { id } });
@@ -82,6 +87,14 @@ export class CamerasService {
       orderBy: { createdAt: 'desc' },
       include: { _count: { select: { cameras: true } } },
     });
+  }
+
+  async updateSite(id: string, dto: Partial<CreateSiteDto>) {
+    const site = await this.tenancy.site.findUnique({ where: { id } });
+    if (!site) {
+      throw new NotFoundException(`Site ${id} not found`);
+    }
+    return this.tenancy.site.update({ where: { id }, data: dto });
   }
 
   async deleteSite(id: string) {

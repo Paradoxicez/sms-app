@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { Plus, FolderTree, Trash2 } from 'lucide-react';
+import { Plus, FolderTree, MoreHorizontal } from 'lucide-react';
 
 import { apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,6 +57,12 @@ export default function ProjectsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
   const [confirmName, setConfirmName] = useState('');
+
+  // Edit
+  const [editTarget, setEditTarget] = useState<Project | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const [saving, setSaving] = useState(false);
 
   // Create form
   const [newName, setNewName] = useState('');
@@ -94,6 +106,33 @@ export default function ProjectsPage() {
       setError('Failed to create project.');
     } finally {
       setCreating(false);
+    }
+  }
+
+  function openEdit(p: Project) {
+    setEditTarget(p);
+    setEditName(p.name);
+    setEditDesc(p.description || '');
+  }
+
+  async function handleEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editTarget || !editName.trim()) return;
+    setSaving(true);
+    try {
+      await apiFetch(`/api/projects/${editTarget.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          name: editName.trim(),
+          ...(editDesc.trim() ? { description: editDesc.trim() } : { description: null }),
+        }),
+      });
+      setEditTarget(null);
+      fetchProjects();
+    } catch {
+      setError('Failed to update project.');
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -164,14 +203,15 @@ export default function ProjectsPage() {
                   {new Date(p.createdAt).toLocaleDateString()}
                 </TableCell>
                 <TableCell>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setDeleteTarget(p)}
-                    className="text-muted-foreground hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger className="inline-flex items-center justify-center h-8 w-8 rounded-md hover:bg-muted">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => openEdit(p)}>Edit</DropdownMenuItem>
+                      <DropdownMenuItem className="text-destructive" onClick={() => setDeleteTarget(p)}>Delete</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </TableCell>
               </TableRow>
             ))}
@@ -212,6 +252,41 @@ export default function ProjectsPage() {
               <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={creating || !newName.trim()}>
                 {creating ? 'Creating...' : 'Create Project'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Project Dialog */}
+      <Dialog open={!!editTarget} onOpenChange={(open) => { if (!open) setEditTarget(null); }}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Edit Project</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEdit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-proj-name">Name *</Label>
+              <Input
+                id="edit-proj-name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-proj-desc">Description</Label>
+              <Input
+                id="edit-proj-desc"
+                value={editDesc}
+                onChange={(e) => setEditDesc(e.target.value)}
+                placeholder="Optional description"
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditTarget(null)}>Cancel</Button>
+              <Button type="submit" disabled={saving || !editName.trim()}>
+                {saving ? 'Saving...' : 'Save'}
               </Button>
             </DialogFooter>
           </form>

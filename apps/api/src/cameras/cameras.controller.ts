@@ -71,6 +71,19 @@ export class CamerasController {
     return this.camerasService.findProjectById(id);
   }
 
+  @Patch('projects/:id')
+  @ApiOperation({ summary: 'Update a project' })
+  @ApiResponse({ status: 200, description: 'Project updated' })
+  @ApiResponse({ status: 400, description: 'Validation error' })
+  @ApiParam({ name: 'id', description: 'Project ID' })
+  async updateProject(@Param('id') id: string, @Body() body: unknown) {
+    const result = CreateProjectSchema.partial().safeParse(body);
+    if (!result.success) {
+      throw new BadRequestException(result.error.flatten());
+    }
+    return this.camerasService.updateProject(id, result.data);
+  }
+
   @Delete('projects/:id')
   @ApiOperation({ summary: 'Delete a project' })
   @ApiResponse({ status: 200, description: 'Project deleted' })
@@ -104,6 +117,19 @@ export class CamerasController {
   @ApiParam({ name: 'projectId', description: 'Project ID' })
   async findSitesByProject(@Param('projectId') projectId: string) {
     return this.camerasService.findSitesByProject(projectId);
+  }
+
+  @Patch('sites/:id')
+  @ApiOperation({ summary: 'Update a site' })
+  @ApiResponse({ status: 200, description: 'Site updated' })
+  @ApiResponse({ status: 400, description: 'Validation error' })
+  @ApiParam({ name: 'id', description: 'Site ID' })
+  async updateSite(@Param('id') id: string, @Body() body: unknown) {
+    const result = CreateSiteSchema.partial().safeParse(body);
+    if (!result.success) {
+      throw new BadRequestException(result.error.flatten());
+    }
+    return this.camerasService.updateSite(id, result.data);
   }
 
   @Delete('sites/:id')
