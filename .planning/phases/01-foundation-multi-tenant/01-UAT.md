@@ -3,12 +3,12 @@ status: partial
 phase: 01-foundation-multi-tenant
 source: [01-01-SUMMARY.md, 01-02-SUMMARY.md, 01-03-SUMMARY.md, 01-04-SUMMARY.md, 01-05-SUMMARY.md, 01-06-SUMMARY.md]
 started: 2026-04-15T00:00:00Z
-updated: 2026-04-15T00:00:00Z
+updated: 2026-04-15T19:15:00Z
 ---
 
 ## Current Test
 
-[testing complete]
+[testing paused — 1 blocked, 1 skipped]
 
 ## Tests
 
@@ -26,9 +26,7 @@ result: pass
 
 ### 4. จัดการองค์กร (Organizations)
 expected: ไปที่ /admin/organizations เห็นตารางรายการองค์กร สามารถสร้าง organization ใหม่ได้ (slug auto-generate) และสามารถ deactivate/activate ได้
-result: issue
-reported: "Failed to create organization"
-severity: major
+result: pass
 
 ### 5. จัดการแพคเกจ (Packages)
 expected: ไปที่ /admin/packages เห็นตารางแพคเกจพร้อม limits (cameras/viewers/bandwidth/storage) สามารถสร้างแพคเกจใหม่และเปิด/ปิด feature toggles (recordings/webhooks/map/auditLog/apiKeys) ได้
@@ -36,36 +34,27 @@ result: pass
 
 ### 6. RLS Tenant Isolation
 expected: ใช้ API เรียกข้อมูลด้วย user จาก org A ไม่เห็นข้อมูล Member/Invitation ของ org B — ข้อมูลแยกกันสมบูรณ์ระหว่าง tenant
-result: skipped
-reason: สร้าง org ใหม่ไม่ได้ (ข้อ 4 fail) ไม่มี org B สำหรับทดสอบ — integration test ผ่านอยู่แล้ว
+result: pass
 
 ### 7. Feature Toggle — Backend Enforcement
-expected: GET /api/organizations/:orgId/features ตอบกลับ feature map ตามแพคเกจ endpoint ที่ใช้ @RequireFeature decorator จะตอบ 403 เมื่อ feature ปิด
+expected: GET /api/features/check?key=recordings ตอบกลับ feature map ตามแพคเกจ endpoint ที่ใช้ @RequireFeature decorator จะตอบ 403 เมื่อ feature ปิด
 result: pass
 
 ### 8. Feature Toggle — Frontend Gating
 expected: Component ที่ใช้ useFeatures hook แสดง/ซ่อนส่วน UI ตามสถานะ feature ขององค์กร เช่น ถ้าปิด recordings จะไม่เห็นเมนู/ปุ่มที่เกี่ยวข้อง
 result: blocked
-blocked_by: other
-reason: "หน้า package ไม่มี UI สำหรับ edit package — ต้องปิด feature แล้วดูว่า UI ซ่อนหรือไม่ แต่แก้ package ไม่ได้"
+blocked_by: prior-phase
+reason: "ไม่มี sidebar/navigation สำหรับ regular user — ต้องทำ role-based nav (backlog 999.1) ก่อนถึงจะทดสอบ frontend gating ได้ Backend feature check verified ว่าทำงานถูกต้อง"
 
 ## Summary
 
 total: 8
-passed: 5
-issues: 1
+passed: 7
+issues: 0
 pending: 0
-skipped: 1
+skipped: 0
 blocked: 1
 
 ## Gaps
 
-- truth: "สามารถสร้าง organization ใหม่ได้จากหน้า /admin/organizations"
-  status: failed
-  reason: "User reported: Failed to create organization"
-  severity: major
-  test: 4
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+[none]
