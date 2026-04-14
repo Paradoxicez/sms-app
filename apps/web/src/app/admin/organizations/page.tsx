@@ -6,6 +6,7 @@ import { Plus, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { OrgTable } from "./components/org-table";
 import { CreateOrgDialog } from "./components/create-org-dialog";
+import { EditOrgDialog } from "./components/edit-org-dialog";
 
 interface Organization {
   id: string;
@@ -26,6 +27,8 @@ export default function OrganizationsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingOrg, setEditingOrg] = useState<Organization | null>(null);
 
   const fetchOrganizations = useCallback(async () => {
     setIsLoading(true);
@@ -84,6 +87,7 @@ export default function OrganizationsPage() {
           organizations={organizations}
           isLoading={isLoading}
           onRefetch={fetchOrganizations}
+          onEdit={(org) => { setEditingOrg(org); setEditDialogOpen(true); }}
         />
       )}
 
@@ -91,6 +95,13 @@ export default function OrganizationsPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         onSuccess={fetchOrganizations}
+      />
+
+      <EditOrgDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        onSuccess={fetchOrganizations}
+        org={editingOrg}
       />
     </div>
   );

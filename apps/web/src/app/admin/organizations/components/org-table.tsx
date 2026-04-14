@@ -35,11 +35,12 @@ interface OrgTableProps {
   organizations: Organization[];
   isLoading: boolean;
   onRefetch: () => void;
+  onEdit?: (org: Organization) => void;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3003";
 
-export function OrgTable({ organizations, isLoading, onRefetch }: OrgTableProps) {
+export function OrgTable({ organizations, isLoading, onRefetch, onEdit }: OrgTableProps) {
   async function handleDeactivate(orgId: string) {
     try {
       const res = await fetch(
@@ -128,7 +129,7 @@ export function OrgTable({ organizations, isLoading, onRefetch }: OrgTableProps)
                   <MoreHorizontal className="h-4 w-4" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem>Edit</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onEdit?.(org)}>Edit</DropdownMenuItem>
                   <DropdownMenuItem
                     className="text-destructive"
                     onClick={() => handleDeactivate(org.id)}
