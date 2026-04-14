@@ -15,7 +15,6 @@ export class PackagesService {
 
   async findAll() {
     return this.prisma.package.findMany({
-      where: { isActive: true },
       orderBy: { createdAt: 'desc' },
     });
   }
