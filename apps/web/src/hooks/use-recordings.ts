@@ -73,11 +73,11 @@ export function useRecordingTimeline(
     if (!cameraId || !date) return;
     let cancelled = false;
     setLoading(true);
-    apiFetch<TimelineHour[]>(
+    apiFetch<{ hours: TimelineHour[] }>(
       `/api/recordings/camera/${cameraId}/timeline?date=${date}`,
     )
       .then((data) => {
-        if (!cancelled) setHours(data);
+        if (!cancelled) setHours(Array.isArray(data) ? data : data.hours ?? []);
       })
       .catch(() => {
         if (!cancelled) setHours([]);

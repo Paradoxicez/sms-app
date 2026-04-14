@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Plus, Package } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { PackageTable } from "./components/package-table";
@@ -30,6 +31,22 @@ export default function PackagesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingPackage, setEditingPackage] = useState<PackageItem | null>(null);
+
+  async function handleDeactivate(pkg: PackageItem) {
+    try {
+      const res = await fetch(`${API_URL}/api/admin/packages/${pkg.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: false }),
+      });
+      if (!res.ok) throw new Error("Failed to deactivate package");
+      toast.success("Package deactivated");
+      fetchPackages();
+    } catch {
+      toast.error("Failed to deactivate package");
+    }
+  }
 
   const fetchPackages = useCallback(async () => {
     setIsLoading(true);
@@ -88,6 +105,7 @@ export default function PackagesPage() {
           packages={packages}
           isLoading={isLoading}
           onEdit={(pkg) => { setEditingPackage(pkg); setEditDialogOpen(true); }}
+          onDeactivate={handleDeactivate}
         />
       )}
 

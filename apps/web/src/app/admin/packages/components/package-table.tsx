@@ -1,8 +1,13 @@
 "use client";
 
-import { Pencil } from "lucide-react";
+import { MoreHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -29,9 +34,10 @@ interface PackageTableProps {
   packages: PackageItem[];
   isLoading: boolean;
   onEdit?: (pkg: PackageItem) => void;
+  onDeactivate?: (pkg: PackageItem) => void;
 }
 
-export function PackageTable({ packages, isLoading, onEdit }: PackageTableProps) {
+export function PackageTable({ packages, isLoading, onEdit, onDeactivate }: PackageTableProps) {
   if (isLoading) {
     return (
       <Table>
@@ -74,7 +80,7 @@ export function PackageTable({ packages, isLoading, onEdit }: PackageTableProps)
           <TableHead>Storage</TableHead>
           <TableHead>Features</TableHead>
           <TableHead>Status</TableHead>
-          <TableHead className="w-16"></TableHead>
+          <TableHead className="w-[50px]">Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -98,9 +104,20 @@ export function PackageTable({ packages, isLoading, onEdit }: PackageTableProps)
                 </Badge>
               </TableCell>
               <TableCell>
-                <Button variant="ghost" size="icon" onClick={() => onEdit?.(pkg)}>
-                  <Pencil className="h-4 w-4" />
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="inline-flex items-center justify-center h-8 w-8 rounded-md hover:bg-muted">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => onEdit?.(pkg)}>Edit</DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="text-destructive"
+                      onClick={() => onDeactivate?.(pkg)}
+                    >
+                      Deactivate
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </TableCell>
             </TableRow>
           );
