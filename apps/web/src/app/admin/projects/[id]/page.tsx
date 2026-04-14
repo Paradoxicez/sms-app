@@ -134,6 +134,7 @@ export default function ProjectDetailPage() {
       setSiteLat('');
       setSiteLng('');
       setCreateOpen(false);
+      toast.success('Site created');
       fetchData();
     } catch {
       toast.error('Failed to create site.');
@@ -161,6 +162,7 @@ export default function ProjectDetailPage() {
         }),
       });
       setEditTarget(null);
+      toast.success('Site updated');
       fetchData();
     } catch {
       toast.error('Failed to update site.');
@@ -174,6 +176,7 @@ export default function ProjectDetailPage() {
     try {
       await apiFetch(`/api/sites/${deleteTarget.id}`, { method: 'DELETE' });
       setDeleteTarget(null);
+      toast.success('Site deleted');
       fetchData();
     } catch {
       toast.error('Failed to delete site.');

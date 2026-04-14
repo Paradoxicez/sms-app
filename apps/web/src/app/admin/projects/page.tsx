@@ -102,6 +102,7 @@ export default function ProjectsPage() {
       setNewName('');
       setNewDesc('');
       setCreateOpen(false);
+      toast.success('Project created');
       fetchProjects();
     } catch {
       toast.error('Failed to create project.');
@@ -129,6 +130,7 @@ export default function ProjectsPage() {
         }),
       });
       setEditTarget(null);
+      toast.success('Project updated');
       fetchProjects();
     } catch {
       toast.error('Failed to update project.');
@@ -143,6 +145,7 @@ export default function ProjectsPage() {
       await apiFetch(`/api/projects/${deleteTarget.id}`, { method: 'DELETE' });
       setDeleteTarget(null);
       setConfirmName('');
+      toast.success('Project deleted');
       fetchProjects();
     } catch {
       toast.error('Failed to delete project.');
