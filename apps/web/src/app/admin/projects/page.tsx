@@ -124,7 +124,7 @@ export default function ProjectsPage() {
         method: 'PATCH',
         body: JSON.stringify({
           name: editName.trim(),
-          ...(editDesc.trim() ? { description: editDesc.trim() } : { description: null }),
+          ...(editDesc.trim() ? { description: editDesc.trim() } : {}),
         }),
       });
       setEditTarget(null);

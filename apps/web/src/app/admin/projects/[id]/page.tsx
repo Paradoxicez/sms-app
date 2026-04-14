@@ -156,7 +156,7 @@ export default function ProjectDetailPage() {
         method: 'PATCH',
         body: JSON.stringify({
           name: editSiteName.trim(),
-          ...(editSiteDesc.trim() ? { description: editSiteDesc.trim() } : { description: null }),
+          ...(editSiteDesc.trim() ? { description: editSiteDesc.trim() } : {}),
         }),
       });
       setEditTarget(null);
