@@ -61,6 +61,17 @@ export default function SignInPage() {
       if (session.data?.user?.role === "admin") {
         router.push("/admin");
       } else {
+        // Auto-set active org if user has exactly one membership
+        try {
+          const orgs = await authClient.organization.list();
+          if (orgs.data && orgs.data.length === 1) {
+            await authClient.organization.setActive({
+              organizationId: orgs.data[0].id,
+            });
+          }
+        } catch {
+          // Non-critical — user can still navigate
+        }
         router.push("/");
       }
     } catch {
