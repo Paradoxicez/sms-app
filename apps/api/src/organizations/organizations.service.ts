@@ -2,8 +2,10 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  ConflictException,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrganizationDto, UpdateOrganizationDto } from './dto/create-organization.dto';
 
@@ -12,12 +14,19 @@ export class OrganizationsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateOrganizationDto) {
-    return this.prisma.organization.create({
-      data: {
-        id: randomUUID(),
-        ...dto,
-      },
-    });
+    try {
+      return await this.prisma.organization.create({
+        data: {
+          id: randomUUID(),
+          ...dto,
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException('Organization with this slug already exists');
+      }
+      throw error;
+    }
   }
 
   async findAll() {

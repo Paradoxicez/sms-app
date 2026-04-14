@@ -1,6 +1,8 @@
 "use client";
 
+import { Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -26,9 +28,10 @@ interface PackageItem {
 interface PackageTableProps {
   packages: PackageItem[];
   isLoading: boolean;
+  onEdit?: (pkg: PackageItem) => void;
 }
 
-export function PackageTable({ packages, isLoading }: PackageTableProps) {
+export function PackageTable({ packages, isLoading, onEdit }: PackageTableProps) {
   if (isLoading) {
     return (
       <Table>
@@ -71,6 +74,7 @@ export function PackageTable({ packages, isLoading }: PackageTableProps) {
           <TableHead>Storage</TableHead>
           <TableHead>Features</TableHead>
           <TableHead>Status</TableHead>
+          <TableHead className="w-16"></TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -92,6 +96,11 @@ export function PackageTable({ packages, isLoading }: PackageTableProps) {
                 <Badge variant={pkg.isActive ? "default" : "destructive"}>
                   {pkg.isActive ? "Active" : "Inactive"}
                 </Badge>
+              </TableCell>
+              <TableCell>
+                <Button variant="ghost" size="icon" onClick={() => onEdit?.(pkg)}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
               </TableCell>
             </TableRow>
           );

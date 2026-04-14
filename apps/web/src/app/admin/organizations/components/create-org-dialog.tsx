@@ -40,6 +40,7 @@ type CreateOrgForm = z.infer<typeof createOrgSchema>;
 interface PackageOption {
   id: string;
   name: string;
+  description?: string;
 }
 
 interface CreateOrgDialogProps {
@@ -67,6 +68,7 @@ export function CreateOrgDialog({ open, onOpenChange, onSuccess }: CreateOrgDial
   });
 
   const nameValue = watch("name");
+  const packageIdValue = watch("packageId");
 
   // Auto-generate slug from name
   useEffect(() => {
@@ -147,10 +149,13 @@ export function CreateOrgDialog({ open, onOpenChange, onSuccess }: CreateOrgDial
           <div className="space-y-2">
             <Label htmlFor="org-package">Package</Label>
             <Select
+              value={packageIdValue || ""}
               onValueChange={(value) => setValue("packageId", String(value))}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select a package (optional)" />
+                <SelectValue placeholder="Select a package (optional)">
+                  {packageIdValue ? packages.find(p => p.id === packageIdValue)?.name || packageIdValue : undefined}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {packages.map((pkg) => (

@@ -26,7 +26,7 @@ import { ApiKeyUsageMiddleware } from './api-key-usage.middleware';
       useFactory: () => {
         return new Redis({
           host: process.env.REDIS_HOST || 'localhost',
-          port: parseInt(process.env.REDIS_PORT || '6380', 10),
+          port: parseInt(process.env.REDIS_PORT || '6379', 10),
         });
       },
     },

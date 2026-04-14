@@ -6,6 +6,7 @@ import { Plus, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PackageTable } from "./components/package-table";
 import { CreatePackageDialog } from "./components/create-package-dialog";
+import { EditPackageDialog } from "./components/edit-package-dialog";
 
 interface PackageItem {
   id: string;
@@ -27,6 +28,8 @@ export default function PackagesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingPackage, setEditingPackage] = useState<PackageItem | null>(null);
 
   const fetchPackages = useCallback(async () => {
     setIsLoading(true);
@@ -84,6 +87,7 @@ export default function PackagesPage() {
         <PackageTable
           packages={packages}
           isLoading={isLoading}
+          onEdit={(pkg) => { setEditingPackage(pkg); setEditDialogOpen(true); }}
         />
       )}
 
@@ -91,6 +95,13 @@ export default function PackagesPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         onSuccess={fetchPackages}
+      />
+
+      <EditPackageDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        onSuccess={fetchPackages}
+        pkg={editingPackage}
       />
     </div>
   );

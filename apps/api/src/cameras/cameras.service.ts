@@ -217,7 +217,7 @@ export class CamerasService {
       const probeQueue = new Queue('stream:probe', {
         connection: {
           host: process.env.REDIS_HOST || 'localhost',
-          port: parseInt(process.env.REDIS_PORT || '6380', 10),
+          port: parseInt(process.env.REDIS_PORT || '6379', 10),
         },
       });
       for (const camera of cameras) {
