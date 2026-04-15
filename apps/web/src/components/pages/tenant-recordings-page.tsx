@@ -331,7 +331,7 @@ export default function TenantRecordingsPage() {
                 </TableCell>
                 <TableCell>
                   <Link
-                    href={`/admin/cameras/${rec.cameraId}?tab=recordings`}
+                    href={`/app/cameras/${rec.cameraId}?tab=recordings`}
                     className="text-primary hover:underline"
                   >
                     {rec.camera?.name ?? cameraName(rec.cameraId)}

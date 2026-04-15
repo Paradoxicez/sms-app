@@ -198,7 +198,7 @@ export default function TenantProjectsPage() {
             {projects.map((p) => (
               <TableRow key={p.id}>
                 <TableCell>
-                  <Link href={`/admin/projects/${p.id}`} className="font-medium hover:underline">
+                  <Link href={`/app/projects/${p.id}`} className="font-medium hover:underline">
                     {p.name}
                   </Link>
                 </TableCell>

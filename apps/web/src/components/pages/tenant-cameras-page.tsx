@@ -218,7 +218,7 @@ export default function TenantCamerasPage() {
                 </TableCell>
                 <TableCell>
                   <Link
-                    href={`/admin/cameras/${cam.id}`}
+                    href={`/app/cameras/${cam.id}`}
                     className="font-medium hover:underline"
                   >
                     {cam.name}

@@ -67,7 +67,9 @@ const OVERVIEW: Item[] = [
 const CAMERAS: Item[] = [
   { label: "Cameras", href: "/app/cameras", icon: Camera },
   { label: "Projects", href: "/app/projects", icon: FolderTree },
-  { label: "Sites", href: "/app/sites", icon: Building2 },
+  // Sites (building → floor → room hierarchy) hidden until the feature ships.
+  // Restore by uncommenting and reinstating the /app/sites page when ready.
+  // { label: "Sites", href: "/app/sites", icon: Building2 },
   {
     label: "Stream Profiles",
     href: "/app/stream-profiles",
