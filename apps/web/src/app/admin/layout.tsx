@@ -30,11 +30,16 @@ export default function AdminLayout({
         }
         // Ensure active organization is set
         if (!session.data.session?.activeOrganizationId) {
-          const orgs = await authClient.organization.list();
-          if (orgs.data && orgs.data.length > 0) {
-            await authClient.organization.setActive({
-              organizationId: orgs.data[0].id,
-            });
+          try {
+            const orgs = await authClient.organization.list();
+            if (orgs.data && orgs.data.length > 0) {
+              const res = await authClient.organization.setActive({
+                organizationId: orgs.data[0].id,
+              });
+              console.log('setActive result:', JSON.stringify(res));
+            }
+          } catch (err) {
+            console.error('setActive failed:', err);
           }
         }
 
