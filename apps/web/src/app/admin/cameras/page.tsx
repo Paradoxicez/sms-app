@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Plus, Upload, Camera as CameraIcon, Filter } from 'lucide-react';
 
 import { apiFetch } from '@/lib/api';
+import { authClient } from '@/lib/auth-client';
 import { useCameraStatus } from '@/hooks/use-camera-status';
 import { Button } from '@/components/ui/button';
 import {
@@ -57,6 +58,19 @@ export default function CamerasPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<Set<CameraStatus>>(new Set());
+  const [orgId, setOrgId] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    async function loadSession() {
+      try {
+        const session = await authClient.getSession();
+        setOrgId(session.data?.session?.activeOrganizationId ?? undefined);
+      } catch {
+        // Session check handled by layout
+      }
+    }
+    loadSession();
+  }, []);
 
   const fetchCameras = useCallback(async () => {
     setIsLoading(true);
@@ -77,7 +91,7 @@ export default function CamerasPage() {
 
   // Real-time status updates via Socket.IO
   useCameraStatus(
-    'default', // orgId placeholder - in production would come from session
+    orgId,
     (event) => {
       setCameras((prev) =>
         prev.map((c) =>
