@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { authClient } from "@/lib/auth-client";
 import { apiFetch } from "@/lib/api";
 
 import {
@@ -38,13 +37,9 @@ export default function PlatformUsersPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const orgsResp = await authClient.organization.list();
-      const orgList: Organization[] = Array.isArray(orgsResp?.data)
-        ? orgsResp.data.map((o: { id: string; name: string }) => ({
-            id: o.id,
-            name: o.name,
-          }))
-        : [];
+      const orgList = await apiFetch<Organization[]>(
+        "/api/admin/organizations",
+      );
       setOrgs(orgList);
 
       // Aggregate users across all orgs — same email may recur across orgs.
