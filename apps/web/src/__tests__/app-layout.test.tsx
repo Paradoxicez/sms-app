@@ -1,5 +1,9 @@
 /**
- * VALIDATION: TBD-03 — D-22 /app rejects admins + bootstraps active org
+ * VALIDATION: TBD-03 — D-22 /app rejects admins + bootstraps active org.
+ *
+ * AppLayout (src/app/app/layout.tsx) is a "use client" component using
+ * useRouter().push()/replace() + authClient.getSession() inside useEffect.
+ * Tests mock next/navigation and authClient and assert on router call args.
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, waitFor } from "@testing-library/react";
@@ -9,13 +13,18 @@ import {
   mockAuthClient,
   resetAuthMocks,
 } from "@/test-utils/mock-auth-client";
+import {
+  createMockFeatures,
+  useFeaturesMockFn,
+  resetUseFeaturesMock,
+} from "@/test-utils/mock-use-features";
 
-const redirectMock = vi.fn((url: string) => {
-  throw new Error(`NEXT_REDIRECT:${url}`);
-});
+const pushMock = vi.fn();
+const replaceMock = vi.fn();
 
 vi.mock("next/navigation", () => ({
-  redirect: (url: string) => redirectMock(url),
+  useRouter: () => ({ push: pushMock, replace: replaceMock, refresh: vi.fn() }),
+  usePathname: () => "/app/dashboard",
 }));
 
 vi.mock("@/lib/auth-client", () => ({
@@ -23,22 +32,52 @@ vi.mock("@/lib/auth-client", () => ({
   useSession: () => ({ data: null }),
 }));
 
-// Expected RED: @/app/app/layout does not exist yet — Wave 1 will create it.
-import AppLayout from "@/app/app/layout";
+const useCurrentRoleMock = vi.fn(() => ({
+  userRole: "user",
+  memberRole: "admin",
+  activeOrgId: "org-test-1",
+  activeOrgName: "Test Org",
+  loading: false,
+}));
 
-async function renderLayout() {
-  const element = await (AppLayout as unknown as (props: {
-    children: React.ReactNode;
-  }) => Promise<JSX.Element>)({
-    children: <div data-testid="app-child">ok</div>,
-  });
-  return render(element);
-}
+vi.mock("@/hooks/use-current-role", () => ({
+  useCurrentRole: () => useCurrentRoleMock(),
+}));
+
+vi.mock("@/hooks/use-features", () => ({
+  useFeatures: (orgId: string | null | undefined) => useFeaturesMockFn(orgId),
+}));
+
+const { toastErrorMock } = vi.hoisted(() => ({
+  toastErrorMock: vi.fn(),
+}));
+vi.mock("sonner", () => ({
+  toast: { error: toastErrorMock, success: vi.fn() },
+  Toaster: () => null,
+}));
+
+import AppLayout from "@/app/app/layout";
 
 describe("tenant /app layout guard (D-22)", () => {
   beforeEach(() => {
-    redirectMock.mockClear();
+    pushMock.mockReset();
+    replaceMock.mockReset();
+    toastErrorMock.mockReset();
     resetAuthMocks();
+    resetUseFeaturesMock();
+    useFeaturesMockFn.mockImplementation(() => ({
+      features: createMockFeatures(),
+      isEnabled: () => true,
+      loading: false,
+      error: null,
+    }));
+    useCurrentRoleMock.mockReturnValue({
+      userRole: "user",
+      memberRole: "admin",
+      activeOrgId: "org-test-1",
+      activeOrgName: "Test Org",
+      loading: false,
+    });
   });
 
   it("renders children for User.role=user with active org", async () => {
@@ -46,9 +85,15 @@ describe("tenant /app layout guard (D-22)", () => {
       createMockSession({ userRole: "user", activeOrgId: "org-test-1" }),
     );
 
-    const { getByTestId } = await renderLayout();
+    const { getByTestId } = render(
+      <AppLayout>
+        <div data-testid="app-child">ok</div>
+      </AppLayout>,
+    );
+
     await waitFor(() => expect(getByTestId("app-child")).toBeInTheDocument());
-    expect(redirectMock).not.toHaveBeenCalled();
+    expect(pushMock).not.toHaveBeenCalled();
+    expect(replaceMock).not.toHaveBeenCalled();
   });
 
   it("redirects User.role=admin to /admin", async () => {
@@ -56,7 +101,15 @@ describe("tenant /app layout guard (D-22)", () => {
       createMockSession({ userRole: "admin", activeOrgId: null }),
     );
 
-    await expect(renderLayout()).rejects.toThrow(/NEXT_REDIRECT:\/admin/);
+    render(
+      <AppLayout>
+        <div data-testid="app-child">ok</div>
+      </AppLayout>,
+    );
+
+    await waitFor(() => {
+      expect(replaceMock).toHaveBeenCalledWith("/admin");
+    });
   });
 
   it("calls organization.setActive with first org when activeOrganizationId is null", async () => {
@@ -70,10 +123,11 @@ describe("tenant /app layout guard (D-22)", () => {
       ],
     });
 
-    await renderLayout().catch(() => {
-      // redirect may or may not happen depending on implementation; we only
-      // care that setActive was invoked with the first org.
-    });
+    render(
+      <AppLayout>
+        <div data-testid="app-child">ok</div>
+      </AppLayout>,
+    );
 
     await waitFor(() => {
       expect(mockAuthClient.organization.setActive).toHaveBeenCalledWith({
@@ -82,12 +136,21 @@ describe("tenant /app layout guard (D-22)", () => {
     });
   });
 
-  it("redirects to /sign-in with toast when user has zero organizations", async () => {
+  it("redirects to /sign-in when user has zero organizations", async () => {
     mockAuthClient.getSession.mockResolvedValue(
       createMockSession({ userRole: "user", activeOrgId: null }),
     );
     mockAuthClient.organization.list.mockResolvedValue({ data: [] });
 
-    await expect(renderLayout()).rejects.toThrow(/NEXT_REDIRECT:\/sign-in/);
+    render(
+      <AppLayout>
+        <div data-testid="app-child">ok</div>
+      </AppLayout>,
+    );
+
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith("/sign-in");
+    });
+    expect(toastErrorMock).toHaveBeenCalled();
   });
 });
