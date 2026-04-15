@@ -22,10 +22,13 @@ export class SrsLogGateway
   private tailProcess: ChildProcess | null = null;
   private connectedClients = 0;
 
-  // SRS log path — in Docker: /usr/local/srs/objs/srs.log
-  // In dev: configurable via SRS_LOG_PATH env var
-  private readonly logPath =
-    process.env.SRS_LOG_PATH || '/usr/local/srs/objs/srs.log';
+  // SRS is configured with `srs_log_tank console` (see config/srs.conf), so
+  // there is no log file on disk — logs go to container stdout. Tail via
+  // `docker logs -f <container>` by default; override with SRS_LOG_PATH to
+  // point at a file if a future deployment writes one.
+  private readonly logPath = process.env.SRS_LOG_PATH || '';
+  private readonly logContainer =
+    process.env.SRS_LOG_CONTAINER || 'sms-app-srs-1';
 
   async handleConnection(client: Socket) {
     // D-16: Super admin only — validate from session, not client query params
@@ -74,37 +77,65 @@ export class SrsLogGateway
 
   private startTailing() {
     try {
-      // Use tail -f -n 100 to get last 100 lines + follow
-      this.tailProcess = spawn('tail', ['-f', '-n', '100', this.logPath]);
+      if (this.logPath) {
+        // File mode — if someone sets SRS_LOG_PATH to a shared-volume file.
+        this.tailProcess = spawn('tail', ['-f', '-n', '100', this.logPath]);
+      } else {
+        // Default: follow container stdout via `docker logs -f`.
+        // --tail=100 mirrors the file-mode `-n 100`.
+        this.tailProcess = spawn('docker', [
+          'logs',
+          '-f',
+          '--tail=100',
+          this.logContainer,
+        ]);
+      }
 
-      const rl = createInterface({ input: this.tailProcess.stdout! });
-      rl.on('line', (line: string) => {
-        const level = this.parseLevel(line);
-        this.server
-          .to('srs-logs')
-          .emit('srs:log', {
-            line,
-            level,
-            timestamp: new Date().toISOString(),
-          });
-      });
+      const source = this.logPath
+        ? `file ${this.logPath}`
+        : `container ${this.logContainer}`;
 
-      this.tailProcess.stderr?.on('data', (data: Buffer) => {
-        this.logger.warn(`tail stderr: ${data.toString()}`);
-        // If log file not found, notify clients
+      // SRS writes to stderr too (it splits info/error streams), so forward both.
+      const emit = (line: string, fallbackLevel: string | null = null) => {
+        const level = fallbackLevel ?? this.parseLevel(line);
         this.server.to('srs-logs').emit('srs:log', {
-          line: `[SRS Log] Log file not accessible: ${this.logPath}`,
-          level: 'warn',
+          line,
+          level,
           timestamp: new Date().toISOString(),
         });
-      });
+      };
+
+      const rlOut = createInterface({ input: this.tailProcess.stdout! });
+      rlOut.on('line', (line: string) => emit(line));
+
+      if (this.tailProcess.stderr) {
+        const rlErr = createInterface({ input: this.tailProcess.stderr });
+        rlErr.on('line', (line: string) => {
+          // docker logs prefixes some diagnostic lines to stderr (e.g. "no such
+          // container"). Forward them so operators see the failure reason
+          // instead of silent nothingness.
+          emit(line);
+        });
+      }
 
       this.tailProcess.on('close', (code) => {
-        this.logger.log(`tail process closed with code ${code}`);
+        this.logger.log(
+          `log tail process (${source}) closed with code ${code}`,
+        );
         this.tailProcess = null;
       });
 
-      this.logger.log(`Started tailing SRS log: ${this.logPath}`);
+      this.tailProcess.on('error', (err) => {
+        this.logger.error(
+          `Failed to spawn log tail process (${source}): ${err.message}`,
+        );
+        emit(
+          `[SRS Log] Could not start log stream from ${source}: ${err.message}`,
+          'error',
+        );
+      });
+
+      this.logger.log(`Started tailing SRS logs from ${source}`);
     } catch (err) {
       this.logger.error(`Failed to start tailing: ${err}`);
     }

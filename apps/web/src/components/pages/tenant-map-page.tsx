@@ -102,11 +102,8 @@ export default function TenantMapPage() {
     );
   }
 
-  // Check if any cameras have location data
-  const camerasWithLocation = cameras.filter(
-    (c) => c.latitude !== null && c.longitude !== null,
-  );
-
+  // CameraMap falls back to DEFAULT_CENTER when cameras array is empty or
+  // lacks coords, so we always render the map tiles.
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-semibold">Map View</h1>
@@ -119,14 +116,6 @@ export default function TenantMapPage() {
 
       {isLoading ? (
         <Skeleton className="h-[400px] w-full rounded-lg" />
-      ) : camerasWithLocation.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border bg-card py-16 text-center">
-          <MapPin className="mb-4 h-12 w-12 text-muted-foreground" />
-          <h2 className="text-lg font-semibold">No camera locations available</h2>
-          <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-            Add latitude and longitude to your cameras to see them on the map.
-          </p>
-        </div>
       ) : (
         <CameraMap cameras={cameras} />
       )}

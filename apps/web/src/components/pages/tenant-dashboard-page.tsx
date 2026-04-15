@@ -71,23 +71,6 @@ export default function TenantDashboardPage() {
 
   const isSuperAdmin = userRole === 'admin';
 
-  // Empty state
-  if (!statsLoading && stats && stats.totalCameras === 0) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-xl font-semibold">Dashboard</h1>
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <Camera className="mb-4 h-12 w-12 text-muted-foreground" />
-          <h2 className="text-xl font-semibold">No cameras registered</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Register your first camera to start monitoring. Once cameras are
-            active, stats and charts will appear here.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-semibold">Dashboard</h1>

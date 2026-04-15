@@ -19,7 +19,7 @@ const PLATFORM_ITEMS = [
   { label: "Organizations", href: "/admin/organizations", icon: Building2 },
   { label: "Packages", href: "/admin/packages", icon: Package },
   { label: "Cluster Nodes", href: "/admin/cluster", icon: Network },
-  { label: "SRS Engine", href: "/admin/stream-engine", icon: Server },
+  { label: "Stream Engine", href: "/admin/stream-engine", icon: Server },
   { label: "Platform Audit", href: "/admin/audit-log", icon: FileText },
   { label: "Users", href: "/admin/users", icon: UsersRound },
 ] as const;
