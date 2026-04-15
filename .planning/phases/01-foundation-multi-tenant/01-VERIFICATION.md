@@ -11,22 +11,7 @@ re_verification:
     - "Users see only the features enabled by their organization's package (feature toggles work)"
   gaps_remaining: []
   regressions: []
-human_verification:
-  - test: "Sign in with admin@sms-platform.local and verify session persists after browser refresh"
-    expected: "User stays logged in after F5/refresh, sees admin panel"
-    why_human: "Requires running services and browser interaction to verify cookie persistence"
-  - test: "Create organization via admin panel dialog, then create a package and assign it"
-    expected: "Organization appears in table, package assignment persists"
-    why_human: "End-to-end flow requiring visual verification of UI interaction"
-  - test: "Verify green theme is visually applied throughout admin panel"
-    expected: "Primary buttons are green, sidebar active state uses green accent, Inter font visible"
-    why_human: "Visual appearance cannot be verified programmatically"
-  - test: "Test responsive sidebar collapse on mobile viewport"
-    expected: "Sidebar collapses to hamburger menu on mobile widths"
-    why_human: "Responsive behavior requires browser viewport manipulation"
-  - test: "Verify RLS is active in the running database (pg_policies shows 6 policies)"
-    expected: "SELECT tablename, policyname FROM pg_policies WHERE schemaname = 'public' returns 6 rows"
-    why_human: "Requires running PostgreSQL instance to verify migration was applied"
+human_verification_resolved: 2026-04-15 via UAT Groups A, B, D — session persist across refresh (Tests 1-3), org/package creation (Test 8), green theme + responsive sidebar (Test 9), Phase 01 RLS policies applied and enforced end-to-end (Member: system-org=1, test-org=2, fake-org=0 via SET ROLE app_user). Phase 05 RLS also applied in this UAT pass. Phase 02 tables (Camera, Project, Site, StreamProfile, Policy, PlaybackSession) still lack RLS — tracked as BACKLOG Phase 999.3.
 ---
 
 # Phase 01: Foundation & Multi-Tenant Verification Report

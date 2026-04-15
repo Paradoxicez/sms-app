@@ -194,3 +194,10 @@ Plans:
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.3: Phase 02 RLS Gap Closure (BACKLOG)
+**Goal**: เพิ่ม PostgreSQL RLS policies ให้ Phase 02 tenant-scoped tables (Camera, Project, Site, StreamProfile, Policy, PlaybackSession) ที่ถูกข้ามไปตอน Phase 02 — ปัจจุบัน tenant isolation อาศัย API-layer เท่านั้น ถ้า API bug ข้อมูลรั่วข้าม org
+**Requirements**: TBD
+**Discovered**: 2026-04-15 via UAT Group D (Phase 01 SC-3) — query `pg_policies` พบว่า Phase 02 tables ไม่มี RLS
+**Severity**: Security (defense-in-depth) — not blocking v1.0 but should land before scale-out
+**Plans**: TBD
