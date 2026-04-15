@@ -60,7 +60,7 @@ export default function CameraMapInner({ cameras }: CameraMapInnerProps) {
     <MapContainer
       center={center}
       zoom={DEFAULT_ZOOM}
-      className="h-[300px] w-full rounded-lg sm:h-[300px] md:h-[400px]"
+      className="h-[calc(100vh-10rem)] min-h-[320px] w-full rounded-lg md:h-[calc(100vh-8rem)]"
       scrollWheelZoom={true}
     >
       <TileLayer

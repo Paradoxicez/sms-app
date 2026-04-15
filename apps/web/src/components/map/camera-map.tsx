@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 const CameraMapInner = dynamic(() => import('./camera-map-inner'), {
   ssr: false,
   loading: () => (
-    <div className="flex h-[400px] items-center justify-center rounded-lg border bg-muted">
+    <div className="flex h-[calc(100vh-10rem)] min-h-[320px] items-center justify-center rounded-lg border bg-muted md:h-[calc(100vh-8rem)]">
       <p className="text-sm text-muted-foreground">Loading map...</p>
     </div>
   ),

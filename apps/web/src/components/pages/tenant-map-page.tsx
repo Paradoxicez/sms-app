@@ -80,7 +80,7 @@ export default function TenantMapPage() {
     return (
       <div className="space-y-6">
         <Skeleton className="h-8 w-32" />
-        <Skeleton className="h-[400px] w-full rounded-lg" />
+        <Skeleton className="h-[calc(100vh-10rem)] min-h-[320px] w-full rounded-lg md:h-[calc(100vh-8rem)]" />
       </div>
     );
   }
@@ -115,7 +115,7 @@ export default function TenantMapPage() {
       )}
 
       {isLoading ? (
-        <Skeleton className="h-[400px] w-full rounded-lg" />
+        <Skeleton className="h-[calc(100vh-10rem)] min-h-[320px] w-full rounded-lg md:h-[calc(100vh-8rem)]" />
       ) : (
         <CameraMap cameras={cameras} />
       )}
