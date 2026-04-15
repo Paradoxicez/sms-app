@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-09)
 Phase: 07
 Plan: Not started
 Status: Ready to execute
-Last activity: 2026-04-15 - Completed quick task 260415-k9n: Wire Socket.IO orgId from session
+Last activity: 2026-04-15 - Completed quick task 260415-khn: Phase 03 VERIFICATION gaps (sessions list + policy sources)
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -178,6 +178,7 @@ None yet.
 |---|-------------|------|--------|-----------|
 | 260415-249 | Fix 3 UAT bugs: edit-org-dialog, package-table DropdownMenu, timeline-bar runtime error | 2026-04-15 | 0b30ecd | [260415-249-fix-3-uat-bugs](./quick/260415-249-fix-3-uat-bugs-edit-org-dialog-package-t/) |
 | 260415-k9n | Wire Socket.IO orgId from session — replace 'default' literal in cameras pages (P0 multi-tenant fix) | 2026-04-15 | 02cfe4f | [260415-k9n-wire-socket-io-orgid](./quick/260415-k9n-wire-socket-io-orgid-from-session-replac/) |
+| 260415-khn | Resolve Phase 03 VERIFICATION gaps — sessions list endpoint + policy sources field | 2026-04-15 | 671a2ad | [260415-khn-resolve-phase-03-verification-gaps](./quick/260415-khn-resolve-phase-03-verification-gaps-sessi/) |
 
 ## Session Continuity
 
