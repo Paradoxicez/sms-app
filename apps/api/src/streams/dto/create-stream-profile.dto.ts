@@ -5,21 +5,25 @@ export const CreateStreamProfileSchema = z.object({
   codec: z.enum(['auto', 'copy', 'libx264']).default('auto'),
   preset: z
     .enum(['ultrafast', 'superfast', 'veryfast', 'faster', 'fast', 'medium'])
+    .nullable()
     .optional()
     .default('veryfast'),
   resolution: z
     .string()
     .regex(/^\d+x\d+$/)
+    .nullable()
     .optional(),
-  fps: z.number().int().min(1).max(60).optional(),
+  fps: z.number().int().min(1).max(60).nullable().optional(),
   videoBitrate: z
     .string()
     .regex(/^\d+k$/)
+    .nullable()
     .optional(),
   audioCodec: z.enum(['aac', 'copy', 'mute']).default('aac'),
   audioBitrate: z
     .string()
     .regex(/^\d+k$/)
+    .nullable()
     .optional()
     .default('128k'),
   isDefault: z.boolean().optional().default(false),

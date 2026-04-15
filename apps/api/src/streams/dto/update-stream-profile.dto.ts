@@ -5,7 +5,8 @@ export const UpdateStreamProfileSchema = z.object({
   codec: z.enum(['auto', 'copy', 'libx264']).optional(),
   preset: z
     .enum(['ultrafast', 'superfast', 'veryfast', 'faster', 'fast', 'medium'])
-    .optional(),
+    .optional()
+    .nullable(),
   resolution: z
     .string()
     .regex(/^\d+x\d+$/)
