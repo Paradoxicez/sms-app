@@ -421,7 +421,13 @@ export function BulkImportDialog({
                 onValueChange={(v) => setSelectedSiteId(String(v ?? ''))}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a site" />
+                  <SelectValue placeholder="Select a site">
+                    {(() => {
+                      const site = sites.find((s) => s.id === selectedSiteId);
+                      if (!site) return 'Select a site';
+                      return site.project?.name ? `${site.project.name} / ${site.name}` : site.name;
+                    })()}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {sites.map((s) => (
