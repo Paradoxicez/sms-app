@@ -52,7 +52,7 @@ export function useCurrentRole(): CurrentRoleState {
         let memberRole: MemberRole | null = null;
         let activeOrgName: string | null = null;
 
-        if (userRole === "user" && activeOrgId) {
+        if (userRole !== "admin" && activeOrgId) {
           try {
             const m = await apiFetch<{ role: MemberRole }>(
               `/api/organizations/${activeOrgId}/members/me`,

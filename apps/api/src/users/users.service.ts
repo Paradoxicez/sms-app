@@ -36,11 +36,17 @@ export class UsersService {
         name: dto.name,
         email: dto.email,
         emailVerified: true, // Admin-created accounts are pre-verified
+        role: 'user', // Better Auth platform role (admin|user); Member.role carries tenant role
       },
     });
 
-    // Hash password with Better Auth scrypt so sign-in via better-auth verifies correctly
-    const { hashPassword } = await import('better-auth/crypto');
+    // Hash password with Better Auth scrypt so sign-in via better-auth verifies correctly.
+    // Use Function-indirect dynamic import so TS CommonJS transpile does NOT rewrite this
+    // to require() — better-auth/crypto is ESM-only and fails under require().
+    const dynImport = new Function('m', 'return import(m)') as (
+      m: string,
+    ) => Promise<{ hashPassword: (p: string) => Promise<string> }>;
+    const { hashPassword } = await dynImport('better-auth/crypto');
     const hashedPassword = await hashPassword(dto.password);
     await this.prisma.account.create({
       data: {
