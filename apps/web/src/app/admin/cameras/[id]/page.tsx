@@ -606,7 +606,13 @@ export default function CameraDetailPage() {
                 onValueChange={(v) => handleProfileChange(String(v ?? ''))}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Default (passthrough)" />
+                  <SelectValue placeholder="Default (passthrough)">
+                    {(() => {
+                      const p = profiles.find((pr) => pr.id === selectedProfileId);
+                      if (!p) return 'Default (passthrough)';
+                      return p.name + (p.isDefault ? ' (default)' : '');
+                    })()}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {profiles.map((p) => (
