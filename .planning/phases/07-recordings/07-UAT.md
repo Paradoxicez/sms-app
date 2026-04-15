@@ -46,8 +46,8 @@ severity: major
 
 ### 8. หน้า Recordings Admin
 expected: ไปที่ /admin/recordings แสดงตารางรายการบันทึกที่มีคอลัมน์ชื่อกล้อง, วันที่, สถานะ, ความยาว มีตัวกรองกล้อง/ช่วงวันที่/สถานะ และมีปุ่มลบแบบ bulk
-result: blocked
-blocked_by: server
+result: pass
+resolved: "2026-04-16 UAT Group C+ — after full stream pipeline fixes (SRS conf, FFmpeg lifecycle, HLS preview, BigInt serializer, host bind mount for srs_hls), Start Recording → Stop Recording produces a row with correct size (MB) and duration (seconds formatted). Filters + bulk delete present per UI-SPEC."
 reason: "ยังไม่ทดลองบันทึกเพราะ stream ยังใช้ไม่ได้"
 
 ### 9. Feature Gate — แท็บ Recordings
@@ -58,11 +58,11 @@ resolved: "2026-04-15 UAT Group B — tested from Operator in tenant portal (/ap
 ## Summary
 
 total: 9
-passed: 6
+passed: 7
 issues: 2
 pending: 0
 skipped: 0
-blocked: 1
+blocked: 0
 
 ## Gaps
 

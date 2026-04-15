@@ -1,14 +1,15 @@
 ---
-status: partial
+status: complete
 phase: 02-stream-engine-camera-management
 source: [02-01-SUMMARY.md, 02-02-SUMMARY.md, 02-03-SUMMARY.md, 02-04-SUMMARY.md, 02-05-SUMMARY.md, 02-06-SUMMARY.md]
 started: 2026-04-15T19:20:00Z
-updated: 2026-04-15T20:30:00Z
+updated: 2026-04-16T01:40:00Z
+retest_resolved: "2026-04-16 — Tests 3/4/5 previously issue (stream pipeline) now pass after fixes: SRS config loading (docker.conf → srs.conf), hls_ctx off, parseStreamKey strip extensions, JWT_PLAYBACK_SECRET pin, FFmpeg intentional-stop flag, Socket.IO /camera-status namespace, HlsPlayer retry+withCredentials. See commits 22f49d9 and the stream-pipeline UAT bundle."
 ---
 
 ## Current Test
 
-[testing paused — 3 issues need debug session]
+[testing complete — 11/11 pass after 2026-04-16 retest]
 
 ## Tests
 
