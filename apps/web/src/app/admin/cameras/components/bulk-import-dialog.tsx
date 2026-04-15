@@ -67,13 +67,30 @@ function normalizeHeader(h: string): string {
 
 function mapHeaders(headers: string[]) {
   const normalized = headers.map(normalizeHeader);
+
+  // Use lastIndexOf for lat/lng to handle duplicate columns (site vs camera)
+  function findFirst(...names: string[]) {
+    for (const n of names) {
+      const idx = normalized.indexOf(n);
+      if (idx >= 0) return idx;
+    }
+    return -1;
+  }
+  function findLast(...names: string[]) {
+    for (const n of names) {
+      const idx = normalized.lastIndexOf(n);
+      if (idx >= 0) return idx;
+    }
+    return -1;
+  }
+
   return {
-    nameIdx: normalized.findIndex((h) => h === 'name'),
-    urlIdx: normalized.findIndex((h) => h === 'streamurl' || h === 'url'),
-    tagsIdx: normalized.findIndex((h) => h === 'tags'),
-    descIdx: normalized.findIndex((h) => h === 'description'),
-    latIdx: normalized.findIndex((h) => h === 'latitude' || h === 'lat'),
-    lngIdx: normalized.findIndex((h) => h === 'longitude' || h === 'lng' || h === 'lon'),
+    nameIdx: findFirst('cameraname', 'name'),
+    urlIdx: findFirst('streamurl', 'url'),
+    tagsIdx: findFirst('tags'),
+    descIdx: findFirst('description'),
+    latIdx: findLast('latitude', 'lat'),
+    lngIdx: findLast('longitude', 'lng', 'lon'),
   };
 }
 
@@ -106,8 +123,8 @@ function parseJSON(text: string): CameraRow[] {
   const data = JSON.parse(text);
   const arr = Array.isArray(data) ? data : [];
   return arr.map((item: Record<string, unknown>) => ({
-    name: String(item.name || ''),
-    streamUrl: String(item.streamUrl || item.stream_url || ''),
+    name: String(item['Camera Name'] || item['camera_name'] || item.name || ''),
+    streamUrl: String(item['Stream URL'] || item.streamUrl || item.stream_url || ''),
     tags: String(item.tags || ''),
     description: String(item.description || ''),
     latitude: String(item.latitude || item.lat || ''),
@@ -119,17 +136,17 @@ function parseJSON(text: string): CameraRow[] {
 function parseExcel(data: ArrayBuffer): CameraRow[] {
   const workbook = XLSX.read(data, { type: 'array' });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' });
+  // Use header:'A' to get raw arrays, then apply mapHeaders for consistent parsing
+  const rawRows = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, defval: '' });
+  if (rawRows.length < 2) return [];
 
-  return rows.map((item) => ({
-    name: String(item['name'] || item['Name'] || ''),
-    streamUrl: String(item['streamUrl'] || item['stream_url'] || item['StreamUrl'] || item['URL'] || item['url'] || ''),
-    tags: String(item['tags'] || item['Tags'] || ''),
-    description: String(item['description'] || item['Description'] || ''),
-    latitude: String(item['latitude'] || item['lat'] || item['Latitude'] || item['Lat'] || ''),
-    longitude: String(item['longitude'] || item['lng'] || item['lon'] || item['Longitude'] || item['Lng'] || ''),
-    errors: {},
-  }));
+  const headers = rawRows[0].map(String);
+  const map = mapHeaders(headers);
+
+  return rawRows.slice(1).filter((row) => row.some((v) => String(v).trim())).map((row) => {
+    const values = row.map(String);
+    return rowFromValues(values, map);
+  });
 }
 
 function validateRow(row: CameraRow): Record<string, string> {
