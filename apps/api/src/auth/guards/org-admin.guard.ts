@@ -49,8 +49,9 @@ export class OrgAdminGuard implements CanActivate {
       return true;
     }
 
-    const orgId = request.params?.orgId;
-    if (!orgId) {
+    const rawOrgId = request.params?.orgId;
+    const orgId = Array.isArray(rawOrgId) ? rawOrgId[0] : rawOrgId;
+    if (!orgId || typeof orgId !== 'string') {
       throw new ForbiddenException('orgId route param required');
     }
 
