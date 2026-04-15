@@ -3,7 +3,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import { randomUUID, createHash } from 'crypto';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { InviteUserDto } from './dto/invite-user.dto';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -39,9 +39,9 @@ export class UsersService {
       },
     });
 
-    // Create credential account (password hashed with scrypt via Better Auth pattern)
-    // For direct creation we store a simple hash; Better Auth will handle its own auth flow
-    const hashedPassword = createHash('sha256').update(dto.password).digest('hex');
+    // Hash password with Better Auth scrypt so sign-in via better-auth verifies correctly
+    const { hashPassword } = await import('better-auth/crypto');
+    const hashedPassword = await hashPassword(dto.password);
     await this.prisma.account.create({
       data: {
         id: randomUUID(),
