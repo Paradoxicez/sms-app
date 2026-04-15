@@ -12,7 +12,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Request } from 'express';
-import { SuperAdminGuard } from '../auth/guards/super-admin.guard';
+import { OrgAdminGuard } from '../auth/guards/org-admin.guard';
 import { getAuth } from '../auth/auth.config';
 import { UsersService } from './users.service';
 import { InviteUserSchema } from './dto/invite-user.dto';
@@ -20,9 +20,9 @@ import { CreateUserSchema } from './dto/create-user.dto';
 
 /**
  * User management endpoints scoped to an organization.
- * All endpoints require super admin authentication via SuperAdminGuard.
+ * All endpoints require either super admin OR org admin of :orgId via OrgAdminGuard.
  */
-@UseGuards(SuperAdminGuard)
+@UseGuards(OrgAdminGuard)
 @Controller('api/organizations/:orgId/users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}

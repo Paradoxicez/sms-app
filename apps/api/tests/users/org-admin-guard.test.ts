@@ -1,24 +1,9 @@
-/**
- * VALIDATION: TBD-09 — OrgAdminGuard via POST /api/organizations/:orgId/users
- *
- * Threat T-999.1-03 (cross-tenant write): an Org Admin of org A must NOT be
- * able to create a user in org B. OrgAdminGuard enforces that the caller has
- * Member.role === 'admin' *in the requested :orgId*, OR is a platform super
- * admin (User.role === 'admin').
- *
- * Expected initial state: RED. The guard does not yet exist under
- * apps/api/src/auth/guards/org-admin.guard.ts. Wave 1 will add it; this test
- * will then switch to GREEN.
- */
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
-  describe,
-  it,
-  expect,
-  beforeEach,
-  afterEach,
-  vi,
-} from 'vitest';
-import type { ExecutionContext } from '@nestjs/common';
+  ExecutionContext,
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { testPrisma } from '../setup';
 import {
   cleanupTestData,
@@ -26,128 +11,144 @@ import {
 } from '../helpers/tenancy';
 import { createTestUser } from '../helpers/auth';
 
-// Expected RED: guard module does not exist yet.
+// Mock the Better Auth config so we can control the session returned to the guard.
+// The guard imports getAuth() from '../auth.config' and calls auth.api.getSession({ headers }).
+vi.mock('../../src/auth/auth.config', () => {
+  return {
+    getAuth: () => ({
+      api: {
+        getSession: vi.fn(async ({ headers }: { headers: Headers }) => {
+          const raw = headers.get('x-test-session');
+          if (!raw) return null;
+          return JSON.parse(raw);
+        }),
+      },
+    }),
+  };
+});
+
 import { OrgAdminGuard } from '../../src/auth/guards/org-admin.guard';
 
-function buildContext(opts: {
-  orgId: string;
-  session: { user: { id: string; role: 'admin' | 'user' } } | null;
+/**
+ * Build a fake ExecutionContext carrying request with headers + params.
+ * x-test-session header value is a JSON-serialised Better Auth session.
+ */
+function mkContext(opts: {
+  session?: { user: { id: string; role: string } } | null;
+  params?: Record<string, string>;
 }): ExecutionContext {
-  const request: any = {
-    headers: {},
-    params: { orgId: opts.orgId },
-    // Tests may cross-reference the authenticated user id.
-    user: opts.session?.user ?? null,
-    session: opts.session,
-  };
+  const headers: Record<string, string> = {};
+  if (opts.session) {
+    headers['x-test-session'] = JSON.stringify(opts.session);
+  }
+  const request = { headers, params: opts.params ?? {} };
   return {
-    switchToHttp: () => ({
-      getRequest: () => request,
-      getResponse: () => ({}),
-      getNext: () => ({}),
-    }),
-    getHandler: () => ({}) as any,
-    getClass: () => ({}) as any,
+    switchToHttp: () => ({ getRequest: () => request }),
   } as unknown as ExecutionContext;
 }
 
-describe('OrgAdminGuard — cross-tenant write (T-999.1-03, D-19)', () => {
-  let guard: OrgAdminGuard;
+describe('OrgAdminGuard (T-999.1-03: cross-tenant write blocked)', () => {
   let orgAId: string;
   let orgBId: string;
-  let platformAdminId: string;
+  let superAdminId: string;
   let orgAAdminId: string;
   let orgAOperatorId: string;
 
   beforeEach(async () => {
     await cleanupTestData(testPrisma);
-    guard = new OrgAdminGuard(testPrisma as any);
 
     const orgA = await createTestOrganization(testPrisma, {
       name: 'Org A',
-      slug: 'org-a',
-    });
-    const orgB = await createTestOrganization(testPrisma, {
-      name: 'Org B',
-      slug: 'org-b',
+      slug: `org-a-${Date.now()}`,
     });
     orgAId = orgA.id;
+    const orgB = await createTestOrganization(testPrisma, {
+      name: 'Org B',
+      slug: `org-b-${Date.now()}`,
+    });
     orgBId = orgB.id;
 
-    const superUser = await createTestUser(testPrisma, {
+    const superAdmin = await createTestUser(testPrisma, {
       email: 'super@test.com',
       role: 'admin',
     });
-    platformAdminId = superUser.id;
+    superAdminId = superAdmin.id;
 
     const orgAAdmin = await createTestUser(testPrisma, {
-      email: 'org-a-admin@test.com',
+      email: 'orga-admin@test.com',
       role: 'user',
     });
+    orgAAdminId = orgAAdmin.id;
     await testPrisma.member.create({
       data: {
-        id: `member-${orgAAdmin.id}`,
+        id: `member-${orgAAdminId}`,
         organizationId: orgAId,
-        userId: orgAAdmin.id,
+        userId: orgAAdminId,
         role: 'admin',
       },
     });
-    orgAAdminId = orgAAdmin.id;
 
-    const orgAOp = await createTestUser(testPrisma, {
-      email: 'org-a-op@test.com',
+    const orgAOperator = await createTestUser(testPrisma, {
+      email: 'orga-op@test.com',
       role: 'user',
     });
+    orgAOperatorId = orgAOperator.id;
     await testPrisma.member.create({
       data: {
-        id: `member-${orgAOp.id}`,
+        id: `member-${orgAOperatorId}`,
         organizationId: orgAId,
-        userId: orgAOp.id,
+        userId: orgAOperatorId,
         role: 'operator',
       },
     });
-    orgAOperatorId = orgAOp.id;
   });
 
   afterEach(async () => {
     await cleanupTestData(testPrisma);
-    vi.restoreAllMocks();
   });
 
-  it('allows super admin (User.role=admin) to create user in any org', async () => {
-    const ctx = buildContext({
-      orgId: orgBId,
-      session: { user: { id: platformAdminId, role: 'admin' } },
+  it('allows super admin (User.role=admin) to access any org', async () => {
+    const guard = new OrgAdminGuard(testPrisma as any);
+    const ctx = mkContext({
+      session: { user: { id: superAdminId, role: 'admin' } },
+      params: { orgId: orgBId },
     });
     await expect(guard.canActivate(ctx)).resolves.toBe(true);
   });
 
-  it('allows org admin (Member.role=admin in :orgId) to create user in own org (D-19)', async () => {
-    const ctx = buildContext({
-      orgId: orgAId,
+  it('allows org admin of :orgId to access own org', async () => {
+    const guard = new OrgAdminGuard(testPrisma as any);
+    const ctx = mkContext({
       session: { user: { id: orgAAdminId, role: 'user' } },
+      params: { orgId: orgAId },
     });
     await expect(guard.canActivate(ctx)).resolves.toBe(true);
   });
 
-  it('rejects org admin from creating user in a DIFFERENT org (cross-tenant write T-999.1-03)', async () => {
-    const ctx = buildContext({
-      orgId: orgBId, // admin is only member of org A
+  it('rejects org admin from accessing a DIFFERENT org (cross-tenant write blocked)', async () => {
+    const guard = new OrgAdminGuard(testPrisma as any);
+    const ctx = mkContext({
       session: { user: { id: orgAAdminId, role: 'user' } },
+      params: { orgId: orgBId },
     });
-    await expect(guard.canActivate(ctx)).rejects.toThrow(/403|Forbidden|not authorized/i);
+    await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
   });
 
-  it('rejects operator/developer/viewer from creating user in own org', async () => {
-    const ctx = buildContext({
-      orgId: orgAId,
+  it('rejects operator/viewer member (not admin) from writes in own org', async () => {
+    const guard = new OrgAdminGuard(testPrisma as any);
+    const ctx = mkContext({
       session: { user: { id: orgAOperatorId, role: 'user' } },
+      params: { orgId: orgAId },
     });
-    await expect(guard.canActivate(ctx)).rejects.toThrow(/403|Forbidden|not authorized/i);
+    await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
   });
 
   it('rejects unauthenticated with 401', async () => {
-    const ctx = buildContext({ orgId: orgAId, session: null });
-    await expect(guard.canActivate(ctx)).rejects.toThrow(/401|Unauthorized|Not authenticated/i);
+    const guard = new OrgAdminGuard(testPrisma as any);
+    const ctx = mkContext({
+      session: null,
+      params: { orgId: orgAId },
+    });
+    await expect(guard.canActivate(ctx)).rejects.toThrow(UnauthorizedException);
   });
 });

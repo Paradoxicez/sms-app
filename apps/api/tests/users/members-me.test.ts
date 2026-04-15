@@ -1,19 +1,5 @@
-/**
- * VALIDATION: TBD-12 — GET /api/organizations/:orgId/members/me
- * Returns the caller's Member.role for the target org.
- *
- * Expected initial state: RED. Neither MembersController nor the `getMyMember`
- * service method exists — imports will fail to resolve. Plan 01/02 will turn
- * this green by adding:
- *   apps/api/src/users/members.controller.ts
- *   apps/api/src/users/users.service.ts::getMyMembership(orgId, userId)
- *
- * Route shape: GET /api/organizations/:orgId/members/me
- *   401 when no session
- *   404 when caller has no Member row in :orgId
- *   200 { role, userId, organizationId } otherwise
- */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { testPrisma } from '../setup';
 import {
   cleanupTestData,
@@ -21,21 +7,70 @@ import {
 } from '../helpers/tenancy';
 import { createTestUser } from '../helpers/auth';
 
-// Expected RED: module not yet exported.
-import { UsersService } from '../../src/users/users.service';
+// Mock auth.config so controller.getSessionUserId works without real Better Auth.
+vi.mock('../../src/auth/auth.config', () => ({
+  getAuth: () => ({
+    api: {
+      getSession: vi.fn(async ({ headers }: { headers: Headers }) => {
+        const raw = headers.get('x-test-session');
+        if (!raw) return null;
+        return JSON.parse(raw);
+      }),
+    },
+  }),
+}));
 
-describe('GET /api/organizations/:orgId/members/me (TBD-12)', () => {
+import { UsersService } from '../../src/users/users.service';
+import { MembersController } from '../../src/users/members.controller';
+
+describe('GET /api/organizations/:orgId/members/me', () => {
   let service: UsersService;
+  let controller: MembersController;
   let orgId: string;
+  let adminUserId: string;
+  let operatorUserId: string;
+  let viewerUserId: string;
+  let nonMemberUserId: string;
+
+  function mkReq(userId: string | null) {
+    const headers: Record<string, string> = {};
+    if (userId) {
+      headers['x-test-session'] = JSON.stringify({ user: { id: userId, role: 'user' } });
+    }
+    return { headers } as any;
+  }
 
   beforeEach(async () => {
     await cleanupTestData(testPrisma);
     service = new UsersService(testPrisma as any);
+    controller = new MembersController(service);
+
     const org = await createTestOrganization(testPrisma, {
-      name: 'Members Me Org',
-      slug: 'members-me-org',
+      name: 'MembersMe Org',
+      slug: `members-me-${Date.now()}`,
     });
     orgId = org.id;
+
+    const admin = await createTestUser(testPrisma, { email: 'mm-admin@test.com' });
+    adminUserId = admin.id;
+    await testPrisma.member.create({
+      data: { id: `m-${admin.id}`, organizationId: orgId, userId: admin.id, role: 'admin' },
+    });
+
+    const op = await createTestUser(testPrisma, { email: 'mm-op@test.com' });
+    operatorUserId = op.id;
+    await testPrisma.member.create({
+      data: { id: `m-${op.id}`, organizationId: orgId, userId: op.id, role: 'operator' },
+    });
+
+    const viewer = await createTestUser(testPrisma, { email: 'mm-viewer@test.com' });
+    viewerUserId = viewer.id;
+    await testPrisma.member.create({
+      data: { id: `m-${viewer.id}`, organizationId: orgId, userId: viewer.id, role: 'viewer' },
+    });
+
+    const stranger = await createTestUser(testPrisma, { email: 'mm-stranger@test.com' });
+    nonMemberUserId = stranger.id;
   });
 
   afterEach(async () => {
@@ -43,69 +78,36 @@ describe('GET /api/organizations/:orgId/members/me (TBD-12)', () => {
   });
 
   it('returns 401 when no session', async () => {
-    // HTTP-layer guard behavior; verified indirectly via absence of identity.
-    // The service-level call must throw when caller is unresolved.
     await expect(
-      (service as any).getMyMembership(orgId, undefined as any),
-    ).rejects.toBeTruthy();
+      controller.getMyMembership(orgId, mkReq(null)),
+    ).rejects.toThrow(UnauthorizedException);
   });
 
   it('returns 404 when caller is not a member of :orgId', async () => {
-    const stranger = await createTestUser(testPrisma, {
-      email: 'stranger@test.com',
-    });
     await expect(
-      (service as any).getMyMembership(orgId, stranger.id),
-    ).rejects.toThrow(/not a member|404|NotFound/i);
+      controller.getMyMembership(orgId, mkReq(nonMemberUserId)),
+    ).rejects.toThrow(NotFoundException);
   });
 
-  it("returns { role: 'admin', userId, organizationId } when caller is Org Admin in :orgId", async () => {
-    const admin = await createTestUser(testPrisma, {
-      email: 'orgadmin@test.com',
-      role: 'user',
-    });
-    await testPrisma.member.create({
-      data: {
-        id: `member-${admin.id}`,
-        organizationId: orgId,
-        userId: admin.id,
-        role: 'admin',
-      },
-    });
-
-    const result = await (service as any).getMyMembership(orgId, admin.id);
-    expect(result).toMatchObject({
-      role: 'admin',
-      userId: admin.id,
+  it("returns { role: 'admin', userId, organizationId } when caller is Org Admin", async () => {
+    const result = await controller.getMyMembership(orgId, mkReq(adminUserId));
+    expect(result).toEqual({
+      userId: adminUserId,
       organizationId: orgId,
+      role: 'admin',
     });
   });
 
   it("returns { role: 'operator' } for an operator member", async () => {
-    const op = await createTestUser(testPrisma, { email: 'op@test.com' });
-    await testPrisma.member.create({
-      data: {
-        id: `member-${op.id}`,
-        organizationId: orgId,
-        userId: op.id,
-        role: 'operator',
-      },
-    });
-    const result = await (service as any).getMyMembership(orgId, op.id);
+    const result = await controller.getMyMembership(orgId, mkReq(operatorUserId));
     expect(result.role).toBe('operator');
+    expect(result.userId).toBe(operatorUserId);
+    expect(result.organizationId).toBe(orgId);
   });
 
   it("returns { role: 'viewer' } for a viewer member", async () => {
-    const viewer = await createTestUser(testPrisma, { email: 'viewer@test.com' });
-    await testPrisma.member.create({
-      data: {
-        id: `member-${viewer.id}`,
-        organizationId: orgId,
-        userId: viewer.id,
-        role: 'viewer',
-      },
-    });
-    const result = await (service as any).getMyMembership(orgId, viewer.id);
+    const result = await controller.getMyMembership(orgId, mkReq(viewerUserId));
     expect(result.role).toBe('viewer');
+    expect(result.userId).toBe(viewerUserId);
   });
 });

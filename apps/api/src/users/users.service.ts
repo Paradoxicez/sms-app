@@ -93,6 +93,23 @@ export class UsersService {
     return result;
   }
 
+  /**
+   * Returns the caller's Member row in the given organization, or throws 404.
+   * Used by GET /api/organizations/:orgId/members/me for role detection.
+   * Mitigates T-999.1-04 (information disclosure): caller can only look up
+   * THEIR OWN Member row because userId comes from the authenticated session.
+   */
+  async getCallerMembership(orgId: string, userId: string) {
+    const member = await this.prisma.member.findFirst({
+      where: { organizationId: orgId, userId },
+      select: { userId: true, organizationId: true, role: true },
+    });
+    if (!member) {
+      throw new NotFoundException('Not a member of this organization');
+    }
+    return member;
+  }
+
   async removeMember(orgId: string, userId: string) {
     // Check if user is an admin
     const member = await this.prisma.member.findFirst({
