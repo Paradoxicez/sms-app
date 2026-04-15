@@ -1,5 +1,15 @@
 /**
- * VALIDATION: TBD-04/TBD-05/TBD-06 — D-11 role & D-13 feature filtering of tenant nav
+ * VALIDATION: TBD-04/TBD-05/TBD-06 — D-11 role & D-13 feature filtering of tenant nav.
+ *
+ * Props contract per src/components/nav/tenant-nav.tsx:
+ *   TenantNav({ memberRole, activeOrgId, activeOrgName, userName?, userEmail? })
+ *
+ * Admin (memberRole="admin") permitted=ALL, so nav surfaces the union of all
+ * groups gated by useFeatures. With all default features ON, 12 items render:
+ *   Overview      : Dashboard, Map
+ *   Cameras       : Cameras, Projects, Sites, Stream Profiles, Recordings, Policies
+ *   Organization  : Team, Audit Log
+ *   Developer     : API Keys, Webhooks
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
@@ -19,10 +29,16 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
 }));
 
-// Expected RED: @/components/nav/tenant-nav does not exist yet.
+vi.mock("@/lib/auth-client", () => ({
+  authClient: {
+    signOut: vi.fn(async () => ({ data: {} })),
+  },
+}));
+
 import { TenantNav } from "@/components/nav/tenant-nav";
 
 const ORG_ID = "org-test-1";
+const ORG_NAME = "Test Org";
 
 describe("TenantNav role + feature filtering (D-11, D-13, D-14)", () => {
   beforeEach(() => {
@@ -30,68 +46,126 @@ describe("TenantNav role + feature filtering (D-11, D-13, D-14)", () => {
   });
 
   it("Org Admin sees all 12 nav items when all features enabled", () => {
-    render(<TenantNav orgId={ORG_ID} memberRole="admin" />);
+    render(
+      <TenantNav
+        memberRole="admin"
+        activeOrgId={ORG_ID}
+        activeOrgName={ORG_NAME}
+      />,
+    );
     const expected = [
       "Dashboard",
+      "Map",
       "Cameras",
       "Projects",
+      "Sites",
       "Stream Profiles",
-      "Policies",
       "Recordings",
-      "Map",
+      "Policies",
+      "Team",
+      "Audit Log",
       "API Keys",
       "Webhooks",
-      "Audit Log",
-      "Team",
-      "Settings",
     ];
     for (const label of expected) {
-      expect(screen.getByRole("link", { name: new RegExp(label, "i") })).toBeInTheDocument();
+      expect(
+        screen.getByRole("link", { name: new RegExp(`^${label}$`, "i") }),
+      ).toBeInTheDocument();
     }
   });
 
   it("Operator sees exactly {Dashboard, Cameras, Map, Recordings, Audit Log}", () => {
-    render(<TenantNav orgId={ORG_ID} memberRole="operator" />);
+    render(
+      <TenantNav
+        memberRole="operator"
+        activeOrgId={ORG_ID}
+        activeOrgName={ORG_NAME}
+      />,
+    );
     const allowed = ["Dashboard", "Cameras", "Map", "Recordings", "Audit Log"];
     for (const label of allowed) {
-      expect(screen.getByRole("link", { name: new RegExp(label, "i") })).toBeInTheDocument();
+      expect(
+        screen.getByRole("link", { name: new RegExp(`^${label}$`, "i") }),
+      ).toBeInTheDocument();
     }
-    for (const disallowed of ["Policies", "Team", "API Keys", "Webhooks", "Projects"]) {
-      expect(screen.queryByRole("link", { name: new RegExp(disallowed, "i") })).toBeNull();
+    for (const disallowed of [
+      "Policies",
+      "Team",
+      "API Keys",
+      "Webhooks",
+      "Projects",
+    ]) {
+      expect(
+        screen.queryByRole("link", { name: new RegExp(`^${disallowed}$`, "i") }),
+      ).toBeNull();
     }
   });
 
   it("Developer sees exactly {Dashboard, Cameras, Map, API Keys, Webhooks, Audit Log}", () => {
-    render(<TenantNav orgId={ORG_ID} memberRole="developer" />);
-    const allowed = ["Dashboard", "Cameras", "Map", "API Keys", "Webhooks", "Audit Log"];
+    render(
+      <TenantNav
+        memberRole="developer"
+        activeOrgId={ORG_ID}
+        activeOrgName={ORG_NAME}
+      />,
+    );
+    const allowed = [
+      "Dashboard",
+      "Cameras",
+      "Map",
+      "API Keys",
+      "Webhooks",
+      "Audit Log",
+    ];
     for (const label of allowed) {
-      expect(screen.getByRole("link", { name: new RegExp(label, "i") })).toBeInTheDocument();
+      expect(
+        screen.getByRole("link", { name: new RegExp(`^${label}$`, "i") }),
+      ).toBeInTheDocument();
     }
     for (const disallowed of ["Policies", "Team", "Recordings", "Projects"]) {
-      expect(screen.queryByRole("link", { name: new RegExp(disallowed, "i") })).toBeNull();
+      expect(
+        screen.queryByRole("link", { name: new RegExp(`^${disallowed}$`, "i") }),
+      ).toBeNull();
     }
   });
 
   it("Viewer sees exactly {Dashboard, Cameras, Map, Recordings, Audit Log}", () => {
-    render(<TenantNav orgId={ORG_ID} memberRole="viewer" />);
+    render(
+      <TenantNav
+        memberRole="viewer"
+        activeOrgId={ORG_ID}
+        activeOrgName={ORG_NAME}
+      />,
+    );
     const allowed = ["Dashboard", "Cameras", "Map", "Recordings", "Audit Log"];
     for (const label of allowed) {
-      expect(screen.getByRole("link", { name: new RegExp(label, "i") })).toBeInTheDocument();
+      expect(
+        screen.getByRole("link", { name: new RegExp(`^${label}$`, "i") }),
+      ).toBeInTheDocument();
     }
     for (const disallowed of ["Policies", "Team", "API Keys", "Webhooks"]) {
-      expect(screen.queryByRole("link", { name: new RegExp(disallowed, "i") })).toBeNull();
+      expect(
+        screen.queryByRole("link", { name: new RegExp(`^${disallowed}$`, "i") }),
+      ).toBeNull();
     }
   });
 
   it("hides Recordings when features.recordings=false (D-13)", () => {
     useFeaturesMockFn.mockImplementation(() => ({
       features: createMockFeatures({ recordings: false }),
-      isEnabled: (k: string) => createMockFeatures({ recordings: false })[k] === true,
+      isEnabled: (k: string) =>
+        createMockFeatures({ recordings: false })[k] === true,
       loading: false,
       error: null,
     }));
-    render(<TenantNav orgId={ORG_ID} memberRole="admin" />);
-    expect(screen.queryByRole("link", { name: /Recordings/i })).toBeNull();
+    render(
+      <TenantNav
+        memberRole="admin"
+        activeOrgId={ORG_ID}
+        activeOrgName={ORG_NAME}
+      />,
+    );
+    expect(screen.queryByRole("link", { name: /^Recordings$/i })).toBeNull();
   });
 
   it("hides API Keys + Webhooks when respective features disabled (D-14)", () => {
@@ -102,8 +176,14 @@ describe("TenantNav role + feature filtering (D-11, D-13, D-14)", () => {
       loading: false,
       error: null,
     }));
-    render(<TenantNav orgId={ORG_ID} memberRole="admin" />);
-    expect(screen.queryByRole("link", { name: /API Keys/i })).toBeNull();
-    expect(screen.queryByRole("link", { name: /Webhooks/i })).toBeNull();
+    render(
+      <TenantNav
+        memberRole="admin"
+        activeOrgId={ORG_ID}
+        activeOrgName={ORG_NAME}
+      />,
+    );
+    expect(screen.queryByRole("link", { name: /^API Keys$/i })).toBeNull();
+    expect(screen.queryByRole("link", { name: /^Webhooks$/i })).toBeNull();
   });
 });
