@@ -11,15 +11,24 @@ import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
 import { CreatePolicyDto } from './dto/create-policy.dto';
 import { UpdatePolicyDto } from './dto/update-policy.dto';
 
+export type PolicyLevel = 'CAMERA' | 'SITE' | 'PROJECT' | 'SYSTEM';
+
 export interface ResolvedPolicy {
   ttlSeconds: number;
   maxViewers: number;
   domains: string[];
   allowNoReferer: boolean;
   rateLimit: number;
+  sources: {
+    ttlSeconds: PolicyLevel;
+    maxViewers: PolicyLevel;
+    domains: PolicyLevel;
+    allowNoReferer: PolicyLevel;
+    rateLimit: PolicyLevel;
+  };
 }
 
-const SYSTEM_DEFAULTS: ResolvedPolicy = {
+const SYSTEM_DEFAULTS: Omit<ResolvedPolicy, 'sources'> = {
   ttlSeconds: 7200,
   maxViewers: 10,
   domains: [],
@@ -163,7 +172,17 @@ export class PoliciesService implements OnModuleInit {
     );
 
     // Start with hardcoded defaults as fallback
-    const resolved: ResolvedPolicy = { ...SYSTEM_DEFAULTS };
+    const resolved: Omit<ResolvedPolicy, 'sources'> = { ...SYSTEM_DEFAULTS };
+
+    // Default every source to SYSTEM -- covers the "no policies" fallback
+    // (Test E) and any scalar field no policy supplies.
+    const sources: ResolvedPolicy['sources'] = {
+      ttlSeconds: 'SYSTEM',
+      maxViewers: 'SYSTEM',
+      domains: 'SYSTEM',
+      allowNoReferer: 'SYSTEM',
+      rateLimit: 'SYSTEM',
+    };
 
     // Per-field merge for scalar fields: take first non-null/non-undefined value
     const scalarFields = ['ttlSeconds', 'maxViewers', 'allowNoReferer', 'rateLimit'] as const;
@@ -173,6 +192,7 @@ export class PoliciesService implements OnModuleInit {
         const value = policy[field];
         if (value !== null && value !== undefined) {
           (resolved as any)[field] = value;
+          sources[field] = policy.level as PolicyLevel;
           break;
         }
       }
@@ -184,9 +204,10 @@ export class PoliciesService implements OnModuleInit {
     // The highest-priority policy's domains value is used
     if (policies.length > 0) {
       resolved.domains = policies[0].domains;
+      sources.domains = policies[0].level as PolicyLevel;
     }
 
-    return resolved;
+    return { ...resolved, sources };
   }
 
   private validateLevelForeignKey(dto: CreatePolicyDto): void {
