@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-09)
 Phase: 999.1 (role-based-sidebar-navigation) — COMPLETE
 Plans: 5/5 + F-1/F-2 gap closures
 Status: Phase complete; verifier PASS (human_needed flags now closed)
-Last activity: 2026-04-15 -- Phase 999.1 complete, both verification flags closed
+Last activity: 2026-04-15 -- Completed quick task 260415-vqy (Create Platform User dialog polish)
 
 Progress: [██████████] 100%
 
@@ -179,6 +179,7 @@ None yet.
 | 260415-249 | Fix 3 UAT bugs: edit-org-dialog, package-table DropdownMenu, timeline-bar runtime error | 2026-04-15 | 0b30ecd | [260415-249-fix-3-uat-bugs](./quick/260415-249-fix-3-uat-bugs-edit-org-dialog-package-t/) |
 | 260415-k9n | Wire Socket.IO orgId from session — replace 'default' literal in cameras pages (P0 multi-tenant fix) | 2026-04-15 | 02cfe4f | [260415-k9n-wire-socket-io-orgid](./quick/260415-k9n-wire-socket-io-orgid-from-session-replac/) |
 | 260415-khn | Resolve Phase 03 VERIFICATION gaps — sessions list endpoint + policy sources field | 2026-04-15 | 671a2ad | [260415-khn-resolve-phase-03-verification-gaps](./quick/260415-khn-resolve-phase-03-verification-gaps-sessi/) |
+| 260415-vqy | Polish Create Platform User dialog — drop "super admin" copy, push System org last | 2026-04-15 | efac1a7 | [260415-vqy-polish-create-platform-user-dialog-drop-](./quick/260415-vqy-polish-create-platform-user-dialog-drop-/) |
 
 ## Session Continuity
 
