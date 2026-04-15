@@ -53,6 +53,10 @@ export class SrsCallbackController {
     const params = new URLSearchParams(paramStr);
     const token = params.get('token');
 
+    this.logger.debug(
+      `on_play: body.param="${body.param}", body.stream="${body.stream}", parsed token="${token ? token.slice(0, 20) + '...len=' + token.length : 'null'}"`,
+    );
+
     if (!token) {
       this.logger.warn(`Playback rejected: no token for camera=${cameraId}`);
       return { code: 403 };
@@ -170,7 +174,13 @@ export class SrsCallbackController {
     const fullPath = app ? `${app}/${stream}` : stream;
     const parts = fullPath.replace(/^live\//, '').split('/');
     if (parts.length >= 2 && parts[0] && parts[1]) {
-      return { orgId: parts[0], cameraId: parts[1] };
+      // SRS passes stream with HLS/segment extensions attached on play events
+      // (e.g. "{cameraId}.m3u8", "{cameraId}-5.ts"). Strip so downstream
+      // token/status lookups see the canonical cameraId.
+      const cameraId = parts[1]
+        .replace(/\.(m3u8|ts|m4s|mp4|flv)$/, '')
+        .replace(/-\d+$/, '');
+      return { orgId: parts[0], cameraId };
     }
     return {};
   }

@@ -31,6 +31,7 @@ services:
 
   srs:
     image: ossrs/srs:6
+    command: ["./objs/srs", "-c", "conf/srs.conf"]
     ports:
       - "1935:1935"
       - "1985:1985"

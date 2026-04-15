@@ -151,6 +151,9 @@ export class PlaybackService {
 
       // Check claims match
       if (payload.cam !== cameraId || payload.org !== orgId) {
+        this.logger.warn(
+          `verifyToken: claim mismatch — expected cam=${cameraId}/org=${orgId}, got cam=${payload.cam}/org=${payload.org}`,
+        );
         return null;
       }
 
@@ -160,6 +163,9 @@ export class PlaybackService {
       });
 
       if (!session) {
+        this.logger.warn(
+          `verifyToken: session ${payload.sub} not found in DB (may have been cleaned up)`,
+        );
         return null;
       }
 
@@ -172,8 +178,11 @@ export class PlaybackService {
         maxViewers: session.maxViewers,
         expiresAt: session.expiresAt,
       };
-    } catch {
+    } catch (err) {
       // Token expired, invalid signature, etc.
+      this.logger.warn(
+        `verifyToken: jwt.verify threw ${(err as Error).name}: ${(err as Error).message}`,
+      );
       return null;
     }
   }

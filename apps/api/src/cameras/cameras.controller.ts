@@ -18,6 +18,12 @@ import { ClsService } from 'nestjs-cls';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { CamerasService } from './cameras.service';
 import { FfprobeService } from './ffprobe.service';
+import { ModuleRef } from '@nestjs/core';
+// PlaybackService is resolved lazily via ModuleRef to avoid the module
+// import cycle Cameras → Playback → Cluster → Srs → Playback. The value
+// import is safe (no module-level cycle); we just skip the Nest module
+// registration and resolve from the global container at request time.
+import { PlaybackService } from '../playback/playback.service';
 import { CreateProjectSchema } from './dto/create-project.dto';
 import { CreateSiteSchema } from './dto/create-site.dto';
 import { CreateCameraSchema } from './dto/create-camera.dto';
@@ -32,7 +38,19 @@ export class CamerasController {
     private readonly camerasService: CamerasService,
     private readonly ffprobeService: FfprobeService,
     private readonly cls: ClsService,
+    private readonly moduleRef: ModuleRef,
   ) {}
+
+  private playbackRef: PlaybackService | null = null;
+  private getPlaybackService(): PlaybackService {
+    if (!this.playbackRef) {
+      // Lazy resolve from the DI container — strict=false walks up to the
+      // global scope so PlaybackService is found via PlaybackModule's exports
+      // without needing CamerasModule to import that module directly.
+      this.playbackRef = this.moduleRef.get(PlaybackService, { strict: false });
+    }
+    return this.playbackRef;
+  }
 
   private getOrgId(): string {
     const orgId = this.cls.get('ORG_ID');
@@ -254,7 +272,27 @@ export class CamerasController {
     }
 
     const orgId = this.getOrgId();
-    const srsUrl = `${this.srsBaseUrl}/live/${orgId}/${camera.id}.m3u8`;
+
+    // Mint a short-lived playback session so SRS on_play callback accepts
+    // the proxy request (Phase 03 security requires a signed token).
+    let token: string;
+    try {
+      const session = await this.getPlaybackService().createSession(
+        camera.id,
+        orgId,
+      );
+      // createSession returns hlsUrl = `${srs}/live/{org}/{cam}.m3u8?token=${jwt}`.
+      // Extract the token — the session object does not expose it directly.
+      const match = session.hlsUrl.match(/[?&]token=([^&]+)/);
+      if (!match) throw new Error('Minted session has no token in hlsUrl');
+      token = decodeURIComponent(match[1]);
+    } catch (err) {
+      this.logger.warn(`Preview session create failed for camera ${id}: ${err}`);
+      res.status(502).send('Stream not available');
+      return;
+    }
+
+    const srsUrl = `${this.srsBaseUrl}/live/${orgId}/${camera.id}.m3u8?token=${encodeURIComponent(token)}`;
 
     try {
       const upstream = await fetch(srsUrl);

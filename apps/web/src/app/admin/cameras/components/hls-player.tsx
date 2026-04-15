@@ -23,6 +23,11 @@ export function HlsPlayer({ src, autoPlay = true }: HlsPlayerProps) {
       const hls = new Hls({
         enableWorker: true,
         lowLatencyMode: true,
+        // Preview URL goes through /api/cameras/:id/preview/* which is
+        // AuthGuard-protected, so XHR must send session cookies.
+        xhrSetup: (xhr) => {
+          xhr.withCredentials = true;
+        },
       });
       hls.loadSource(src);
       hls.attachMedia(video);
