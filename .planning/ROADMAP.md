@@ -181,11 +181,11 @@ Note: Phases 5, 6, and 7 depend on Phase 2 (not on each other) and can be parall
 **Plans**: 5 plans
 
 Plans:
-- [ ] 999.1-00-PLAN.md — Wave 0 test scaffolding (shared mocks + 9 failing test stubs for Nyquist compliance)
-- [ ] 999.1-01-PLAN.md — Backend: OrgAdminGuard + UsersController relaxation + GET /orgs/:id/members/me
-- [ ] 999.1-02-PLAN.md — Portal shell: PlatformNav + TenantNav + /app layout + root redirector + sign-in redirect + delete (dashboard)
-- [ ] 999.1-03-PLAN.md — Tenant pages migration to /app/*, feature-gate empty states, platform dashboard/audit stubs
-- [ ] 999.1-04-PLAN.md — User management UI: /admin/users (platform) + /app/team (tenant) with OrgAdminGuard wiring
+- [x] 999.1-00-PLAN.md — Wave 0 test scaffolding (shared mocks + 9 failing test stubs for Nyquist compliance)
+- [x] 999.1-01-PLAN.md — Backend: OrgAdminGuard + UsersController relaxation + GET /orgs/:id/members/me
+- [x] 999.1-02-PLAN.md — Portal shell: PlatformNav + TenantNav + /app layout + root redirector + sign-in redirect + delete (dashboard)
+- [x] 999.1-03-PLAN.md — Tenant pages migration to /app/*, feature-gate empty states, platform dashboard/audit stubs
+- [x] 999.1-04-PLAN.md — User management UI: /admin/users (platform) + /app/team (tenant) with OrgAdminGuard wiring
 
 ### Phase 999.2: UI Review & Fixes (BACKLOG)
 **Goal**: รัน UI-REVIEW สำหรับ 5 เฟสที่ยังไม่ได้ตรวจ (01, 02, 04, 06, 07) เทียบกับ UI-SPEC แล้วสร้าง fix plans สำหรับ issues ที่เจอ
