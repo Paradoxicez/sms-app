@@ -177,11 +177,15 @@ Note: Phases 5, 6, and 7 depend on Phase 2 (not on each other) and can be parall
 
 ### Phase 999.1: Role-based Sidebar Navigation (BACKLOG)
 **Goal**: แยกเมนู sidebar ตาม role — Super Admin เห็นเฉพาะ platform management (orgs, packages, cluster, system) ส่วน Org Admin เห็นเฉพาะ org-level features (cameras, recordings, policies, developer) ป้องกัน conflict ที่ super admin เห็นหน้าว่างเปล่าและ org admin เห็นเมนูที่ไม่ควรเข้าถึง
-**Requirements**: TBD
-**Plans**: 0 plans
+**Requirements**: AUTH-03, AUTH-04, TENANT-04, TENANT-05
+**Plans**: 5 plans
 
 Plans:
-- [ ] TBD (promote with /gsd-review-backlog when ready)
+- [ ] 999.1-00-PLAN.md — Wave 0 test scaffolding (shared mocks + 9 failing test stubs for Nyquist compliance)
+- [ ] 999.1-01-PLAN.md — Backend: OrgAdminGuard + UsersController relaxation + GET /orgs/:id/members/me
+- [ ] 999.1-02-PLAN.md — Portal shell: PlatformNav + TenantNav + /app layout + root redirector + sign-in redirect + delete (dashboard)
+- [ ] 999.1-03-PLAN.md — Tenant pages migration to /app/*, feature-gate empty states, platform dashboard/audit stubs
+- [ ] 999.1-04-PLAN.md — User management UI: /admin/users (platform) + /app/team (tenant) with OrgAdminGuard wiring
 
 ### Phase 999.2: UI Review & Fixes (BACKLOG)
 **Goal**: รัน UI-REVIEW สำหรับ 5 เฟสที่ยังไม่ได้ตรวจ (01, 02, 04, 06, 07) เทียบกับ UI-SPEC แล้วสร้าง fix plans สำหรับ issues ที่เจอ
