@@ -144,13 +144,7 @@ Step 7b: SKIPPED (requires running servers -- NestJS + PostgreSQL + SRS)
 
 All 5 roadmap success criteria are verified at the code level. All 10 requirement IDs (PLAY-01 through PLAY-07, POL-01 through POL-03) are satisfied with substantive implementations.
 
-All non-blocking issues from initial verification are now **resolved as of 2026-04-15** via quick task `260415-khn`:
-
-- Sessions table data disconnection — `GET /api/playback/sessions` list endpoint added in commit `7bb8b7a`; `sessions-table.tsx` hydrates with live data
-- Resolved policy sources field — `sources` field added to `PoliciesService.resolve()` in commit `671a2ad`; `ResolvedPolicyCard` shows source-level badges
-- Tests: `c4ed318`, `9dd8aee`
-
-No outstanding non-UI items for Phase 03.
+All non-blocking issues from initial verification are now resolved as of 2026-04-15 via quick task 260415-khn. The sessions table data disconnection was fixed by adding `GET /api/playback/sessions` list endpoint in commit 7bb8b7a so `sessions-table.tsx` now hydrates with live data. The resolved policy sources field was added to `PoliciesService.resolve()` in commit 671a2ad so `ResolvedPolicyCard` shows source-level badges. Both fixes covered by tests c4ed318 and 9dd8aee. No outstanding non-UI items for Phase 03.
 
 **Note:** REQUIREMENTS.md shows PLAY-06 as `[ ]` (unchecked) but the implementation is complete. This is a documentation update needed.
 
