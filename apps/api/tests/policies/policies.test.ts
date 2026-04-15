@@ -225,6 +225,168 @@ describe('POL-01/POL-02: Policy CRUD and resolution', () => {
   });
 });
 
+describe('POL-02: resolve returns sources field with per-field PolicyLevel', () => {
+  beforeEach(async () => {
+    await cleanupTestData(testPrisma);
+  });
+
+  afterEach(async () => {
+    await cleanupTestData(testPrisma);
+  });
+
+  async function makeService() {
+    const { PoliciesService } = await import('../../src/policies/policies.service');
+    // Bypass onModuleInit so we control which policies exist.
+    return new PoliciesService(testPrisma as any);
+  }
+
+  it('A: CAMERA-level policy supplies all scalar fields -> sources all CAMERA', async () => {
+    const org = await createTestOrganization(testPrisma);
+    const { camera } = await createCameraHierarchy(testPrisma, org.id);
+
+    await testPrisma.policy.create({
+      data: {
+        level: 'SYSTEM', name: 'System Default', orgId: null,
+        ttlSeconds: 7200, maxViewers: 10, domains: [],
+        allowNoReferer: true, rateLimit: 100,
+      },
+    });
+    await testPrisma.policy.create({
+      data: {
+        level: 'CAMERA', name: 'Cam', orgId: org.id, cameraId: camera.id,
+        ttlSeconds: 600, maxViewers: 3, domains: ['a.com'],
+        allowNoReferer: false, rateLimit: 50,
+      },
+    });
+
+    const service = await makeService();
+    const resolved = await service.resolve(camera.id);
+
+    expect(resolved.sources).toEqual({
+      ttlSeconds: 'CAMERA',
+      maxViewers: 'CAMERA',
+      domains: 'CAMERA',
+      allowNoReferer: 'CAMERA',
+      rateLimit: 'CAMERA',
+    });
+    expect(resolved.ttlSeconds).toBe(600);
+  });
+
+  it('B: partial CAMERA override -> ttlSeconds=CAMERA, others inherit next priority', async () => {
+    const org = await createTestOrganization(testPrisma);
+    const { camera, site, project } = await createCameraHierarchy(testPrisma, org.id);
+
+    await testPrisma.policy.create({
+      data: {
+        level: 'SYSTEM', name: 'System Default', orgId: null,
+        ttlSeconds: 7200, maxViewers: 10, domains: [],
+        allowNoReferer: true, rateLimit: 100,
+      },
+    });
+    // PROJECT supplies rateLimit, allowNoReferer
+    await testPrisma.policy.create({
+      data: {
+        level: 'PROJECT', name: 'Proj', orgId: org.id, projectId: project.id,
+        rateLimit: 80, allowNoReferer: false,
+      },
+    });
+    // SITE supplies maxViewers
+    await testPrisma.policy.create({
+      data: {
+        level: 'SITE', name: 'Site', orgId: org.id, siteId: site.id,
+        maxViewers: 25,
+      },
+    });
+    // CAMERA only sets ttlSeconds
+    await testPrisma.policy.create({
+      data: {
+        level: 'CAMERA', name: 'Cam', orgId: org.id, cameraId: camera.id,
+        ttlSeconds: 900,
+      },
+    });
+
+    const service = await makeService();
+    const resolved = await service.resolve(camera.id);
+
+    expect(resolved.sources.ttlSeconds).toBe('CAMERA');
+    expect(resolved.sources.maxViewers).toBe('SITE');
+    expect(resolved.sources.rateLimit).toBe('PROJECT');
+    expect(resolved.sources.allowNoReferer).toBe('PROJECT');
+    // domains: all four policies have default [] -> highest-priority wins = CAMERA
+    expect(resolved.sources.domains).toBe('CAMERA');
+
+    expect(resolved.ttlSeconds).toBe(900);
+    expect(resolved.maxViewers).toBe(25);
+    expect(resolved.rateLimit).toBe(80);
+    expect(resolved.allowNoReferer).toBe(false);
+  });
+
+  it('C: only SYSTEM policy exists -> every source is SYSTEM', async () => {
+    const org = await createTestOrganization(testPrisma);
+    const { camera } = await createCameraHierarchy(testPrisma, org.id);
+
+    await testPrisma.policy.create({
+      data: {
+        level: 'SYSTEM', name: 'System Default', orgId: null,
+        ttlSeconds: 7200, maxViewers: 10, domains: ['*'],
+        allowNoReferer: true, rateLimit: 100,
+      },
+    });
+
+    const service = await makeService();
+    const resolved = await service.resolve(camera.id);
+
+    expect(resolved.sources).toEqual({
+      ttlSeconds: 'SYSTEM',
+      maxViewers: 'SYSTEM',
+      domains: 'SYSTEM',
+      allowNoReferer: 'SYSTEM',
+      rateLimit: 'SYSTEM',
+    });
+  });
+
+  it('D: domains source tracks the highest-priority policy (SITE wins over SYSTEM)', async () => {
+    const org = await createTestOrganization(testPrisma);
+    const { camera, site } = await createCameraHierarchy(testPrisma, org.id);
+
+    await testPrisma.policy.create({
+      data: {
+        level: 'SYSTEM', name: 'System Default', orgId: null,
+        ttlSeconds: 7200, maxViewers: 10, domains: [],
+        allowNoReferer: true, rateLimit: 100,
+      },
+    });
+    await testPrisma.policy.create({
+      data: {
+        level: 'SITE', name: 'Site', orgId: org.id, siteId: site.id,
+        domains: ['*.example.com'],
+      },
+    });
+
+    const service = await makeService();
+    const resolved = await service.resolve(camera.id);
+
+    expect(resolved.domains).toEqual(['*.example.com']);
+    expect(resolved.sources.domains).toBe('SITE');
+  });
+
+  it('E: no policies at all -> fallback defaults with every source = SYSTEM', async () => {
+    const org = await createTestOrganization(testPrisma);
+    const { camera } = await createCameraHierarchy(testPrisma, org.id);
+
+    const service = await makeService();
+    const resolved = await service.resolve(camera.id);
+
+    expect(resolved.sources).toEqual({
+      ttlSeconds: 'SYSTEM',
+      maxViewers: 'SYSTEM',
+      domains: 'SYSTEM',
+      allowNoReferer: 'SYSTEM',
+      rateLimit: 'SYSTEM',
+    });
+  });
+});
+
 /**
  * Policy resolution logic (to be implemented in PoliciesService).
  * This is the inline version for testing -- will be replaced by actual service method.
