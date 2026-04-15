@@ -8,6 +8,7 @@ import { Play, Square, Loader2, Code2, Copy, Clock, Users, Trash2 } from 'lucide
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
+import { authClient } from '@/lib/auth-client';
 import { useCameraStatus } from '@/hooks/use-camera-status';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -141,6 +142,21 @@ export default function CameraDetailPage() {
   const [profiles, setProfiles] = useState<StreamProfile[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState('');
 
+  // Session orgId for Socket.IO room
+  const [orgId, setOrgId] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    async function loadSession() {
+      try {
+        const session = await authClient.getSession();
+        setOrgId(session.data?.session?.activeOrganizationId ?? undefined);
+      } catch {
+        // Session check handled by layout
+      }
+    }
+    loadSession();
+  }, []);
+
   const fetchCamera = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -170,7 +186,7 @@ export default function CameraDetailPage() {
 
   // Real-time status via Socket.IO
   useCameraStatus(
-    'default',
+    orgId,
     (event) => {
       if (event.cameraId === cameraId) {
         setCamera((prev) =>

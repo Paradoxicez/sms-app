@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { MapPin } from 'lucide-react';
 
 import { apiFetch } from '@/lib/api';
+import { authClient } from '@/lib/auth-client';
 import { useFeatureCheck } from '@/hooks/use-feature-check';
 import { useCameraStatus } from '@/hooks/use-camera-status';
 import { CameraMap, type MapCamera } from '@/components/map/camera-map';
@@ -14,6 +15,19 @@ export default function MapViewPage() {
   const [cameras, setCameras] = useState<MapCamera[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [orgId, setOrgId] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    async function loadSession() {
+      try {
+        const session = await authClient.getSession();
+        setOrgId(session.data?.session?.activeOrganizationId ?? undefined);
+      } catch {
+        // Session check handled by layout
+      }
+    }
+    loadSession();
+  }, []);
 
   const fetchCameras = useCallback(async () => {
     setIsLoading(true);
@@ -44,7 +58,7 @@ export default function MapViewPage() {
 
   // Real-time status updates via Socket.IO
   useCameraStatus(
-    'default',
+    orgId,
     (event) => {
       setCameras((prev) =>
         prev.map((c) =>
