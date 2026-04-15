@@ -154,7 +154,7 @@ export class PlaybackController {
     }
 
     // Fetch m3u8 from SRS internal
-    const srsUrl = `http://srs:8080/live/${orgId}/${cameraId}.m3u8`;
+    const srsUrl = `http://${process.env.SRS_HOST || 'localhost'}:8080/live/${orgId}/${cameraId}.m3u8`;
     try {
       const srsRes = await fetch(srsUrl);
       if (!srsRes.ok) {

@@ -98,7 +98,7 @@ export class PlaybackService {
     const edgeNode = await this.clusterService.getLeastLoadedEdge();
     const hlsBase = edgeNode
       ? `${edgeNode.hlsUrl}/live/${orgId}/${cameraId}.m3u8`
-      : `http://srs:8080/live/${orgId}/${cameraId}.m3u8`;
+      : `http://${process.env.SRS_HOST || 'localhost'}:8080/live/${orgId}/${cameraId}.m3u8`;
     const hlsUrl = `${hlsBase}?token=${token}`;
 
     const updated = await this.prisma.playbackSession.update({

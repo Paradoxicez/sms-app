@@ -38,7 +38,8 @@ export class StreamProcessor extends WorkerHost {
   async process(job: Job<StreamJobData>): Promise<void> {
     const { cameraId, orgId, rtspUrl, profile, needsTranscode } = job.data;
     const streamKey = `live/${orgId}/${cameraId}`;
-    const outputUrl = `rtmp://srs:1935/${streamKey}`;
+    const srsHost = process.env.SRS_HOST || 'localhost';
+    const outputUrl = `rtmp://${srsHost}:1935/${streamKey}`;
 
     this.logger.log(`Processing stream job for camera ${cameraId} (attempt ${job.attemptsMade + 1})`);
 
