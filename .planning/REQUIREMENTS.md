@@ -28,7 +28,7 @@
 - [x] **CAM-04**: Camera status monitoring with state machine (online/offline/degraded/connecting/reconnecting)
 - [x] **CAM-05**: Auto-reconnect with exponential backoff on stream failure
 - [x] **CAM-06**: Test connection via ffprobe before registering camera (returns codec, resolution, FPS)
-- [ ] **CAM-07**: Bulk camera import via CSV/JSON with validation and preview
+- [x] **CAM-07**: Bulk camera import via CSV/JSON with validation and preview
 
 ### Stream Engine (SRS + FFmpeg)
 
@@ -132,7 +132,7 @@
 | CAM-04 | Phase 2 | Complete |
 | CAM-05 | Phase 2 | Complete |
 | CAM-06 | Phase 2 | Complete |
-| CAM-07 | Phase 2 | Pending |
+| CAM-07 | Phase 2 | Complete |
 | STREAM-01 | Phase 2 | Complete |
 | STREAM-02 | Phase 2 | Complete |
 | STREAM-03 | Phase 2 | Complete |
