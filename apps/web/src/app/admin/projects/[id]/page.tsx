@@ -198,7 +198,7 @@ export default function ProjectDetailPage() {
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink render={<Link href="/admin/projects" />}>
+            <BreadcrumbLink render={<Link href="/app/projects" />}>
               Projects
             </BreadcrumbLink>
           </BreadcrumbItem>

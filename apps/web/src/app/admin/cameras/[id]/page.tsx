@@ -229,7 +229,7 @@ export default function CameraDetailPage() {
     try {
       await apiFetch(`/api/cameras/${cameraId}`, { method: 'DELETE' });
       toast.success('Camera deleted');
-      router.push('/admin/cameras');
+      router.push('/app/cameras');
     } catch {
       toast.error('Failed to delete camera');
       setDeleting(false);
@@ -348,7 +348,7 @@ export default function CameraDetailPage() {
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink render={<Link href="/admin/projects" />}>
+            <BreadcrumbLink render={<Link href="/app/projects" />}>
               Projects
             </BreadcrumbLink>
           </BreadcrumbItem>
@@ -356,7 +356,7 @@ export default function CameraDetailPage() {
           {camera.site?.project && (
             <>
               <BreadcrumbItem>
-                <BreadcrumbLink render={<Link href={`/admin/projects/${camera.site.project.id}`} />}>
+                <BreadcrumbLink render={<Link href={`/app/projects/${camera.site.project.id}`} />}>
                   {camera.site.project.name}
                 </BreadcrumbLink>
               </BreadcrumbItem>
