@@ -126,15 +126,11 @@ Step 7b: SKIPPED (requires running Docker services -- PostgreSQL, NestJS, Next.j
 
 ### Gaps Summary
 
-Both gaps from the initial verification have been closed:
+Both gaps from the initial verification are closed and further end-to-end verified via UAT Group D on 2026-04-15. SC-3 (RLS policies) is live in the database — Member, Invitation, and UserPermissionOverride tables carry tenant_isolation + superuser_bypass policies, and `SET ROLE app_user` with `SET app.current_org_id` correctly filters rows (proof: system-org=1, test-org=2, fake-org=0 on the Member table). SC-5 (feature toggle enforcement) is verified end-to-end: FeaturesService feeds the frontend useFeatures hook via GET /api/organizations/:orgId/features (AuthGuard + active-org check after UAT 999.1 fix), package feature flip flows to TenantNav (Recordings link hidden when recordings=false) and to route gates (/app/recordings empty state).
 
-1. **SC-3 (RLS policies):** PostgreSQL RLS policies now exist in `migration.sql` with ENABLE + FORCE ROW LEVEL SECURITY on Member, Invitation, and UserPermissionOverride tables. Tenant isolation policies filter by `app.current_org_id` session variable. Superuser bypass policies allow seeds/migrations. UsersController is protected by SuperAdminGuard. Integration tests using SET ROLE app_user prove row-level filtering works.
+Production note: The `sms` database user is a PostgreSQL superuser which bypasses RLS. For production, the application should connect as `app_user` (non-superuser) for actual RLS enforcement. This is documented in Plan 01-05 SUMMARY.
 
-2. **SC-5 (Feature toggle enforcement):** FeaturesService reads org -> package -> features JSONB and provides checkFeature(orgId, key) + getOrgFeatures(orgId). FeatureGuard with RequireFeature decorator enables per-endpoint feature gating. FeaturesController exposes GET /api/organizations/:orgId/features. Frontend useFeatures hook fetches and caches features with isEnabled(key) helper. 5 integration tests prove correctness.
-
-**Production note:** The `sms` database user is a PostgreSQL superuser which bypasses RLS. For production, the application should connect as `app_user` (non-superuser) for actual RLS enforcement. This is documented in Plan 01-05 SUMMARY.
-
-No remaining gaps. Status is `human_needed` because 5 items require manual verification (session persistence, CRUD flow, visual theme, responsive layout, RLS applied to running database).
+No remaining gaps for Phase 01. Phase 02 tenant-scoped tables still lack RLS — tracked as BACKLOG Phase 999.3.
 
 ---
 
