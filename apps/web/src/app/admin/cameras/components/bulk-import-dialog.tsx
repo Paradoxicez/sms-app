@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
-import { Upload, Check, X, AlertCircle } from 'lucide-react';
+import { Upload, Check, X, AlertCircle, Download } from 'lucide-react';
 import { toast } from 'sonner';
+import * as XLSX from 'xlsx';
 
 import { apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -49,6 +50,8 @@ interface CameraRow {
   streamUrl: string;
   tags: string;
   description: string;
+  latitude: string;
+  longitude: string;
   errors: Record<string, string>;
 }
 
@@ -58,27 +61,44 @@ interface SiteOption {
   project?: { id: string; name: string };
 }
 
+function normalizeHeader(h: string): string {
+  return h.toLowerCase().replace(/[\s_-]/g, '');
+}
+
+function mapHeaders(headers: string[]) {
+  const normalized = headers.map(normalizeHeader);
+  return {
+    nameIdx: normalized.findIndex((h) => h === 'name'),
+    urlIdx: normalized.findIndex((h) => h === 'streamurl' || h === 'url'),
+    tagsIdx: normalized.findIndex((h) => h === 'tags'),
+    descIdx: normalized.findIndex((h) => h === 'description'),
+    latIdx: normalized.findIndex((h) => h === 'latitude' || h === 'lat'),
+    lngIdx: normalized.findIndex((h) => h === 'longitude' || h === 'lng' || h === 'lon'),
+  };
+}
+
+function rowFromValues(values: string[], map: ReturnType<typeof mapHeaders>): CameraRow {
+  return {
+    name: map.nameIdx >= 0 ? values[map.nameIdx]?.trim() || '' : '',
+    streamUrl: map.urlIdx >= 0 ? values[map.urlIdx]?.trim() || '' : '',
+    tags: map.tagsIdx >= 0 ? values[map.tagsIdx]?.trim() || '' : '',
+    description: map.descIdx >= 0 ? values[map.descIdx]?.trim() || '' : '',
+    latitude: map.latIdx >= 0 ? values[map.latIdx]?.trim() || '' : '',
+    longitude: map.lngIdx >= 0 ? values[map.lngIdx]?.trim() || '' : '',
+    errors: {},
+  };
+}
+
 function parseCSV(text: string): CameraRow[] {
   const lines = text.trim().split('\n');
   if (lines.length < 2) return [];
 
-  const headerLine = lines[0].toLowerCase();
-  const headers = headerLine.split(',').map((h) => h.trim());
-
-  const nameIdx = headers.indexOf('name');
-  const urlIdx = headers.indexOf('streamurl') !== -1 ? headers.indexOf('streamurl') : headers.indexOf('stream_url');
-  const tagsIdx = headers.indexOf('tags');
-  const descIdx = headers.indexOf('description');
+  const headers = lines[0].split(',').map((h) => h.trim());
+  const map = mapHeaders(headers);
 
   return lines.slice(1).filter(Boolean).map((line) => {
     const values = line.split(',').map((v) => v.trim());
-    return {
-      name: nameIdx >= 0 ? values[nameIdx] || '' : '',
-      streamUrl: urlIdx >= 0 ? values[urlIdx] || '' : '',
-      tags: tagsIdx >= 0 ? values[tagsIdx] || '' : '',
-      description: descIdx >= 0 ? values[descIdx] || '' : '',
-      errors: {},
-    };
+    return rowFromValues(values, map);
   });
 }
 
@@ -90,6 +110,24 @@ function parseJSON(text: string): CameraRow[] {
     streamUrl: String(item.streamUrl || item.stream_url || ''),
     tags: String(item.tags || ''),
     description: String(item.description || ''),
+    latitude: String(item.latitude || item.lat || ''),
+    longitude: String(item.longitude || item.lng || item.lon || ''),
+    errors: {},
+  }));
+}
+
+function parseExcel(data: ArrayBuffer): CameraRow[] {
+  const workbook = XLSX.read(data, { type: 'array' });
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' });
+
+  return rows.map((item) => ({
+    name: String(item['name'] || item['Name'] || ''),
+    streamUrl: String(item['streamUrl'] || item['stream_url'] || item['StreamUrl'] || item['URL'] || item['url'] || ''),
+    tags: String(item['tags'] || item['Tags'] || ''),
+    description: String(item['description'] || item['Description'] || ''),
+    latitude: String(item['latitude'] || item['lat'] || item['Latitude'] || item['Lat'] || ''),
+    longitude: String(item['longitude'] || item['lng'] || item['lon'] || item['Longitude'] || item['Lng'] || ''),
     errors: {},
   }));
 }
@@ -107,7 +145,27 @@ function validateRow(row: CameraRow): Record<string, string> {
   ) {
     errors.streamUrl = 'Must be rtsp:// or srt://';
   }
+  if (row.latitude && isNaN(Number(row.latitude))) {
+    errors.latitude = 'Must be a number';
+  }
+  if (row.longitude && isNaN(Number(row.longitude))) {
+    errors.longitude = 'Must be a number';
+  }
   return errors;
+}
+
+function downloadSample() {
+  const csv = `name,streamUrl,description,tags,latitude,longitude
+Camera 1,rtsp://192.168.1.10:554/stream1,Front door,outdoor;entrance,13.7563,100.5018
+Camera 2,rtsp://192.168.1.11:554/stream1,Back yard,outdoor,13.7564,100.5019
+Camera 3,rtsp://192.168.1.12:554/stream1,Lobby,indoor,,`;
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'cameras-sample.csv';
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export function BulkImportDialog({
@@ -148,55 +206,72 @@ export function BulkImportDialog({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Max file size check (T-02-17)
+    // Max file size check
     if (file.size > 5 * 1024 * 1024) {
       toast.error('File too large. Maximum 5MB.');
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const text = reader.result as string;
-      let parsed: CameraRow[] = [];
+    const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
 
-      try {
-        if (file.name.endsWith('.json')) {
-          parsed = parseJSON(text);
-        } else if (file.name.endsWith('.csv')) {
-          parsed = parseCSV(text);
-        } else {
-          toast.error('Only CSV and JSON files are supported.');
+    if (isExcel) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const parsed = parseExcel(reader.result as ArrayBuffer);
+          processRows(parsed);
+        } catch {
+          toast.error('Failed to parse Excel file.');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const text = reader.result as string;
+        let parsed: CameraRow[] = [];
+
+        try {
+          if (file.name.endsWith('.json')) {
+            parsed = parseJSON(text);
+          } else if (file.name.endsWith('.csv')) {
+            parsed = parseCSV(text);
+          } else {
+            toast.error('Supported formats: CSV, JSON, Excel (.xlsx)');
+            return;
+          }
+        } catch {
+          toast.error('Failed to parse file. Check the format.');
           return;
         }
-      } catch {
-        toast.error('Failed to parse file. Check the format.');
-        return;
-      }
 
-      if (parsed.length === 0) {
-        toast.error('No cameras found in file.');
-        return;
-      }
+        processRows(parsed);
+      };
+      reader.readAsText(file);
+    }
 
-      if (parsed.length > 500) {
-        toast.error('Maximum 500 cameras per import.');
-        parsed = parsed.slice(0, 500);
-      }
-
-      // Validate each row
-      const validated = parsed.map((row) => ({
-        ...row,
-        errors: validateRow(row),
-      }));
-
-      setRows(validated);
-      setStep('preview');
-      loadSites();
-    };
-    reader.readAsText(file);
-
-    // Reset input
     e.target.value = '';
+  }
+
+  function processRows(parsed: CameraRow[]) {
+    if (parsed.length === 0) {
+      toast.error('No cameras found in file.');
+      return;
+    }
+
+    if (parsed.length > 500) {
+      toast.error('Maximum 500 cameras per import.');
+      parsed = parsed.slice(0, 500);
+    }
+
+    const validated = parsed.map((row) => ({
+      ...row,
+      errors: validateRow(row),
+    }));
+
+    setRows(validated);
+    setStep('preview');
+    loadSites();
   }
 
   function handleCellEdit(index: number, field: keyof CameraRow, value: string) {
@@ -230,6 +305,9 @@ export function BulkImportDialog({
         streamUrl: r.streamUrl,
         tags: r.tags || undefined,
         description: r.description || undefined,
+        ...(r.latitude && r.longitude
+          ? { location: { lat: Number(r.latitude), lng: Number(r.longitude) } }
+          : {}),
       }));
 
       setProgress(50);
@@ -247,11 +325,10 @@ export function BulkImportDialog({
       onOpenChange(false);
       onSuccess();
 
-      // Reset state
       setRows([]);
       setStep('upload');
       setProgress(null);
-    } catch (err) {
+    } catch {
       toast.error('Import failed. Check camera limits and try again.');
     } finally {
       setImporting(false);
@@ -270,16 +347,16 @@ export function BulkImportDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className={step === 'preview' ? 'sm:max-w-3xl' : 'sm:max-w-md'}>
+      <DialogContent className={step === 'preview' ? 'sm:max-w-4xl' : 'sm:max-w-md'}>
         <DialogHeader>
           <DialogTitle>Import Cameras</DialogTitle>
           <DialogDescription>
-            Upload a CSV or JSON file to add multiple cameras at once.
+            Upload a CSV, JSON, or Excel file to add multiple cameras at once.
           </DialogDescription>
         </DialogHeader>
 
         {step === 'upload' && (
-          <div>
+          <div className="space-y-3">
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
@@ -288,20 +365,32 @@ export function BulkImportDialog({
               <Upload className="h-10 w-10 text-muted-foreground" />
               <div>
                 <p className="text-sm font-medium">
-                  Drop CSV or JSON file here, or click to upload
+                  Drop file here, or click to upload
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Columns: name, streamUrl, tags, description
+                  CSV, JSON, or Excel (.xlsx) — max 500 cameras
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Columns: name, streamUrl, description, tags, latitude, longitude
                 </p>
               </div>
             </button>
             <input
               ref={fileInputRef}
               type="file"
-              accept=".csv,.json"
+              accept=".csv,.json,.xlsx,.xls"
               onChange={handleFileChange}
               className="hidden"
             />
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={downloadSample}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Download Sample CSV
+            </Button>
           </div>
         )}
 
@@ -338,6 +427,8 @@ export function BulkImportDialog({
                       <TableHead>Name</TableHead>
                       <TableHead>Stream URL</TableHead>
                       <TableHead>Tags</TableHead>
+                      <TableHead>Lat</TableHead>
+                      <TableHead>Lng</TableHead>
                       <TableHead className="w-16">Status</TableHead>
                       <TableHead className="w-10" />
                     </TableRow>
@@ -387,6 +478,34 @@ export function BulkImportDialog({
                               }
                               className="h-7 text-xs"
                               placeholder="tag1, tag2"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              value={row.latitude}
+                              onChange={(e) =>
+                                handleCellEdit(idx, 'latitude', e.target.value)
+                              }
+                              className={`h-7 text-xs w-20 ${
+                                row.errors.latitude
+                                  ? 'border-destructive focus-visible:ring-destructive/50'
+                                  : ''
+                              }`}
+                              placeholder="13.75"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              value={row.longitude}
+                              onChange={(e) =>
+                                handleCellEdit(idx, 'longitude', e.target.value)
+                              }
+                              className={`h-7 text-xs w-20 ${
+                                row.errors.longitude
+                                  ? 'border-destructive focus-visible:ring-destructive/50'
+                                  : ''
+                              }`}
+                              placeholder="100.50"
                             />
                           </TableCell>
                           <TableCell className="text-center">

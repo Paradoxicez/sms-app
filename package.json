@@ -2,13 +2,10 @@
   "name": "sms-platform",
   "version": "0.1.0",
   "private": true,
-  "workspaces": [
-    "apps/api",
-    "apps/web"
-  ],
   "scripts": {
-    "dev:api": "npm -w apps/api run start:dev",
-    "dev:web": "npm -w apps/web run dev",
+    "dev": "pnpm dev:api & pnpm dev:web & wait",
+    "dev:api": "pnpm --filter @sms-platform/api start:dev",
+    "dev:web": "pnpm --filter @sms-platform/web dev",
     "test": "vitest run",
     "lint": "echo 'lint not configured yet'"
   },
