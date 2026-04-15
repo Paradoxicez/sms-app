@@ -1,21 +1,41 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  ForbiddenException,
+  Get,
+  Param,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
-import { SuperAdminGuard } from '../auth/guards/super-admin.guard';
+import type { Request } from 'express';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { FeaturesService } from './features.service';
 
 /**
  * Endpoint to retrieve org features for frontend consumption.
- * Protected by SuperAdminGuard for now (admin panel only).
- * When org-level auth is added, this should use an OrgMemberGuard instead.
+ * AuthGuard + active-org check: any authenticated Member of the org may read
+ * their org's features (needed by TenantNav feature filtering).
+ * Super admins may read any org's features.
  */
 @Controller('api/organizations/:orgId/features')
 export class FeaturesController {
-  constructor(private readonly featuresService: FeaturesService) {}
+  constructor(
+    private readonly featuresService: FeaturesService,
+    private readonly cls: ClsService,
+  ) {}
 
   @Get()
-  @UseGuards(SuperAdminGuard)
-  async getOrgFeatures(@Param('orgId') orgId: string) {
+  @UseGuards(AuthGuard)
+  async getOrgFeatures(
+    @Param('orgId') orgId: string,
+    @Req() req: Request,
+  ) {
+    const user = (req as unknown as { user?: { role?: string } }).user;
+    const activeOrgId = this.cls.get<string>('ORG_ID');
+    if (user?.role !== 'admin' && activeOrgId !== orgId) {
+      throw new ForbiddenException('Cannot read features of a different org');
+    }
     const features = await this.featuresService.getOrgFeatures(orgId);
     return { features };
   }
