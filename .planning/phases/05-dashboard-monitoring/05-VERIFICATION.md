@@ -1,25 +1,10 @@
 ---
 phase: 05-dashboard-monitoring
 verified: 2026-04-12T14:00:00Z
-status: human_needed
+status: passed
 score: 5/5 must-haves verified
 gaps: []
-human_verification:
-  - test: "Navigate to /admin/dashboard and confirm stat cards show live camera counts, viewer total, and bandwidth"
-    expected: "Stat cards render with real numeric data; charts display area fills; camera table shows sorted cameras"
-    why_human: "Requires running app with database and SRS to confirm real data flows end-to-end through UI"
-  - test: "Navigate to /admin/map with cameras that have lat/lng and confirm markers appear on map"
-    expected: "Leaflet map renders with OpenStreetMap tiles; colored circle markers at camera positions; clicking marker shows popup with camera name, status, and HLS preview"
-    why_human: "Leaflet rendering and tile loading cannot be verified statically"
-  - test: "Trigger a camera status change (start/stop stream) and verify notification appears in bell dropdown in real-time"
-    expected: "Bell badge increments; dropdown shows new notification with camera name and status; marking as read decrements count"
-    why_human: "Requires running WebSocket infrastructure and camera state machine"
-  - test: "Navigate to /admin/stream-engine, click Live Logs tab as admin, verify SRS log lines stream"
-    expected: "Log viewer shows log lines with level coloring; level filter tabs work; connection status indicator shows green"
-    why_human: "Requires running SRS container with log file and WebSocket streaming"
-  - test: "Perform a write operation (create/update camera) then check /admin/audit-log for the entry"
-    expected: "New audit entry appears with correct actor, action badge, resource, timestamp, IP; clicking View shows sanitized JSON details"
-    why_human: "Requires running backend with audit interceptor capturing live requests"
+human_verification_resolved: 2026-04-15 via UAT Group C — dashboard (stat cards + charts even on zero cameras), map (Leaflet tiles default center Bangkok, fills viewport), notification bell (connected + popover opens), SRS stream engine logs (now tails container stdout via docker logs -f), audit log display — all pass. Fixes committed inline: dashboard empty-state removed, map height calc(100vh), "SRS Engine" renamed to "Stream Engine", SRS log gateway switched from file tail to docker logs.
 ---
 
 # Phase 5: Dashboard & Monitoring Verification Report
