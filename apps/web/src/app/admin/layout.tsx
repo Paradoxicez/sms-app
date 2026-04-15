@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
-import { SidebarNav } from "@/components/sidebar-nav";
+import { PlatformNav } from "@/components/nav/platform-nav";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function AdminLayout({
@@ -23,9 +23,9 @@ export default function AdminLayout({
           router.push("/sign-in");
           return;
         }
-        // Role check: redirect non-admins to dashboard
+        // Role check: redirect non-admins to tenant portal (D-22)
         if (session.data.user.role !== "admin") {
-          router.push("/dashboard");
+          router.push("/app/dashboard");
           return;
         }
         // Ensure active organization is set
@@ -66,7 +66,7 @@ export default function AdminLayout({
 
   return (
     <div className="flex min-h-screen">
-      <SidebarNav userName={user?.name} userEmail={user?.email} />
+      <PlatformNav userName={user?.name} userEmail={user?.email} />
       <main className="flex-1 md:p-8 p-4 pt-18 md:pt-8">
         {children}
       </main>
