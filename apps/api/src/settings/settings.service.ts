@@ -115,12 +115,12 @@ ${hlsKeysBlock}    }
 
     http_hooks {
         enabled         on;
-        on_publish      http://api:3001/api/srs/callbacks/on-publish;
-        on_unpublish    http://api:3001/api/srs/callbacks/on-unpublish;
-        on_play         http://api:3001/api/srs/callbacks/on-play;
-        on_stop         http://api:3001/api/srs/callbacks/on-stop;
-        on_hls          http://api:3001/api/srs/callbacks/on-hls;
-        on_dvr          http://api:3001/api/srs/callbacks/on-dvr;
+        on_publish      http://${process.env.SRS_CALLBACK_HOST || 'host.docker.internal'}:${process.env.SRS_CALLBACK_PORT || '3003'}/api/srs/callbacks/on-publish;
+        on_unpublish    http://${process.env.SRS_CALLBACK_HOST || 'host.docker.internal'}:${process.env.SRS_CALLBACK_PORT || '3003'}/api/srs/callbacks/on-unpublish;
+        on_play         http://${process.env.SRS_CALLBACK_HOST || 'host.docker.internal'}:${process.env.SRS_CALLBACK_PORT || '3003'}/api/srs/callbacks/on-play;
+        on_stop         http://${process.env.SRS_CALLBACK_HOST || 'host.docker.internal'}:${process.env.SRS_CALLBACK_PORT || '3003'}/api/srs/callbacks/on-stop;
+        on_hls          http://${process.env.SRS_CALLBACK_HOST || 'host.docker.internal'}:${process.env.SRS_CALLBACK_PORT || '3003'}/api/srs/callbacks/on-hls;
+        on_dvr          http://${process.env.SRS_CALLBACK_HOST || 'host.docker.internal'}:${process.env.SRS_CALLBACK_PORT || '3003'}/api/srs/callbacks/on-dvr;
     }
 
     rtc {
