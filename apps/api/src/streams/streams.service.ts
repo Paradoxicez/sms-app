@@ -18,6 +18,8 @@ export class StreamsService {
   ) {}
 
   async startStream(cameraId: string): Promise<void> {
+    this.logger.log(`Starting stream for camera ${cameraId}`);
+
     const camera = await this.prisma.camera.findUnique({
       where: { id: cameraId },
       include: { streamProfile: true },
@@ -26,6 +28,8 @@ export class StreamsService {
     if (!camera) {
       throw new NotFoundException('Camera not found');
     }
+
+    this.logger.log(`Camera found: ${camera.name}, url: ${camera.streamUrl?.substring(0, 30)}...`);
 
     const profile = camera.streamProfile
       ? {
@@ -38,8 +42,8 @@ export class StreamsService {
           audioBitrate: camera.streamProfile.audioBitrate,
         }
       : {
-          codec: 'auto',
-          audioCodec: 'aac',
+          codec: 'auto' as const,
+          audioCodec: 'aac' as const,
         };
 
     const jobData: StreamJobData = {
@@ -50,8 +54,14 @@ export class StreamsService {
       needsTranscode: camera.needsTranscode,
     };
 
+    // Remove any existing job for this camera before adding new one
+    const existingJob = await this.streamQueue.getJob(`stream-${cameraId}`);
+    if (existingJob) {
+      await existingJob.remove().catch(() => {});
+    }
+
     await this.streamQueue.add('start', jobData, {
-      jobId: `stream:${cameraId}`,
+      jobId: `stream-${cameraId}`,
       attempts: 20,
       backoff: {
         type: 'custom',
@@ -73,7 +83,7 @@ export class StreamsService {
     }
 
     // Remove the job from the queue
-    const job = await this.streamQueue.getJob(`stream:${cameraId}`);
+    const job = await this.streamQueue.getJob(`stream-${cameraId}`);
     if (job) {
       await job.remove();
     }

@@ -5,6 +5,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { AuthGuard } from '../auth/guards/auth.guard';
@@ -14,6 +15,8 @@ import { StreamsService } from './streams.service';
 @Controller('api/cameras')
 @UseGuards(AuthGuard)
 export class StreamsController {
+  private readonly logger = new Logger(StreamsController.name);
+
   constructor(private readonly streamsService: StreamsService) {}
 
   @Post(':id/stream/start')
@@ -23,8 +26,13 @@ export class StreamsController {
   @ApiResponse({ status: 404, description: 'Camera not found' })
   @ApiParam({ name: 'id', description: 'Camera ID' })
   async startStream(@Param('id') id: string) {
-    await this.streamsService.startStream(id);
-    return { message: 'Stream starting', cameraId: id };
+    try {
+      await this.streamsService.startStream(id);
+      return { message: 'Stream starting', cameraId: id };
+    } catch (err) {
+      this.logger.error(`Failed to start stream for ${id}`, err instanceof Error ? err.stack : err);
+      throw err;
+    }
   }
 
   @Post(':id/stream/stop')
