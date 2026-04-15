@@ -13,6 +13,8 @@ import {
   FileText,
   Key,
   Bell,
+  Code2,
+  BookOpen,
 } from "lucide-react";
 import { NavShell, NavRow, NavGroup } from "./nav-shell";
 import { useFeatures } from "@/hooks/use-features";
@@ -40,8 +42,10 @@ const ROLE_MATRIX: Record<MemberRole, ReadonlyArray<string> | "ALL"> = {
     "/app/dashboard",
     "/app/cameras",
     "/app/map",
+    "/app/developer",
     "/app/developer/api-keys",
     "/app/developer/webhooks",
+    "/app/developer/docs",
     "/app/audit-log",
   ],
   viewer: [
@@ -94,6 +98,11 @@ const ORGANIZATION: Item[] = [
 ];
 const DEVELOPER: Item[] = [
   {
+    label: "Overview",
+    href: "/app/developer",
+    icon: Code2,
+  },
+  {
     label: "API Keys",
     href: "/app/developer/api-keys",
     icon: Key,
@@ -104,6 +113,11 @@ const DEVELOPER: Item[] = [
     href: "/app/developer/webhooks",
     icon: Bell,
     feature: "webhooks",
+  },
+  {
+    label: "Docs",
+    href: "/app/developer/docs",
+    icon: BookOpen,
   },
 ];
 

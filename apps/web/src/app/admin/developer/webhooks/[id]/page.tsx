@@ -92,7 +92,7 @@ export default function WebhookDetailPage() {
     try {
       await apiFetch(`/api/webhooks/${webhook.id}`, { method: "DELETE" });
       toast.success("Webhook deleted");
-      router.push("/admin/developer/webhooks");
+      router.push("/app/developer/webhooks");
     } catch {
       toast.error("Failed to delete webhook");
     } finally {
@@ -116,7 +116,7 @@ export default function WebhookDetailPage() {
         <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
           {error || "Webhook not found."}
         </div>
-        <Link href="/admin/developer/webhooks">
+        <Link href="/app/developer/webhooks">
           <Button variant="outline" className="gap-2">
             <ArrowLeft className="h-4 w-4" /> Back to Webhooks
           </Button>
@@ -130,7 +130,7 @@ export default function WebhookDetailPage() {
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Link
-          href="/admin/developer/webhooks"
+          href="/app/developer/webhooks"
           className="hover:text-foreground"
         >
           Webhooks
