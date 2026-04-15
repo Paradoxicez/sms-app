@@ -16,10 +16,24 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+interface MockedRoleState {
+  userRole: "admin" | "user" | null;
+  memberRole: "admin" | "operator" | "developer" | "viewer" | null;
+  activeOrgId: string | null;
+  activeOrgName: string | null;
+  loading: boolean;
+}
+
 const { useCurrentRoleMock, fetchMock, toastSuccess } = vi.hoisted(() => ({
-  useCurrentRoleMock: vi.fn(() => ({
-    userRole: "user" as const,
-    memberRole: "admin" as const,
+  useCurrentRoleMock: vi.fn<() => {
+    userRole: "admin" | "user" | null;
+    memberRole: "admin" | "operator" | "developer" | "viewer" | null;
+    activeOrgId: string | null;
+    activeOrgName: string | null;
+    loading: boolean;
+  }>(() => ({
+    userRole: "user",
+    memberRole: "admin",
     activeOrgId: "org-test-1",
     activeOrgName: "Test Org",
     loading: false,
@@ -27,6 +41,9 @@ const { useCurrentRoleMock, fetchMock, toastSuccess } = vi.hoisted(() => ({
   fetchMock: vi.fn(),
   toastSuccess: vi.fn(),
 }));
+
+// Cast shape used by useCurrentRoleMock.mockReturnValue calls.
+const asRole = (s: MockedRoleState): MockedRoleState => s;
 
 vi.mock("@/hooks/use-current-role", () => ({
   useCurrentRole: () => useCurrentRoleMock(),
@@ -67,13 +84,15 @@ describe("Team page (TENANT-05 Org Admin dialog)", () => {
   beforeEach(() => {
     fetchMock.mockReset();
     toastSuccess.mockReset();
-    useCurrentRoleMock.mockReturnValue({
-      userRole: "user",
-      memberRole: "admin",
-      activeOrgId: "org-test-1",
-      activeOrgName: "Test Org",
-      loading: false,
-    });
+    useCurrentRoleMock.mockReturnValue(
+      asRole({
+        userRole: "user",
+        memberRole: "admin",
+        activeOrgId: "org-test-1",
+        activeOrgName: "Test Org",
+        loading: false,
+      }),
+    );
     // Default: /members (list) returns [] → "Just you so far" branch; dialog submit returns 200.
     fetchMock.mockImplementation(async (url: string | URL | Request, init?: RequestInit) => {
       const urlStr = String(url);
@@ -168,13 +187,15 @@ describe("Team page (TENANT-05 Org Admin dialog)", () => {
   });
 
   it("shows lock empty-state (no Add button) for operator/developer/viewer (D-11)", async () => {
-    useCurrentRoleMock.mockReturnValue({
-      userRole: "user",
-      memberRole: "operator",
-      activeOrgId: "org-test-1",
-      activeOrgName: "Test Org",
-      loading: false,
-    });
+    useCurrentRoleMock.mockReturnValue(
+      asRole({
+        userRole: "user",
+        memberRole: "operator",
+        activeOrgId: "org-test-1",
+        activeOrgName: "Test Org",
+        loading: false,
+      }),
+    );
 
     render(<TeamPage />);
 
