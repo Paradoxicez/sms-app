@@ -128,8 +128,8 @@ export function CreatePlatformUserDialog({
         <DialogHeader>
           <DialogTitle>Create platform user</DialogTitle>
           <DialogDescription>
-            Create a super admin or org admin. They can sign in immediately
-            with the password you set.
+            Create a user and assign them to any organization. They can sign
+            in immediately with the password you set.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">

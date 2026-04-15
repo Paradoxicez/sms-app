@@ -40,7 +40,17 @@ export default function PlatformUsersPage() {
       const orgList = await apiFetch<Organization[]>(
         "/api/admin/organizations",
       );
-      setOrgs(orgList);
+      // Sort tenant orgs first (by name); put the internal "System" org last
+      // so the Create Platform User dialog does not front-load a
+      // platform-internal destination.
+      const sorted = [...orgList].sort((a, b) => {
+        const aSystem = a.name.toLowerCase() === "system";
+        const bSystem = b.name.toLowerCase() === "system";
+        if (aSystem && !bSystem) return 1;
+        if (!aSystem && bSystem) return -1;
+        return a.name.localeCompare(b.name);
+      });
+      setOrgs(sorted);
 
       // Aggregate users across all orgs — same email may recur across orgs.
       const rowsByEmail = new Map<string, PlatformUserRow>();
