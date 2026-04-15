@@ -20,26 +20,25 @@ export default function AdminLayout({
       try {
         const session = await authClient.getSession();
         if (!session.data?.user) {
-          router.push("/sign-in");
-          return;
+          router.replace("/sign-in");
+          return; // keep loading=true so we never render admin shell during redirect
         }
         // Role check: redirect non-admins to tenant portal (D-22)
         if (session.data.user.role !== "admin") {
-          router.push("/app/dashboard");
-          return;
+          router.replace("/app/dashboard");
+          return; // keep loading=true so non-admin never sees admin UI
         }
         // Ensure active organization is set
         if (!session.data.session?.activeOrganizationId) {
           try {
             const orgs = await authClient.organization.list();
             if (orgs.data && orgs.data.length > 0) {
-              const res = await authClient.organization.setActive({
+              await authClient.organization.setActive({
                 organizationId: orgs.data[0].id,
               });
-              console.log('setActive result:', JSON.stringify(res));
             }
           } catch (err) {
-            console.error('setActive failed:', err);
+            console.error("setActive failed:", err);
           }
         }
 
@@ -47,10 +46,10 @@ export default function AdminLayout({
           name: session.data.user.name,
           email: session.data.user.email,
         });
-      } catch {
-        router.push("/sign-in");
-      } finally {
         setLoading(false);
+      } catch {
+        router.replace("/sign-in");
+        // keep loading=true so error path does not render admin shell
       }
     }
     checkAuth();

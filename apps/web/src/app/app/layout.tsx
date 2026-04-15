@@ -31,13 +31,13 @@ export default function AppLayout({
       try {
         const session = await authClient.getSession();
         if (!session.data?.user) {
-          router.push("/sign-in");
-          return;
+          router.replace("/sign-in");
+          return; // keep bootstrapped=false so tenant shell never renders during redirect
         }
         // Role check: redirect admins to platform portal (D-22)
         if (session.data.user.role === "admin") {
           router.replace("/admin");
-          return;
+          return; // keep bootstrapped=false so super admin never sees tenant UI
         }
         // Ensure active organization is set; sign out if user has zero orgs
         if (!session.data.session?.activeOrganizationId) {
@@ -47,7 +47,7 @@ export default function AppLayout({
               toast.error(
                 "Your account has no organization. Contact your administrator.",
               );
-              router.push("/sign-in");
+              router.replace("/sign-in");
               return;
             }
             await authClient.organization.setActive({
@@ -56,7 +56,7 @@ export default function AppLayout({
           } catch (err) {
             console.error("setActive failed:", err);
             toast.error("Unable to set active organization.");
-            router.push("/sign-in");
+            router.replace("/sign-in");
             return;
           }
         }
@@ -64,10 +64,9 @@ export default function AppLayout({
           name: session.data.user.name,
           email: session.data.user.email,
         });
-      } catch {
-        router.push("/sign-in");
-      } finally {
         setBootstrapped(true);
+      } catch {
+        router.replace("/sign-in");
       }
     }
     bootstrap();
