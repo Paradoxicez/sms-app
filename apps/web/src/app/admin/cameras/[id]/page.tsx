@@ -188,7 +188,7 @@ export default function CameraDetailPage() {
       });
       // Status will update via Socket.IO
     } catch {
-      setError('Failed to start stream. The camera may be unreachable or the stream URL may be invalid. Check camera details and try again.');
+      toast.error('Failed to start stream. The camera may be unreachable or the stream URL may be invalid.');
     } finally {
       setStreamAction('idle');
     }
@@ -202,7 +202,7 @@ export default function CameraDetailPage() {
         method: 'POST',
       });
     } catch {
-      setError('Failed to stop stream.');
+      toast.error('Failed to stop stream.');
     } finally {
       setStreamAction('idle');
     }
@@ -240,9 +240,10 @@ export default function CameraDetailPage() {
         method: 'PATCH',
         body: JSON.stringify(body),
       });
+      toast.success('Camera saved');
       fetchCamera();
     } catch {
-      setError('Failed to save camera.');
+      toast.error('Failed to save camera.');
     } finally {
       setSaving(false);
     }
@@ -256,7 +257,7 @@ export default function CameraDetailPage() {
         body: JSON.stringify({ streamProfileId: profileId || null }),
       });
     } catch {
-      setError('Failed to update stream profile.');
+      toast.error('Failed to update stream profile.');
     }
   }
 
