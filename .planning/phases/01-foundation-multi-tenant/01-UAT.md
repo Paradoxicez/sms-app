@@ -42,18 +42,17 @@ result: pass
 
 ### 8. Feature Toggle — Frontend Gating
 expected: Component ที่ใช้ useFeatures hook แสดง/ซ่อนส่วน UI ตามสถานะ feature ขององค์กร เช่น ถ้าปิด recordings จะไม่เห็นเมนู/ปุ่มที่เกี่ยวข้อง
-result: blocked
-blocked_by: prior-phase
-reason: "ไม่มี sidebar/navigation สำหรับ regular user — ต้องทำ role-based nav (backlog 999.1) ก่อนถึงจะทดสอบ frontend gating ได้ Backend feature check verified ว่าทำงานถูกต้อง"
+result: pass
+resolved: "2026-04-15 UAT Group B — portal shell 999.1 shipped. Flipped recordings=false on Test Org's package, Operator saw Recordings link disappear from TenantNav and /app/recordings render the feature-gate empty state."
 
 ## Summary
 
 total: 8
-passed: 7
+passed: 8
 issues: 0
 pending: 0
 skipped: 0
-blocked: 1
+blocked: 0
 
 ## Gaps
 

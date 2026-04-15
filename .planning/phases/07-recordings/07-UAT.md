@@ -52,16 +52,16 @@ reason: "ยังไม่ทดลองบันทึกเพราะ stre
 
 ### 9. Feature Gate — แท็บ Recordings
 expected: สำหรับ org ที่ปิด feature recordings แท็บ Recordings จะแสดงข้อความแนะนำอัปเกรดแทนที่จะแสดง UI บันทึกเต็ม
-result: skipped
-reason: "อยู่ใน super admin ไม่สามารถทดสอบ feature gate ได้"
+result: pass
+resolved: "2026-04-15 UAT Group B — tested from Operator in tenant portal (/app/recordings) after flipping recordings=false on Test Org's package. Feature-gate empty state rendered, no crash."
 
 ## Summary
 
 total: 9
-passed: 5
+passed: 6
 issues: 2
 pending: 0
-skipped: 1
+skipped: 0
 blocked: 1
 
 ## Gaps
