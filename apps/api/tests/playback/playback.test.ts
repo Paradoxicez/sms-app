@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { testPrisma } from '../setup';
 import { cleanupTestData, createTestOrganization } from '../helpers/tenancy';
 import { SignJWT, jwtVerify } from 'jose';
+import { randomUUID } from 'crypto';
 
 const JWT_SECRET = new TextEncoder().encode('test-secret-key-at-least-32-chars-long!!');
 
@@ -280,6 +281,162 @@ describe('PLAY-01/PLAY-02: Playback session creation and JWT', () => {
     expect(session!.id).toBe(result.sessionId);
     expect(session!.hlsUrl).toBe(result.hlsUrl);
     expect(session!.cameraId).toBe(camera.id);
+  });
+});
+
+describe('GET /playback/sessions (listSessionsByCamera)', () => {
+  beforeEach(async () => {
+    await cleanupTestData(testPrisma);
+  });
+
+  afterEach(async () => {
+    await cleanupTestData(testPrisma);
+  });
+
+  it('returns sessions for target camera only, ordered createdAt DESC', async () => {
+    const { PlaybackService } = await import('../../src/playback/playback.service');
+
+    const org = await createTestOrganization(testPrisma);
+    const { camera: cameraA } = await createCameraHierarchy(testPrisma, org.id);
+    // cameraB in same org
+    const siteB = await testPrisma.site.findFirstOrThrow({ where: { orgId: org.id } });
+    const cameraB = await testPrisma.camera.create({
+      data: { orgId: org.id, siteId: siteB.id, name: 'Cam B', streamUrl: 'rtsp://test:554/b' },
+    });
+
+    // 3 sessions on cameraA with varied createdAt
+    const now = Date.now();
+    const sA1 = await testPrisma.playbackSession.create({
+      data: {
+        orgId: org.id, cameraId: cameraA.id,
+        token: 't1', hlsUrl: 'h1', ttlSeconds: 60, maxViewers: 10,
+        domains: [], allowNoReferer: true,
+        createdAt: new Date(now - 3000),
+        expiresAt: new Date(now + 60_000),
+      },
+    });
+    const sA2 = await testPrisma.playbackSession.create({
+      data: {
+        orgId: org.id, cameraId: cameraA.id,
+        token: 't2', hlsUrl: 'h2', ttlSeconds: 60, maxViewers: 10,
+        domains: [], allowNoReferer: true,
+        createdAt: new Date(now - 2000),
+        expiresAt: new Date(now + 60_000),
+      },
+    });
+    const sA3 = await testPrisma.playbackSession.create({
+      data: {
+        orgId: org.id, cameraId: cameraA.id,
+        token: 't3', hlsUrl: 'h3', ttlSeconds: 60, maxViewers: 10,
+        domains: [], allowNoReferer: true,
+        createdAt: new Date(now - 1000),
+        expiresAt: new Date(now + 60_000),
+      },
+    });
+    // 1 session on cameraB
+    await testPrisma.playbackSession.create({
+      data: {
+        orgId: org.id, cameraId: cameraB.id,
+        token: 'tb', hlsUrl: 'hb', ttlSeconds: 60, maxViewers: 10,
+        domains: [], allowNoReferer: true,
+        expiresAt: new Date(now + 60_000),
+      },
+    });
+
+    const service = new PlaybackService(testPrisma as any, {} as any, {} as any, {} as any);
+    const result = await service.listSessionsByCamera(cameraA.id, org.id);
+
+    expect(result).toHaveLength(3);
+    expect(result.map((s: any) => s.id)).toEqual([sA3.id, sA2.id, sA1.id]);
+  });
+
+  it('limit parameter caps result count', async () => {
+    const { PlaybackService } = await import('../../src/playback/playback.service');
+
+    const org = await createTestOrganization(testPrisma);
+    const { camera } = await createCameraHierarchy(testPrisma, org.id);
+
+    for (let i = 0; i < 5; i++) {
+      await testPrisma.playbackSession.create({
+        data: {
+          orgId: org.id, cameraId: camera.id,
+          token: `t${i}`, hlsUrl: `h${i}`, ttlSeconds: 60, maxViewers: 10,
+          domains: [], allowNoReferer: true,
+          expiresAt: new Date(Date.now() + 60_000),
+        },
+      });
+    }
+
+    const service = new PlaybackService(testPrisma as any, {} as any, {} as any, {} as any);
+    const limited = await service.listSessionsByCamera(camera.id, org.id, 2);
+    expect(limited).toHaveLength(2);
+
+    const defaulted = await service.listSessionsByCamera(camera.id, org.id);
+    expect(defaulted).toHaveLength(5); // default 20 caps above actual count
+  });
+
+  it('returned shape is { id, createdAt, expiresAt } only', async () => {
+    const { PlaybackService } = await import('../../src/playback/playback.service');
+
+    const org = await createTestOrganization(testPrisma);
+    const { camera } = await createCameraHierarchy(testPrisma, org.id);
+
+    await testPrisma.playbackSession.create({
+      data: {
+        orgId: org.id, cameraId: camera.id,
+        token: 'secret-token', hlsUrl: 'http://host/live.m3u8?token=secret',
+        ttlSeconds: 60, maxViewers: 10,
+        domains: [], allowNoReferer: true,
+        expiresAt: new Date(Date.now() + 60_000),
+      },
+    });
+
+    const service = new PlaybackService(testPrisma as any, {} as any, {} as any, {} as any);
+    const rows = await service.listSessionsByCamera(camera.id, org.id);
+
+    expect(rows).toHaveLength(1);
+    expect(Object.keys(rows[0]).sort()).toEqual(['createdAt', 'expiresAt', 'id']);
+    expect((rows[0] as any).token).toBeUndefined();
+    expect((rows[0] as any).hlsUrl).toBeUndefined();
+  });
+
+  it('includes expired sessions (frontend renders Expired badge)', async () => {
+    const { PlaybackService } = await import('../../src/playback/playback.service');
+
+    const org = await createTestOrganization(testPrisma);
+    const { camera } = await createCameraHierarchy(testPrisma, org.id);
+
+    await testPrisma.playbackSession.create({
+      data: {
+        orgId: org.id, cameraId: camera.id,
+        token: 'exp', hlsUrl: 'h', ttlSeconds: 60, maxViewers: 10,
+        domains: [], allowNoReferer: true,
+        expiresAt: new Date(Date.now() - 10_000), // already expired
+      },
+    });
+
+    const service = new PlaybackService(testPrisma as any, {} as any, {} as any, {} as any);
+    const rows = await service.listSessionsByCamera(camera.id, org.id);
+    expect(rows).toHaveLength(1);
+  });
+
+  it('throws NotFoundException when camera belongs to a different org', async () => {
+    const { PlaybackService } = await import('../../src/playback/playback.service');
+
+    const orgA = await createTestOrganization(testPrisma);
+    const orgB = await createTestOrganization(testPrisma);
+    const { camera: cameraA } = await createCameraHierarchy(testPrisma, orgA.id);
+
+    const service = new PlaybackService(testPrisma as any, {} as any, {} as any, {} as any);
+    await expect(service.listSessionsByCamera(cameraA.id, orgB.id)).rejects.toThrow();
+  });
+
+  it('throws NotFoundException for unknown camera id', async () => {
+    const { PlaybackService } = await import('../../src/playback/playback.service');
+
+    const org = await createTestOrganization(testPrisma);
+    const service = new PlaybackService(testPrisma as any, {} as any, {} as any, {} as any);
+    await expect(service.listSessionsByCamera(randomUUID(), org.id)).rejects.toThrow();
   });
 });
 
