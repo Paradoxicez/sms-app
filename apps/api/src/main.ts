@@ -2,6 +2,14 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
+// JSON.stringify does not know how to serialize BigInt — Prisma returns
+// BigInt for several columns (Recording.totalSize, RecordingSegment.size).
+// Monkey-patch once at boot so responses containing those fields serialize
+// to string instead of throwing "Do not know how to serialize a BigInt".
+(BigInt.prototype as unknown as { toJSON: () => string }).toJSON = function () {
+  return this.toString();
+};
+
 async function bootstrap() {
   // rawBody: true gives Better Auth access to raw body while keeping JSON parsing for all routes
   const app = await NestFactory.create(AppModule, { rawBody: true });

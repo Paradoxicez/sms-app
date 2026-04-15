@@ -41,7 +41,10 @@ services:
     volumes:
       - ./config/srs.conf:/usr/local/srs/conf/srs.conf
       - srs_data:/usr/local/srs/objs
-      - srs_hls:/usr/local/srs/objs/nginx/html
+      # Bind-mount HLS to a host directory so the API (running on host) can
+      # read TS segments when archiving recordings. A named volume here was
+      # invisible to the host process.
+      - ./docker-data/srs-hls:/usr/local/srs/objs/nginx/html
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:1985/api/v1/versions"]
@@ -78,4 +81,3 @@ volumes:
   postgres_data:
   srs_data:
   minio_data:
-  srs_hls:

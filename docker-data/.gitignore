@@ -1,0 +1,3 @@
+# Docker bind-mount data — do not commit
+*
+!.gitignore

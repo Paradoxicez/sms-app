@@ -83,15 +83,22 @@ export class StreamsService {
       throw new NotFoundException('Camera not found');
     }
 
-    // Remove the job from the queue
-    const job = await this.streamQueue.getJob(`stream-${cameraId}`);
-    if (job) {
-      await job.remove();
-    }
-
-    // Kill the FFmpeg process if running
+    // Kill FFmpeg FIRST — this causes the BullMQ worker's await to resolve
+    // and releases the job lock so we can safely remove it afterward.
     if (this.ffmpegService.isRunning(cameraId)) {
       this.ffmpegService.stopStream(cameraId);
+    }
+
+    // Best-effort remove the job. If it's still locked (worker not fully
+    // released), that's fine — the worker will finish and removeOnComplete
+    // flag from startStream() will clean it up.
+    const job = await this.streamQueue.getJob(`stream-${cameraId}`);
+    if (job) {
+      await job.remove().catch((err) => {
+        this.logger.debug(
+          `stopStream: job remove skipped (${(err as Error).message}) — will be reaped by worker`,
+        );
+      });
     }
 
     // Transition to offline

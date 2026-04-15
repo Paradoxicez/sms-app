@@ -499,7 +499,10 @@ export default function CameraDetailPage() {
           {isStreamActive ? (
             <>
               <div className="max-w-2xl">
-                <HlsPlayer src={hlsSrc} />
+                {/* Re-mount player on status transition so hls.js retries
+                    when a stream that was offline/connecting finally
+                    reaches online instead of staying in its error state. */}
+                <HlsPlayer key={camera.status} src={hlsSrc} />
               </div>
               <div className="grid grid-cols-3 gap-4 sm:grid-cols-6">
                 <div>

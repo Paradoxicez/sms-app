@@ -7,6 +7,7 @@ export class FfmpegService {
   private readonly logger = new Logger(FfmpegService.name);
   private runningProcesses = new Map<string, ffmpeg.FfmpegCommand>();
   private eventHandlers = new Map<string, { resolve: () => void; reject: (err: Error) => void }>();
+  private intentionalStops = new Set<string>();
 
   async startStream(
     cameraId: string,
@@ -31,13 +32,29 @@ export class FfmpegService {
       });
 
       cmd.on('error', (err: Error) => {
-        this.logger.error(`FFmpeg error for camera ${cameraId}: ${err.message}`);
+        const wasIntentional = this.intentionalStops.has(cameraId);
+        this.intentionalStops.delete(cameraId);
         this.runningProcesses.delete(cameraId);
         this.eventHandlers.delete(cameraId);
+
+        if (wasIntentional) {
+          // SIGTERM from stopStream() makes fluent-ffmpeg fire 'error'
+          // with a non-zero exit status — treat it as a clean stop so the
+          // BullMQ job completes (removeOnComplete) instead of retrying
+          // up to 20 times and restarting the stream on its own.
+          this.logger.log(
+            `FFmpeg stopped intentionally for camera ${cameraId}`,
+          );
+          resolve();
+          return;
+        }
+
+        this.logger.error(`FFmpeg error for camera ${cameraId}: ${err.message}`);
         reject(err);
       });
 
       cmd.on('end', () => {
+        this.intentionalStops.delete(cameraId);
         this.logger.log(`FFmpeg ended for camera ${cameraId}`);
         this.runningProcesses.delete(cameraId);
         this.eventHandlers.delete(cameraId);
@@ -51,9 +68,12 @@ export class FfmpegService {
   stopStream(cameraId: string): void {
     const cmd = this.runningProcesses.get(cameraId);
     if (cmd) {
+      // Mark before killing so the 'error' handler knows the SIGTERM is
+      // expected. Do NOT delete from runningProcesses here — let the
+      // async 'error'/'end' handler clean up, otherwise a subsequent
+      // start-stream for the same camera can race with the dying process.
+      this.intentionalStops.add(cameraId);
       cmd.kill('SIGTERM');
-      this.runningProcesses.delete(cameraId);
-      this.eventHandlers.delete(cameraId);
     }
   }
 

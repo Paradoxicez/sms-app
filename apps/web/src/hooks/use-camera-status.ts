@@ -24,10 +24,14 @@ export function useCameraStatus(
   useEffect(() => {
     if (!orgId) return;
 
-    const socket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003', {
+    // Gateway is registered under the /camera-status namespace — the root
+    // namespace has no listeners, so events never reached the UI.
+    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
+    const socket = io(`${base}/camera-status`, {
       path: '/socket.io',
       query: { orgId },
       transports: ['websocket'],
+      withCredentials: true,
     });
 
     socket.on('camera:status', (event: CameraStatusEvent) => {
