@@ -73,6 +73,30 @@ export class PlaybackController {
   }
 
   /**
+   * List playback sessions for a camera.
+   * Declared BEFORE `/playback/sessions/:id` so Nest does not match
+   * `?cameraId=...` against the `:id` param route.
+   */
+  @Get('playback/sessions')
+  @UseGuards(AuthOrApiKeyGuard)
+  @ApiOperation({ summary: 'List playback sessions for a camera' })
+  @ApiResponse({ status: 200, description: 'Array of session summaries ordered createdAt DESC' })
+  @ApiResponse({ status: 400, description: 'cameraId query param required' })
+  @ApiResponse({ status: 404, description: 'Camera not found' })
+  @ApiSecurity('api-key')
+  async listSessions(
+    @Query('cameraId') cameraId: string,
+    @Query('limit') limit?: string,
+  ) {
+    if (!cameraId) {
+      throw new BadRequestException('cameraId query parameter is required');
+    }
+    const parsedLimit = limit ? parseInt(limit, 10) : 20;
+    const safe = Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : 20;
+    return this.playbackService.listSessionsByCamera(cameraId, this.getOrgId(), safe);
+  }
+
+  /**
    * Get session info (public endpoint for embed page).
    * No AuthGuard -- accessible without authentication.
    */

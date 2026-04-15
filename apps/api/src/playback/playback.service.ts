@@ -223,6 +223,40 @@ export class PlaybackService {
   }
 
   /**
+   * List playback sessions for a camera (most recent first).
+   *
+   * Returns only { id, createdAt, expiresAt } to match the frontend
+   * PlaybackSession shape. Does NOT filter expired sessions -- the UI
+   * renders an Expired badge via isExpired(expiresAt).
+   *
+   * Verifies the camera belongs to the caller's org (defense in depth;
+   * TENANCY_CLIENT extension also filters by org).
+   */
+  async listSessionsByCamera(
+    cameraId: string,
+    orgId: string,
+    limit: number = 20,
+  ) {
+    const camera = await this.prisma.camera.findUnique({
+      where: { id: cameraId },
+    });
+
+    if (!camera || camera.orgId !== orgId) {
+      throw new NotFoundException(`Camera ${cameraId} not found`);
+    }
+
+    const safeLimit = Math.min(Math.max(limit, 1), 100);
+    const sessions = await this.prisma.playbackSession.findMany({
+      where: { cameraId },
+      orderBy: { createdAt: 'desc' },
+      take: safeLimit,
+      select: { id: true, createdAt: true, expiresAt: true },
+    });
+
+    return sessions;
+  }
+
+  /**
    * Domain matching for SRS callback verification.
    *
    * Per D-14: empty domains array = allow all
