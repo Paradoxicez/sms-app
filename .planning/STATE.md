@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-09)
 Phase: 07
 Plan: Not started
 Status: Ready to execute
-Last activity: 2026-04-15
+Last activity: 2026-04-15 - Completed quick task 260415-k9n: Wire Socket.IO orgId from session
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -177,6 +177,7 @@ None yet.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260415-249 | Fix 3 UAT bugs: edit-org-dialog, package-table DropdownMenu, timeline-bar runtime error | 2026-04-15 | 0b30ecd | [260415-249-fix-3-uat-bugs](./quick/260415-249-fix-3-uat-bugs-edit-org-dialog-package-t/) |
+| 260415-k9n | Wire Socket.IO orgId from session — replace 'default' literal in cameras pages (P0 multi-tenant fix) | 2026-04-15 | 02cfe4f | [260415-k9n-wire-socket-io-orgid](./quick/260415-k9n-wire-socket-io-orgid-from-session-replac/) |
 
 ## Session Continuity
 
