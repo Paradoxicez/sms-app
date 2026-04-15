@@ -56,11 +56,19 @@ import { RecordingsModule } from './recordings/recordings.module';
     ClusterModule,
     RecordingsModule,
     ThrottlerModule.forRoot({
-      throttlers: [
-        { name: 'global', ttl: 60000, limit: 100 },
-        { name: 'tenant', ttl: 60000, limit: 60 },
-        { name: 'apikey', ttl: 60000, limit: 30 },
-      ],
+      throttlers:
+        process.env.NODE_ENV === 'production'
+          ? [
+              { name: 'global', ttl: 60000, limit: 100 },
+              { name: 'tenant', ttl: 60000, limit: 60 },
+              { name: 'apikey', ttl: 60000, limit: 30 },
+            ]
+          : [
+              // Dev/UAT: raise ceilings so exploratory sessions do not lock out.
+              { name: 'global', ttl: 60000, limit: 2000 },
+              { name: 'tenant', ttl: 60000, limit: 1000 },
+              { name: 'apikey', ttl: 60000, limit: 500 },
+            ],
     }),
   ],
   providers: [
