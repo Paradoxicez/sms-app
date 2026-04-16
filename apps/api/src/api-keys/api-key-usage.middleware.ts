@@ -7,12 +7,6 @@ export class ApiKeyUsageMiddleware implements NestMiddleware {
   constructor(private readonly apiKeysService: ApiKeysService) {}
 
   use(req: Request, res: Response, next: NextFunction) {
-    const apiKey = (req as any).apiKey;
-    if (!apiKey) {
-      return next();
-    }
-
-    // Track response size for bandwidth
     let totalBytes = 0;
 
     const originalWrite = res.write;
@@ -26,14 +20,15 @@ export class ApiKeyUsageMiddleware implements NestMiddleware {
     } as any;
 
     const apiKeysService = this.apiKeysService;
-    const keyId = apiKey.id;
 
     res.end = function (this: Response, chunk: any, ...rest: any[]): Response {
       if (chunk) {
         totalBytes += Buffer.byteLength(chunk);
       }
-      // Fire-and-forget usage recording
-      apiKeysService.recordUsage(keyId, totalBytes).catch(() => {});
+      const apiKey = (req as any).apiKey;
+      if (apiKey) {
+        apiKeysService.recordUsage(apiKey.id, totalBytes).catch(() => {});
+      }
       return originalEnd.apply(this, [chunk, ...rest] as any);
     } as any;
 
