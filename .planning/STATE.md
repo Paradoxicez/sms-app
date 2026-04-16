@@ -181,9 +181,10 @@ None yet.
 | 260415-khn | Resolve Phase 03 VERIFICATION gaps — sessions list endpoint + policy sources field | 2026-04-15 | 671a2ad | [260415-khn-resolve-phase-03-verification-gaps](./quick/260415-khn-resolve-phase-03-verification-gaps-sessi/) |
 | 260415-vqy | Polish Create Platform User dialog — drop "super admin" copy, push System org last | 2026-04-15 | efac1a7 | [260415-vqy-polish-create-platform-user-dialog-drop-](./quick/260415-vqy-polish-create-platform-user-dialog-drop-/) |
 | 260416-fnm | Optimize HLS stream startup time — FFmpeg keyframe alignment + hls.js player tuning | 2026-04-16 | bbe5fc0 | [260416-fnm-optimize-hls](./quick/260416-fnm-optimize-hls-stream-startup-time-ffmpeg-/) |
+| 260416-h4n | Fix dashboard 4 data issues — SRS bandwidth, usage charts, NaN camera bandwidth, BigInt type mismatch | 2026-04-16 | 7d9efd0 | [260416-h4n-fix-dashboard](./quick/260416-h4n-fix-dashboard-4-data-issues-srs-bandwidt/) |
 
 ## Session Continuity
 
-Last session: 2026-04-16T04:16:21.933Z
-Stopped at: Debug + quick task — fixed 3 stream pipeline bugs + HLS startup optimization
+Last session: 2026-04-16T05:19:58.575Z
+Stopped at: Dashboard data fixes complete — 4 issues resolved
 Resume file: none
