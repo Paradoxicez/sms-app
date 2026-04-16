@@ -110,6 +110,8 @@ vhost __defaultVhost__ {
         hls_cleanup     on;
         hls_dispose     30;
         hls_wait_keyframe on;
+        hls_ctx         on;
+        hls_ts_ctx      on;
         hls_use_fmp4    on;
 ${hlsKeysBlock}    }
 
