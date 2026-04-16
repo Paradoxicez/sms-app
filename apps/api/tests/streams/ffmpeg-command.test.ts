@@ -76,6 +76,25 @@ describe('FFmpeg Command Builder', () => {
     expect(cmd.size).toHaveBeenCalledWith('1920x1080');
     expect(cmd.fps).toHaveBeenCalledWith(30);
     expect(cmd.audioBitrate).toHaveBeenCalledWith('128k');
+    expect(cmd.addOutputOptions).toHaveBeenCalledWith(['-g', '60']);
+    expect(cmd.addOutputOptions).toHaveBeenCalledWith(['-tune', 'zerolatency']);
+  });
+
+  it('should use default fps=15 for GOP size when fps not specified', () => {
+    const profile: StreamProfile = {
+      codec: 'libx264',
+      audioCodec: 'aac',
+    };
+
+    const cmd = buildFfmpegCommand(
+      'rtsp://192.168.1.100/stream',
+      'rtmp://srs:1935/live/org-1/cam-1',
+      profile,
+      true,
+    );
+
+    expect(cmd.addOutputOptions).toHaveBeenCalledWith(['-g', '30']);
+    expect(cmd.addOutputOptions).toHaveBeenCalledWith(['-tune', 'zerolatency']);
   });
 
   it('should use libx264 when needsTranscode=true and codec=auto', () => {

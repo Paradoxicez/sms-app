@@ -26,6 +26,9 @@ export function buildFfmpegCommand(
   } else {
     cmd.videoCodec('libx264');
     cmd.addOutputOptions(['-preset', profile.preset || 'veryfast']);
+    const gopSize = (profile.fps || 15) * 2;
+    cmd.addOutputOptions(['-g', String(gopSize)]);
+    cmd.addOutputOptions(['-tune', 'zerolatency']);
     if (profile.videoBitrate) cmd.videoBitrate(profile.videoBitrate);
     if (profile.resolution) cmd.size(profile.resolution);
     if (profile.fps) cmd.fps(profile.fps);
