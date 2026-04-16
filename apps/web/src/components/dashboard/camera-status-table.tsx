@@ -52,6 +52,8 @@ const STATUS_STYLES: Record<string, { className: string; label: string }> = {
 };
 
 function formatBandwidth(bytes: number): string {
+  if (bytes == null || typeof bytes !== 'number' || isNaN(bytes) || bytes <= 0)
+    return '0 B/s';
   if (bytes < 1024) return `${bytes} B/s`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB/s`;
   if (bytes < 1024 * 1024 * 1024)

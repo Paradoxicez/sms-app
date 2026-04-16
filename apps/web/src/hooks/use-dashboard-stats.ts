@@ -9,6 +9,7 @@ export interface DashboardStats {
   totalCameras: number;
   totalViewers: number;
   bandwidth: number;
+  streamBandwidth: number;
 }
 
 export interface UsageDataPoint {
@@ -48,7 +49,11 @@ export function useDashboardStats() {
   const fetchStats = useCallback(async () => {
     try {
       const data = await apiFetch<DashboardStats>('/api/dashboard/stats');
-      setStats(data);
+      setStats({
+        ...data,
+        bandwidth: Number(data.bandwidth) || 0,
+        streamBandwidth: Number(data.streamBandwidth ?? 0) || 0,
+      });
       setError(null);
     } catch {
       setError('Failed to load dashboard stats');

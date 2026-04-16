@@ -14,6 +14,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import type { DashboardCamera } from '@/hooks/use-dashboard-stats';
 
 function formatBandwidth(bytes: number): string {
+  if (bytes == null || typeof bytes !== 'number' || isNaN(bytes) || bytes <= 0)
+    return '0 B/s';
   if (bytes < 1024) return `${bytes} B/s`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB/s`;
   if (bytes < 1024 * 1024 * 1024)
@@ -110,8 +112,8 @@ export default function TenantDashboardPage() {
             icon={<Eye className="h-4 w-4" />}
           />
           <StatCard
-            label="Bandwidth"
-            value={formatBandwidth(stats.bandwidth)}
+            label="Stream Bandwidth"
+            value={formatBandwidth(stats.streamBandwidth * 125)}
             icon={<Wifi className="h-4 w-4" />}
           />
         </div>
