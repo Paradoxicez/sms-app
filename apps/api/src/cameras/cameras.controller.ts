@@ -263,6 +263,8 @@ export class CamerasController {
   private readonly logger = new Logger(CamerasController.name);
   private readonly srsBaseUrl = process.env.SRS_HTTP_URL || 'http://localhost:8080';
 
+  private previewTokens = new Map<string, string>();
+
   @Get('cameras/:id/preview/playlist.m3u8')
   @ApiExcludeEndpoint()
   async proxyPlaylist(@Param('id') id: string, @Res() res: Response) {
@@ -273,16 +275,12 @@ export class CamerasController {
 
     const orgId = this.getOrgId();
 
-    // Mint a short-lived playback session so SRS on_play callback accepts
-    // the proxy request (Phase 03 security requires a signed token).
     let token: string;
     try {
       const session = await this.getPlaybackService().createSession(
         camera.id,
         orgId,
       );
-      // createSession returns hlsUrl = `${srs}/live/{org}/{cam}.m3u8?token=${jwt}`.
-      // Extract the token — the session object does not expose it directly.
       const match = session.hlsUrl.match(/[?&]token=([^&]+)/);
       if (!match) throw new Error('Minted session has no token in hlsUrl');
       token = decodeURIComponent(match[1]);
@@ -291,6 +289,8 @@ export class CamerasController {
       res.status(502).send('Stream not available');
       return;
     }
+
+    this.previewTokens.set(`${orgId}:${camera.id}`, token);
 
     const srsUrl = `${this.srsBaseUrl}/live/${orgId}/${camera.id}.m3u8?token=${encodeURIComponent(token)}`;
 
@@ -302,7 +302,6 @@ export class CamerasController {
       }
 
       let m3u8 = await upstream.text();
-      // Rewrite segment URLs to go through proxy
       m3u8 = m3u8.replace(
         /^(?!#)(.+\.(ts|m4s|mp4))$/gm,
         `/api/cameras/${id}/preview/$1`,
@@ -330,7 +329,9 @@ export class CamerasController {
     }
 
     const orgId = this.getOrgId();
-    const srsUrl = `${this.srsBaseUrl}/live/${orgId}/${segment}`;
+    const token = this.previewTokens.get(`${orgId}:${camera.id}`);
+    const tokenQuery = token ? `?token=${encodeURIComponent(token)}` : '';
+    const srsUrl = `${this.srsBaseUrl}/live/${orgId}/${segment}${tokenQuery}`;
 
     try {
       const upstream = await fetch(srsUrl);
