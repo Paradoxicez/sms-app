@@ -1,0 +1,111 @@
+# Requirements: SMS Platform v1.1 UI Overhaul
+
+**Defined:** 2026-04-17
+**Core Value:** Developers can get a secure HLS playback URL for any registered camera via a single API call, and embed it on their website immediately.
+
+## v1.1 Requirements
+
+Requirements for UI overhaul release. Each maps to roadmap phases.
+
+### Foundation
+
+- [ ] **FOUND-01**: User sees consistent data tables across all pages with column sorting, text/select filters, and pagination
+- [ ] **FOUND-02**: User can use shadcn datepicker (single, range, multiple) in all date inputs — no native browser pickers
+- [ ] **FOUND-03**: User can collapse sidebar to icon-only mode, state persists across page navigation
+- [ ] **FOUND-04**: User sees redesigned login page with remember me checkbox
+
+### Camera Management
+
+- [ ] **CAM-01**: User can view cameras in a data table with sort, filter, and pagination
+- [ ] **CAM-02**: User can access camera actions via "..." menu (Edit, View Stream, Stream Profile, Disable, Delete, Record, Embed Code)
+- [ ] **CAM-03**: User can toggle between table view and card view with HLS live preview per card
+- [ ] **CAM-04**: User can view stream in a slide-in sheet (half-screen from right) showing preview, Policies, Embed, and Activity
+
+### Recordings
+
+- [ ] **REC-01**: User can browse recordings from all cameras on a dedicated recordings page
+- [ ] **REC-02**: User can filter recordings by camera, project, site, date range, and status
+- [ ] **REC-03**: User can select and bulk delete multiple recordings
+- [ ] **REC-04**: User can download recording clips as files
+
+### Hierarchy
+
+- [ ] **HIER-01**: User can navigate Project > Site > Camera hierarchy via tree viewer on the left panel
+- [ ] **HIER-02**: User sees data table on the right panel showing children of selected tree node
+- [ ] **HIER-03**: User can view stream profiles in a data table with quick actions (Edit, Duplicate, Delete)
+
+### Map
+
+- [ ] **MAP-01**: User can filter cameras on map using tree viewer (same as project tree)
+- [ ] **MAP-02**: User can drag-drop marker on map to set camera lat/lng
+- [ ] **MAP-03**: User can hover/click map marker to see camera preview popup
+
+### Admin Tables
+
+- [ ] **ADMIN-01**: User can sort, filter, and paginate users table
+- [ ] **ADMIN-02**: User can sort, filter, and paginate API keys table
+- [ ] **ADMIN-03**: User can sort, filter, and paginate audit log table
+- [ ] **ADMIN-04**: User can sort, filter, and paginate webhooks table
+
+## v2 Requirements
+
+Deferred to future release. Tracked but not in current roadmap.
+
+### Tenant Self-Service
+
+- **TENANT-01**: User can manage organization settings on /app/settings page
+- **TENANT-02**: User can manage account profile on /app/account page
+- **TENANT-03**: User can view current plan on /app/plan page
+
+### Reliability
+
+- **REL-01**: FFmpeg auto-reconnects after SRS container restart
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Real-time auto-refresh on all tables | Excessive re-renders/API load; targeted Socket.IO updates already exist for status column |
+| Inline cell editing in tables | High complexity, accidental edits; use Edit dialog via quick actions instead |
+| Drag-and-drop row reordering | Camera order is meaningless — column sorting covers this |
+| Multi-grid live view (2x2, 3x3, 4x4) | SMS is a developer platform, not a security guard workstation; card view covers quick visual checks |
+| Customizable dashboard widgets | Enormous complexity for marginal value; keep curated layout |
+| Dark mode | Current green theme is brand identity; doubles CSS testing surface; defer to v1.2+ |
+
+## Traceability
+
+Which phases cover which requirements. Updated during roadmap creation.
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| FOUND-01 | — | Pending |
+| FOUND-02 | — | Pending |
+| FOUND-03 | — | Pending |
+| FOUND-04 | — | Pending |
+| CAM-01 | — | Pending |
+| CAM-02 | — | Pending |
+| CAM-03 | — | Pending |
+| CAM-04 | — | Pending |
+| REC-01 | — | Pending |
+| REC-02 | — | Pending |
+| REC-03 | — | Pending |
+| REC-04 | — | Pending |
+| HIER-01 | — | Pending |
+| HIER-02 | — | Pending |
+| HIER-03 | — | Pending |
+| MAP-01 | — | Pending |
+| MAP-02 | — | Pending |
+| MAP-03 | — | Pending |
+| ADMIN-01 | — | Pending |
+| ADMIN-02 | — | Pending |
+| ADMIN-03 | — | Pending |
+| ADMIN-04 | — | Pending |
+
+**Coverage:**
+- v1.1 requirements: 22 total
+- Mapped to phases: 0
+- Unmapped: 22 ⚠️
+
+---
+*Requirements defined: 2026-04-17*
+*Last updated: 2026-04-17 after initial definition*
