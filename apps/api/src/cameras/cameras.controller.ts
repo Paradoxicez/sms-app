@@ -6,6 +6,7 @@ import {
   Delete,
   Param,
   Body,
+  Req,
   Res,
   UseGuards,
   BadRequestException,
@@ -13,7 +14,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiExcludeEndpoint } from '@nestjs/swagger';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { ClsService } from 'nestjs-cls';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { CamerasService } from './cameras.service';
@@ -295,15 +296,30 @@ export class CamerasController {
     const srsUrl = `${this.srsBaseUrl}/live/${orgId}/${camera.id}.m3u8?token=${encodeURIComponent(token)}`;
 
     try {
-      const upstream = await fetch(srsUrl);
+      let upstream = await fetch(srsUrl);
       if (!upstream.ok) {
         res.status(upstream.status).send('Stream not available');
         return;
       }
 
       let m3u8 = await upstream.text();
+
+      // hls_ctx on: SRS returns a master playlist that redirects to a
+      // media playlist with ?hls_ctx=xxx. Follow the redirect server-side
+      // so the browser only sees the final media playlist with .ts segments.
+      if (m3u8.includes('#EXT-X-STREAM-INF') && !m3u8.includes('#EXTINF')) {
+        const innerLine = m3u8.split('\n').find((l) => l.startsWith('/'));
+        if (innerLine) {
+          const innerUrl = `${this.srsBaseUrl}${innerLine.trim()}`;
+          const inner = await fetch(innerUrl);
+          if (inner.ok) {
+            m3u8 = await inner.text();
+          }
+        }
+      }
+
       m3u8 = m3u8.replace(
-        /^(?!#)(.+\.(ts|m4s|mp4))$/gm,
+        /^(?!#)(.+\.(ts|m4s|mp4)(?:\?.*)?)$/gm,
         `/api/cameras/${id}/preview/$1`,
       );
 
@@ -321,6 +337,7 @@ export class CamerasController {
   async proxySegment(
     @Param('id') id: string,
     @Param('segment') segment: string,
+    @Req() req: Request,
     @Res() res: Response,
   ) {
     const camera = await this.camerasService.findCameraById(id);
@@ -330,8 +347,10 @@ export class CamerasController {
 
     const orgId = this.getOrgId();
     const token = this.previewTokens.get(`${orgId}:${camera.id}`);
-    const tokenQuery = token ? `?token=${encodeURIComponent(token)}` : '';
-    const srsUrl = `${this.srsBaseUrl}/live/${orgId}/${segment}${tokenQuery}`;
+    const params = new URLSearchParams(req.query as Record<string, string>);
+    if (token && !params.has('token')) params.set('token', token);
+    const qs = params.toString();
+    const srsUrl = `${this.srsBaseUrl}/live/${orgId}/${segment}${qs ? '?' + qs : ''}`;
 
     try {
       const upstream = await fetch(srsUrl);
