@@ -264,16 +264,7 @@ export class CamerasController {
   private readonly logger = new Logger(CamerasController.name);
   private readonly srsBaseUrl = process.env.SRS_HTTP_URL || 'http://localhost:8080';
 
-  private previewSessions = new Map<string, { token: string; hlsCtxUrl: string | null; expiresAt: number }>();
-
-  private getOrCreatePreviewSession(key: string): { token: string; hlsCtxUrl: string | null } | null {
-    const cached = this.previewSessions.get(key);
-    if (cached && cached.expiresAt > Date.now()) {
-      return { token: cached.token, hlsCtxUrl: cached.hlsCtxUrl };
-    }
-    this.previewSessions.delete(key);
-    return null;
-  }
+  private previewTokenCache = new Map<string, { token: string; expiresAt: number }>();
 
   @Get('cameras/:id/preview/playlist.m3u8')
   @ApiExcludeEndpoint()
@@ -286,12 +277,13 @@ export class CamerasController {
     const orgId = this.getOrgId();
     const cacheKey = `${orgId}:${camera.id}`;
 
-    let cached = this.getOrCreatePreviewSession(cacheKey);
+    // Cache playback token to avoid creating DB sessions on every hls.js poll
     let token: string;
-
-    if (cached) {
+    const cached = this.previewTokenCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
       token = cached.token;
     } else {
+      this.previewTokenCache.delete(cacheKey);
       try {
         const session = await this.getPlaybackService().createSession(
           camera.id,
@@ -300,12 +292,10 @@ export class CamerasController {
         const match = session.hlsUrl.match(/[?&]token=([^&]+)/);
         if (!match) throw new Error('Minted session has no token in hlsUrl');
         token = decodeURIComponent(match[1]);
-        this.previewSessions.set(cacheKey, {
+        this.previewTokenCache.set(cacheKey, {
           token,
-          hlsCtxUrl: null,
           expiresAt: Date.now() + 30 * 60 * 1000,
         });
-        cached = this.getOrCreatePreviewSession(cacheKey);
       } catch (err) {
         this.logger.warn(`Preview session create failed for camera ${id}: ${err}`);
         res.status(502).send('Stream not available');
@@ -313,43 +303,22 @@ export class CamerasController {
       }
     }
 
-    // Use cached hls_ctx URL if available (avoids creating new SRS sessions)
-    let srsUrl: string;
-    if (cached?.hlsCtxUrl) {
-      srsUrl = cached.hlsCtxUrl;
-    } else {
-      srsUrl = `${this.srsBaseUrl}/live/${orgId}/${camera.id}.m3u8?token=${encodeURIComponent(token)}`;
-    }
+    const srsUrl = `${this.srsBaseUrl}/live/${orgId}/${camera.id}.m3u8?token=${encodeURIComponent(token)}`;
 
     try {
-      let upstream = await fetch(srsUrl);
+      const upstream = await fetch(srsUrl);
       if (!upstream.ok) {
-        // Cached hls_ctx URL expired — re-resolve from master
-        if (cached?.hlsCtxUrl) {
-          const entry = this.previewSessions.get(cacheKey);
-          if (entry) entry.hlsCtxUrl = null;
-          srsUrl = `${this.srsBaseUrl}/live/${orgId}/${camera.id}.m3u8?token=${encodeURIComponent(token)}`;
-          upstream = await fetch(srsUrl);
-          if (!upstream.ok) {
-            res.status(upstream.status).send('Stream not available');
-            return;
-          }
-        } else {
-          res.status(upstream.status).send('Stream not available');
-          return;
-        }
+        res.status(upstream.status).send('Stream not available');
+        return;
       }
 
       let m3u8 = await upstream.text();
 
+      // hls_ctx on: SRS returns master playlist → follow to get media playlist
       if (m3u8.includes('#EXT-X-STREAM-INF') && !m3u8.includes('#EXTINF')) {
         const innerLine = m3u8.split('\n').find((l) => l.startsWith('/'));
         if (innerLine) {
-          const innerUrl = `${this.srsBaseUrl}${innerLine.trim()}`;
-          // Cache the hls_ctx URL for subsequent polls
-          const entry = this.previewSessions.get(cacheKey);
-          if (entry) entry.hlsCtxUrl = innerUrl;
-          const inner = await fetch(innerUrl);
+          const inner = await fetch(`${this.srsBaseUrl}${innerLine.trim()}`);
           if (inner.ok) {
             m3u8 = await inner.text();
           }
@@ -384,9 +353,9 @@ export class CamerasController {
     }
 
     const orgId = this.getOrgId();
-    const token = this.previewTokens.get(`${orgId}:${camera.id}`);
+    const cached = this.previewTokenCache.get(`${orgId}:${camera.id}`);
     const params = new URLSearchParams(req.query as Record<string, string>);
-    if (token && !params.has('token')) params.set('token', token);
+    if (cached?.token && !params.has('token')) params.set('token', cached.token);
     const qs = params.toString();
     const srsUrl = `${this.srsBaseUrl}/live/${orgId}/${segment}${qs ? '?' + qs : ''}`;
 
