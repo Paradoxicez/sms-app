@@ -37,17 +37,16 @@ export class ManifestService {
       return this.buildEmptyManifest();
     }
 
-    // 3. Generate pre-signed URLs for init segment and all media segments
+    // 3. Build proxy URLs that route through the API (same origin as manifest)
+    // This avoids CORS issues with direct MinIO presigned URLs
     const initUrl = recording.initSegment
-      ? await this.minioService.getPresignedUrl(orgId, recording.initSegment, 14400)
+      ? `/api/recordings/${recordingId}/init-segment`
       : null;
 
-    const segmentUrls = await Promise.all(
-      segments.map(async (seg: any) => ({
-        duration: seg.duration,
-        url: await this.minioService.getPresignedUrl(orgId, seg.objectPath, 14400),
-      })),
-    );
+    const segmentUrls = segments.map((seg: any) => ({
+      duration: seg.duration,
+      url: `/api/recordings/segments/${seg.id}/proxy`,
+    }));
 
     // 4. Build m3u8
     return this.buildManifest(segmentUrls, initUrl);
@@ -60,7 +59,7 @@ export class ManifestService {
     const maxDuration = Math.ceil(Math.max(...segments.map(s => s.duration)));
 
     let m3u8 = '#EXTM3U\n';
-    m3u8 += '#EXT-X-VERSION:7\n';
+    m3u8 += '#EXT-X-VERSION:3\n';
     m3u8 += `#EXT-X-TARGETDURATION:${maxDuration}\n`;
     m3u8 += '#EXT-X-MEDIA-SEQUENCE:0\n';
     m3u8 += '#EXT-X-PLAYLIST-TYPE:VOD\n';
@@ -79,7 +78,7 @@ export class ManifestService {
   }
 
   buildEmptyManifest(): string {
-    return '#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-TARGETDURATION:3\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-PLAYLIST-TYPE:VOD\n#EXT-X-ENDLIST\n';
+    return '#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:3\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-PLAYLIST-TYPE:VOD\n#EXT-X-ENDLIST\n';
   }
 
   async getSegmentsForDate(

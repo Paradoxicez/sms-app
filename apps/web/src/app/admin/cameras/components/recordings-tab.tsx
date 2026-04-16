@@ -40,7 +40,9 @@ import { RecordingControls } from './recording-controls';
 import { ScheduleDialog } from './schedule-dialog';
 import { RetentionSettings } from './retention-settings';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
+// Use relative URLs so requests go through Next.js rewrites (same-origin cookies)
+// API_BASE is only needed for non-fetch operations (e.g., download links opened in new tabs)
+const API_BASE = '';
 
 interface RecordingsTabProps {
   camera: {
@@ -156,11 +158,10 @@ export function RecordingsTab({ camera }: RecordingsTabProps) {
 
   const handleSeek = useCallback(
     (hour: number) => {
-      // Find the recording that covers this hour
       const target = recordings.find((r) => {
-        const startH = new Date(r.startedAt).getHours();
+        const startH = new Date(r.startedAt).getUTCHours();
         const endH = r.stoppedAt
-          ? new Date(r.stoppedAt).getHours()
+          ? new Date(r.stoppedAt).getUTCHours() + 1
           : 24;
         return hour >= startH && hour < endH;
       });
@@ -175,9 +176,8 @@ export function RecordingsTab({ camera }: RecordingsTabProps) {
   const handleRangeSelect = useCallback(
     (start: number, end: number) => {
       setSelectedRange({ start, end });
-      // Find first recording in range
       const target = recordings.find((r) => {
-        const startH = new Date(r.startedAt).getHours();
+        const startH = new Date(r.startedAt).getUTCHours();
         return startH >= Math.floor(start) && startH < Math.ceil(end);
       });
       if (target) {
@@ -201,17 +201,9 @@ export function RecordingsTab({ camera }: RecordingsTabProps) {
   // Build HLS source URL from selected recording and range
   const hlsSrc = useMemo(() => {
     if (!playerRecordingId) return null;
-    let url = `${API_BASE}/api/recordings/${playerRecordingId}/manifest`;
-    if (selectedRange) {
-      const base = new Date(selectedDate);
-      const startDate = new Date(base);
-      startDate.setHours(Math.floor(selectedRange.start), Math.round((selectedRange.start % 1) * 60), 0, 0);
-      const endDate = new Date(base);
-      endDate.setHours(Math.floor(selectedRange.end), Math.round((selectedRange.end % 1) * 60), 0, 0);
-      url += `?start=${startDate.toISOString()}&end=${endDate.toISOString()}`;
-    }
-    return url;
-  }, [playerRecordingId, selectedRange, selectedDate]);
+    // Skip time range filter — play the full recording
+    return `/api/recordings/${playerRecordingId}/manifest`;
+  }, [playerRecordingId]);
 
   // Feature gate
   if (featureLoading) {
@@ -278,7 +270,7 @@ export function RecordingsTab({ camera }: RecordingsTabProps) {
       {/* HLS Player */}
       <div className="max-w-[800px]">
         {hlsSrc ? (
-          <HlsPlayer src={hlsSrc} autoPlay={false} />
+          <HlsPlayer src={hlsSrc} autoPlay={false} mode="vod" />
         ) : recordings.length > 0 ? (
           <div className="flex aspect-video items-center justify-center rounded-lg border bg-[hsl(0,0%,9%)]">
             <p className="text-sm text-muted-foreground">
@@ -328,7 +320,16 @@ export function RecordingsTab({ camera }: RecordingsTabProps) {
           </TableHeader>
           <TableBody>
             {recordings.map((rec) => (
-              <TableRow key={rec.id}>
+              <TableRow
+                key={rec.id}
+                className="cursor-pointer"
+                onClick={() => {
+                  setPlayerRecordingId(rec.id);
+                  const startH = new Date(rec.startedAt).getUTCHours();
+                  const endH = rec.stoppedAt ? new Date(rec.stoppedAt).getUTCHours() + 1 : startH + 1;
+                  setSelectedRange({ start: startH, end: Math.min(endH, 24) });
+                }}
+              >
                 <TableCell>
                   {formatTime(rec.startedAt)}
                   {rec.stoppedAt ? ` - ${formatTime(rec.stoppedAt)}` : ' - ...'}

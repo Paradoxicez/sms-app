@@ -2,6 +2,7 @@
 
 import {
   Building2,
+  LayoutDashboard,
   Package,
   Network,
   Server,
@@ -16,6 +17,7 @@ interface PlatformNavProps {
 }
 
 const PLATFORM_ITEMS = [
+  { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
   { label: "Organizations", href: "/admin/organizations", icon: Building2 },
   { label: "Packages", href: "/admin/packages", icon: Package },
   { label: "Cluster Nodes", href: "/admin/cluster", icon: Network },

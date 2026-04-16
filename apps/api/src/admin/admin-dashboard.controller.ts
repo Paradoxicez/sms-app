@@ -18,6 +18,13 @@ export class AdminDashboardController {
     return this.adminDashboardService.getPlatformStats();
   }
 
+  @Get('system-metrics')
+  @ApiOperation({ summary: 'Get SRS system metrics (super admin only)' })
+  @ApiResponse({ status: 200, description: 'System metrics' })
+  getSystemMetrics() {
+    return this.adminDashboardService.getSystemMetrics();
+  }
+
   @Get('orgs')
   @ApiOperation({ summary: 'Get per-org camera summary (super admin only)' })
   @ApiResponse({ status: 200, description: 'Organization summary list' })

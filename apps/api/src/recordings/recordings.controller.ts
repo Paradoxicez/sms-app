@@ -175,6 +175,24 @@ export class RecordingsController {
     res!.send(manifest);
   }
 
+  @Get(':id/init-segment')
+  @ApiExcludeEndpoint()
+  async proxyInitSegment(
+    @Param('id') id: string,
+    @Res() res: Response,
+  ) {
+    const orgId = this.cls.get('ORG_ID');
+    const recording = await this.recordingsService.getRecording(id, orgId);
+    if (!recording.initSegment) {
+      throw new BadRequestException('Recording has no init segment');
+    }
+    const stream = await this.minioService.getObjectStream(orgId, recording.initSegment);
+
+    res.setHeader('Content-Type', 'video/mp4');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    stream.pipe(res);
+  }
+
   @Get(':id')
   async getRecording(@Param('id') id: string) {
     const orgId = this.cls.get('ORG_ID');
@@ -198,7 +216,7 @@ export class RecordingsController {
     const segment = await this.recordingsService.getSegment(segmentId, orgId);
     const stream = await this.minioService.getObjectStream(orgId, segment.objectPath);
 
-    res.setHeader('Content-Type', 'video/iso.segment');
+    res.setHeader('Content-Type', 'video/mp2t');
     res.setHeader('Cache-Control', 'public, max-age=86400');
     stream.pipe(res);
   }

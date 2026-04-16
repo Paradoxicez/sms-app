@@ -54,9 +54,7 @@ describe('ManifestService - Dynamic m3u8 Generation (REC-02)', () => {
       { id: 's1', objectPath: 'cam/2026-04-13/08-00-00_1.m4s', duration: 2.0, seqNo: 1 },
     ]);
 
-    mockMinioService.getPresignedUrl.mockResolvedValue('https://minio/seg1.m4s');
-
-    await service.generateManifest(recordingId, orgId, startTime, endTime);
+    const m3u8 = await service.generateManifest(recordingId, orgId, startTime, endTime);
 
     expect(mockPrisma.recordingSegment.findMany).toHaveBeenCalledWith({
       where: {
@@ -66,6 +64,10 @@ describe('ManifestService - Dynamic m3u8 Generation (REC-02)', () => {
       },
       orderBy: { seqNo: 'asc' },
     });
+
+    // Manifest should use proxy URLs, not presigned MinIO URLs
+    expect(m3u8).toContain('/api/recordings/segments/s1/proxy');
+    expect(mockMinioService.getPresignedUrl).not.toHaveBeenCalled();
   });
 
   it('sets EXT-X-VERSION:7 and EXT-X-ENDLIST for VOD playback', () => {

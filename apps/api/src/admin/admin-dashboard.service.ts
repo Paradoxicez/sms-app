@@ -57,6 +57,37 @@ export class AdminDashboardService {
     };
   }
 
+  async getSystemMetrics() {
+    try {
+      const data = await this.srsApiService.getSummaries();
+      const selfData = data?.data?.self || {};
+      const systemData = data?.data?.system || {};
+
+      return {
+        cpuPercent: selfData.cpu_percent ?? 0,
+        memPercent: selfData.mem_percent ?? 0,
+        memKbyte: selfData.mem_kbyte ?? 0,
+        srsUptime: selfData.srs_uptime ?? 0,
+        systemCpu: systemData.cpu_percent ?? 0,
+        systemMemPercent: systemData.mem_ram_percent ?? 0,
+        load1m: systemData.load_1m ?? 0,
+        load5m: systemData.load_5m ?? 0,
+      };
+    } catch (err: any) {
+      this.logger.warn(`Failed to fetch SRS metrics: ${err.message}`);
+      return {
+        cpuPercent: 0,
+        memPercent: 0,
+        memKbyte: 0,
+        srsUptime: 0,
+        systemCpu: 0,
+        systemMemPercent: 0,
+        load1m: 0,
+        load5m: 0,
+      };
+    }
+  }
+
   async getOrgSummary() {
     const orgs = await this.rawPrisma.organization.findMany({
       select: { id: true, name: true, slug: true },

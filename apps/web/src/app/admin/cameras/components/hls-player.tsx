@@ -6,9 +6,11 @@ import Hls from 'hls.js';
 interface HlsPlayerProps {
   src: string;
   autoPlay?: boolean;
+  /** Use 'vod' for recording playback, 'live' (default) for live streams */
+  mode?: 'live' | 'vod';
 }
 
-export function HlsPlayer({ src, autoPlay = true }: HlsPlayerProps) {
+export function HlsPlayer({ src, autoPlay = true, mode = 'live' }: HlsPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -20,7 +22,7 @@ export function HlsPlayer({ src, autoPlay = true }: HlsPlayerProps) {
     setError(null);
     let cancelled = false;
     let attempt = 0;
-    const MAX_ATTEMPTS = 6; // ~2+3+4+6+8 = 23s total — covers SRS warm-up
+    const MAX_ATTEMPTS = mode === 'live' ? 6 : 3;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
     const mount = () => {
@@ -28,19 +30,34 @@ export function HlsPlayer({ src, autoPlay = true }: HlsPlayerProps) {
       setError(null);
 
       if (Hls.isSupported()) {
-        const hls = new Hls({
+        const hlsConfig: Partial<Hls['config']> = {
           enableWorker: true,
-          lowLatencyMode: true,
-          liveSyncDurationCount: 2,
-          liveMaxLatencyDurationCount: 5,
-          maxBufferLength: 10,
-          backBufferLength: 0,
-          // Preview URL goes through /api/cameras/:id/preview/* which is
-          // AuthGuard-protected, so XHR must send session cookies.
-          xhrSetup: (xhr) => {
+          // All URLs go through the API (same origin), so XHR must send
+          // session cookies for AuthGuard-protected endpoints.
+          xhrSetup: (xhr: XMLHttpRequest) => {
             xhr.withCredentials = true;
           },
-        });
+        };
+
+        if (mode === 'live') {
+          // Live stream settings: low latency, small buffer
+          Object.assign(hlsConfig, {
+            lowLatencyMode: true,
+            liveSyncDurationCount: 2,
+            liveMaxLatencyDurationCount: 5,
+            maxBufferLength: 10,
+            backBufferLength: 0,
+          });
+        } else {
+          // VOD settings: buffer more, no live-edge chasing
+          Object.assign(hlsConfig, {
+            lowLatencyMode: false,
+            maxBufferLength: 30,
+            backBufferLength: 30,
+          });
+        }
+
+        const hls = new Hls(hlsConfig as any);
         hls.loadSource(src);
         hls.attachMedia(video);
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -49,15 +66,14 @@ export function HlsPlayer({ src, autoPlay = true }: HlsPlayerProps) {
         });
         hls.on(Hls.Events.ERROR, (_, data) => {
           if (!data.fatal) return;
-          // SRS takes a few seconds after on_publish before the first
-          // HLS segment lands on disk. Retry with backoff so the player
-          // does not stay in its error state forever when the user just
-          // restarted the stream.
           hls.destroy();
           hlsRef.current = null;
           attempt += 1;
           if (attempt >= MAX_ATTEMPTS || cancelled) {
-            setError('Stream playback error. The stream may have stopped.');
+            const msg = mode === 'live'
+              ? 'Stream playback error. The stream may have stopped.'
+              : 'Recording playback error. The recording may be unavailable.';
+            setError(msg);
             return;
           }
           const delay = Math.min(2000 + attempt * 1000, 8000);
@@ -78,7 +94,7 @@ export function HlsPlayer({ src, autoPlay = true }: HlsPlayerProps) {
       hlsRef.current?.destroy();
       hlsRef.current = null;
     };
-  }, [src, autoPlay]);
+  }, [src, autoPlay, mode]);
 
   return (
     <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-[hsl(0,0%,9%)]">

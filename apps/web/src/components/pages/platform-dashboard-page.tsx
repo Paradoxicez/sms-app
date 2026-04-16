@@ -1,11 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Building2, Camera, MonitorOff, Wifi, Eye } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Building2, Camera, Cpu, Clock, HardDrive, MemoryStick, MonitorOff, Wifi } from 'lucide-react';
 
 import { apiFetch } from '@/lib/api';
 import { StatCard } from '@/components/dashboard/stat-card';
-import { SystemMetrics } from '@/components/dashboard/system-metrics';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -45,12 +44,44 @@ function formatBandwidth(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB/s`;
 }
 
+interface SystemMetricsData {
+  cpuPercent: number;
+  memPercent: number;
+  load1m: number;
+  srsUptime: number;
+}
+
+function formatUptime(seconds: number): string {
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const parts: string[] = [];
+  if (days > 0) parts.push(`${days}d`);
+  if (hours > 0) parts.push(`${hours}h`);
+  parts.push(`${minutes}m`);
+  return parts.join(' ');
+}
+
 export default function PlatformDashboardPage() {
   const [stats, setStats] = useState<PlatformStats | null>(null);
   const [orgs, setOrgs] = useState<OrgSummary[]>([]);
+  const [metrics, setMetrics] = useState<SystemMetricsData | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const [orgsLoading, setOrgsLoading] = useState(true);
+  const [metricsLoading, setMetricsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fetchMetrics = useCallback(async () => {
+    try {
+      const data = await apiFetch<SystemMetricsData>('/api/admin/dashboard/system-metrics');
+      setMetrics(data);
+    } catch {
+      // silent
+    } finally {
+      setMetricsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     async function loadStats() {
@@ -81,7 +112,12 @@ export default function PlatformDashboardPage() {
 
     loadStats();
     loadOrgs();
-  }, []);
+    fetchMetrics();
+    intervalRef.current = setInterval(fetchMetrics, 30000);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [fetchMetrics]);
 
   return (
     <div className="space-y-6">
@@ -142,7 +178,38 @@ export default function PlatformDashboardPage() {
       ) : null}
 
       {/* System metrics */}
-      <SystemMetrics />
+      {metricsLoading ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-[108px] w-full rounded-xl" />
+          ))}
+        </div>
+      ) : metrics ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            label="CPU Usage"
+            value={`${metrics.cpuPercent.toFixed(1)}%`}
+            icon={<Cpu className="h-4 w-4" />}
+            badge={metrics.cpuPercent > 80 ? { text: 'High', variant: 'destructive' } : undefined}
+          />
+          <StatCard
+            label="Memory Usage"
+            value={`${metrics.memPercent.toFixed(1)}%`}
+            icon={<MemoryStick className="h-4 w-4" />}
+            badge={metrics.memPercent > 80 ? { text: 'High', variant: 'destructive' } : undefined}
+          />
+          <StatCard
+            label="System Load (1m)"
+            value={metrics.load1m.toFixed(2)}
+            icon={<HardDrive className="h-4 w-4" />}
+          />
+          <StatCard
+            label="SRS Uptime"
+            value={formatUptime(metrics.srsUptime)}
+            icon={<Clock className="h-4 w-4" />}
+          />
+        </div>
+      ) : null}
 
       {/* Org Summary table */}
       <Card>
