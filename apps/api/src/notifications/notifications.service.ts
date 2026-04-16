@@ -66,9 +66,42 @@ export class NotificationsService {
     body: string,
     data?: any,
   ): Promise<void> {
-    // For system alerts, we'd query org admins/operators
-    // This is a placeholder that will be used by monitoring features
-    this.logger.log(`System alert for org ${orgId}: ${title}`);
+    // Query org admin/owner members for alert delivery
+    const members = await this.rawPrisma.member.findMany({
+      where: {
+        organizationId: orgId,
+        role: { in: ['owner', 'admin'] },
+      },
+      select: { userId: true },
+    });
+
+    if (members.length === 0) {
+      this.logger.log(
+        `System alert for org ${orgId}: ${title} (no admin/owner members found)`,
+      );
+      return;
+    }
+
+    for (const member of members) {
+      try {
+        const notification = await this.rawPrisma.notification.create({
+          data: {
+            orgId,
+            userId: member.userId,
+            type: 'system.alert',
+            title,
+            body,
+            data: data ?? {},
+          },
+        });
+
+        this.gateway.sendToUser(member.userId, notification);
+      } catch (err: any) {
+        this.logger.warn(
+          `Failed to create system alert for user ${member.userId}: ${err.message}`,
+        );
+      }
+    }
   }
 
   async findForUser(
