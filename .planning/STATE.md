@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: UI Overhaul
-status: defining_requirements
-stopped_at: ""
+status: ready_to_plan
+stopped_at: "Roadmap created with 6 phases (8-13)"
 last_updated: "2026-04-17"
 last_activity: 2026-04-17
 progress:
-  total_phases: 0
+  total_phases: 6
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-17)
 
 **Core value:** Developers can get a secure HLS playback URL for any registered camera via a single API call, and embed it on their website immediately.
-**Current focus:** Defining requirements for v1.1 UI Overhaul
+**Current focus:** Phase 8 - Foundation Components (v1.1 UI Overhaul)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 8 of 13 (Foundation Components) — first phase of v1.1
 Plan: —
-Status: Defining requirements
-Last activity: 2026-04-17 — Milestone v1.1 started
+Status: Ready to plan
+Last activity: 2026-04-17 — Roadmap created for v1.1 UI Overhaul (6 phases, 22 requirements)
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -36,60 +36,16 @@ Progress: [░░░░░░░░░░] 0%
 
 **Velocity:**
 
-- Total plans completed: 38
-- Average duration: -
-- Total execution time: 0 hours
-
-**By Phase:**
-
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| 01 | 6 | - | - |
-| 02 | 6 | - | - |
-| 03 | 3 | - | - |
-| 04 | 5 | - | - |
-| 05 | 6 | - | - |
-| 06 | 3 | - | - |
-| 07 | 5 | - | - |
+- Total plans completed: 38 (from v1.0)
+- Average duration: ~5 min/plan
+- Total execution time: ~3.2 hours
 
 **Recent Trend:**
 
-- Last 5 plans: -
-- Trend: -
+- Last 5 plans: 337s, 305s, 78s, 130s, ~5min (Phase 07)
+- Trend: Stable
 
 *Updated after each plan completion*
-| Phase 01 P01 | 8min | 3 tasks | 17 files |
-| Phase 01 P02 | 7min | 3 tasks | 17 files |
-| Phase 01 P03 | 6min | 3 tasks | 22 files |
-| Phase 01 P05 | 5min | 2 tasks | 4 files |
-| Phase 01 P06 | 2min | 2 tasks | 9 files |
-| Phase 02 P01 | 3min | 2 tasks | 6 files |
-| Phase 02 P02 | 277s | 2 tasks | 15 files |
-| Phase 02 P03 | 423s | 4 tasks | 18 files |
-| Phase 02 P04 | 317s | 2 tasks | 14 files |
-| Phase 02 P05 | 850s | 2 tasks | 22 files |
-| Phase 02 P06 | 481s | 2 tasks | 9 files |
-| Phase 03 P01 | 440s | 2 tasks | 15 files |
-| Phase 03 P02 | 323s | 2 tasks | 9 files |
-| Phase 04 P01 | 297s | 3 tasks | 13 files |
-| Phase 04 P02 | 275s | 2 tasks | 11 files |
-| Phase 04 P03 | 231s | 3 tasks | 11 files |
-| Phase 04 P04 | 15min | 4 tasks | 14 files |
-| Phase 04 P05 | 260s | 2 tasks | 8 files |
-| Phase 05 P00 | 115s | 2 tasks | 6 files |
-| Phase 05 P01 | 403s | 4 tasks | 19 files |
-| Phase 05 P02 | 233s | 2 tasks | 10 files |
-| Phase 05 P03 | 249s | 2 tasks | 7 files |
-| Phase 05 P04 | 284s | 2 tasks | 8 files |
-| Phase 05 P05 | 452s | 2 tasks | 7 files |
-| Phase 06 P01 | 426s | 3 tasks | 12 files |
-| Phase 06 P02 | 316s | 2 tasks | 11 files |
-| Phase 06 P03 | 94s | 2 tasks | 8 files |
-| Phase 07 P00 | 48s | 1 tasks | 6 files |
-| Phase 07 P01 | 337s | 2 tasks | 17 files |
-| Phase 07 P02 | 305s | 2 tasks | 14 files |
-| Phase 07 P03 | 78s | 3 tasks | 14 files |
-| Phase 07 P04 | 130s | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -98,69 +54,11 @@ Progress: [░░░░░░░░░░] 0%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- [Roadmap]: Multi-tenant RLS established in Phase 1 -- retrofitting is painful, all subsequent phases build on org isolation
-- [Roadmap]: SRS integration (Phase 2) is highest-risk -- proven early before features build on top
-- [Roadmap]: External FFmpeg process pool (not SRS built-in ingest) -- dynamic camera management without config reload
-- [Roadmap]: Phases 5, 6, 7 depend only on Phase 2, enabling parallelization after core pipeline is stable
-- [Phase 01]: Prisma 6 instead of 7 due to Node 22.11 < 22.12 requirement
-- [Phase 01]: Vitest 3 instead of 4 due to ESM incompatibility with Node 22.11
-- [Phase 01]: Docker Compose ports remapped (5434:5432, 6380:6379) to avoid local service conflicts
-- [Phase 01]: Better Auth signInEmail returns { user, token } at top level, not { user, session }
-- [Phase 01]: @opentelemetry/api required as better-auth peer dependency
-- [Phase 01]: Vitest fileParallelism disabled for DB integration tests
-- [Phase 01]: Zod safeParse in controllers for validation; AdminModule umbrella pattern for admin endpoints
-- [Phase 01]: RLS requires non-superuser connection; app_user role created; production should use app_user DATABASE_URL
-- [Phase 01]: FeaturesModule @Global() for universal FeatureGuard availability; FeatureKey enum for known features with flexible JSONB
-- [Phase 02]: RLS policies applied to 5 org-scoped tables; SystemSettings excluded (super admin only)
-- [Phase 02]: SRS srs.conf uses fMP4 HLS with 2s fragments and Docker sms-network bridge for internal callbacks
-- [Phase 02]: AuthGuard created with CLS org context injection for session-based endpoint protection
-- [Phase 02]: BullModule.forRoot configured with Redis host/port from env vars (default localhost:6380)
-- [Phase 02]: StatusModule is @Global for cross-module access by StreamsModule and SrsModule
-- [Phase 02]: SRS callbacks route at /api/srs/callbacks/* matching docker-compose srs.conf callback URLs
-- [Phase 02]: Stream profile validation returns warnings (not blocking) for high-res/bitrate/fps
-- [Phase 02]: srs.conf generated from template literal with conditional hls_keys block, written on settings save + SRS reload
-- [Phase 02]: base-ui component API differs from Radix: render prop instead of asChild, null for indeterminate Progress, String wrapper for Select onValueChange
-- [Phase 02]: Bulk import uses browser-side CSV/JSON parsing with server-side Zod re-validation for defense in depth
-- [Phase 03]: PoliciesModule @Global() for cross-module PoliciesService injection
-- [Phase 03]: Domains field: empty array = valid override (allow all), null = inherit
-- [Phase 03]: JWT_PLAYBACK_SECRET auto-generates in dev, GET /playback/sessions/:id public for embeds
-- [Phase 03]: ThrottlerModule uses in-memory storage (not Redis) for single-server deployment simplicity
-- [Phase 03]: SRS callbacks exempt from rate limiting via @SkipThrottle; verifyTokenMinimal for key serving (no scope check)
-- [Phase 03]: m3u8 proxy rewrites #EXT-X-KEY URIs with token for seamless hls.js authenticated key fetching
-- [Phase 04]: REDIS_CLIENT as custom symbol provider for API key usage tracking (separate from BullMQ Redis)
-- [Phase 04]: findByHash uses raw PrismaService (not tenancy) for cross-org API key lookup during authentication
-- [Phase 04]: AuthOrApiKeyGuard replaces AuthGuard on session creation endpoints for dual auth (session + API key)
-- [Phase 04]: Batch playback sessions return partial results ({ sessions, errors }) rather than all-or-nothing
-- [Phase 04]: Internal endpoints excluded from Swagger via @ApiExcludeEndpoint
-- [Phase 04]: Fire-and-forget webhook emission with .catch() to never block status transitions
-- [Phase 04]: AuthOrApiKeyGuard DI resolved via ModuleRef lazy resolution to avoid circular dependency
-- [Phase 04]: Guide pages use 'use client' for CodeBlock clipboard interactivity; DocPage wrapper with breadcrumb for consistent guide layout
-- [Phase 05]: RLS policies follow existing pattern with FORCE + superuser bypass for Phase 5 tables
-- [Phase 05]: Notification delivery only to users with explicit enabled preferences (no implicit all-org broadcast)
-- [Phase 05]: forwardRef for NotificationsService injection into StatusService to avoid circular dependency
-- [Phase 05]: Bandwidth returned as string to avoid BigInt serialization issues
-- [Phase 05]: Dynamic import with ssr:false wrapper pattern for Leaflet (Next.js SSR incompatibility)
-- [Phase 05]: useFeatureCheck defaults to enabled on API failure for graceful degradation
-- [Phase 05]: Polling hooks use useRef for interval cleanup to avoid stale closure issues
-- [Phase 05]: Camera status table sorted offline-first for operational visibility
-- [Phase 05]: Socket.IO namespace /srs-logs separate from /camera-status for clean separation; single tail process shared across admin clients
-- [Phase 05]: NotificationBell self-fetches session data for Socket.IO independence from parent props
-- [Phase 05]: Camera detail preserved existing 5-tab structure; Logs tab replaced with Activity tab using AuditLogTable
-- [Phase 06]: SrsNode is system-level (no orgId/RLS) -- cluster management is super admin only
-- [Phase 06]: Tests in tests/cluster/ matching vitest convention; Zod DTOs matching project convention
-- [Phase 06]: Config generation as standalone functions for reuse across ClusterController and SettingsService
-- [Phase 06]: BullMQ repeatable jobs for 10s health checks with per-node scheduling
-- [Phase 06]: Edge routing fallback: getLeastLoadedEdge() returns null -> use origin URL
-- [Phase 06]: Socket.IO /cluster-status namespace separate from /camera-status for admin broadcast
-- [Phase 06]: Cluster management UI follows existing admin page patterns (stat cards + table + dialogs) with Socket.IO /cluster-status real-time updates
-- [Phase 07]: rawPrisma used for getActiveRecording and archiveSegment to bypass RLS for cross-org SRS callback context
-- [Phase 07]: Path traversal check in both RecordingsService and SrsCallbackController for defense in depth (T-07-01)
-- [Phase 07]: ManifestService.buildManifest made public for direct unit testing
-- [Phase 07]: Storage quota alerts use fire-and-forget (.catch) in archiveSegment to never block upload
-- [Phase 07]: BullMQ upsertJobScheduler in onModuleInit for idempotent repeatable job registration
-- [Phase 07]: Shadcn Calendar and Toggle components added via CLI for consistent UI in Recordings tab
-- [Phase 07]: FeatureCheckController as separate controller class using AuthGuard + CLS orgId for user-scoped feature queries
-- [Phase 07]: Feature check error fallback changed to disabled (not enabled) since endpoint now exists
+- [v1.1 Roadmap]: DataTable component built first -- 13+ pages consume it, prevents rework
+- [v1.1 Roadmap]: Sidebar collapse before page modifications -- layout-level change affects every page
+- [v1.1 Roadmap]: Simple table migrations before complex features -- validates DataTable API cheaply
+- [v1.1 Roadmap]: View Stream is a slide-in sheet (half-screen right), NOT a separate page
+- [v1.1 Roadmap]: HLS card view capped at 4-6 concurrent players with IntersectionObserver
 
 ### Pending Todos
 
@@ -168,27 +66,14 @@ None yet.
 
 ### Blockers/Concerns
 
-- SRS single-process architecture may hit CPU limits at 50-100 cameras (Pitfall 1) -- Phase 6 addresses scaling
-- H.265 cameras require transcoding for browser playback -- must be handled in Phase 2 stream profiles
-- Recording storage grows fast (~42 GB/day per 1080p camera) -- Phase 7 must include retention enforcement
-
-### Quick Tasks Completed
-
-| # | Description | Date | Commit | Directory |
-|---|-------------|------|--------|-----------|
-| 260415-249 | Fix 3 UAT bugs: edit-org-dialog, package-table DropdownMenu, timeline-bar runtime error | 2026-04-15 | 0b30ecd | [260415-249-fix-3-uat-bugs](./quick/260415-249-fix-3-uat-bugs-edit-org-dialog-package-t/) |
-| 260415-k9n | Wire Socket.IO orgId from session — replace 'default' literal in cameras pages (P0 multi-tenant fix) | 2026-04-15 | 02cfe4f | [260415-k9n-wire-socket-io-orgid](./quick/260415-k9n-wire-socket-io-orgid-from-session-replac/) |
-| 260415-khn | Resolve Phase 03 VERIFICATION gaps — sessions list endpoint + policy sources field | 2026-04-15 | 671a2ad | [260415-khn-resolve-phase-03-verification-gaps](./quick/260415-khn-resolve-phase-03-verification-gaps-sessi/) |
-| 260415-vqy | Polish Create Platform User dialog — drop "super admin" copy, push System org last | 2026-04-15 | efac1a7 | [260415-vqy-polish-create-platform-user-dialog-drop-](./quick/260415-vqy-polish-create-platform-user-dialog-drop-/) |
-| 260416-fnm | Optimize HLS stream startup time — FFmpeg keyframe alignment + hls.js player tuning | 2026-04-16 | bbe5fc0 | [260416-fnm-optimize-hls](./quick/260416-fnm-optimize-hls-stream-startup-time-ffmpeg-/) |
-| 260416-h4n | Fix dashboard 4 data issues — SRS bandwidth, usage charts, NaN camera bandwidth, BigInt type mismatch | 2026-04-16 | 7d9efd0 | [260416-h4n-fix-dashboard](./quick/260416-h4n-fix-dashboard-4-data-issues-srs-bandwidt/) |
-| 260416-oqr | Enable Turbopack for Next.js dev server | 2026-04-16 | d3f1e9f | [260416-oqr-enable-turbopack](./quick/260416-oqr-enable-turbopack-for-next-js-dev-server/) |
-| 260416-pjo | Complete super admin Dashboard and Platform Audit Log pages | 2026-04-16 | b9bec2b | [260416-pjo-complete-super-admin](./quick/260416-pjo-complete-super-admin-dashboard-and-platf/) |
-| 260416-x8u | Fix all v1.0 tech debt — SRS config, RLS policies, system alerts | 2026-04-16 | e9383aa | [260416-x8u-fix-tech-debt](./quick/260416-x8u-fix-all-v1-0-tech-debt-srs-config-rls-po/) |
-| 260417-05w | Fix failing web tests and zod type mismatch | 2026-04-16 | 8a57606 | [260417-05w-fix-tests](./quick/260417-05w-fix-failing-web-tests-and-zod-type-misma/) |
+- HLS multi-player memory: each hls.js instance buffers indefinitely unless capped (backBufferLength: 0, maxBufferLength: 4)
+- Sidebar collapse may break Leaflet maps and Recharts charts -- must dispatch resize event on transition end
+- TanStack Table columns with JSX cannot cross Next.js server/client boundary -- separate "use client" files required
+- Recordings page needs backend API additions: cross-camera query, bulk delete, download URL endpoints
+- base-ui render prop pattern (not Radix asChild) must be followed for all new components
 
 ## Session Continuity
 
-Last session: 2026-04-16T17:07:04.450Z
-Stopped at: Completed quick task 260417-05w: Fix failing web tests — 31/31 pass
+Last session: 2026-04-17
+Stopped at: Roadmap created for v1.1 UI Overhaul
 Resume file: none

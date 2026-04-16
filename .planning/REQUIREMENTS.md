@@ -78,34 +78,34 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUND-01 | — | Pending |
-| FOUND-02 | — | Pending |
-| FOUND-03 | — | Pending |
-| FOUND-04 | — | Pending |
-| CAM-01 | — | Pending |
-| CAM-02 | — | Pending |
-| CAM-03 | — | Pending |
-| CAM-04 | — | Pending |
-| REC-01 | — | Pending |
-| REC-02 | — | Pending |
-| REC-03 | — | Pending |
-| REC-04 | — | Pending |
-| HIER-01 | — | Pending |
-| HIER-02 | — | Pending |
-| HIER-03 | — | Pending |
-| MAP-01 | — | Pending |
-| MAP-02 | — | Pending |
-| MAP-03 | — | Pending |
-| ADMIN-01 | — | Pending |
-| ADMIN-02 | — | Pending |
-| ADMIN-03 | — | Pending |
-| ADMIN-04 | — | Pending |
+| FOUND-01 | Phase 8 | Pending |
+| FOUND-02 | Phase 8 | Pending |
+| FOUND-03 | Phase 9 | Pending |
+| FOUND-04 | Phase 9 | Pending |
+| CAM-01 | Phase 11 | Pending |
+| CAM-02 | Phase 11 | Pending |
+| CAM-03 | Phase 11 | Pending |
+| CAM-04 | Phase 11 | Pending |
+| REC-01 | Phase 12 | Pending |
+| REC-02 | Phase 12 | Pending |
+| REC-03 | Phase 12 | Pending |
+| REC-04 | Phase 12 | Pending |
+| HIER-01 | Phase 13 | Pending |
+| HIER-02 | Phase 13 | Pending |
+| HIER-03 | Phase 10 | Pending |
+| MAP-01 | Phase 13 | Pending |
+| MAP-02 | Phase 13 | Pending |
+| MAP-03 | Phase 13 | Pending |
+| ADMIN-01 | Phase 10 | Pending |
+| ADMIN-02 | Phase 10 | Pending |
+| ADMIN-03 | Phase 10 | Pending |
+| ADMIN-04 | Phase 10 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 22 total
-- Mapped to phases: 0
-- Unmapped: 22 ⚠️
+- Mapped to phases: 22
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-17*
-*Last updated: 2026-04-17 after initial definition*
+*Last updated: 2026-04-17 after roadmap creation*
