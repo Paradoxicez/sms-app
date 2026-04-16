@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { writeFileSync } from 'fs';
 import { join } from 'path';
 import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
@@ -17,7 +17,7 @@ interface SystemSettingsConfig {
 }
 
 @Injectable()
-export class SettingsService {
+export class SettingsService implements OnModuleInit {
   private readonly logger = new Logger(SettingsService.name);
 
   constructor(
@@ -25,6 +25,18 @@ export class SettingsService {
     private readonly srsApiService: SrsApiService,
     private readonly clusterService: ClusterService,
   ) {}
+
+  async onModuleInit(): Promise<void> {
+    try {
+      await this.regenerateAndReloadSrs();
+      this.logger.log('SRS config regenerated from DB settings on boot');
+    } catch (error) {
+      this.logger.warn(
+        'Failed to regenerate SRS config on boot (using static config)',
+        error,
+      );
+    }
+  }
 
   // ─── System Settings ───────────────────────────
 
