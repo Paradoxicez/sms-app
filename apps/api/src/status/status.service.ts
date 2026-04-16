@@ -32,6 +32,12 @@ export class StatusService {
     }
 
     const currentStatus = camera.status;
+
+    if (newStatus === currentStatus) {
+      this.logger.debug(`No-op transition: ${currentStatus} -> ${newStatus} for camera ${cameraId}`);
+      return;
+    }
+
     const allowed = this.validTransitions[currentStatus] || [];
 
     // Always allow transition to 'offline' (user stop or max retries)
