@@ -180,7 +180,7 @@ None yet.
 | 260415-k9n | Wire Socket.IO orgId from session — replace 'default' literal in cameras pages (P0 multi-tenant fix) | 2026-04-15 | 02cfe4f | [260415-k9n-wire-socket-io-orgid](./quick/260415-k9n-wire-socket-io-orgid-from-session-replac/) |
 | 260415-khn | Resolve Phase 03 VERIFICATION gaps — sessions list endpoint + policy sources field | 2026-04-15 | 671a2ad | [260415-khn-resolve-phase-03-verification-gaps](./quick/260415-khn-resolve-phase-03-verification-gaps-sessi/) |
 | 260415-vqy | Polish Create Platform User dialog — drop "super admin" copy, push System org last | 2026-04-15 | efac1a7 | [260415-vqy-polish-create-platform-user-dialog-drop-](./quick/260415-vqy-polish-create-platform-user-dialog-drop-/) |
-| 260416-fnm | Optimize HLS stream startup time — FFmpeg keyframe alignment + hls.js player tuning | 2026-04-16 | pending | [260416-fnm-optimize-hls](./quick/260416-fnm-optimize-hls-stream-startup-time-ffmpeg-/) |
+| 260416-fnm | Optimize HLS stream startup time — FFmpeg keyframe alignment + hls.js player tuning | 2026-04-16 | bbe5fc0 | [260416-fnm-optimize-hls](./quick/260416-fnm-optimize-hls-stream-startup-time-ffmpeg-/) |
 
 ## Session Continuity
 

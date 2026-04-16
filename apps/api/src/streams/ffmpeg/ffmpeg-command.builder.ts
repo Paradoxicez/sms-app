@@ -28,6 +28,7 @@ export function buildFfmpegCommand(
     cmd.addOutputOptions(['-bsf:v', 'h264_metadata=video_full_range_flag=0']);
   } else {
     cmd.videoCodec('libx264');
+    cmd.addOutputOptions(['-pix_fmt', 'yuv420p']);
     cmd.addOutputOptions(['-preset', profile.preset || 'veryfast']);
     const gopSize = (profile.fps || 15) * 2;
     cmd.addOutputOptions(['-g', String(gopSize)]);
