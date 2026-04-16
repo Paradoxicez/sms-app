@@ -1,36 +1,36 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: verifying
-stopped_at: "Completed quick task 260417-05w: Fix failing web tests — 31/31 pass"
-last_updated: "2026-04-16T17:31:12.185Z"
-last_activity: 2026-04-16
+milestone: v1.1
+milestone_name: UI Overhaul
+status: defining_requirements
+stopped_at: ""
+last_updated: "2026-04-17"
+last_activity: 2026-04-17
 progress:
-  total_phases: 10
-  completed_phases: 8
-  total_plans: 39
-  completed_plans: 40
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-09)
+See: .planning/PROJECT.md (updated 2026-04-17)
 
 **Core value:** Developers can get a secure HLS playback URL for any registered camera via a single API call, and embed it on their website immediately.
-**Current focus:** Phase 999.1 — role-based-sidebar-navigation
+**Current focus:** Defining requirements for v1.1 UI Overhaul
 
 ## Current Position
 
-Phase: 999.1 (role-based-sidebar-navigation) — COMPLETE
-Plans: 5/5 + F-1/F-2 gap closures
-Status: Phase complete; verifier PASS (human_needed flags now closed)
-Last activity: 2026-04-16
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-04-17 — Milestone v1.1 started
 
-Progress: [██████████] 100%
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 

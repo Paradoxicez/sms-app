@@ -59,11 +59,23 @@ Developers can get a secure HLS playback URL for any registered camera via a sin
 
 ### Active
 
-(Planning for v1.1)
+- [ ] Unified table patterns with filter, pagination, and "..." quick actions across all pages
+- [ ] Unified datepicker — replace native pickers with shadcn components (single/range/multiple)
+- [ ] Collapsible sidebar — collapse to icons, persist state across pages
+- [ ] Camera table with card view toggle (HLS live preview in cards)
+- [ ] Camera quick actions menu (Edit, Stream Profile, Disable, Delete, View Stream, Record, Embed Code)
+- [ ] View Stream page — preview, Policies, Embed, Activity
+- [ ] Dedicated recordings page — all cameras, filter by camera/project/date, bulk delete, download clips
+- [ ] Stream profiles table with quick actions (replace card layout)
+- [ ] Project tree viewer — split panel with tree nav (Project > Site > Camera) and data table
+- [ ] Map tree viewer with filter, drag-drop marker placement for lat/long
+- [ ] Map camera preview popup on hover/click
+- [ ] Login page redesign with remember me
+
+### Deferred to Future
 
 - [ ] Tenant self-service pages (/app/settings, /app/account, /app/plan)
 - [ ] FFmpeg auto-reconnect after SRS container restart
-- [ ] Mobile responsive layout improvements
 
 ### Out of Scope
 
@@ -106,6 +118,24 @@ Developers can get a secure HLS playback URL for any registered camera via a sin
 | External FFmpeg over SRS ingest | Dynamic camera management without SRS config reload | ✓ Good — BullMQ process pool with reconnection |
 | fMP4 HLS over MPEG-TS | Better codec support, modern format | ⚠️ Revisit — first-boot gap required static config fix |
 
+## Current Milestone: v1.1 UI Overhaul
+
+**Goal:** ปรับปรุง UI ทั้งระบบให้สอดคล้องกัน เพิ่มประสิทธิภาพการใช้งาน และยกระดับ UX
+
+**Target features:**
+- Unified tables with filter, pagination, quick actions
+- Unified datepicker (shadcn, single/range/multiple)
+- Collapsible sidebar
+- Camera table + card view toggle with HLS live preview
+- Camera quick actions menu replacing detail page
+- View Stream page (preview, Policies, Embed, Activity)
+- Dedicated recordings page with bulk delete and download clips
+- Stream profiles table
+- Project tree viewer (split panel)
+- Map tree viewer with filter and drag-drop markers
+- Map camera preview popup
+- Login redesign with remember me
+
 ## Current State
 
 **Shipped:** v1.0 MVP (2026-04-16)
@@ -131,4 +161,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-14 — Phase 7 (Recordings) complete: recording pipeline, manifest playback, retention, storage quota, schedule management, frontend UI*
+*Last updated: 2026-04-17 — Milestone v1.1 UI Overhaul started*
