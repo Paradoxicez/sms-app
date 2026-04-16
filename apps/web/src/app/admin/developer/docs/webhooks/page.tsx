@@ -2,8 +2,10 @@
 
 import { DocPage } from "@/components/doc-page";
 import { CodeBlock } from "@/components/code-block";
+import { useBaseUrl } from "@/hooks/use-base-url";
 
 export default function WebhooksGuidePage() {
+  const baseUrl = useBaseUrl();
   return (
     <DocPage title="Webhooks Guide">
       <section className="space-y-3">
@@ -51,7 +53,7 @@ export default function WebhooksGuidePage() {
         <p className="text-sm text-muted-foreground">
           Create a webhook subscription by specifying a name, your endpoint URL (must be HTTPS), and the events you want to receive.
         </p>
-        <CodeBlock language="bash" code={`curl -X POST https://your-domain.com/api/webhooks \\
+        <CodeBlock language="bash" code={`curl -X POST ${baseUrl}/api/webhooks \\
   -H "Content-Type: application/json" \\
   -H "X-API-Key: sk_live_your_api_key_here" \\
   -d '{

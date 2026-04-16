@@ -13,6 +13,7 @@ interface NotificationDropdownProps {
   hasMore: boolean;
   onMarkAsRead: (id: string) => void;
   onMarkAllAsRead: () => void;
+  onClearAll: () => void;
   onLoadMore: () => void;
 }
 
@@ -22,6 +23,7 @@ export function NotificationDropdown({
   hasMore,
   onMarkAsRead,
   onMarkAllAsRead,
+  onClearAll,
   onLoadMore,
 }: NotificationDropdownProps) {
   const hasUnread = notifications.some((n) => !n.read);
@@ -31,15 +33,26 @@ export function NotificationDropdown({
       {/* Header */}
       <div className="flex items-center justify-between px-3 pb-2">
         <span className="text-sm font-semibold">Notifications</span>
-        {hasUnread && (
-          <button
-            type="button"
-            className="text-xs text-primary hover:underline"
-            onClick={onMarkAllAsRead}
-          >
-            Mark all as read
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {hasUnread && (
+            <button
+              type="button"
+              className="text-xs text-primary hover:underline"
+              onClick={onMarkAllAsRead}
+            >
+              Mark all read
+            </button>
+          )}
+          {notifications.length > 0 && (
+            <button
+              type="button"
+              className="text-xs text-muted-foreground hover:text-destructive hover:underline"
+              onClick={onClearAll}
+            >
+              Clear all
+            </button>
+          )}
+        </div>
       </div>
 
       {/* List */}

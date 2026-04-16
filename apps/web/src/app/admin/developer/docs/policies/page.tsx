@@ -2,8 +2,10 @@
 
 import { DocPage } from "@/components/doc-page";
 import { CodeBlock } from "@/components/code-block";
+import { useBaseUrl } from "@/hooks/use-base-url";
 
 export default function PoliciesGuidePage() {
+  const baseUrl = useBaseUrl();
   return (
     <DocPage title="Policies Guide">
       <section className="space-y-3">
@@ -101,7 +103,7 @@ Resolved:         ttl=60   maxViewers=5   domains=[]     rateLimitPerMin=60
         <p className="text-sm text-muted-foreground">
           Create a project-level policy via the API:
         </p>
-        <CodeBlock language="bash" code={`curl -X POST https://your-domain.com/api/policies \\
+        <CodeBlock language="bash" code={`curl -X POST ${baseUrl}/api/policies \\
   -H "Content-Type: application/json" \\
   -H "X-API-Key: sk_live_your_api_key_here" \\
   -d '{
@@ -116,7 +118,7 @@ Resolved:         ttl=60   maxViewers=5   domains=[]     rateLimitPerMin=60
         <p className="text-sm text-muted-foreground">
           To check what policy is resolved for a specific camera:
         </p>
-        <CodeBlock language="bash" code={`curl -X GET https://your-domain.com/api/cameras/cam_abc123/resolved-policy \\
+        <CodeBlock language="bash" code={`curl -X GET ${baseUrl}/api/cameras/cam_abc123/resolved-policy \\
   -H "X-API-Key: sk_live_your_api_key_here"`} />
       </section>
     </DocPage>

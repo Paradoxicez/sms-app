@@ -1,5 +1,6 @@
 import {
   Controller,
+  Delete,
   Get,
   Patch,
   Put,
@@ -62,6 +63,14 @@ export class NotificationsController {
   async markAllAsRead(@Req() req: any) {
     const userId = req.user.id;
     await this.notificationsService.markAllAsRead(userId);
+    return { success: true };
+  }
+
+  @Delete('clear-all')
+  @ApiOperation({ summary: 'Delete all notifications for current user' })
+  async clearAll(@Req() req: any) {
+    const userId = req.user.id;
+    await this.notificationsService.clearAll(userId);
     return { success: true };
   }
 

@@ -31,6 +31,7 @@ export function NotificationBell() {
     loading,
     markAsRead,
     markAllAsRead,
+    clearAll,
     loadMore,
     hasMore,
   } = useNotifications(userId, orgId);
@@ -61,6 +62,7 @@ export function NotificationBell() {
           hasMore={hasMore}
           onMarkAsRead={markAsRead}
           onMarkAllAsRead={markAllAsRead}
+          onClearAll={clearAll}
           onLoadMore={loadMore}
         />
       </PopoverContent>

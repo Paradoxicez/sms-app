@@ -9,9 +9,9 @@ export function DocPage({ title, children }: DocPageProps) {
   return (
     <div className="space-y-6 p-6">
       <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Link href="/admin/developer" className="hover:text-foreground">Developer</Link>
+        <Link href="/app/developer" className="hover:text-foreground">Developer</Link>
         <span>/</span>
-        <Link href="/admin/developer/docs" className="hover:text-foreground">Documentation</Link>
+        <Link href="/app/developer/docs" className="hover:text-foreground">Documentation</Link>
         <span>/</span>
         <span className="text-foreground">{title}</span>
       </nav>

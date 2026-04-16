@@ -4,11 +4,11 @@ import { GuideCard } from "@/components/guide-card";
 import { Workflow, ShieldCheck, SlidersHorizontal, Bell, Play } from "lucide-react";
 
 const guides = [
-  { title: "API Workflow Guide", description: "Create keys, sessions, and embed streams end-to-end", href: "/admin/developer/docs/api-workflow", icon: Workflow },
-  { title: "Policies Guide", description: "Configure TTL, viewer limits, domain allowlists, and inheritance", href: "/admin/developer/docs/policies", icon: ShieldCheck },
-  { title: "Stream Profiles Guide", description: "Passthrough vs transcode, resolution, FPS, and codec options", href: "/admin/developer/docs/stream-profiles", icon: SlidersHorizontal },
-  { title: "Webhooks Guide", description: "Subscribe to events, verify HMAC signatures, and handle retries", href: "/admin/developer/docs/webhooks", icon: Bell },
-  { title: "Streaming Basics Guide", description: "RTSP, HLS, codecs, and how the platform processes streams", href: "/admin/developer/docs/streaming-basics", icon: Play },
+  { title: "API Workflow Guide", description: "Create keys, sessions, and embed streams end-to-end", href: "/app/developer/docs/api-workflow", icon: Workflow },
+  { title: "Policies Guide", description: "Configure TTL, viewer limits, domain allowlists, and inheritance", href: "/app/developer/docs/policies", icon: ShieldCheck },
+  { title: "Stream Profiles Guide", description: "Passthrough vs transcode, resolution, FPS, and codec options", href: "/app/developer/docs/stream-profiles", icon: SlidersHorizontal },
+  { title: "Webhooks Guide", description: "Subscribe to events, verify HMAC signatures, and handle retries", href: "/app/developer/docs/webhooks", icon: Bell },
+  { title: "Streaming Basics Guide", description: "RTSP, HLS, codecs, and how the platform processes streams", href: "/app/developer/docs/streaming-basics", icon: Play },
 ];
 
 export default function TenantDeveloperDocsPage() {

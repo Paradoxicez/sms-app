@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
+import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsGateway } from './notifications.gateway';
 
 @Injectable()
@@ -8,6 +9,7 @@ export class NotificationsService {
 
   constructor(
     @Inject(TENANCY_CLIENT) private readonly prisma: any,
+    private readonly rawPrisma: PrismaService,
     private readonly gateway: NotificationsGateway,
   ) {}
 
@@ -24,15 +26,17 @@ export class NotificationsService {
       where: { orgId, eventType, enabled: true },
     });
 
-    // Get all org members to notify (those with explicit enabled preference)
-    const userIds = preferences.map((p: any) => p.userId);
+    let userIds = preferences.map((p: any) => p.userId);
 
-    // If no preferences exist yet, get all org members (default is enabled)
     if (userIds.length === 0) {
-      // Query members directly via raw model (members are in a different table)
-      // For now, skip — notifications only go to users who have set preferences
-      return;
+      const members = await this.rawPrisma.member.findMany({
+        where: { organizationId: orgId },
+        select: { userId: true },
+      });
+      userIds = members.map((m: any) => m.userId);
     }
+
+    if (userIds.length === 0) return;
 
     for (const userId of userIds) {
       try {
@@ -104,6 +108,12 @@ export class NotificationsService {
     await this.prisma.notification.updateMany({
       where: { userId, read: false },
       data: { read: true },
+    });
+  }
+
+  async clearAll(userId: string): Promise<void> {
+    await this.prisma.notification.deleteMany({
+      where: { userId },
     });
   }
 

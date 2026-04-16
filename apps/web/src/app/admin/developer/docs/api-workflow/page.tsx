@@ -2,8 +2,10 @@
 
 import { DocPage } from "@/components/doc-page";
 import { CodeBlock } from "@/components/code-block";
+import { useBaseUrl } from "@/hooks/use-base-url";
 
 export default function ApiWorkflowGuidePage() {
+  const baseUrl = useBaseUrl();
   return (
     <DocPage title="API Workflow Guide">
       <section className="space-y-3">
@@ -23,7 +25,7 @@ export default function ApiWorkflowGuidePage() {
           <li><strong>Session cookie</strong> -- Used automatically when you are logged into the admin dashboard. Best for browser-based interactions.</li>
           <li><strong>API key (X-API-Key header)</strong> -- Used for programmatic access from your backend or scripts. Pass the key in the <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">X-API-Key</code> header.</li>
         </ul>
-        <CodeBlock language="bash" code={`curl -X GET https://your-domain.com/api/cameras \\
+        <CodeBlock language="bash" code={`curl -X GET ${baseUrl}/api/cameras \\
   -H "X-API-Key: sk_live_your_api_key_here"`} />
       </section>
 
@@ -33,7 +35,7 @@ export default function ApiWorkflowGuidePage() {
           API keys are scoped to a specific project or site. A project-scoped key can access all cameras within that project,
           while a site-scoped key can only access cameras within that site.
         </p>
-        <CodeBlock language="bash" code={`curl -X POST https://your-domain.com/api/api-keys \\
+        <CodeBlock language="bash" code={`curl -X POST ${baseUrl}/api/api-keys \\
   -H "Content-Type: application/json" \\
   -H "Cookie: your_session_cookie" \\
   -d '{
@@ -60,14 +62,14 @@ export default function ApiWorkflowGuidePage() {
           A playback session generates a time-limited HLS URL for a specific camera. The session respects the active
           policy (TTL, viewer limits, domain allowlist).
         </p>
-        <CodeBlock language="bash" code={`curl -X POST https://your-domain.com/api/cameras/cam_abc123/sessions \\
+        <CodeBlock language="bash" code={`curl -X POST ${baseUrl}/api/cameras/cam_abc123/sessions \\
   -H "X-API-Key: sk_live_your_api_key_here"`} />
         <p className="text-sm text-muted-foreground">
           The response contains the HLS URL and session metadata:
         </p>
         <CodeBlock language="json" code={`{
   "sessionId": "sess_xyz789",
-  "hlsUrl": "https://your-domain.com/stream/cam_abc123/index.m3u8?token=eyJhbG...",
+  "hlsUrl": "${baseUrl}/stream/cam_abc123/index.m3u8?token=eyJhbG...",
   "expiresAt": "2026-01-15T10:32:00Z"
 }`} />
       </section>
@@ -77,7 +79,7 @@ export default function ApiWorkflowGuidePage() {
         <p className="text-sm text-muted-foreground">
           Need multiple streams at once? Use the batch endpoint to create up to 50 playback sessions in a single request.
         </p>
-        <CodeBlock language="bash" code={`curl -X POST https://your-domain.com/api/playback/sessions/batch \\
+        <CodeBlock language="bash" code={`curl -X POST ${baseUrl}/api/playback/sessions/batch \\
   -H "Content-Type: application/json" \\
   -H "X-API-Key: sk_live_your_api_key_here" \\
   -d '{
@@ -95,7 +97,7 @@ export default function ApiWorkflowGuidePage() {
         </p>
         <h3 className="text-base font-medium">Option A: iframe</h3>
         <CodeBlock language="html" code={`<iframe
-  src="https://your-domain.com/embed/cam_abc123?token=eyJhbG..."
+  src="${baseUrl}/embed/cam_abc123?token=eyJhbG..."
   width="640"
   height="360"
   frameborder="0"
@@ -106,7 +108,7 @@ export default function ApiWorkflowGuidePage() {
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <script>
   const video = document.getElementById('video');
-  const hlsUrl = 'https://your-domain.com/stream/cam_abc123/index.m3u8?token=eyJhbG...';
+  const hlsUrl = '${baseUrl}/stream/cam_abc123/index.m3u8?token=eyJhbG...';
 
   if (Hls.isSupported()) {
     const hls = new Hls();

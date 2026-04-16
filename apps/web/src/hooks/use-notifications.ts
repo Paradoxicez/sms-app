@@ -65,10 +65,12 @@ export function useNotifications(userId: string | undefined, orgId: string | und
   useEffect(() => {
     if (!userId) return;
 
-    const socket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003', {
+    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
+    const socket = io(`${base}/notifications`, {
       path: '/socket.io',
       query: { userId, orgId },
       transports: ['websocket'],
+      withCredentials: true,
     });
 
     socket.on('notification:new', (notification: Notification) => {
@@ -120,5 +122,17 @@ export function useNotifications(userId: string | undefined, orgId: string | und
     }
   }, []);
 
-  return { notifications, unreadCount, loading, markAsRead, markAllAsRead, loadMore, hasMore };
+  const clearAll = useCallback(async () => {
+    try {
+      await apiFetch('/api/notifications/clear-all', { method: 'DELETE' });
+      setNotifications([]);
+      setUnreadCount(0);
+      cursorRef.current = null;
+      setHasMore(false);
+    } catch {
+      // Silently fail
+    }
+  }, []);
+
+  return { notifications, unreadCount, loading, markAsRead, markAllAsRead, clearAll, loadMore, hasMore };
 }
