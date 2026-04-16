@@ -41,12 +41,11 @@
   2. A DatePicker component (single date) and DateRangePicker component (date range) exist using shadcn Calendar -- no native browser date inputs remain in the codebase
   3. Column definitions are defined in separate "use client" files to avoid Next.js server/client boundary issues
   4. DataTable supports row selection via checkboxes and "..." row action menus as standard features
-**Plans**: TBD
-**UI hint**: yes
+**Plans**: 2 plans
 
 Plans:
-- [ ] 08-01: TBD
-- [ ] 08-02: TBD
+- [ ] 08-01-PLAN.md — DataTable system (sorting, filtering, pagination, row selection, row actions) + Checkbox component
+- [ ] 08-02-PLAN.md — DatePicker + DateRangePicker components and native date input replacement
 
 ### Phase 9: Layout & Login
 **Goal**: Users experience a collapsible sidebar and a polished login page across the entire application
@@ -148,7 +147,7 @@ Phases execute in numeric order: 8 -> 9 -> 10 -> 11 -> 12 -> 13
 | 6. SRS Cluster & Scaling | v1.0 | 3/3 | Complete | 2026-04-14 |
 | 7. Recordings | v1.0 | 5/5 | Complete | 2026-04-14 |
 | 999.1. Role-based Sidebar Navigation | v1.0 | 5/5 | Complete | 2026-04-15 |
-| 8. Foundation Components | v1.1 | 0/0 | Not started | - |
+| 8. Foundation Components | v1.1 | 0/2 | Planning | - |
 | 9. Layout & Login | v1.1 | 0/0 | Not started | - |
 | 10. Admin Table Migrations | v1.1 | 0/0 | Not started | - |
 | 11. Camera Management | v1.1 | 0/0 | Not started | - |
