@@ -41,6 +41,16 @@ vi.mock("@/lib/auth-client", () => ({
 
 const fetchMock = vi.fn(async (url: string | URL | Request) => {
   const urlStr = String(url);
+  if (urlStr.includes("/api/admin/organizations")) {
+    return {
+      ok: true,
+      status: 200,
+      json: async () => [
+        { id: "org-a", name: "Org A" },
+        { id: "org-b", name: "Org B" },
+      ],
+    };
+  }
   if (urlStr.includes("/org-a/users")) {
     return {
       ok: true,

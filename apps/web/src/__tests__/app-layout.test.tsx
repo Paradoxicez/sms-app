@@ -149,7 +149,7 @@ describe("tenant /app layout guard (D-22)", () => {
     );
 
     await waitFor(() => {
-      expect(pushMock).toHaveBeenCalledWith("/sign-in");
+      expect(replaceMock).toHaveBeenCalledWith("/sign-in");
     });
     expect(toastErrorMock).toHaveBeenCalled();
   });

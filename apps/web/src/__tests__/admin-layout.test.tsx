@@ -2,8 +2,8 @@
  * VALIDATION: TBD-02 — D-22 /admin rejects non-admins (threat T-999.1-01).
  *
  * AdminLayout (src/app/admin/layout.tsx) is a "use client" component; it uses
- * useRouter().push() for auth/role redirects. Tests mock useRouter and assert
- * on push() calls.
+ * useRouter().replace() for auth/role redirects. Tests mock useRouter and assert
+ * on replace() calls.
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, waitFor } from "@testing-library/react";
@@ -15,9 +15,10 @@ import {
 } from "@/test-utils/mock-auth-client";
 
 const pushMock = vi.fn();
+const replaceMock = vi.fn();
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: pushMock, replace: vi.fn(), refresh: vi.fn() }),
+  useRouter: () => ({ push: pushMock, replace: replaceMock, refresh: vi.fn() }),
   usePathname: () => "/admin/dashboard",
 }));
 
@@ -31,6 +32,7 @@ import AdminLayout from "@/app/admin/layout";
 describe("admin layout guard (D-22)", () => {
   beforeEach(() => {
     pushMock.mockReset();
+    replaceMock.mockReset();
     resetAuthMocks();
   });
 
@@ -63,7 +65,7 @@ describe("admin layout guard (D-22)", () => {
     );
 
     await waitFor(() => {
-      expect(pushMock).toHaveBeenCalledWith("/app/dashboard");
+      expect(replaceMock).toHaveBeenCalledWith("/app/dashboard");
     });
   });
 
@@ -77,7 +79,7 @@ describe("admin layout guard (D-22)", () => {
     );
 
     await waitFor(() => {
-      expect(pushMock).toHaveBeenCalledWith("/sign-in");
+      expect(replaceMock).toHaveBeenCalledWith("/sign-in");
     });
   });
 });

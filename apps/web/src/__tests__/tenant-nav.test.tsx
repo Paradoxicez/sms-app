@@ -5,11 +5,11 @@
  *   TenantNav({ memberRole, activeOrgId, activeOrgName, userName?, userEmail? })
  *
  * Admin (memberRole="admin") permitted=ALL, so nav surfaces the union of all
- * groups gated by useFeatures. With all default features ON, 12 items render:
+ * groups gated by useFeatures. With all default features ON, 13 items render:
  *   Overview      : Dashboard, Map
- *   Cameras       : Cameras, Projects, Sites, Stream Profiles, Recordings, Policies
+ *   Cameras       : Cameras, Projects, Stream Profiles, Recordings, Policies
  *   Organization  : Team, Audit Log
- *   Developer     : API Keys, Webhooks
+ *   Developer     : Overview, API Keys, Webhooks, Docs
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
@@ -45,7 +45,7 @@ describe("TenantNav role + feature filtering (D-11, D-13, D-14)", () => {
     resetUseFeaturesMock();
   });
 
-  it("Org Admin sees all 12 nav items when all features enabled", () => {
+  it("Org Admin sees all 13 nav items when all features enabled", () => {
     render(
       <TenantNav
         memberRole="admin"
@@ -58,14 +58,15 @@ describe("TenantNav role + feature filtering (D-11, D-13, D-14)", () => {
       "Map",
       "Cameras",
       "Projects",
-      "Sites",
       "Stream Profiles",
       "Recordings",
       "Policies",
       "Team",
       "Audit Log",
+      "Overview",
       "API Keys",
       "Webhooks",
+      "Docs",
     ];
     for (const label of expected) {
       expect(
@@ -101,7 +102,7 @@ describe("TenantNav role + feature filtering (D-11, D-13, D-14)", () => {
     }
   });
 
-  it("Developer sees exactly {Dashboard, Cameras, Map, API Keys, Webhooks, Audit Log}", () => {
+  it("Developer sees exactly {Dashboard, Cameras, Map, Overview, API Keys, Webhooks, Docs, Audit Log}", () => {
     render(
       <TenantNav
         memberRole="developer"
@@ -113,8 +114,10 @@ describe("TenantNav role + feature filtering (D-11, D-13, D-14)", () => {
       "Dashboard",
       "Cameras",
       "Map",
+      "Overview",
       "API Keys",
       "Webhooks",
+      "Docs",
       "Audit Log",
     ];
     for (const label of allowed) {
