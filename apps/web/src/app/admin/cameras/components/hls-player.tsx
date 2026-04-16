@@ -31,6 +31,10 @@ export function HlsPlayer({ src, autoPlay = true }: HlsPlayerProps) {
         const hls = new Hls({
           enableWorker: true,
           lowLatencyMode: true,
+          liveSyncDurationCount: 2,
+          liveMaxLatencyDurationCount: 5,
+          maxBufferLength: 10,
+          backBufferLength: 0,
           // Preview URL goes through /api/cameras/:id/preview/* which is
           // AuthGuard-protected, so XHR must send session cookies.
           xhrSetup: (xhr) => {

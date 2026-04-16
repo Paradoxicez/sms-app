@@ -67,6 +67,10 @@ export default function EmbedPlayerPage() {
           const hls = new Hls({
             enableWorker: true,
             lowLatencyMode: true,
+            liveSyncDurationCount: 2,
+            liveMaxLatencyDurationCount: 5,
+            maxBufferLength: 10,
+            backBufferLength: 0,
           });
           hls.loadSource(session.hlsUrl);
           hls.attachMedia(video);
