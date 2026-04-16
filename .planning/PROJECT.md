@@ -12,72 +12,58 @@ Developers can get a secure HLS playback URL for any registered camera via a sin
 
 ### Validated
 
-(None yet — ship to validate)
+- ✓ Multi-tenant architecture with organization isolation — v1.0
+- ✓ Super admin panel for managing tenants and packages — v1.0
+- ✓ Package system with configurable limits — v1.0
+- ✓ Per-org user management with roles (Admin, Operator, Developer, Viewer) — v1.0
+- ✓ SRS integration as stream engine — v1.0
+- ✓ RTSP/RTMP/SRT ingest from cameras — v1.0
+- ✓ HLS output for browser playback — v1.0
+- ✓ Stream transcoding with configurable profiles — v1.0
+- ✓ Stream health monitoring and auto-reconnect — v1.0
+- ✓ Stream Engine configuration via web UI — v1.0
+- ✓ Project > Site > Camera hierarchy — v1.0
+- ✓ Camera registration with RTSP/SRT URL, name, location, tags — v1.0
+- ✓ Camera status monitoring (online/offline/degraded/connecting) — v1.0
+- ✓ Stream start/stop control per camera — v1.0
+- ✓ Test connection before adding camera — v1.0
+- ✓ Bulk camera import — v1.0
+- ✓ API endpoint to create playback sessions — v1.0
+- ✓ Session TTL (configurable) — v1.0
+- ✓ Domain allowlist — v1.0
+- ✓ Rate limiting per API key per camera — v1.0
+- ✓ Viewer concurrency limits per camera — v1.0
+- ✓ Embed code generation (iframe + hls.js snippet) — v1.0
+- ✓ Reusable stream profiles (resolution, codec, FPS, audio) — v1.0
+- ✓ Video processing modes: Transcode or Passthrough — v1.0
+- ✓ Playback policies with TTL, rate limits, viewer limits, domain allowlist — v1.0
+- ✓ Policy resolution order: Camera > Site > Project > System — v1.0
+- ✓ Record camera streams with configurable retention — v1.0
+- ✓ Browse and playback recorded footage — v1.0
+- ✓ Recording start/stop per camera — v1.0
+- ✓ Storage management with retention policies — v1.0
+- ✓ API Keys scoped to project/site with usage tracking — v1.0
+- ✓ Developer Portal with interactive API reference — v1.0
+- ✓ In-app documentation (5 guides) — v1.0
+- ✓ Webhook subscriptions for camera events — v1.0
+- ✓ Dashboard with camera status, bandwidth, API usage, system metrics — v1.0
+- ✓ Map view showing camera locations with status and preview — v1.0
+- ✓ Audit log tracking all actions — v1.0
+- ✓ Notification system for camera and system events — v1.0
+- ✓ Live stream engine logs viewable in UI — v1.0
+- ✓ Email/password authentication — v1.0
+- ✓ Session persistence across browser refresh — v1.0
+- ✓ Role-based access control — v1.0
+- ✓ SRS cluster scaling with edge nodes — v1.0
+- ✓ Role-based dual-portal (admin/tenant) — v1.0
 
 ### Active
 
-**Multi-Tenant & SaaS:**
-- [ ] Multi-tenant architecture with organization isolation
-- [ ] Super admin panel for managing tenants and packages
-- [ ] Package system with configurable limits (camera count, viewers, bandwidth, storage, feature toggles)
-- [ ] Per-org user management with roles (Admin, Operator, Developer, Viewer)
+(Planning for v1.1)
 
-**Stream Engine (SRS-based):**
-- [ ] SRS integration as stream engine replacing MediaMTX
-- [ ] RTSP/RTMP/SRT ingest from cameras
-- [ ] HLS output for browser playback (low-latency)
-- [ ] Stream transcoding with configurable profiles (resolution, FPS, codec, audio)
-- [ ] Stream health monitoring and auto-reconnect
-- [ ] Stream Engine configuration via web UI (not TOML files)
-
-**Camera Management:**
-- [ ] Project > Site > Camera hierarchy for organizing cameras
-- [ ] Camera registration with RTSP/SRT URL, name, location (lat/lng), tags
-- [ ] Camera status monitoring (online/offline/degraded/connecting)
-- [ ] Stream start/stop control per camera
-- [ ] Test connection before adding camera
-- [ ] Bulk camera import
-
-**Playback & Security:**
-- [ ] API endpoint to create playback sessions (returns time-limited HLS URL)
-- [ ] Session TTL (configurable, default 120s)
-- [ ] Domain allowlist (restrict embed origins)
-- [ ] Rate limiting per API key per camera
-- [ ] Viewer concurrency limits per camera
-- [ ] Embed code generation (iframe + hls.js snippet)
-
-**Stream Profiles:**
-- [ ] Reusable output configurations (protocol, resolution, codec, FPS, audio mode, keyframe interval)
-- [ ] Video processing modes: Transcode (H.264) or Passthrough
-- [ ] Assignable to cameras or as site/project defaults
-
-**Policies:**
-- [ ] Playback policies with TTL range, rate limits, viewer limits, domain allowlist
-- [ ] Policy resolution order: Camera > Site > Project > System defaults
-
-**Recordings:**
-- [ ] Record camera streams with configurable retention
-- [ ] Browse and playback recorded footage
-- [ ] Recording start/stop per camera
-- [ ] Storage management with retention policies
-
-**Developer Experience:**
-- [ ] API Keys scoped to project/site with usage tracking
-- [ ] Developer Portal with interactive API reference (curl examples + responses)
-- [ ] In-app documentation (API workflow, policies, stream profiles guides)
-- [ ] Webhook subscriptions for camera events (online, offline, degraded, reconnecting)
-
-**Monitoring & Admin:**
-- [ ] Dashboard with camera status, bandwidth, API usage, system metrics (CPU/memory/storage)
-- [ ] Map view showing camera locations with status and preview
-- [ ] Audit log tracking all actions
-- [ ] Notification system for camera and system events
-- [ ] Live stream engine logs viewable in UI
-
-**Authentication:**
-- [ ] Email/password authentication
-- [ ] Session persistence across browser refresh
-- [ ] Role-based access control
+- [ ] Tenant self-service pages (/app/settings, /app/account, /app/plan)
+- [ ] FFmpeg auto-reconnect after SRS container restart
+- [ ] Mobile responsive layout improvements
 
 ### Out of Scope
 
@@ -111,12 +97,21 @@ Developers can get a secure HLS playback URL for any registered camera via a sin
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| SRS over MediaMTX | MediaMTX: unstable, can't scale, missing features, TOML-only config. SRS: HTTP API, stable, feature-rich | -- Pending |
-| Multi-tenant from day 1 | SaaS model requires org isolation; retrofitting is painful | -- Pending |
-| No billing in v1 | Super admin manages plans manually; avoids Stripe complexity in initial build | -- Pending |
-| Docker Compose deploy | Start simple, single server; can migrate to K8s later | -- Pending |
-| Research SRS before finalizing API | Don't design APIs that the stream engine can't support natively | -- Pending |
-| Better Auth over Passport.js | Built-in orgs, RBAC, sessions, invitations — reduces Phase 1 scope significantly | -- Pending |
+| SRS over MediaMTX | MediaMTX: unstable, can't scale, missing features, TOML-only config. SRS: HTTP API, stable, feature-rich | ✓ Good — stable HLS delivery, HTTP callbacks work well |
+| Multi-tenant from day 1 | SaaS model requires org isolation; retrofitting is painful | ✓ Good — RLS + CLS org context used across all 7 phases |
+| No billing in v1 | Super admin manages plans manually; avoids Stripe complexity in initial build | ✓ Good — package system works, billing deferred to v1.1+ |
+| Docker Compose deploy | Start simple, single server; can migrate to K8s later | ✓ Good — 5 containers (postgres, redis, minio, srs, api) |
+| Research SRS before finalizing API | Don't design APIs that the stream engine can't support natively | ✓ Good — discovered RTSP removal, FFmpeg wrapper pattern |
+| Better Auth over Passport.js | Built-in orgs, RBAC, sessions, invitations — reduces Phase 1 scope significantly | ✓ Good — org/member/role management built-in |
+| External FFmpeg over SRS ingest | Dynamic camera management without SRS config reload | ✓ Good — BullMQ process pool with reconnection |
+| fMP4 HLS over MPEG-TS | Better codec support, modern format | ⚠️ Revisit — first-boot gap required static config fix |
+
+## Current State
+
+**Shipped:** v1.0 MVP (2026-04-16)
+**Codebase:** 32,832 LOC TypeScript/TSX across 583 files
+**Stack:** NestJS 11 + Next.js 15 + PostgreSQL 16 + Prisma 6 + Redis 7 + SRS v6 + FFmpeg 7 + MinIO + Better Auth
+**Tests:** 31 web tests + 34 recording tests passing
 
 ## Evolution
 
