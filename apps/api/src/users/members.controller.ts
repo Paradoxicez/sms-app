@@ -6,6 +6,7 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
+import { ApiExcludeController } from '@nestjs/swagger';
 import { Request } from 'express';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { getAuth } from '../auth/auth.config';
@@ -16,6 +17,7 @@ import { UsersService } from './users.service';
  * Kept distinct from UsersController so the 'members/me' route isn't forced
  * under OrgAdminGuard (any authenticated member can query their own role).
  */
+@ApiExcludeController()
 @UseGuards(AuthGuard)
 @Controller('api/organizations/:orgId/members')
 export class MembersController {

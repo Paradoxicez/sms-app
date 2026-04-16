@@ -5,11 +5,12 @@ import {
   UseGuards,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiExcludeController } from '@nestjs/swagger';
 import { SuperAdminGuard } from '../auth/guards/super-admin.guard';
 import { AdminAuditLogService } from './admin-audit-log.service';
 import { auditQuerySchema } from '../audit/dto/audit-query.dto';
 
+@ApiExcludeController()
 @ApiTags('Admin Audit Log')
 @Controller('api/admin/audit-log')
 @UseGuards(SuperAdminGuard)

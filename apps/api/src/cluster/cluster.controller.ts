@@ -11,7 +11,7 @@ import {
   HttpCode,
   Logger,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiExcludeController } from '@nestjs/swagger';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { SuperAdminGuard } from '../auth/guards/super-admin.guard';
 import { ClusterService } from './cluster.service';
@@ -32,6 +32,7 @@ function serializeNode(node: any) {
   };
 }
 
+@ApiExcludeController()
 @ApiTags('Cluster')
 @Controller('api/cluster')
 @UseGuards(AuthGuard, SuperAdminGuard)

@@ -7,6 +7,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { ApiExcludeController } from '@nestjs/swagger';
 import { ClsService } from 'nestjs-cls';
 import type { Request } from 'express';
 import { AuthGuard } from '../auth/guards/auth.guard';
@@ -18,6 +19,7 @@ import { FeaturesService } from './features.service';
  * their org's features (needed by TenantNav feature filtering).
  * Super admins may read any org's features.
  */
+@ApiExcludeController()
 @Controller('api/organizations/:orgId/features')
 export class FeaturesController {
   constructor(
@@ -45,6 +47,7 @@ export class FeaturesController {
  * Feature check endpoint for authenticated users.
  * Uses CLS to get orgId from session — users can only check their own org's features.
  */
+@ApiExcludeController()
 @Controller('api/features')
 export class FeatureCheckController {
   constructor(

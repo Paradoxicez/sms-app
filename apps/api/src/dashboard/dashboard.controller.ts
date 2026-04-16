@@ -6,7 +6,7 @@ import {
   ForbiddenException,
   Req,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiExcludeEndpoint } from '@nestjs/swagger';
 import { ClsService } from 'nestjs-cls';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { DashboardService } from './dashboard.service';
@@ -28,6 +28,7 @@ export class DashboardController {
   }
 
   @Get('system-metrics')
+  @ApiExcludeEndpoint()
   @ApiOperation({ summary: 'Get SRS system metrics (super admin only)' })
   async getSystemMetrics(@Req() req: any) {
     // Super admin check: user must have 'admin' role

@@ -1,11 +1,13 @@
 import { Body, Controller, Logger, Post } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
+import { ApiExcludeController } from '@nestjs/swagger';
 import { StatusService } from '../status/status.service';
 import { StatusGateway } from '../status/status.gateway';
 import { PlaybackService } from '../playback/playback.service';
 import { RecordingsService } from '../recordings/recordings.service';
 import { onHlsCallbackSchema } from '../recordings/dto/on-hls-callback.dto';
 
+@ApiExcludeController()
 @SkipThrottle()
 @Controller('api/srs/callbacks')
 export class SrsCallbackController {

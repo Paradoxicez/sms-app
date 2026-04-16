@@ -1,8 +1,9 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiExcludeController } from '@nestjs/swagger';
 import { SuperAdminGuard } from '../auth/guards/super-admin.guard';
 import { AdminDashboardService } from './admin-dashboard.service';
 
+@ApiExcludeController()
 @ApiTags('Admin Dashboard')
 @Controller('api/admin/dashboard')
 @UseGuards(SuperAdminGuard)

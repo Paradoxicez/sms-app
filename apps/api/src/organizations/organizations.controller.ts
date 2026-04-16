@@ -8,6 +8,7 @@ import {
   UseGuards,
   BadRequestException,
 } from '@nestjs/common';
+import { ApiExcludeController } from '@nestjs/swagger';
 import { SuperAdminGuard } from '../auth/guards/super-admin.guard';
 import { OrganizationsService } from './organizations.service';
 import {
@@ -15,6 +16,7 @@ import {
   UpdateOrganizationSchema,
 } from './dto/create-organization.dto';
 
+@ApiExcludeController()
 @Controller('api/admin/organizations')
 @UseGuards(SuperAdminGuard)
 export class OrganizationsController {

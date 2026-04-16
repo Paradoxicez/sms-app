@@ -9,11 +9,13 @@ import {
   UseGuards,
   BadRequestException,
 } from '@nestjs/common';
+import { ApiExcludeController } from '@nestjs/swagger';
 import { SuperAdminGuard } from '../auth/guards/super-admin.guard';
 import { PackagesService } from './packages.service';
 import { CreatePackageSchema } from './dto/create-package.dto';
 import { UpdatePackageSchema } from './dto/update-package.dto';
 
+@ApiExcludeController()
 @Controller('api/admin/packages')
 @UseGuards(SuperAdminGuard)
 export class PackagesController {

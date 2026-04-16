@@ -1,8 +1,10 @@
 import { Controller, All, Req, Res, OnModuleInit } from '@nestjs/common';
+import { ApiExcludeController } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { initAuth } from './auth.config';
 import { loadBetterAuthNode } from './esm-loader';
 
+@ApiExcludeController()
 @Controller('api/auth')
 export class AuthController implements OnModuleInit {
   private handler!: (req: Request, res: Response) => Promise<void>;
