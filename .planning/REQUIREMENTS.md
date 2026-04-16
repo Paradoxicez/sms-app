@@ -56,7 +56,7 @@
 - [x] **PLAY-03**: Domain allowlist enforcement on HLS playback (wildcard subdomain support)
 - [x] **PLAY-04**: Session TTL configurable per policy (default 2 hours for live CCTV)
 - [x] **PLAY-05**: Viewer concurrency limits per camera enforced at session creation
-- [ ] **PLAY-06**: Embed code generation (iframe snippet + hls.js snippet)
+- [x] **PLAY-06**: Embed code generation (iframe snippet + hls.js snippet)
 - [x] **PLAY-07**: HLS segment encryption via SRS hls_keys with backend key serving for authenticated sessions
 
 ### Policies
@@ -146,7 +146,7 @@
 | PLAY-03 | Phase 3 | Complete |
 | PLAY-04 | Phase 3 | Complete |
 | PLAY-05 | Phase 3 | Complete |
-| PLAY-06 | Phase 3 | Pending |
+| PLAY-06 | Phase 3 | Complete |
 | PLAY-07 | Phase 3 | Complete |
 | POL-01 | Phase 3 | Complete |
 | POL-02 | Phase 3 | Complete |
