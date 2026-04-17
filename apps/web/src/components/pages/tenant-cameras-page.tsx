@@ -1,64 +1,46 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import Link from 'next/link';
-import { Plus, Upload, Camera as CameraIcon, Filter } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { apiFetch } from '@/lib/api';
 import { authClient } from '@/lib/auth-client';
 import { useCameraStatus } from '@/hooks/use-camera-status';
-import { Button } from '@/components/ui/button';
+import { startRecording, stopRecording } from '@/hooks/use-recordings';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import { CameraStatusDot, CameraStatusBadge } from '@/app/admin/cameras/components/camera-status-badge';
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+
+import { type CameraRow } from '@/app/admin/cameras/components/cameras-columns';
+import { CamerasDataTable } from '@/app/admin/cameras/components/cameras-data-table';
 import { CameraFormDialog } from '@/app/admin/cameras/components/camera-form-dialog';
-import { BulkImportDialog } from '@/app/admin/cameras/components/bulk-import-dialog';
-
-type CameraStatus = 'online' | 'offline' | 'degraded' | 'connecting' | 'reconnecting';
-
-interface CameraItem {
-  id: string;
-  name: string;
-  status: CameraStatus;
-  streamUrl: string;
-  codecInfo?: {
-    video?: string;
-    width?: number;
-    height?: number;
-  } | null;
-  createdAt: string;
-  site?: {
-    id: string;
-    name: string;
-    project?: {
-      id: string;
-      name: string;
-    };
-  };
-}
-
-const ALL_STATUSES: CameraStatus[] = ['online', 'offline', 'degraded', 'connecting', 'reconnecting'];
+import { EmbedCodeDialog } from '@/app/admin/cameras/components/embed-code-dialog';
 
 export default function TenantCamerasPage() {
-  const [cameras, setCameras] = useState<CameraItem[]>([]);
+  const [cameras, setCameras] = useState<CameraRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [importDialogOpen, setImportDialogOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<Set<CameraStatus>>(new Set());
   const [orgId, setOrgId] = useState<string | undefined>(undefined);
+
+  // View state
+  const [view, setView] = useState<'table' | 'card'>('table');
+
+  // Dialog state
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [editCamera, setEditCamera] = useState<CameraRow | null>(null);
+  const [deleteCamera, setDeleteCamera] = useState<CameraRow | null>(null);
+  const [embedCamera, setEmbedCamera] = useState<CameraRow | null>(null);
+  const [selectedCameraId, setSelectedCameraId] = useState<string | null>(null);
+
+  // Suppress unused var warning — Plan 03 will wire this to View Stream sheet
+  void selectedCameraId;
 
   useEffect(() => {
     async function loadSession() {
@@ -76,7 +58,7 @@ export default function TenantCamerasPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await apiFetch<CameraItem[]>('/api/cameras');
+      const data = await apiFetch<CameraRow[]>('/api/cameras');
       setCameras(Array.isArray(data) ? data : []);
     } catch {
       setError('Could not load cameras. Check your connection and try again.');
@@ -90,90 +72,66 @@ export default function TenantCamerasPage() {
   }, [fetchCameras]);
 
   // Real-time status updates via Socket.IO
-  useCameraStatus(
-    orgId,
-    (event) => {
-      setCameras((prev) =>
-        prev.map((c) =>
-          c.id === event.cameraId ? { ...c, status: event.status as CameraStatus } : c,
-        ),
-      );
-    },
-  );
+  useCameraStatus(orgId, (event) => {
+    setCameras((prev) =>
+      prev.map((c) =>
+        c.id === event.cameraId
+          ? { ...c, status: event.status as CameraRow['status'] }
+          : c
+      )
+    );
+  });
 
-  const filteredCameras =
-    statusFilter.size === 0
-      ? cameras
-      : cameras.filter((c) => statusFilter.has(c.status));
+  // Action handlers
+  function handleEdit(camera: CameraRow) {
+    setEditCamera(camera);
+  }
 
-  function toggleStatusFilter(status: CameraStatus) {
-    setStatusFilter((prev) => {
-      const next = new Set(prev);
-      if (next.has(status)) {
-        next.delete(status);
+  function handleViewStream(camera: CameraRow) {
+    setSelectedCameraId(camera.id);
+    // View Stream Sheet — wired in Plan 03
+  }
+
+  async function handleRecordToggle(camera: CameraRow) {
+    try {
+      if (camera.isRecording) {
+        await stopRecording(camera.id);
+        toast.success('Recording stopped');
       } else {
-        next.add(status);
+        await startRecording(camera.id);
+        toast.success('Recording started');
       }
-      return next;
-    });
+      fetchCameras();
+    } catch {
+      toast.error('Failed to toggle recording');
+    }
+  }
+
+  function handleEmbedCode(camera: CameraRow) {
+    setEmbedCamera(camera);
+  }
+
+  function handleDelete(camera: CameraRow) {
+    setDeleteCamera(camera);
+  }
+
+  async function confirmDelete() {
+    if (!deleteCamera) return;
+    try {
+      await apiFetch(`/api/cameras/${deleteCamera.id}`, { method: 'DELETE' });
+      toast.success('Camera deleted');
+      setDeleteCamera(null);
+      fetchCameras();
+    } catch {
+      toast.error('Failed to delete camera');
+    }
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-semibold">Cameras</h1>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setImportDialogOpen(true)}>
-            <Upload className="mr-2 h-4 w-4" />
-            Import Cameras
-          </Button>
-          <Button onClick={() => setDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Camera
-          </Button>
-        </div>
       </div>
-
-      {/* Status filter */}
-      {cameras.length > 0 && (
-        <div className="flex items-center gap-2">
-          <Popover>
-            <PopoverTrigger
-              className="inline-flex items-center gap-1.5 rounded-md border border-input bg-transparent px-3 py-1.5 text-sm font-medium hover:bg-muted"
-            >
-              <Filter className="h-3 w-3" />
-              Status
-              {statusFilter.size > 0 && (
-                <span className="ml-1 rounded-full bg-primary px-1.5 text-xs text-primary-foreground">
-                  {statusFilter.size}
-                </span>
-              )}
-            </PopoverTrigger>
-            <PopoverContent className="w-48 p-2" align="start">
-              {ALL_STATUSES.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => toggleStatusFilter(s)}
-                  className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted ${
-                    statusFilter.has(s) ? 'bg-muted font-medium' : ''
-                  }`}
-                >
-                  <CameraStatusDot status={s} />
-                  <span className="capitalize">{s}</span>
-                </button>
-              ))}
-              {statusFilter.size > 0 && (
-                <button
-                  onClick={() => setStatusFilter(new Set())}
-                  className="mt-1 w-full rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted"
-                >
-                  Clear filters
-                </button>
-              )}
-            </PopoverContent>
-          </Popover>
-        </div>
-      )}
 
       {error && (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
@@ -181,83 +139,73 @@ export default function TenantCamerasPage() {
         </div>
       )}
 
-      {isLoading ? (
-        <div className="space-y-2">
-          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
-        </div>
-      ) : !error && filteredCameras.length === 0 && cameras.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <CameraIcon className="h-12 w-12 text-muted-foreground mb-4" />
-          <h2 className="text-xl font-semibold">No cameras registered</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Add your first camera to start streaming. You can add cameras individually or import in bulk.
-          </p>
-          <Button onClick={() => setDialogOpen(true)} className="mt-4">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Camera
-          </Button>
-        </div>
-      ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-12">Status</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Project</TableHead>
-              <TableHead>Site</TableHead>
-              <TableHead>Codec</TableHead>
-              <TableHead>Resolution</TableHead>
-              <TableHead>Created</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredCameras.map((cam) => (
-              <TableRow key={cam.id}>
-                <TableCell>
-                  <CameraStatusBadge status={cam.status} showLabel={false} />
-                </TableCell>
-                <TableCell>
-                  <Link
-                    href={`/app/cameras/${cam.id}`}
-                    className="font-medium hover:underline"
-                  >
-                    {cam.name}
-                  </Link>
-                </TableCell>
-                <TableCell className="text-muted-foreground text-sm">
-                  {cam.site?.project?.name || '-'}
-                </TableCell>
-                <TableCell className="text-muted-foreground text-sm">
-                  {cam.site?.name || '-'}
-                </TableCell>
-                <TableCell className="font-mono text-xs text-muted-foreground">
-                  {cam.codecInfo?.video || '-'}
-                </TableCell>
-                <TableCell className="text-muted-foreground text-sm">
-                  {cam.codecInfo?.width && cam.codecInfo?.height
-                    ? `${cam.codecInfo.width}x${cam.codecInfo.height}`
-                    : '-'}
-                </TableCell>
-                <TableCell className="text-muted-foreground text-sm">
-                  {new Date(cam.createdAt).toLocaleDateString()}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+      <CamerasDataTable
+        cameras={cameras}
+        loading={isLoading}
+        onEdit={handleEdit}
+        onViewStream={handleViewStream}
+        onDelete={handleDelete}
+        onRecordToggle={handleRecordToggle}
+        onEmbedCode={handleEmbedCode}
+        onCreateCamera={() => setCreateDialogOpen(true)}
+        view={view}
+        onViewChange={setView}
+      />
+
+      {/* Create mode dialog */}
+      <CameraFormDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        onSuccess={fetchCameras}
+      />
+
+      {/* Edit mode dialog */}
+      <CameraFormDialog
+        open={!!editCamera}
+        onOpenChange={(open) => {
+          if (!open) setEditCamera(null);
+        }}
+        onSuccess={fetchCameras}
+        camera={editCamera}
+      />
+
+      {/* Embed code dialog */}
+      {embedCamera && (
+        <EmbedCodeDialog
+          cameraId={embedCamera.id}
+          open={!!embedCamera}
+          onOpenChange={(open) => {
+            if (!open) setEmbedCamera(null);
+          }}
+        />
       )}
 
-      <CameraFormDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        onSuccess={fetchCameras}
-      />
+      {/* Delete confirmation */}
+      <AlertDialog
+        open={!!deleteCamera}
+        onOpenChange={(open) => {
+          if (!open) setDeleteCamera(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Camera</AlertDialogTitle>
+            <AlertDialogDescription>
+              Permanently delete &apos;{deleteCamera?.name}&apos;? Existing
+              recordings for this camera will be kept but will no longer be
+              associated with a camera.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={confirmDelete}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-      <BulkImportDialog
-        open={importDialogOpen}
-        onOpenChange={setImportDialogOpen}
-        onSuccess={fetchCameras}
-      />
+      {/* View Stream Sheet — wired in Plan 03 */}
     </div>
   );
 }

@@ -32,13 +32,29 @@ interface Site {
   name: string;
 }
 
+interface StreamProfile {
+  id: string;
+  name: string;
+}
+
 interface CameraFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  camera?: {
+    id: string;
+    name: string;
+    streamUrl: string;
+    description?: string;
+    latitude?: number;
+    longitude?: number;
+    tags?: string[];
+    streamProfileId?: string | null;
+    site?: { id: string; name: string; project?: { id: string; name: string } };
+  } | null;
 }
 
-export function CameraFormDialog({ open, onOpenChange, onSuccess }: CameraFormDialogProps) {
+export function CameraFormDialog({ open, onOpenChange, onSuccess, camera }: CameraFormDialogProps) {
   const [name, setName] = useState('');
   const [streamUrl, setStreamUrl] = useState('');
   const [projectId, setProjectId] = useState('');
@@ -47,29 +63,57 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess }: CameraFormDi
   const [lng, setLng] = useState('');
   const [tags, setTags] = useState('');
   const [description, setDescription] = useState('');
+  const [streamProfileId, setStreamProfileId] = useState('');
   const [projects, setProjects] = useState<Project[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
+  const [streamProfiles, setStreamProfiles] = useState<StreamProfile[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isEditMode = !!camera;
 
   useEffect(() => {
     if (open) {
       apiFetch<Project[]>('/api/projects')
         .then(setProjects)
         .catch(() => setProjects([]));
+      apiFetch<StreamProfile[]>('/api/stream-profiles')
+        .then(setStreamProfiles)
+        .catch(() => setStreamProfiles([]));
     }
   }, [open]);
 
+  // Pre-fill form when editing
+  useEffect(() => {
+    if (camera && open) {
+      setName(camera.name || '');
+      setStreamUrl(camera.streamUrl || '');
+      setDescription(camera.description || '');
+      setLat(camera.latitude != null ? String(camera.latitude) : '');
+      setLng(camera.longitude != null ? String(camera.longitude) : '');
+      setTags(camera.tags?.join(', ') || '');
+      setStreamProfileId(camera.streamProfileId || '');
+      if (camera.site?.project?.id) {
+        setProjectId(camera.site.project.id);
+      }
+      if (camera.site?.id) {
+        setSiteId(camera.site.id);
+      }
+    }
+  }, [camera, open]);
+
   useEffect(() => {
     if (projectId) {
-      setSiteId('');
+      if (!camera || camera.site?.project?.id !== projectId) {
+        setSiteId('');
+      }
       apiFetch<Site[]>(`/api/projects/${projectId}/sites`)
         .then(setSites)
         .catch(() => setSites([]));
     } else {
       setSites([]);
     }
-  }, [projectId]);
+  }, [projectId, camera]);
 
   function resetForm() {
     setName('');
@@ -80,12 +124,14 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess }: CameraFormDi
     setLng('');
     setTags('');
     setDescription('');
+    setStreamProfileId('');
     setError(null);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !streamUrl.trim() || !siteId) return;
+    if (!name.trim() || !streamUrl.trim()) return;
+    if (!isEditMode && !siteId) return;
 
     setSaving(true);
     setError(null);
@@ -103,17 +149,30 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess }: CameraFormDi
       if (tags.trim()) {
         body.tags = tags.split(',').map((t) => t.trim()).filter(Boolean);
       }
+      body.streamProfileId = streamProfileId || null;
 
-      await apiFetch(`/api/sites/${siteId}/cameras`, {
-        method: 'POST',
-        body: JSON.stringify(body),
-      });
+      if (isEditMode) {
+        if (siteId) body.siteId = siteId;
+        await apiFetch(`/api/cameras/${camera.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(body),
+        });
+      } else {
+        await apiFetch(`/api/sites/${siteId}/cameras`, {
+          method: 'POST',
+          body: JSON.stringify(body),
+        });
+      }
 
       resetForm();
       onOpenChange(false);
       onSuccess();
     } catch {
-      setError('Failed to create camera. Check the details and try again.');
+      setError(
+        isEditMode
+          ? 'Failed to update camera. Check the details and try again.'
+          : 'Failed to create camera. Check the details and try again.'
+      );
     } finally {
       setSaving(false);
     }
@@ -123,9 +182,11 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess }: CameraFormDi
     <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetForm(); }}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Add Camera</DialogTitle>
+          <DialogTitle>{isEditMode ? 'Edit Camera' : 'Add Camera'}</DialogTitle>
           <DialogDescription>
-            Register a new camera to start streaming.
+            {isEditMode
+              ? 'Update camera configuration.'
+              : 'Register a new camera to start streaming.'}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -231,6 +292,23 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess }: CameraFormDi
             />
           </div>
 
+          <div className="space-y-2">
+            <Label>Stream Profile</Label>
+            <Select value={streamProfileId} onValueChange={(v) => setStreamProfileId(String(v ?? ''))}>
+              <SelectTrigger>
+                <SelectValue placeholder="Default">
+                  {streamProfiles.find((p) => p.id === streamProfileId)?.name || 'Default'}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Default</SelectItem>
+                {streamProfiles.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {error && (
             <p className="text-xs text-destructive">{error}</p>
           )}
@@ -239,8 +317,8 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess }: CameraFormDi
             <Button type="button" variant="outline" onClick={() => { onOpenChange(false); resetForm(); }}>
               Cancel
             </Button>
-            <Button type="submit" disabled={saving || !name.trim() || !streamUrl.trim() || !siteId}>
-              {saving ? 'Saving...' : 'Save Camera'}
+            <Button type="submit" disabled={saving || !name.trim() || !streamUrl.trim() || (!isEditMode && !siteId)}>
+              {saving ? 'Saving...' : isEditMode ? 'Save Changes' : 'Save Camera'}
             </Button>
           </DialogFooter>
         </form>
