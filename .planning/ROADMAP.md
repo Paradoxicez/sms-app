@@ -28,7 +28,7 @@
 - [x] **Phase 10: Admin Table Migrations** - Migrate 5 admin/utility tables to DataTable with quick actions (completed 2026-04-17)
 - [x] **Phase 11: Camera Management** - Camera table with card view, quick actions, and View Stream sheet (completed 2026-04-17)
 - [x] **Phase 12: Recordings** - Dedicated recordings page with cross-camera filters, bulk delete, and downloads (completed 2026-04-17)
-- [ ] **Phase 13: Hierarchy & Map** - Project tree viewer and map enhancements with filter, drag-drop, and preview
+- [x] **Phase 13: Hierarchy & Map** - Project tree viewer and map enhancements with filter, drag-drop, and preview (completed 2026-04-17)
 
 ## Phase Details
 
@@ -130,8 +130,8 @@ Plans:
 **UI hint**: yes
 
 Plans:
-- [ ] 13-01-PLAN.md — Hierarchy tree component, resizable split panel, and projects page with tree + DataTable navigation
-- [ ] 13-02-PLAN.md — Map tree overlay, placement mode for camera location, and popup updates with View Stream sheet
+- [x] 13-01-PLAN.md — Hierarchy tree component, resizable split panel, and projects page with tree + DataTable navigation
+- [x] 13-02-PLAN.md — Map tree overlay, placement mode for camera location, and popup updates with View Stream sheet
 
 ## Progress
 
@@ -153,4 +153,4 @@ Phases execute in numeric order: 8 -> 9 -> 10 -> 11 -> 12 -> 13
 | 10. Admin Table Migrations | v1.1 | 3/3 | Complete    | 2026-04-17 |
 | 11. Camera Management | v1.1 | 3/3 | Complete    | 2026-04-17 |
 | 12. Recordings | v1.1 | 2/2 | Complete    | 2026-04-17 |
-| 13. Hierarchy & Map | v1.1 | 0/2 | Planning | - |
+| 13. Hierarchy & Map | v1.1 | 2/2 | Complete    | 2026-04-17 |
