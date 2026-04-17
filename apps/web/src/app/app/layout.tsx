@@ -4,9 +4,16 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
-import { TenantNav } from "@/components/nav/tenant-nav";
+import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/nav/app-sidebar";
+import { tenantNavGroups, filterNavGroups } from "@/components/nav/nav-config";
 import { useCurrentRole } from "@/hooks/use-current-role";
+import { useFeatures } from "@/hooks/use-features";
 import { Skeleton } from "@/components/ui/skeleton";
+
+function truncate(n: string): string {
+  return n.length > 16 ? n.slice(0, 16) + "\u2026" : n;
+}
 
 export default function AppLayout({
   children,
@@ -25,6 +32,7 @@ export default function AppLayout({
     activeOrgName,
     loading: roleLoading,
   } = useCurrentRole();
+  const { isEnabled } = useFeatures(activeOrgId);
 
   useEffect(() => {
     async function bootstrap() {
@@ -99,16 +107,29 @@ export default function AppLayout({
     );
   }
 
+  const filteredGroups = filterNavGroups(
+    tenantNavGroups,
+    memberRole as NonNullable<typeof memberRole>,
+    isEnabled,
+  );
+
   return (
-    <div className="flex min-h-screen">
-      <TenantNav
-        memberRole={memberRole as NonNullable<typeof memberRole>}
-        activeOrgId={activeOrgId}
-        activeOrgName={activeOrgName ?? ""}
+    <SidebarProvider>
+      <AppSidebar
+        navGroups={filteredGroups}
+        portalBadge={truncate(activeOrgName ?? "Workspace")}
+        portalBadgeTitle={activeOrgName ?? undefined}
         userName={user?.name}
         userEmail={user?.email}
       />
-      <main className="flex-1 md:p-8 p-4 pt-18 md:pt-8">{children}</main>
-    </div>
+      <SidebarInset>
+        <header className="flex h-14 items-center gap-2 border-b px-4">
+          <SidebarTrigger />
+        </header>
+        <div className="flex-1 p-4 md:p-8">
+          {children}
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

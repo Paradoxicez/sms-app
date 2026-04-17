@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
-import { PlatformNav } from "@/components/nav/platform-nav";
+import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/nav/app-sidebar";
+import { adminNavGroups } from "@/components/nav/nav-config";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function AdminLayout({
@@ -64,11 +66,21 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="flex min-h-screen">
-      <PlatformNav userName={user?.name} userEmail={user?.email} />
-      <main className="flex-1 md:p-8 p-4 pt-18 md:pt-8">
-        {children}
-      </main>
-    </div>
+    <SidebarProvider>
+      <AppSidebar
+        navGroups={adminNavGroups}
+        portalBadge="Platform"
+        userName={user?.name}
+        userEmail={user?.email}
+      />
+      <SidebarInset>
+        <header className="flex h-14 items-center gap-2 border-b px-4">
+          <SidebarTrigger />
+        </header>
+        <div className="flex-1 p-4 md:p-8">
+          {children}
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
