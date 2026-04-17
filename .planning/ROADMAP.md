@@ -109,12 +109,12 @@ Plans:
   3. User can select multiple recordings via checkboxes and bulk delete them with confirmation
   4. User can download individual recording clips as files via presigned MinIO URLs
   5. Backend API supports cross-camera recording queries with server-side pagination
-**Plans**: TBD
+**Plans**: 2 plans
 **UI hint**: yes
 
 Plans:
-- [ ] 12-01: TBD
-- [ ] 12-02: TBD
+- [ ] 12-01-PLAN.md — Backend API: cross-camera query, bulk delete, download endpoints + shared frontend utilities
+- [ ] 12-02-PLAN.md — Frontend DataTable: column definitions, faceted filters, URL state, bulk delete UI, page wiring
 
 ### Phase 13: Hierarchy & Map
 **Goal**: Users can navigate the Project > Site > Camera hierarchy via a tree viewer and manage camera locations on an enhanced map
@@ -153,5 +153,5 @@ Phases execute in numeric order: 8 -> 9 -> 10 -> 11 -> 12 -> 13
 | 9. Layout & Login | v1.1 | 0/3 | Planning | - |
 | 10. Admin Table Migrations | v1.1 | 3/3 | Complete    | 2026-04-17 |
 | 11. Camera Management | v1.1 | 3/3 | Complete    | 2026-04-17 |
-| 12. Recordings | v1.1 | 0/0 | Not started | - |
+| 12. Recordings | v1.1 | 0/2 | Planning | - |
 | 13. Hierarchy & Map | v1.1 | 0/0 | Not started | - |
