@@ -554,19 +554,19 @@ async findAll(orgId: string, query: AuditQueryDto): Promise<{
 | A2 | Webhooks "Test webhook" action has an existing endpoint or can be added trivially | Common Pitfalls | MEDIUM -- if no test endpoint exists, this action needs backend work beyond this phase |
 | A3 | The faceted filter `filterFn` for array columns (like webhook events) works with TanStack's built-in filter model | Architecture Patterns | LOW -- faceted filter uses `Set<string>` which works for single-value columns; array columns may need custom `filterFn` |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Webhooks "Test webhook" endpoint**
+1. **Webhooks "Test webhook" endpoint** (RESOLVED -- Plan 03 Task 1 adds TODO fallback with toast placeholder if endpoint missing)
    - What we know: D-11 specifies a "Test webhook (send ping)" action. The existing webhooks API has CRUD but no test/ping endpoint.
    - What's unclear: Whether a `POST /api/webhooks/{id}/test` endpoint already exists or needs to be created.
    - Recommendation: Check for existing endpoint. If missing, add a simple endpoint that sends a test payload to the webhook URL. This is a small backend addition.
 
-2. **Audit log search field scope (server-side)**
+2. **Audit log search field scope (server-side)** (RESOLVED -- Plan 01 Task 1 adds `search` param to audit-query.dto.ts with Prisma `contains` on user name/email)
    - What we know: D-09 specifies search filters actor name/email. In server-side mode, search must be sent to the API.
    - What's unclear: Whether to add a `search` param to the audit API that searches across actor name+email, or handle it differently.
    - Recommendation: Add a `search` string param to the audit query DTO that does a Prisma `contains` query on joined user name/email. This is a small addition to the existing query builder.
 
-3. **Admin audit log page vs. tenant audit log page**
+3. **Admin audit log page vs. tenant audit log page** (RESOLVED -- Plan 01 migrates both pages, admin and tenant, to DataTable)
    - What we know: Both `/admin/audit-log` and `/app/audit-log` use the audit log table. Both use the same DTO.
    - What's unclear: Should both pages be migrated to DataTable, or only the tenant page?
    - Recommendation: Migrate both since they share the same component and both benefit from the DataTable UX. The backend DTO change affects both anyway.
