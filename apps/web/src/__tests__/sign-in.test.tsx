@@ -56,18 +56,13 @@ describe("sign-in page — split-screen layout and remember me", () => {
     resetAuthMocks();
   });
 
-  it("renders split-screen layout with branding text", () => {
+  it("renders login form with welcome heading and branding panel", () => {
     render(<SignInPage />);
 
-    expect(screen.getByText("Sign in to SMS Platform")).toBeInTheDocument();
-    expect(
-      screen.getByText("Surveillance Management System"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Embed live CCTV streams on your website with a single API call.",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Welcome back")).toBeInTheDocument();
+    expect(screen.getByText(/Enter your credentials/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
   });
 
   it("renders remember me checkbox", () => {
@@ -151,7 +146,7 @@ describe("sign-in page — split-screen layout and remember me", () => {
 
   it("disables inputs during loading", async () => {
     // signIn.email returns a promise that never resolves to keep loading state
-    let resolveSignIn: (v: unknown) => void;
+    let resolveSignIn: (v: { data: Record<string, unknown>; error: null }) => void;
     signInEmailMock.mockImplementationOnce(
       () =>
         new Promise((resolve) => {
