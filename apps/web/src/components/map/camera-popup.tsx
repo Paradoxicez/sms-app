@@ -1,15 +1,18 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import Link from 'next/link';
 import Hls from 'hls.js';
+import { MapPin } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 interface CameraPopupProps {
   id: string;
   name: string;
   status: string;
   viewerCount?: number;
+  onViewStream?: (id: string) => void;
+  onSetLocation?: (id: string, name: string) => void;
 }
 
 const STATUS_VARIANT: Record<string, 'default' | 'destructive' | 'secondary' | 'outline'> = {
@@ -20,7 +23,7 @@ const STATUS_VARIANT: Record<string, 'default' | 'destructive' | 'secondary' | '
   reconnecting: 'outline',
 };
 
-export function CameraPopup({ id, name, status, viewerCount }: CameraPopupProps) {
+export function CameraPopup({ id, name, status, viewerCount, onViewStream, onSetLocation }: CameraPopupProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
 
@@ -87,13 +90,28 @@ export function CameraPopup({ id, name, status, viewerCount }: CameraPopupProps)
         )}
       </div>
 
-      {/* View Details link */}
-      <Link
-        href={`/admin/cameras/${id}`}
-        className="block text-xs font-medium text-primary hover:underline"
-      >
-        View Details
-      </Link>
+      {/* Action buttons */}
+      <div className="flex items-center justify-between gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onViewStream?.(id)}
+          aria-label={`View stream for ${name}`}
+          className="h-7 text-xs"
+        >
+          View Stream
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onSetLocation?.(id, name)}
+          aria-label={`Set location for ${name}`}
+          className="h-7 text-xs"
+        >
+          <MapPin className="mr-1 h-3 w-3" />
+          Set Location
+        </Button>
+      </div>
     </div>
   );
 }

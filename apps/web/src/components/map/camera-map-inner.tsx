@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
-import { MapContainer, TileLayer, useMap } from 'react-leaflet';
+import { useEffect, useMemo, type ReactNode } from 'react';
+import { MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -21,6 +21,12 @@ const DEFAULT_ZOOM = 12;
 
 interface CameraMapInnerProps {
   cameras: MapCamera[];
+  filteredCameraIds?: string[] | null;
+  placementActive?: boolean;
+  onMapClick?: (lat: number, lng: number) => void;
+  onViewStream?: (id: string) => void;
+  onSetLocation?: (id: string, name: string) => void;
+  children?: ReactNode;
 }
 
 /** Resize Leaflet map when sidebar collapses/expands (D-15) */
@@ -46,6 +52,12 @@ function FitBounds({ cameras }: { cameras: Array<{ latitude: number; longitude: 
   useEffect(() => {
     if (cameras.length === 0) return;
 
+    // Single camera: use setView instead of fitBounds for better zoom
+    if (cameras.length === 1) {
+      map.setView([cameras[0].latitude, cameras[0].longitude], 16);
+      return;
+    }
+
     const bounds = L.latLngBounds(
       cameras.map((c) => [c.latitude, c.longitude] as [number, number]),
     );
@@ -56,15 +68,36 @@ function FitBounds({ cameras }: { cameras: Array<{ latitude: number; longitude: 
   return null;
 }
 
-export default function CameraMapInner({ cameras }: CameraMapInnerProps) {
-  // Filter to cameras that have valid lat/lng
+/** Handle map click events during placement mode */
+function MapClickHandler({ onMapClick }: { onMapClick: (lat: number, lng: number) => void }) {
+  useMapEvents({
+    click(e) {
+      onMapClick(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return null;
+}
+
+export default function CameraMapInner({
+  cameras,
+  filteredCameraIds,
+  placementActive,
+  onMapClick,
+  onViewStream,
+  onSetLocation,
+  children,
+}: CameraMapInnerProps) {
+  // Filter to cameras that have valid lat/lng, then apply filteredCameraIds
   const mappableCameras = useMemo(
     () =>
       cameras.filter(
-        (c): c is MapCamera & { latitude: number; longitude: number } =>
-          c.latitude !== null && c.longitude !== null,
+        (c): c is MapCamera & { latitude: number; longitude: number } => {
+          if (c.latitude === null || c.longitude === null) return false;
+          if (filteredCameraIds != null && !filteredCameraIds.includes(c.id)) return false;
+          return true;
+        },
       ),
-    [cameras],
+    [cameras, filteredCameraIds],
   );
 
   const center: [number, number] =
@@ -76,7 +109,9 @@ export default function CameraMapInner({ cameras }: CameraMapInnerProps) {
     <MapContainer
       center={center}
       zoom={DEFAULT_ZOOM}
-      className="h-[calc(100vh-10rem)] min-h-[320px] w-full rounded-lg md:h-[calc(100vh-8rem)]"
+      className={`h-[calc(100vh-10rem)] min-h-[320px] w-full rounded-lg md:h-[calc(100vh-8rem)] ${
+        placementActive ? 'cursor-crosshair' : ''
+      }`}
       scrollWheelZoom={true}
     >
       <TileLayer
@@ -86,6 +121,10 @@ export default function CameraMapInner({ cameras }: CameraMapInnerProps) {
 
       <ResizeHandler />
       <FitBounds cameras={mappableCameras} />
+
+      {placementActive && onMapClick && (
+        <MapClickHandler onMapClick={onMapClick} />
+      )}
 
       <MarkerClusterGroup chunkedLoading>
         {mappableCameras.map((camera) => (
@@ -97,9 +136,13 @@ export default function CameraMapInner({ cameras }: CameraMapInnerProps) {
             latitude={camera.latitude}
             longitude={camera.longitude}
             viewerCount={camera.viewerCount}
+            onViewStream={onViewStream}
+            onSetLocation={onSetLocation}
           />
         ))}
       </MarkerClusterGroup>
+
+      {children}
     </MapContainer>
   );
 }

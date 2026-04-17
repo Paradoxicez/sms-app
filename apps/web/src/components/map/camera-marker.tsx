@@ -12,6 +12,8 @@ interface CameraMarkerProps {
   latitude: number;
   longitude: number;
   viewerCount?: number;
+  onViewStream?: (id: string) => void;
+  onSetLocation?: (id: string, name: string) => void;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -29,6 +31,8 @@ export function CameraMarker({
   latitude,
   longitude,
   viewerCount,
+  onViewStream,
+  onSetLocation,
 }: CameraMarkerProps) {
   const icon = useMemo(() => {
     const color = STATUS_COLORS[status] || STATUS_COLORS.offline;
@@ -59,6 +63,8 @@ export function CameraMarker({
           name={name}
           status={status}
           viewerCount={viewerCount}
+          onViewStream={onViewStream}
+          onSetLocation={onSetLocation}
         />
       </Popup>
     </Marker>

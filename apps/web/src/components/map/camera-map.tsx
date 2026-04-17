@@ -22,8 +22,33 @@ export interface MapCamera {
 
 interface CameraMapProps {
   cameras: MapCamera[];
+  filteredCameraIds?: string[] | null;
+  placementActive?: boolean;
+  onMapClick?: (lat: number, lng: number) => void;
+  onViewStream?: (id: string) => void;
+  onSetLocation?: (id: string, name: string) => void;
+  children?: React.ReactNode;
 }
 
-export function CameraMap({ cameras }: CameraMapProps) {
-  return <CameraMapInner cameras={cameras} />;
+export function CameraMap({
+  cameras,
+  filteredCameraIds,
+  placementActive,
+  onMapClick,
+  onViewStream,
+  onSetLocation,
+  children,
+}: CameraMapProps) {
+  return (
+    <CameraMapInner
+      cameras={cameras}
+      filteredCameraIds={filteredCameraIds}
+      placementActive={placementActive}
+      onMapClick={onMapClick}
+      onViewStream={onViewStream}
+      onSetLocation={onSetLocation}
+    >
+      {children}
+    </CameraMapInner>
+  );
 }
