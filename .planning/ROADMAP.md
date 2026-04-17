@@ -25,7 +25,7 @@
 
 - [ ] **Phase 8: Foundation Components** - Reusable DataTable system and DatePicker components consumed by all subsequent phases
 - [ ] **Phase 9: Layout & Login** - Collapsible sidebar and login page redesign
-- [ ] **Phase 10: Admin Table Migrations** - Migrate 5 admin/utility tables to DataTable with quick actions
+- [x] **Phase 10: Admin Table Migrations** - Migrate 5 admin/utility tables to DataTable with quick actions (completed 2026-04-17)
 - [ ] **Phase 11: Camera Management** - Camera table with card view, quick actions, and View Stream sheet
 - [ ] **Phase 12: Recordings** - Dedicated recordings page with cross-camera filters, bulk delete, and downloads
 - [ ] **Phase 13: Hierarchy & Map** - Project tree viewer and map enhancements with filter, drag-drop, and preview
@@ -77,9 +77,9 @@ Plans:
 **UI hint**: yes
 
 Plans:
-- [ ] 10-01-PLAN.md — Audit log backend offset pagination + frontend DataTable migration with server-side pagination
-- [ ] 10-02-PLAN.md — Users and API Keys table migrations to DataTable with faceted filters and quick actions
-- [ ] 10-03-PLAN.md — Webhooks and Stream Profiles table migrations (card grid to table for profiles)
+- [x] 10-01-PLAN.md — Audit log backend offset pagination + frontend DataTable migration with server-side pagination
+- [x] 10-02-PLAN.md — Users and API Keys table migrations to DataTable with faceted filters and quick actions
+- [x] 10-03-PLAN.md — Webhooks and Stream Profiles table migrations (card grid to table for profiles)
 
 ### Phase 11: Camera Management
 **Goal**: Users can manage cameras efficiently through a powerful table, quick actions, card view with live preview, and a slide-in stream viewer
@@ -151,7 +151,7 @@ Phases execute in numeric order: 8 -> 9 -> 10 -> 11 -> 12 -> 13
 | 999.1. Role-based Sidebar Navigation | v1.0 | 5/5 | Complete | 2026-04-15 |
 | 8. Foundation Components | v1.1 | 0/2 | Planning | - |
 | 9. Layout & Login | v1.1 | 0/3 | Planning | - |
-| 10. Admin Table Migrations | v1.1 | 0/3 | Planning | - |
+| 10. Admin Table Migrations | v1.1 | 3/3 | Complete    | 2026-04-17 |
 | 11. Camera Management | v1.1 | 0/0 | Not started | - |
 | 12. Recordings | v1.1 | 0/0 | Not started | - |
 | 13. Hierarchy & Map | v1.1 | 0/0 | Not started | - |
