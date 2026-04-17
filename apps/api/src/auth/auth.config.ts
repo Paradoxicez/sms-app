@@ -25,7 +25,7 @@ export async function initAuth() {
       maxPasswordLength: 128,
     },
     session: {
-      expiresIn: 60 * 60 * 24 * 7, // 7 days
+      expiresIn: 60 * 60 * 24 * 30, // 30 days (remember me extends session)
       updateAge: 60 * 60 * 24, // refresh daily
     },
     plugins: [
