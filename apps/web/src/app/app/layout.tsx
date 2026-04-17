@@ -10,6 +10,7 @@ import { tenantNavGroups, filterNavGroups } from "@/components/nav/nav-config";
 import { useCurrentRole } from "@/hooks/use-current-role";
 import { useFeatures } from "@/hooks/use-features";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useSidebarResize } from "@/hooks/use-sidebar-resize";
 
 function truncate(n: string): string {
   return n.length > 16 ? n.slice(0, 16) + "\u2026" : n;
@@ -33,6 +34,8 @@ export default function AppLayout({
     loading: roleLoading,
   } = useCurrentRole();
   const { isEnabled } = useFeatures(activeOrgId);
+
+  useSidebarResize();
 
   useEffect(() => {
     async function bootstrap() {

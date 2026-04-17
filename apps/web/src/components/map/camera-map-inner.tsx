@@ -23,6 +23,22 @@ interface CameraMapInnerProps {
   cameras: MapCamera[];
 }
 
+/** Resize Leaflet map when sidebar collapses/expands (D-15) */
+function ResizeHandler() {
+  const map = useMap();
+
+  useEffect(() => {
+    function handleResize() {
+      map.invalidateSize();
+    }
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [map]);
+
+  return null;
+}
+
 /** Auto-fit map bounds to all camera markers */
 function FitBounds({ cameras }: { cameras: Array<{ latitude: number; longitude: number }> }) {
   const map = useMap();
@@ -68,6 +84,7 @@ export default function CameraMapInner({ cameras }: CameraMapInnerProps) {
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
 
+      <ResizeHandler />
       <FitBounds cameras={mappableCameras} />
 
       <MarkerClusterGroup chunkedLoading>

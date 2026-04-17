@@ -7,6 +7,7 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/s
 import { AppSidebar } from "@/components/nav/app-sidebar";
 import { adminNavGroups } from "@/components/nav/nav-config";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useSidebarResize } from "@/hooks/use-sidebar-resize";
 
 export default function AdminLayout({
   children,
@@ -56,6 +57,8 @@ export default function AdminLayout({
     }
     checkAuth();
   }, [router]);
+
+  useSidebarResize();
 
   if (loading) {
     return (
