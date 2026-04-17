@@ -10,7 +10,7 @@ export class AdminAuditLogService {
 
   async findAll(
     query: AuditQueryDto,
-  ): Promise<{ items: any[]; nextCursor: string | null }> {
+  ): Promise<{ items: any[]; totalCount: number }> {
     const where: any = {};
 
     if (query.userId) where.userId = query.userId;
@@ -22,22 +22,38 @@ export class AdminAuditLogService {
       if (query.dateTo) where.createdAt.lte = new Date(query.dateTo);
     }
 
-    const take = query.take ?? 50;
-
-    const items = await this.rawPrisma.auditLog.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      take: take + 1,
-      ...(query.cursor
-        ? { cursor: { id: query.cursor }, skip: 1 }
-        : {}),
-    });
-
-    let nextCursor: string | null = null;
-    if (items.length > take) {
-      const nextItem = items.pop();
-      nextCursor = nextItem!.id;
+    if (query.search) {
+      const matchingUsers = await this.rawPrisma.user.findMany({
+        where: {
+          OR: [
+            { name: { contains: query.search, mode: 'insensitive' } },
+            { email: { contains: query.search, mode: 'insensitive' } },
+          ],
+        },
+        select: { id: true },
+      });
+      const matchingUserIds = matchingUsers.map((u: any) => u.id);
+      if (matchingUserIds.length > 0) {
+        where.OR = [
+          { userId: { in: matchingUserIds } },
+          { resource: { contains: query.search, mode: 'insensitive' } },
+        ];
+      } else {
+        where.resource = { contains: query.search, mode: 'insensitive' };
+      }
     }
+
+    const skip = (query.page - 1) * query.pageSize;
+
+    const [items, totalCount] = await Promise.all([
+      this.rawPrisma.auditLog.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: query.pageSize,
+        skip,
+      }),
+      this.rawPrisma.auditLog.count({ where }),
+    ]);
 
     // Join user info (AuditLog has no Prisma relation to User)
     const userIds = [
@@ -75,6 +91,6 @@ export class AdminAuditLogService {
       orgName: orgMap.get(item.orgId) || 'Unknown',
     }));
 
-    return { items: enrichedItems, nextCursor };
+    return { items: enrichedItems, totalCount };
   }
 }

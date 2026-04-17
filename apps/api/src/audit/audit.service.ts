@@ -62,7 +62,7 @@ export class AuditService {
   async findAll(
     orgId: string,
     query: AuditQueryDto,
-  ): Promise<{ items: any[]; nextCursor: string | null }> {
+  ): Promise<{ items: any[]; totalCount: number }> {
     const where: any = { orgId };
 
     if (query.userId) where.userId = query.userId;
@@ -74,23 +74,25 @@ export class AuditService {
       if (query.dateTo) where.createdAt.lte = new Date(query.dateTo);
     }
 
-    const take = query.take ?? 50;
-
-    const items = await this.prisma.auditLog.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      take: take + 1,
-      ...(query.cursor
-        ? { cursor: { id: query.cursor }, skip: 1 }
-        : {}),
-    });
-
-    let nextCursor: string | null = null;
-    if (items.length > take) {
-      const nextItem = items.pop();
-      nextCursor = nextItem.id;
+    if (query.search) {
+      where.OR = [
+        { resource: { contains: query.search, mode: 'insensitive' } },
+        { ip: { contains: query.search, mode: 'insensitive' } },
+      ];
     }
 
-    return { items, nextCursor };
+    const skip = (query.page - 1) * query.pageSize;
+
+    const [items, totalCount] = await Promise.all([
+      this.prisma.auditLog.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: query.pageSize,
+        skip,
+      }),
+      this.prisma.auditLog.count({ where }),
+    ]);
+
+    return { items, totalCount };
   }
 }
