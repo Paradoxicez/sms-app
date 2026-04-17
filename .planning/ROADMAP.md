@@ -87,17 +87,17 @@ Plans:
 **Requirements**: CAM-01, CAM-02, CAM-03, CAM-04
 **Success Criteria** (what must be TRUE):
   1. Camera page shows a DataTable with sort, filter (including faceted status filter), and pagination
-  2. Each camera row has a "..." menu with actions: Edit, View Stream, Stream Profile, Disable, Delete, Record, Embed Code
+  2. Each camera row has a "..." menu with actions: Edit, View Stream, Start/Stop Recording, Embed Code, Delete
   3. User can toggle between table view and card view -- card view shows HLS live preview per card with a maximum of 4-6 concurrent players managed by IntersectionObserver
-  4. Clicking "View Stream" opens a slide-in sheet (half-screen from right) showing live preview, Policies, Embed code, and Activity tabs
+  4. Clicking "View Stream" opens a slide-in sheet (half-screen from right) showing live preview, Policies, and Activity tabs
   5. Card view does not crash the browser -- players outside viewport are destroyed, buffer limits are capped
-**Plans**: TBD
+**Plans**: 3 plans
 **UI hint**: yes
 
 Plans:
-- [ ] 11-01: TBD
-- [ ] 11-02: TBD
-- [ ] 11-03: TBD
+- [ ] 11-01-PLAN.md — Camera DataTable with columns, faceted filters, quick actions, view toggle, and extended CameraFormDialog
+- [ ] 11-02-PLAN.md — Card view with responsive grid, hover HLS preview, and concurrent player management
+- [ ] 11-03-PLAN.md — View Stream sheet (Preview/Policies/Activity tabs), page wiring, and detail page removal
 
 ### Phase 12: Recordings
 **Goal**: Users can browse, filter, and manage recordings across all cameras from a single dedicated page
@@ -152,6 +152,6 @@ Phases execute in numeric order: 8 -> 9 -> 10 -> 11 -> 12 -> 13
 | 8. Foundation Components | v1.1 | 0/2 | Planning | - |
 | 9. Layout & Login | v1.1 | 0/3 | Planning | - |
 | 10. Admin Table Migrations | v1.1 | 3/3 | Complete    | 2026-04-17 |
-| 11. Camera Management | v1.1 | 0/0 | Not started | - |
+| 11. Camera Management | v1.1 | 0/3 | Planning | - |
 | 12. Recordings | v1.1 | 0/0 | Not started | - |
 | 13. Hierarchy & Map | v1.1 | 0/0 | Not started | - |
