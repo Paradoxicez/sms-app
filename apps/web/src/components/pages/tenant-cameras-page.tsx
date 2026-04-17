@@ -22,6 +22,7 @@ import { type CameraRow } from '@/app/admin/cameras/components/cameras-columns';
 import { CamerasDataTable } from '@/app/admin/cameras/components/cameras-data-table';
 import { CameraFormDialog } from '@/app/admin/cameras/components/camera-form-dialog';
 import { EmbedCodeDialog } from '@/app/admin/cameras/components/embed-code-dialog';
+import { ViewStreamSheet } from '@/app/admin/cameras/components/view-stream-sheet';
 
 export default function TenantCamerasPage() {
   const [cameras, setCameras] = useState<CameraRow[]>([]);
@@ -39,8 +40,7 @@ export default function TenantCamerasPage() {
   const [embedCamera, setEmbedCamera] = useState<CameraRow | null>(null);
   const [selectedCameraId, setSelectedCameraId] = useState<string | null>(null);
 
-  // Suppress unused var warning — Plan 03 will wire this to View Stream sheet
-  void selectedCameraId;
+  const selectedCamera = cameras.find(c => c.id === selectedCameraId) ?? null;
 
   useEffect(() => {
     async function loadSession() {
@@ -205,7 +205,11 @@ export default function TenantCamerasPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* View Stream Sheet — wired in Plan 03 */}
+      <ViewStreamSheet
+        camera={selectedCamera}
+        open={!!selectedCameraId}
+        onOpenChange={(open) => { if (!open) setSelectedCameraId(null) }}
+      />
     </div>
   );
 }
