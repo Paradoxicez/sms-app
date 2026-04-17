@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiKeyCreateDialog } from "@/components/api-key-create-dialog";
-import { ApiKeyTable } from "@/components/api-key-table";
+import { ApiKeysDataTable } from "@/components/api-keys/api-keys-data-table";
 
 interface ApiKey {
   id: string;
@@ -119,7 +119,7 @@ export default function TenantDeveloperApiKeysPage() {
           </Button>
         </div>
       ) : (
-        <ApiKeyTable keys={keys} onRefresh={fetchKeys} />
+        <ApiKeysDataTable keys={keys} onRefresh={fetchKeys} />
       )}
 
       <ApiKeyCreateDialog
