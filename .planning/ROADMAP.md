@@ -44,8 +44,8 @@
 **Plans**: 2 plans
 
 Plans:
-- [ ] 08-01-PLAN.md — DataTable system (sorting, filtering, pagination, row selection, row actions) + Checkbox component
-- [ ] 08-02-PLAN.md — DatePicker + DateRangePicker components and native date input replacement
+- [x] 08-01-PLAN.md — DataTable system (sorting, filtering, pagination, row selection, row actions) + Checkbox component
+- [x] 08-02-PLAN.md — DatePicker + DateRangePicker components and native date input replacement
 
 ### Phase 9: Layout & Login
 **Goal**: Users experience a collapsible sidebar and a polished login page across the entire application
