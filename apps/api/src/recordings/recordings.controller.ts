@@ -24,6 +24,7 @@ import { MinioService } from './minio.service';
 import { startRecordingSchema } from './dto/start-recording.dto';
 import { createScheduleSchema } from './dto/create-schedule.dto';
 import { updateRetentionSchema } from './dto/update-retention.dto';
+import { recordingQuerySchema } from './dto/recording-query.dto';
 
 @ApiTags('Recordings')
 @Controller('api/recordings')
@@ -36,6 +37,28 @@ export class RecordingsController {
     private readonly minioService: MinioService,
     private readonly cls: ClsService,
   ) {}
+
+  @Get()
+  async findAllRecordings(@Query() query: any) {
+    const parsed = recordingQuerySchema.safeParse(query);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.issues);
+    }
+    const orgId = this.cls.get('ORG_ID');
+    return this.recordingsService.findAllRecordings(orgId, parsed.data);
+  }
+
+  @Delete('bulk')
+  async bulkDeleteRecordings(@Body() body: { ids: string[] }) {
+    if (!Array.isArray(body.ids) || body.ids.length === 0) {
+      throw new BadRequestException('ids must be a non-empty array of recording IDs');
+    }
+    if (body.ids.length > 100) {
+      throw new BadRequestException('Cannot delete more than 100 recordings at once');
+    }
+    const orgId = this.cls.get('ORG_ID');
+    return this.recordingsService.bulkDeleteRecordings(body.ids, orgId);
+  }
 
   @Post('start')
   async startRecording(@Body() body: any) {

@@ -8,6 +8,7 @@ import {
 import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
 import { PrismaService } from '../prisma/prisma.service';
 import { MinioService } from './minio.service';
+import { RecordingQueryDto } from './dto/recording-query.dto';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
@@ -366,6 +367,83 @@ export class RecordingsService {
       where: { id: cameraId },
       data: { retentionDays },
     });
+  }
+
+  async findAllRecordings(orgId: string, query: RecordingQueryDto) {
+    const where: any = {};
+
+    if (query.cameraId) where.cameraId = query.cameraId;
+    if (query.siteId) where.camera = { siteId: query.siteId };
+    if (query.projectId) where.camera = { ...where.camera, site: { projectId: query.projectId } };
+    if (query.status) {
+      const statuses = query.status.split(',');
+      where.status = statuses.length === 1 ? statuses[0] : { in: statuses };
+    }
+    if (query.startDate || query.endDate) {
+      where.startedAt = {};
+      if (query.startDate) where.startedAt.gte = new Date(query.startDate);
+      if (query.endDate) {
+        const end = new Date(query.endDate);
+        end.setHours(23, 59, 59, 999);
+        where.startedAt.lte = end;
+      }
+    }
+    if (query.search) {
+      where.camera = {
+        ...where.camera,
+        OR: [
+          { name: { contains: query.search, mode: 'insensitive' } },
+          { site: { project: { name: { contains: query.search, mode: 'insensitive' } } } },
+        ],
+      };
+    }
+
+    const skip = (query.page - 1) * query.pageSize;
+
+    const [data, total] = await Promise.all([
+      this.prisma.recording.findMany({
+        where,
+        include: {
+          camera: {
+            select: {
+              id: true, name: true,
+              site: { select: { id: true, name: true, project: { select: { id: true, name: true } } } },
+            },
+          },
+        },
+        orderBy: { startedAt: 'desc' },
+        take: query.pageSize,
+        skip,
+      }),
+      this.prisma.recording.count({ where }),
+    ]);
+
+    return {
+      data: data.map((r: any) => ({
+        ...r,
+        totalSize: r.totalSize ? Number(r.totalSize) : null,
+      })),
+      total,
+      page: query.page,
+      pageSize: query.pageSize,
+    };
+  }
+
+  async bulkDeleteRecordings(ids: string[], orgId: string): Promise<{ deleted: number; failed: number }> {
+    let deleted = 0;
+    let failed = 0;
+
+    for (const id of ids) {
+      try {
+        await this.deleteRecording(id, orgId);
+        deleted++;
+      } catch (error) {
+        this.logger.warn(`Failed to delete recording ${id}: ${error}`);
+        failed++;
+      }
+    }
+
+    return { deleted, failed };
   }
 
   async listRecordings(cameraId: string, orgId: string, date?: string) {
