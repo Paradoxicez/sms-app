@@ -1,9 +1,6 @@
 "use client"
 
-import { Copy, Radio, Circle } from "lucide-react"
-import { toast } from "sonner"
-
-import { apiFetch } from "@/lib/api"
+import { Radio, Circle } from "lucide-react"
 
 import {
   Sheet,
@@ -84,14 +81,12 @@ function ViewStreamContent({
         <TabsContent value="preview" className="flex-1 overflow-y-auto p-4 space-y-4">
           <HlsPlayer src={streamUrl} autoPlay mode="live" />
 
-          <div className="grid grid-cols-[7rem_1fr] gap-x-4 gap-y-2 text-sm">
+          <div className="grid grid-cols-[7rem_1fr] items-center gap-x-4 gap-y-2 text-sm">
             <span className="text-muted-foreground font-medium">Name</span>
             <span>{camera.name}</span>
 
-            <span className="text-muted-foreground font-medium self-center">Status</span>
-            <div className="flex items-center">
-              <CameraStatusBadge status={camera.status} />
-            </div>
+            <span className="text-muted-foreground font-medium">Status</span>
+            <span><CameraStatusBadge status={camera.status} /></span>
 
             <span className="text-muted-foreground font-medium">Site</span>
             <span>{camera.site?.name ?? "-"}</span>
@@ -110,24 +105,6 @@ function ViewStreamContent({
                 ? `${camera.codecInfo.width}x${camera.codecInfo.height}`
                 : "-"}
             </span>
-
-            <span className="text-muted-foreground font-medium">Stream URL</span>
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-xs truncate">{streamUrl}</span>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-6 shrink-0"
-                onClick={() => {
-                  navigator.clipboard.writeText(
-                    `${window.location.origin}${streamUrl}`
-                  )
-                  toast("Stream URL copied")
-                }}
-              >
-                <Copy className="size-3" />
-              </Button>
-            </div>
           </div>
         </TabsContent>
 
