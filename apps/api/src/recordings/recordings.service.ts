@@ -472,10 +472,13 @@ export class RecordingsService {
   }
 
   async getRecordingWithSegments(id: string, orgId: string) {
-    const recording = await this.prisma.recording.findUnique({
+    const recording = await this.prisma.recording.findFirst({
       where: { id },
       include: {
-        segments: { select: { objectPath: true, seqNo: true } },
+        segments: {
+          select: { objectPath: true, seqNo: true, duration: true },
+          orderBy: { seqNo: 'asc' },
+        },
         camera: { select: { name: true } },
       },
     });

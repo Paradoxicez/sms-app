@@ -181,35 +181,70 @@ export class RecordingsController {
     const orgId = this.cls.get('ORG_ID');
     const recording = await this.recordingsService.getRecordingWithSegments(id, orgId);
 
-    if (!recording.initSegment || recording.segments.length === 0) {
+    if (recording.segments.length === 0) {
       throw new BadRequestException('Recording has no downloadable file');
     }
 
-    const cameraName = recording.camera?.name ?? 'recording';
+    const cameraName = (recording.camera?.name ?? 'recording').replace(/[^a-zA-Z0-9_-]/g, '_');
     const dateStr = new Date(recording.startedAt).toISOString().slice(0, 10);
     const filename = `${cameraName}-${dateStr}.mp4`;
+
+    // Build presigned URLs for segments and create an in-memory m3u8
+    const sortedSegments = recording.segments.sort((a: any, b: any) => a.seqNo - b.seqNo);
+
+    let m3u8 = '#EXTM3U\n#EXT-X-VERSION:7\n';
+    const maxDuration = 3;
+    m3u8 += `#EXT-X-TARGETDURATION:${maxDuration}\n`;
+    m3u8 += '#EXT-X-MEDIA-SEQUENCE:0\n';
+    m3u8 += '#EXT-X-PLAYLIST-TYPE:VOD\n';
+
+    if (recording.initSegment) {
+      const initUrl = await this.minioService.getPresignedUrl(orgId, recording.initSegment, 3600);
+      m3u8 += `#EXT-X-MAP:URI="${initUrl}"\n`;
+    }
+
+    for (const segment of sortedSegments) {
+      const segUrl = await this.minioService.getPresignedUrl(orgId, segment.objectPath, 3600);
+      m3u8 += `#EXTINF:${(segment as any).duration?.toFixed(6) ?? '2.560000'},\n`;
+      m3u8 += `${segUrl}\n`;
+    }
+    m3u8 += '#EXT-X-ENDLIST\n';
+
+    // Write m3u8 to temp file (FFmpeg needs seekable input for HLS)
+    const { writeFile, unlink } = await import('fs/promises');
+    const { join } = await import('path');
+    const { randomUUID } = await import('crypto');
+    const tmpPath = join('/tmp', `download-${randomUUID()}.m3u8`);
+    await writeFile(tmpPath, m3u8);
+
+    const { spawn } = await import('child_process');
+    const ffmpeg = spawn('ffmpeg', [
+      '-y',
+      '-protocol_whitelist', 'file,http,https,tcp,tls,crypto',
+      '-i', tmpPath,
+      '-c', 'copy',
+      '-movflags', 'frag_keyframe+empty_moov',
+      '-f', 'mp4',
+      'pipe:1',
+    ], { stdio: ['pipe', 'pipe', 'pipe'] });
 
     res.setHeader('Content-Type', 'video/mp4');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
 
-    const initStream = await this.minioService.getObjectStream(orgId, recording.initSegment);
-    await new Promise<void>((resolve, reject) => {
-      initStream.on('data', (chunk: Buffer) => res.write(chunk));
-      initStream.on('end', () => resolve());
-      initStream.on('error', reject);
+    ffmpeg.stdout.pipe(res);
+
+    ffmpeg.stderr.on('data', () => {});
+
+    ffmpeg.on('close', async () => {
+      await unlink(tmpPath).catch(() => {});
     });
 
-    const sortedSegments = recording.segments.sort((a: any, b: any) => a.seqNo - b.seqNo);
-    for (const segment of sortedSegments) {
-      const segStream = await this.minioService.getObjectStream(orgId, segment.objectPath);
-      await new Promise<void>((resolve, reject) => {
-        segStream.on('data', (chunk: Buffer) => res.write(chunk));
-        segStream.on('end', () => resolve());
-        segStream.on('error', reject);
-      });
-    }
-
-    res.end();
+    ffmpeg.on('error', async () => {
+      await unlink(tmpPath).catch(() => {});
+      if (!res.headersSent) {
+        res.status(500).json({ message: 'Download failed' });
+      }
+    });
   }
 
   @Get(':id/manifest')
