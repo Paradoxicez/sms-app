@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -90,21 +91,25 @@ export function SidebarFooterContent({
         </Avatar>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" side="right" className="w-[220px]">
-        <DropdownMenuLabel className="font-normal">
-          <div className="truncate text-sm font-semibold">
-            {userName || "User"}
-          </div>
-          <div className="truncate text-xs text-muted-foreground">
-            {userEmail || ""}
-          </div>
-        </DropdownMenuLabel>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="font-normal">
+            <div className="truncate text-sm font-semibold">
+              {userName || "User"}
+            </div>
+            <div className="truncate text-xs text-muted-foreground">
+              {userEmail || ""}
+            </div>
+          </DropdownMenuLabel>
+        </DropdownMenuGroup>
         {orgName && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel className="flex items-center gap-2 font-normal text-xs text-muted-foreground">
-              <Building2 className="h-3.5 w-3.5" />
-              {orgName}
-            </DropdownMenuLabel>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="flex items-center gap-2 font-normal text-xs text-muted-foreground">
+                <Building2 className="h-3.5 w-3.5" />
+                {orgName}
+              </DropdownMenuLabel>
+            </DropdownMenuGroup>
           </>
         )}
         <DropdownMenuSeparator />
