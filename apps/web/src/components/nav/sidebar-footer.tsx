@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { Building2, LogOut } from "lucide-react";
 
+import { cn } from "@/lib/utils";
 import { authClient } from "@/lib/auth-client";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -59,38 +60,35 @@ export function SidebarFooterContent({
     router.push("/sign-in");
   }
 
-  // Expanded: show user info inline (non-interactive)
-  if (state === "expanded") {
-    return (
-      <div className="flex items-center gap-3 rounded-md px-3 py-2">
-        <Avatar className="h-8 w-8">
-          <AvatarFallback className="bg-primary/10 text-xs text-primary">
-            {initials}
-          </AvatarFallback>
-        </Avatar>
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-semibold">
-            {userName || "User"}
-          </div>
-          <div className="truncate text-xs text-muted-foreground">
-            {userEmail || ""}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Collapsed: avatar with dropdown
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="flex w-full items-center justify-center rounded-md p-1 hover:bg-muted">
+      <DropdownMenuTrigger
+        className={cn(
+          "flex w-full items-center rounded-md hover:bg-muted",
+          state === "expanded" ? "gap-3 px-3 py-2" : "justify-center p-1"
+        )}
+      >
         <Avatar className="h-8 w-8">
           <AvatarFallback className="bg-primary/10 text-xs text-primary">
             {initials}
           </AvatarFallback>
         </Avatar>
+        {state === "expanded" && (
+          <div className="min-w-0 flex-1 text-left">
+            <div className="truncate text-sm font-semibold">
+              {userName || "User"}
+            </div>
+            <div className="truncate text-xs text-muted-foreground">
+              {userEmail || ""}
+            </div>
+          </div>
+        )}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" side="right" className="w-[220px]">
+      <DropdownMenuContent
+        align="end"
+        side={state === "expanded" ? "top" : "right"}
+        className="w-[220px]"
+      >
         <DropdownMenuGroup>
           <DropdownMenuLabel className="font-normal">
             <div className="truncate text-sm font-semibold">
