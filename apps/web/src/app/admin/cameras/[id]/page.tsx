@@ -53,8 +53,7 @@ import { TestConnectionCard } from '../components/test-connection-card';
 import { EmbedCodeDialog } from '../components/embed-code-dialog';
 import { SessionsTable } from '../components/sessions-table';
 import { ResolvedPolicyCard } from '../../policies/components/resolved-policy-card';
-import { AuditLogTable } from '@/components/audit/audit-log-table';
-import type { AuditLog } from '@/components/audit/audit-detail-dialog';
+import { AuditLogDataTable } from '@/components/audit/audit-log-data-table';
 import { Badge } from '@/components/ui/badge';
 import { RecordingsTab } from '../components/recordings-tab';
 
@@ -132,10 +131,6 @@ export default function CameraDetailPage() {
   const [embedOpen, setEmbedOpen] = useState(false);
 
   // Activity tab (audit log)
-  const [activityEntries, setActivityEntries] = useState<AuditLog[]>([]);
-  const [activityLoading, setActivityLoading] = useState(false);
-  const [activityHasMore, setActivityHasMore] = useState(false);
-  const activityCursorRef = useRef<string | null>(null);
   const activityLoadedRef = useRef(false);
 
   // Stream profiles
@@ -277,43 +272,9 @@ export default function CameraDetailPage() {
     }
   }
 
-  const fetchActivity = useCallback(async (cursor?: string) => {
-    setActivityLoading(true);
-    try {
-      const params = new URLSearchParams({
-        resource: 'camera',
-        resourceId: cameraId,
-        take: '20',
-      });
-      if (cursor) params.set('cursor', cursor);
-      const res = await apiFetch<{ items: AuditLog[]; nextCursor: string | null }>(
-        `/api/audit-log?${params.toString()}`,
-      );
-      if (cursor) {
-        setActivityEntries((prev) => [...prev, ...res.items]);
-      } else {
-        setActivityEntries(res.items);
-      }
-      activityCursorRef.current = res.nextCursor;
-      setActivityHasMore(!!res.nextCursor);
-    } catch {
-      // Activity is non-critical
-    } finally {
-      setActivityLoading(false);
-    }
-  }, [cameraId]);
-
   function handleActivityTabSelect() {
-    if (!activityLoadedRef.current) {
-      activityLoadedRef.current = true;
-      fetchActivity();
-    }
-  }
-
-  function handleActivityLoadMore() {
-    if (activityCursorRef.current) {
-      fetchActivity(activityCursorRef.current);
-    }
+    // Activity tab now self-fetches via AuditLogDataTable
+    activityLoadedRef.current = true;
   }
 
   function handleCopyHlsUrl() {
@@ -689,12 +650,7 @@ export default function CameraDetailPage() {
               Recent actions and events for this camera.
             </p>
           </div>
-          <AuditLogTable
-            entries={activityEntries}
-            loading={activityLoading}
-            onLoadMore={handleActivityLoadMore}
-            hasMore={activityHasMore}
-          />
+          <AuditLogDataTable apiUrl="/api/audit-log" />
         </TabsContent>
 
         {/* Policy Tab */}
