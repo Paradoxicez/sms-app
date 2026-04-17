@@ -75,6 +75,15 @@ export function RecordingsDataTable() {
     React.useState<RecordingRow | null>(null)
   const [deleting, setDeleting] = React.useState(false)
 
+  // Bulk download progress state
+  const [bulkDownloadOpen, setBulkDownloadOpen] = React.useState(false)
+  const [downloadProgress, setDownloadProgress] = React.useState({
+    current: 0,
+    total: 0,
+    name: "",
+    status: "idle" as "idle" | "processing" | "ready" | "error",
+  })
+
   // Debounced search
   const [searchInput, setSearchInput] = React.useState(search)
   const searchTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
@@ -235,10 +244,58 @@ export function RecordingsDataTable() {
   }, [])
 
   const handleBulkDownload = React.useCallback(async () => {
-    for (const recording of selectedRows) {
-      window.open(`/api/recordings/${recording.id}/download`, "_blank")
+    const ids = selectedRows.map((r) => r.id)
+    setBulkDownloadOpen(true)
+    setDownloadProgress({ current: 0, total: ids.length, name: "", status: "processing" })
+
+    try {
+      const res = await fetch("/api/recordings/bulk-download", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      })
+
+      if (!res.ok || !res.body) throw new Error("Failed")
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ""
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+
+        const lines = buffer.split("\n\n")
+        buffer = lines.pop() ?? ""
+
+        for (const line of lines) {
+          const match = line.match(/^data: (.+)$/m)
+          if (!match) continue
+          const event = JSON.parse(match[1])
+
+          if (event.type === "progress") {
+            setDownloadProgress({
+              current: event.current,
+              total: event.total,
+              name: event.name,
+              status: "processing",
+            })
+          } else if (event.type === "ready") {
+            setDownloadProgress((prev) => ({ ...prev, status: "ready" }))
+            window.open(`/api/recordings/bulk-download/${event.jobId}`, "_blank")
+            toast(`${ids.length} recordings ready for download`)
+          } else if (event.type === "error") {
+            setDownloadProgress((prev) => ({ ...prev, status: "error" }))
+            toast.error("Failed to create download")
+          }
+        }
+      }
+    } catch {
+      setDownloadProgress((prev) => ({ ...prev, status: "error" }))
+      toast.error("Failed to create download")
     }
-    toast(`Downloading ${selectedRows.length} recording${selectedRows.length > 1 ? "s" : ""}`)
   }, [selectedRows])
 
   const handleSingleDelete = React.useCallback((recording: RecordingRow) => {
@@ -545,6 +602,70 @@ export function RecordingsDataTable() {
                 "Delete Recording"
               )}
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk download progress */}
+      <AlertDialog
+        open={bulkDownloadOpen}
+        onOpenChange={(open) => {
+          if (!open && downloadProgress.status !== "processing") {
+            setBulkDownloadOpen(false)
+            setDownloadProgress({ current: 0, total: 0, name: "", status: "idle" })
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {downloadProgress.status === "processing"
+                ? "Preparing Download..."
+                : downloadProgress.status === "ready"
+                  ? "Download Ready"
+                  : downloadProgress.status === "error"
+                    ? "Download Failed"
+                    : "Download"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              <span className="block space-y-3">
+                {downloadProgress.status === "processing" && (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="size-4 animate-spin" />
+                      <span>
+                        Processing recording {downloadProgress.current} of{" "}
+                        {downloadProgress.total}
+                      </span>
+                    </div>
+                    {downloadProgress.name && (
+                      <p className="text-xs text-muted-foreground truncate">
+                        {downloadProgress.name}
+                      </p>
+                    )}
+                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full bg-primary rounded-full transition-all duration-300"
+                        style={{
+                          width: `${downloadProgress.total > 0 ? (downloadProgress.current / downloadProgress.total) * 100 : 0}%`,
+                        }}
+                      />
+                    </div>
+                  </>
+                )}
+                {downloadProgress.status === "ready" && (
+                  <p>Your recordings have been packaged into a zip file.</p>
+                )}
+                {downloadProgress.status === "error" && (
+                  <p>Something went wrong while preparing the download.</p>
+                )}
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            {downloadProgress.status !== "processing" && (
+              <AlertDialogCancel>Close</AlertDialogCancel>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

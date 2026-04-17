@@ -25,6 +25,7 @@ import { startRecordingSchema } from './dto/start-recording.dto';
 import { createScheduleSchema } from './dto/create-schedule.dto';
 import { updateRetentionSchema } from './dto/update-retention.dto';
 import { recordingQuerySchema } from './dto/recording-query.dto';
+import { BulkDownloadService } from './bulk-download.service';
 
 @ApiTags('Recordings')
 @Controller('api/recordings')
@@ -35,6 +36,7 @@ export class RecordingsController {
     private readonly recordingsService: RecordingsService,
     private readonly manifestService: ManifestService,
     private readonly minioService: MinioService,
+    private readonly bulkDownloadService: BulkDownloadService,
     private readonly cls: ClsService,
   ) {}
 
@@ -58,6 +60,68 @@ export class RecordingsController {
     }
     const orgId = this.cls.get('ORG_ID');
     return this.recordingsService.bulkDeleteRecordings(body.ids, orgId);
+  }
+
+  @Post('bulk-download')
+  async bulkDownload(@Body() body: { ids: string[] }, @Res() res: Response) {
+    if (!Array.isArray(body.ids) || body.ids.length === 0) {
+      throw new BadRequestException('ids must be a non-empty array of recording IDs');
+    }
+    if (body.ids.length > 20) {
+      throw new BadRequestException('Cannot download more than 20 recordings at once');
+    }
+
+    const orgId = this.cls.get('ORG_ID');
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    const sendEvent = (data: Record<string, unknown>) => {
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    try {
+      const result = await this.bulkDownloadService.processJob(
+        body.ids,
+        orgId,
+        (current, total, name) => {
+          sendEvent({ type: 'progress', current, total, name });
+        },
+      );
+
+      sendEvent({
+        type: 'ready',
+        jobId: result.jobId,
+        filename: result.filename,
+        size: result.size,
+      });
+    } catch {
+      sendEvent({ type: 'error', message: 'Failed to create download' });
+    }
+
+    res.end();
+  }
+
+  @Get('bulk-download/:jobId')
+  async downloadBulkZip(@Param('jobId') jobId: string, @Res() res: Response) {
+    const job = this.bulkDownloadService.getJob(jobId);
+    if (!job) {
+      throw new BadRequestException('Download not found or expired');
+    }
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${job.filename}"`);
+    res.setHeader('Content-Length', job.size);
+
+    const { createReadStream } = await import('fs');
+    const stream = createReadStream(job.zipPath);
+    stream.pipe(res);
+
+    stream.on('end', () => {
+      this.bulkDownloadService.cleanupJob(jobId);
+    });
   }
 
   @Post('start')

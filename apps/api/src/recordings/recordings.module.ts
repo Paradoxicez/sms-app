@@ -7,6 +7,7 @@ import { MinioService } from './minio.service';
 import { ManifestService } from './manifest.service';
 import { RetentionProcessor } from './retention.processor';
 import { ScheduleProcessor } from './schedule.processor';
+import { BulkDownloadService } from './bulk-download.service';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { ScheduleProcessor } from './schedule.processor';
     RecordingsService,
     MinioService,
     ManifestService,
+    BulkDownloadService,
     RetentionProcessor,
     ScheduleProcessor,
   ],
