@@ -628,39 +628,29 @@ export function RecordingsDataTable() {
                     : "Download"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              <span className="block space-y-3">
-                {downloadProgress.status === "processing" && (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="size-4 animate-spin" />
-                      <span>
-                        Processing recording {downloadProgress.current} of{" "}
-                        {downloadProgress.total}
-                      </span>
-                    </div>
-                    {downloadProgress.name && (
-                      <p className="text-xs text-muted-foreground truncate">
-                        {downloadProgress.name}
-                      </p>
-                    )}
-                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                      <div
-                        className="h-full bg-primary rounded-full transition-all duration-300"
-                        style={{
-                          width: `${downloadProgress.total > 0 ? (downloadProgress.current / downloadProgress.total) * 100 : 0}%`,
-                        }}
-                      />
-                    </div>
-                  </>
-                )}
-                {downloadProgress.status === "ready" && (
-                  <p>Your recordings have been packaged into a zip file.</p>
-                )}
-                {downloadProgress.status === "error" && (
-                  <p>Something went wrong while preparing the download.</p>
-                )}
-              </span>
+              {downloadProgress.status === "processing"
+                ? `Processing recording ${downloadProgress.current} of ${downloadProgress.total}`
+                : downloadProgress.status === "ready"
+                  ? "Your recordings have been packaged into a zip file."
+                  : "Something went wrong while preparing the download."}
             </AlertDialogDescription>
+            {downloadProgress.status === "processing" && (
+              <div className="space-y-2 pt-2">
+                {downloadProgress.name && (
+                  <span className="text-xs text-muted-foreground truncate block">
+                    {downloadProgress.name}
+                  </span>
+                )}
+                <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full bg-primary rounded-full transition-all duration-300"
+                    style={{
+                      width: `${downloadProgress.total > 0 ? (downloadProgress.current / downloadProgress.total) * 100 : 0}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
           </AlertDialogHeader>
           <AlertDialogFooter>
             {downloadProgress.status !== "processing" && (
