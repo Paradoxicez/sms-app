@@ -81,23 +81,67 @@ export default function SignInPage() {
   return (
     <div className="flex min-h-screen">
       {/* Left: Branding panel - hidden on mobile */}
-      <div className="hidden lg:flex lg:w-1/2 flex-col justify-center bg-[hsl(var(--sidebar))] px-12 py-16 relative overflow-hidden">
-        <div className="max-w-[420px]">
-          <h1 className="text-2xl font-semibold text-primary">SMS</h1>
-          <p className="mt-2 text-xl font-semibold text-foreground">
-            Surveillance Management System
-          </p>
-          <p className="mt-4 text-sm text-muted-foreground">
-            Embed live CCTV streams on your website with a single API call.
-          </p>
+      <div
+        className="hidden lg:flex lg:w-1/2 flex-col justify-between px-12 py-10 relative overflow-hidden text-white"
+        style={{
+          background: "linear-gradient(180deg, hsl(142 40% 28%) 0%, hsl(142 50% 22%) 100%)",
+        }}
+      >
+        {/* Logo */}
+        <div className="flex items-center gap-2.5 relative z-10">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          </div>
+          <span className="text-sm font-semibold">SMS Platform</span>
         </div>
-        {/* Decorative dot pattern */}
+
+        {/* Hero */}
+        <div className="max-w-[420px] relative z-10">
+          <h1 className="text-4xl font-bold leading-tight tracking-tight">
+            Surveillance
+            <br />
+            Management
+            <br />
+            System
+          </h1>
+          <p className="mt-4 text-sm text-white/70 leading-relaxed">
+            Centralized CCTV streaming, recording, and monitoring
+            <br />
+            platform for enterprise deployments.
+          </p>
+
+          {/* Stats */}
+          <div className="mt-10 flex gap-8">
+            <div>
+              <div className="text-2xl font-bold">99.9%</div>
+              <div className="text-xs text-white/50">Uptime SLA</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold">&lt;1s</div>
+              <div className="text-xs text-white/50">Stream latency</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold">24/7</div>
+              <div className="text-xs text-white/50">Recording</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="text-xs text-white/40 relative z-10">
+          <p>&copy; 2026 SMS Platform. All rights reserved.</p>
+          <p>Developed by Sura Boonsung</p>
+        </div>
+
+        {/* Gradient overlay on right edge */}
         <div
-          className="absolute inset-0 opacity-[0.07]"
+          className="absolute inset-y-0 right-0 w-1/3"
           aria-hidden="true"
           style={{
-            backgroundImage: "radial-gradient(hsl(142 71% 45%) 1px, transparent 1px)",
-            backgroundSize: "20px 20px",
+            background: "linear-gradient(to right, transparent, hsl(142 35% 18% / 0.6))",
           }}
         />
       </div>
@@ -105,9 +149,12 @@ export default function SignInPage() {
       {/* Right: Form panel */}
       <div className="flex w-full lg:w-1/2 items-center justify-center p-8">
         <div className="w-full max-w-[400px] space-y-6">
-          <h2 className="text-xl font-semibold text-center">
-            Sign in to SMS Platform
-          </h2>
+          <div className="space-y-1.5">
+            <h2 className="text-xl font-semibold">Welcome back</h2>
+            <p className="text-sm text-muted-foreground">
+              Enter your credentials to access the console.
+            </p>
+          </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" aria-label="Sign in">
             <div className="space-y-2">
