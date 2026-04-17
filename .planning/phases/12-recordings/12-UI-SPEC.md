@@ -300,7 +300,7 @@ All filter values stored in URL query params for shareable links and back-button
 | Error state action | "Retry" |
 | Delete single title | "Delete Recording" |
 | Delete single body | "This will permanently delete this recording and its files. This action cannot be undone." |
-| Delete single confirm | "Delete" |
+| Delete single confirm | "Delete Recording" |
 | Bulk delete title | "Delete {N} Recording{s}" |
 | Bulk delete body | "This will permanently delete {N} selected recording{s} and their files. This action cannot be undone." |
 | Bulk delete confirm | "Delete {N} Recording{s}" |
