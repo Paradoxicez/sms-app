@@ -1,10 +1,11 @@
 ---
 phase: 12
 slug: recordings
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: validated
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-04-17
+updated: 2026-04-17
 ---
 
 # Phase 12 — Validation Strategy
@@ -38,10 +39,10 @@ created: 2026-04-17
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 12-01-01 | 01 | 1 | REC-01 | T-12-01 | Cross-tenant isolation via orgId scoping | integration | `cd apps/api && npx vitest run tests/recordings/cross-camera-list.test.ts -x` | ❌ W0 | ⬜ pending |
-| 12-01-02 | 01 | 1 | REC-02 | — | N/A | integration | `cd apps/api && npx vitest run tests/recordings/cross-camera-list.test.ts -x` | ❌ W0 | ⬜ pending |
-| 12-01-03 | 01 | 1 | REC-03 | T-12-03 | Bulk delete checks org ownership per recording | integration | `cd apps/api && npx vitest run tests/recordings/bulk-delete.test.ts -x` | ❌ W0 | ⬜ pending |
-| 12-01-04 | 01 | 1 | REC-04 | T-12-04 | Presigned URL scoped to org + 4h expiry | integration | `cd apps/api && npx vitest run tests/recordings/download.test.ts -x` | ❌ W0 | ⬜ pending |
+| 12-01-01 | 01 | 1 | REC-01 | T-12-01 | Cross-tenant isolation via orgId scoping | integration | `cd apps/api && npx vitest run tests/recordings/cross-camera-list.test.ts -x` | ✅ | ✅ green |
+| 12-01-02 | 01 | 1 | REC-02 | — | N/A | integration | `cd apps/api && npx vitest run tests/recordings/cross-camera-list.test.ts -x` | ✅ | ✅ green |
+| 12-01-03 | 01 | 1 | REC-03 | T-12-03 | Bulk delete checks org ownership per recording | integration | `cd apps/api && npx vitest run tests/recordings/bulk-delete.test.ts -x` | ✅ | ✅ green |
+| 12-01-04 | 01 | 1 | REC-04 | T-12-04 | Presigned URL scoped to org + 4h expiry | integration | `cd apps/api && npx vitest run tests/recordings/download.test.ts -x` | ✅ | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -49,11 +50,11 @@ created: 2026-04-17
 
 ## Wave 0 Requirements
 
-- [ ] `apps/api/tests/recordings/cross-camera-list.test.ts` — stubs for REC-01, REC-02
-- [ ] `apps/api/tests/recordings/bulk-delete.test.ts` — stubs for REC-03
-- [ ] `apps/api/tests/recordings/download.test.ts` — stubs for REC-04
+- [x] `apps/api/tests/recordings/cross-camera-list.test.ts` — 9 tests (REC-01, REC-02)
+- [x] `apps/api/tests/recordings/bulk-delete.test.ts` — 4 tests (REC-03)
+- [x] `apps/api/tests/recordings/download.test.ts` — 4 tests (REC-04)
 
-*Existing test infrastructure (Vitest) already installed. No new framework needed.*
+*All 17 tests passing.*
 
 ---
 
@@ -69,11 +70,22 @@ created: 2026-04-17
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 30s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 30s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** validated 2026-04-17
+
+---
+
+## Validation Audit 2026-04-17
+
+| Metric | Count |
+|--------|-------|
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
+| Tests passing | 17/17 |
