@@ -3,8 +3,6 @@
 import type { ColumnDef } from "@tanstack/react-table"
 import { format } from "date-fns"
 import { Download, Trash2 } from "lucide-react"
-import Link from "next/link"
-
 import { Checkbox } from "@/components/ui/checkbox"
 import { DataTableColumnHeader } from "@/components/ui/data-table"
 import { DataTableRowActions, type RowAction } from "@/components/ui/data-table"
@@ -69,12 +67,9 @@ export function createRecordingsColumns(
         <DataTableColumnHeader column={column} title="Camera" />
       ),
       cell: ({ row }) => (
-        <Link
-          href={`/app/cameras/${row.original.camera.id}?tab=recordings`}
-          className="text-primary hover:underline font-medium"
-        >
+        <span className="font-medium">
           {row.original.camera.name}
-        </Link>
+        </span>
       ),
     },
     {
