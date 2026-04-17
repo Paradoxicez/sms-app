@@ -51,7 +51,6 @@ function ViewStreamContent({
         <div className="flex items-center justify-between mx-4 mt-2">
           <TabsList>
             <TabsTrigger value="preview">Preview</TabsTrigger>
-            <TabsTrigger value="policies">Policies</TabsTrigger>
             <TabsTrigger value="activity">Activity</TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-1">
@@ -81,35 +80,39 @@ function ViewStreamContent({
         <TabsContent value="preview" className="flex-1 overflow-y-auto p-4 space-y-4">
           <HlsPlayer src={streamUrl} autoPlay mode="live" />
 
-          <div className="grid grid-cols-[7rem_1fr] items-center gap-x-4 gap-y-2 text-sm">
-            <span className="text-muted-foreground font-medium">Name</span>
-            <span>{camera.name}</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="rounded-lg border p-4">
+              <h3 className="text-sm font-semibold mb-3">Camera Info</h3>
+              <div className="grid grid-cols-[6rem_1fr] items-center gap-x-3 gap-y-2 text-sm">
+                <span className="text-muted-foreground">Name</span>
+                <span>{camera.name}</span>
 
-            <span className="text-muted-foreground font-medium">Status</span>
-            <span><CameraStatusBadge status={camera.status} /></span>
+                <span className="text-muted-foreground">Status</span>
+                <span><CameraStatusBadge status={camera.status} /></span>
 
-            <span className="text-muted-foreground font-medium">Site</span>
-            <span>{camera.site?.name ?? "-"}</span>
+                <span className="text-muted-foreground">Site</span>
+                <span>{camera.site?.name ?? "-"}</span>
 
-            <span className="text-muted-foreground font-medium">Project</span>
-            <span>{camera.site?.project?.name ?? "-"}</span>
+                <span className="text-muted-foreground">Project</span>
+                <span>{camera.site?.project?.name ?? "-"}</span>
 
-            <span className="text-muted-foreground font-medium">Codec</span>
-            <span className="font-mono text-xs">
-              {camera.codecInfo?.video ?? "-"}
-            </span>
+                <span className="text-muted-foreground">Codec</span>
+                <span className="font-mono text-xs">{camera.codecInfo?.video ?? "-"}</span>
 
-            <span className="text-muted-foreground font-medium">Resolution</span>
-            <span className="font-mono text-xs">
-              {camera.codecInfo?.width && camera.codecInfo?.height
-                ? `${camera.codecInfo.width}x${camera.codecInfo.height}`
-                : "-"}
-            </span>
+                <span className="text-muted-foreground">Resolution</span>
+                <span className="font-mono text-xs">
+                  {camera.codecInfo?.width && camera.codecInfo?.height
+                    ? `${camera.codecInfo.width}x${camera.codecInfo.height}`
+                    : "-"}
+                </span>
+              </div>
+            </div>
+
+            <div className="rounded-lg border p-4">
+              <h3 className="text-sm font-semibold mb-3">Policies</h3>
+              <ResolvedPolicyCard cameraId={camera.id} />
+            </div>
           </div>
-        </TabsContent>
-
-        <TabsContent value="policies" className="flex-1 overflow-y-auto p-4">
-          <ResolvedPolicyCard cameraId={camera.id} />
         </TabsContent>
 
         <TabsContent value="activity" className="flex-1 overflow-y-auto p-4">
