@@ -126,13 +126,12 @@ Plans:
   3. Map page includes the same tree viewer component for filtering which cameras appear on the map
   4. User can drag-drop a marker on the map to set a camera's latitude/longitude
   5. Hovering or clicking a map marker shows a camera preview popup with status and thumbnail
-**Plans**: TBD
+**Plans**: 2 plans
 **UI hint**: yes
 
 Plans:
-- [ ] 13-01: TBD
-- [ ] 13-02: TBD
-- [ ] 13-03: TBD
+- [ ] 13-01-PLAN.md — Hierarchy tree component, resizable split panel, and projects page with tree + DataTable navigation
+- [ ] 13-02-PLAN.md — Map tree overlay, placement mode for camera location, and popup updates with View Stream sheet
 
 ## Progress
 
@@ -154,4 +153,4 @@ Phases execute in numeric order: 8 -> 9 -> 10 -> 11 -> 12 -> 13
 | 10. Admin Table Migrations | v1.1 | 3/3 | Complete    | 2026-04-17 |
 | 11. Camera Management | v1.1 | 3/3 | Complete    | 2026-04-17 |
 | 12. Recordings | v1.1 | 2/2 | Complete    | 2026-04-17 |
-| 13. Hierarchy & Map | v1.1 | 0/0 | Not started | - |
+| 13. Hierarchy & Map | v1.1 | 0/2 | Planning | - |
