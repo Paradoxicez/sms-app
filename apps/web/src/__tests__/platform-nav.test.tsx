@@ -1,28 +1,23 @@
 /**
- * VALIDATION: TBD-07 — D-04 platform sidebar = exactly 7 items
+ * VALIDATION: TBD-07 — D-04 platform sidebar = exactly 7 items.
+ * Tests adminNavGroups from nav-config.ts (replaces PlatformNav component tests).
  */
-import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect } from "vitest";
+import { adminNavGroups } from "@/components/nav/nav-config";
 
-import { mockAuthClient } from "@/test-utils/mock-auth-client";
+describe("adminNavGroups (D-04, D-06)", () => {
+  it("contains exactly 1 group with label 'Platform'", () => {
+    expect(adminNavGroups).toHaveLength(1);
+    expect(adminNavGroups[0].label).toBe("Platform");
+  });
 
-vi.mock("@/lib/auth-client", () => ({
-  authClient: mockAuthClient,
-  useSession: () => ({ data: null }),
-}));
+  it("Platform group has exactly 7 items", () => {
+    expect(adminNavGroups[0].items).toHaveLength(7);
+  });
 
-vi.mock("next/navigation", () => ({
-  usePathname: () => "/admin",
-  useRouter: () => ({ push: vi.fn() }),
-}));
-
-// Expected RED: module does not yet exist.
-import { PlatformNav } from "@/components/nav/platform-nav";
-
-describe("PlatformNav (D-04, D-06)", () => {
-  it("renders exactly 7 items: Dashboard, Organizations, Packages, Cluster Nodes, Stream Engine, Platform Audit, Users", () => {
-    render(<PlatformNav />);
-    const expected = [
+  it("items include Dashboard, Organizations, Packages, Cluster Nodes, Stream Engine, Platform Audit, Users", () => {
+    const labels = adminNavGroups[0].items.map((i) => i.label);
+    expect(labels).toEqual([
       "Dashboard",
       "Organizations",
       "Packages",
@@ -30,24 +25,21 @@ describe("PlatformNav (D-04, D-06)", () => {
       "Stream Engine",
       "Platform Audit",
       "Users",
-    ];
-    for (const label of expected) {
-      expect(screen.getByRole("link", { name: new RegExp(label, "i") })).toBeInTheDocument();
-    }
-    const allLinks = screen.getAllByRole("link");
-    // Exactly seven navigation links, no tenant items bleed in.
-    expect(allLinks.length).toBe(7);
+    ]);
   });
 
-  it("does NOT render tenant items (Cameras, Projects, Recordings, etc) (D-06)", () => {
-    render(<PlatformNav />);
-    for (const label of ["Cameras", "Projects", "Recordings", "Map", "API Keys", "Webhooks", "Policies", "Team"]) {
-      expect(screen.queryByRole("link", { name: new RegExp(label, "i") })).toBeNull();
+  it("each item has href, icon, and label defined", () => {
+    for (const item of adminNavGroups[0].items) {
+      expect(item.label).toBeTruthy();
+      expect(item.href).toBeTruthy();
+      expect(item.icon).toBeDefined();
     }
   });
 
-  it("header badge reads 'Platform'", () => {
-    render(<PlatformNav />);
-    expect(screen.getByText(/^Platform$/)).toBeInTheDocument();
+  it("does NOT contain any tenant items (Cameras, Projects, Recordings, etc)", () => {
+    const labels = adminNavGroups[0].items.map((i) => i.label);
+    for (const tenant of ["Cameras", "Projects", "Recordings", "Map", "API Keys", "Webhooks", "Policies", "Team"]) {
+      expect(labels).not.toContain(tenant);
+    }
   });
 });

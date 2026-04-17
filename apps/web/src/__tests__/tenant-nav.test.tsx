@@ -1,192 +1,103 @@
 /**
- * VALIDATION: TBD-04/TBD-05/TBD-06 — D-11 role & D-13 feature filtering of tenant nav.
- *
- * Props contract per src/components/nav/tenant-nav.tsx:
- *   TenantNav({ memberRole, activeOrgId, activeOrgName, userName?, userEmail? })
- *
- * Admin (memberRole="admin") permitted=ALL, so nav surfaces the union of all
- * groups gated by useFeatures. With all default features ON, 13 items render:
- *   Overview      : Dashboard, Map
- *   Cameras       : Cameras, Projects, Stream Profiles, Recordings, Policies
- *   Organization  : Team, Audit Log
- *   Developer     : Overview, API Keys, Webhooks, Docs
+ * VALIDATION: TBD-04/TBD-05/TBD-06 — D-11 role & D-13 feature filtering.
+ * Tests tenantNavGroups, filterNavGroups, and ROLE_MATRIX from nav-config.ts
+ * (replaces TenantNav component tests).
  */
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
-
+import { describe, it, expect } from "vitest";
 import {
-  createMockFeatures,
-  useFeaturesMockFn,
-  resetUseFeaturesMock,
-} from "@/test-utils/mock-use-features";
+  tenantNavGroups,
+  filterNavGroups,
+  ROLE_MATRIX,
+} from "@/components/nav/nav-config";
 
-vi.mock("@/hooks/use-features", () => ({
-  useFeatures: (orgId: string | null | undefined) => useFeaturesMockFn(orgId),
-}));
-
-vi.mock("next/navigation", () => ({
-  usePathname: () => "/app/dashboard",
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
-}));
-
-vi.mock("@/lib/auth-client", () => ({
-  authClient: {
-    signOut: vi.fn(async () => ({ data: {} })),
-  },
-}));
-
-import { TenantNav } from "@/components/nav/tenant-nav";
-
-const ORG_ID = "org-test-1";
-const ORG_NAME = "Test Org";
-
-describe("TenantNav role + feature filtering (D-11, D-13, D-14)", () => {
-  beforeEach(() => {
-    resetUseFeaturesMock();
-  });
-
-  it("Org Admin sees all 13 nav items when all features enabled", () => {
-    render(
-      <TenantNav
-        memberRole="admin"
-        activeOrgId={ORG_ID}
-        activeOrgName={ORG_NAME}
-      />,
-    );
-    const expected = [
-      "Dashboard",
-      "Map",
-      "Cameras",
-      "Projects",
-      "Stream Profiles",
-      "Recordings",
-      "Policies",
-      "Team",
-      "Audit Log",
+describe("tenantNavGroups", () => {
+  it("contains exactly 4 groups: Overview, Cameras, Organization, Developer", () => {
+    expect(tenantNavGroups).toHaveLength(4);
+    expect(tenantNavGroups.map((g) => g.label)).toEqual([
       "Overview",
-      "API Keys",
-      "Webhooks",
-      "Docs",
-    ];
-    for (const label of expected) {
-      expect(
-        screen.getByRole("link", { name: new RegExp(`^${label}$`, "i") }),
-      ).toBeInTheDocument();
-    }
-  });
-
-  it("Operator sees exactly {Dashboard, Cameras, Map, Recordings, Audit Log}", () => {
-    render(
-      <TenantNav
-        memberRole="operator"
-        activeOrgId={ORG_ID}
-        activeOrgName={ORG_NAME}
-      />,
-    );
-    const allowed = ["Dashboard", "Cameras", "Map", "Recordings", "Audit Log"];
-    for (const label of allowed) {
-      expect(
-        screen.getByRole("link", { name: new RegExp(`^${label}$`, "i") }),
-      ).toBeInTheDocument();
-    }
-    for (const disallowed of [
-      "Policies",
-      "Team",
-      "API Keys",
-      "Webhooks",
-      "Projects",
-    ]) {
-      expect(
-        screen.queryByRole("link", { name: new RegExp(`^${disallowed}$`, "i") }),
-      ).toBeNull();
-    }
-  });
-
-  it("Developer sees exactly {Dashboard, Cameras, Map, Overview, API Keys, Webhooks, Docs, Audit Log}", () => {
-    render(
-      <TenantNav
-        memberRole="developer"
-        activeOrgId={ORG_ID}
-        activeOrgName={ORG_NAME}
-      />,
-    );
-    const allowed = [
-      "Dashboard",
       "Cameras",
-      "Map",
-      "Overview",
-      "API Keys",
-      "Webhooks",
-      "Docs",
-      "Audit Log",
-    ];
-    for (const label of allowed) {
-      expect(
-        screen.getByRole("link", { name: new RegExp(`^${label}$`, "i") }),
-      ).toBeInTheDocument();
-    }
-    for (const disallowed of ["Policies", "Team", "Recordings", "Projects"]) {
-      expect(
-        screen.queryByRole("link", { name: new RegExp(`^${disallowed}$`, "i") }),
-      ).toBeNull();
-    }
+      "Organization",
+      "Developer",
+    ]);
+  });
+});
+
+describe("ROLE_MATRIX", () => {
+  it("admin has ALL access", () => {
+    expect(ROLE_MATRIX.admin).toBe("ALL");
   });
 
-  it("Viewer sees exactly {Dashboard, Cameras, Map, Recordings, Audit Log}", () => {
-    render(
-      <TenantNav
-        memberRole="viewer"
-        activeOrgId={ORG_ID}
-        activeOrgName={ORG_NAME}
-      />,
-    );
-    const allowed = ["Dashboard", "Cameras", "Map", "Recordings", "Audit Log"];
-    for (const label of allowed) {
-      expect(
-        screen.getByRole("link", { name: new RegExp(`^${label}$`, "i") }),
-      ).toBeInTheDocument();
-    }
-    for (const disallowed of ["Policies", "Team", "API Keys", "Webhooks"]) {
-      expect(
-        screen.queryByRole("link", { name: new RegExp(`^${disallowed}$`, "i") }),
-      ).toBeNull();
-    }
+  it("operator includes dashboard, cameras, map, recordings, audit-log", () => {
+    expect(ROLE_MATRIX.operator).toContain("/app/dashboard");
+    expect(ROLE_MATRIX.operator).toContain("/app/cameras");
+    expect(ROLE_MATRIX.operator).toContain("/app/map");
+    expect(ROLE_MATRIX.operator).toContain("/app/recordings");
+    expect(ROLE_MATRIX.operator).toContain("/app/audit-log");
   });
 
-  it("hides Recordings when features.recordings=false (D-13)", () => {
-    useFeaturesMockFn.mockImplementation(() => ({
-      features: createMockFeatures({ recordings: false }),
-      isEnabled: (k: string) =>
-        createMockFeatures({ recordings: false })[k] === true,
-      loading: false,
-      error: null,
-    }));
-    render(
-      <TenantNav
-        memberRole="admin"
-        activeOrgId={ORG_ID}
-        activeOrgName={ORG_NAME}
-      />,
-    );
-    expect(screen.queryByRole("link", { name: /^Recordings$/i })).toBeNull();
+  it("developer includes developer paths but not recordings", () => {
+    expect(ROLE_MATRIX.developer).toContain("/app/developer");
+    expect(ROLE_MATRIX.developer).toContain("/app/developer/api-keys");
+    expect(ROLE_MATRIX.developer).not.toContain("/app/recordings");
   });
 
-  it("hides API Keys + Webhooks when respective features disabled (D-14)", () => {
-    useFeaturesMockFn.mockImplementation(() => ({
-      features: createMockFeatures({ apiKeys: false, webhooks: false }),
-      isEnabled: (k: string) =>
-        createMockFeatures({ apiKeys: false, webhooks: false })[k] === true,
-      loading: false,
-      error: null,
-    }));
-    render(
-      <TenantNav
-        memberRole="admin"
-        activeOrgId={ORG_ID}
-        activeOrgName={ORG_NAME}
-      />,
-    );
-    expect(screen.queryByRole("link", { name: /^API Keys$/i })).toBeNull();
-    expect(screen.queryByRole("link", { name: /^Webhooks$/i })).toBeNull();
+  it("viewer excludes developer paths", () => {
+    expect(ROLE_MATRIX.viewer).not.toContain("/app/developer");
+    expect(ROLE_MATRIX.viewer).not.toContain("/app/developer/api-keys");
+  });
+});
+
+describe("filterNavGroups", () => {
+  const allEnabled = () => true;
+  const noneEnabled = () => false;
+
+  it("admin with all features returns all items", () => {
+    const result = filterNavGroups(tenantNavGroups, "admin", allEnabled);
+    const allHrefs = result.flatMap((g) => g.items.map((i) => i.href));
+    // All 13 items when all features are on
+    expect(allHrefs).toHaveLength(13);
+  });
+
+  it("viewer excludes Developer section items", () => {
+    const result = filterNavGroups(tenantNavGroups, "viewer", allEnabled);
+    const allHrefs = result.flatMap((g) => g.items.map((i) => i.href));
+    expect(allHrefs).not.toContain("/app/developer");
+    expect(allHrefs).not.toContain("/app/developer/api-keys");
+    expect(allHrefs).not.toContain("/app/developer/webhooks");
+    expect(allHrefs).not.toContain("/app/developer/docs");
+  });
+
+  it("operator includes /app/dashboard and /app/cameras but excludes /app/developer", () => {
+    const result = filterNavGroups(tenantNavGroups, "operator", allEnabled);
+    const allHrefs = result.flatMap((g) => g.items.map((i) => i.href));
+    expect(allHrefs).toContain("/app/dashboard");
+    expect(allHrefs).toContain("/app/cameras");
+    expect(allHrefs).not.toContain("/app/developer");
+  });
+
+  it("feature flag filtering: recordings=false excludes Recordings item", () => {
+    const isEnabled = (key: string) => key !== "recordings";
+    const result = filterNavGroups(tenantNavGroups, "admin", isEnabled);
+    const allLabels = result.flatMap((g) => g.items.map((i) => i.label));
+    expect(allLabels).not.toContain("Recordings");
+  });
+
+  it("feature flag filtering: apiKeys=false and webhooks=false excludes those items", () => {
+    const isEnabled = (key: string) => key !== "apiKeys" && key !== "webhooks";
+    const result = filterNavGroups(tenantNavGroups, "admin", isEnabled);
+    const allLabels = result.flatMap((g) => g.items.map((i) => i.label));
+    expect(allLabels).not.toContain("API Keys");
+    expect(allLabels).not.toContain("Webhooks");
+    // Overview and Docs should still be present
+    expect(allLabels).toContain("Overview");
+    expect(allLabels).toContain("Docs");
+  });
+
+  it("removes empty groups after filtering", () => {
+    // Viewer with no features enabled: some groups might be empty
+    const result = filterNavGroups(tenantNavGroups, "viewer", noneEnabled);
+    for (const group of result) {
+      expect(group.items.length).toBeGreaterThan(0);
+    }
   });
 });

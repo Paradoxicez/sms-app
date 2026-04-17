@@ -48,6 +48,17 @@ vi.mock("@/hooks/use-features", () => ({
   useFeatures: (orgId: string | null | undefined) => useFeaturesMockFn(orgId),
 }));
 
+// Mock sidebar components to avoid rendering full sidebar tree
+vi.mock("@/components/nav/app-sidebar", () => ({
+  AppSidebar: () => <div data-testid="sidebar" />,
+}));
+
+vi.mock("@/components/ui/sidebar", () => ({
+  SidebarProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  SidebarInset: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  SidebarTrigger: () => <button data-testid="sidebar-trigger" />,
+}));
+
 const { toastErrorMock } = vi.hoisted(() => ({
   toastErrorMock: vi.fn(),
 }));

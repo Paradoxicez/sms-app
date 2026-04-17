@@ -27,6 +27,17 @@ vi.mock("@/lib/auth-client", () => ({
   useSession: () => ({ data: null }),
 }));
 
+// Mock sidebar components to avoid rendering full sidebar tree
+vi.mock("@/components/nav/app-sidebar", () => ({
+  AppSidebar: () => <div data-testid="sidebar" />,
+}));
+
+vi.mock("@/components/ui/sidebar", () => ({
+  SidebarProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  SidebarInset: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  SidebarTrigger: () => <button data-testid="sidebar-trigger" />,
+}));
+
 import AdminLayout from "@/app/admin/layout";
 
 describe("admin layout guard (D-22)", () => {
