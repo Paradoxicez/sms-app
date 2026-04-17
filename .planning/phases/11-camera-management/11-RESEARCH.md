@@ -139,25 +139,23 @@ export function createCamerasColumns(
 }
 ```
 
-### Pattern 2: DataTable Toolbar Children
+### Pattern 2: useReactTable Direct Usage for Dual-View Components
 
-**What:** Custom toolbar content passed via `toolbar` prop, rendered in `ml-auto` container.
-**When to use:** Adding view toggle and CTA button to toolbar.
-**Source:** `data-table-toolbar.tsx` line 74 [VERIFIED: codebase]
+**What:** When a component needs to render the same filtered data in both table and card views, use `useReactTable` directly instead of delegating to the `<DataTable>` wrapper. This gives access to `table.getFilteredRowModel()` for passing filtered data to the card grid.
+**When to use:** CamerasDataTable (table/card view toggle with shared filter state per D-23).
+**Source:** `@tanstack/react-table` + `data-table-toolbar.tsx`, `data-table-pagination.tsx` [VERIFIED: codebase]
 
 ```typescript
-// The DataTable toolbar renders {children} in a ml-auto flex container
-<DataTable
-  toolbar={
-    <>
-      <ViewToggle view={view} onViewChange={setView} />
-      <Button onClick={() => setCreateOpen(true)}>
-        <Plus className="mr-2 size-4" />
-        Add Camera
-      </Button>
-    </>
-  }
-/>
+// CamerasDataTable uses useReactTable directly from the start
+import { useReactTable, getCoreRowModel, getSortedRowModel, getFilteredRowModel, getPaginationRowModel } from "@tanstack/react-table"
+import { DataTableToolbar, DataTablePagination } from "@/components/ui/data-table"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+
+// Create table instance
+const table = useReactTable({ data: cameras, columns, ... })
+
+// Table view: render table HTML + pagination
+// Card view: render CameraCardGrid with table.getFilteredRowModel().rows.map(r => r.original)
 ```
 
 ### Pattern 3: Controlled Sheet with Camera Switching (D-20)
@@ -239,6 +237,7 @@ The hook requires `orgId` from the auth session. The current `tenant-cameras-pag
 - **Closing and reopening Sheet on camera switch:** Per D-20, changing cameras should NOT unmount the Sheet. Use controlled state with `selectedCameraId`.
 - **Using server-side pagination for cameras:** Per D-03, use client-side pagination. Do NOT pass `pageCount` prop to DataTable (that triggers server-side mode).
 - **Building custom action menu:** Use the existing `DataTableRowActions` component with `RowAction[]` interface. Do NOT build a new dropdown from scratch.
+- **Using DataTable wrapper when dual-view is needed:** When both table and card views share filter state (D-23), use `useReactTable` directly instead of the `<DataTable>` convenience wrapper. The wrapper does not expose filtered row data needed for the card grid.
 
 ## Don't Hand-Roll
 
@@ -292,7 +291,7 @@ The hook requires `orgId` from the auth session. The current `tenant-cameras-pag
 ### Pitfall 6: AuditLogDataTable apiUrl for Camera Filtering
 **What goes wrong:** Activity tab in sheet shows all audit logs, not filtered to the selected camera.
 **Why it happens:** The `AuditLogDataTable` component accepts an `apiUrl` prop (default: `/api/audit-log`). Need to pass camera-specific URL.
-**How to avoid:** Pass `apiUrl={`/api/audit-log?cameraId=${cameraId}`}` or whatever the backend API supports for camera-scoped audit logs. Verify the backend endpoint supports this filter parameter.
+**How to avoid:** Pass `apiUrl={`/api/audit-log?resource=camera&search=${cameraId}`}` using the existing `resource` and `search` query params. This is best-effort filtering.
 **Warning signs:** Activity tab shows unrelated audit entries.
 
 ## Code Examples
@@ -423,7 +422,7 @@ import { startRecording, stopRecording } from "@/hooks/use-recordings"
         <ResolvedPolicyCard cameraId={selectedCameraId!} />
       </TabsContent>
       <TabsContent value="activity" className="flex-1 overflow-y-auto p-4">
-        <AuditLogDataTable apiUrl={`/api/audit-log?cameraId=${selectedCameraId}`} />
+        <AuditLogDataTable apiUrl={`/api/audit-log?resource=camera&search=${selectedCameraId}`} />
       </TabsContent>
     </Tabs>
   </SheetContent>
@@ -445,26 +444,29 @@ import { startRecording, stopRecording } from "@/hooks/use-recordings"
 
 | # | Claim | Section | Risk if Wrong |
 |---|-------|---------|---------------|
-| A1 | Backend `/api/audit-log` supports `?cameraId=X` query parameter for filtering | Code Examples (Activity tab) | Activity tab would show all org logs instead of camera-specific; need backend change |
+| A1 | Backend `/api/audit-log` supports `?resource=X&search=Y` query parameters for filtering | Code Examples (Activity tab) | Activity tab would show all org logs instead of camera-specific; need backend change |
 | A2 | Backend `/api/cameras` returns `isRecording` field for each camera | Code Examples (Record toggle) | Cannot show correct record toggle label; need to check recording status separately |
 | A3 | The `CameraFormDialog` can be extended to support edit mode (pre-filled fields + PATCH/PUT) | Architecture Patterns | Currently only supports create; may need more significant rework for edit mode |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Audit log camera filter**
+1. **Audit log camera filter** (RESOLVED)
    - What we know: `AuditLogDataTable` accepts `apiUrl` prop. Current page uses it at `/api/audit-log`.
    - What's unclear: Whether the backend audit log API supports filtering by `cameraId` query param.
    - Recommendation: Verify the endpoint; if not supported, the activity tab can be deferred or show all logs with a note.
+   - **Resolution:** Plan 03 Task 1 uses `apiUrl={/api/audit-log?resource=camera&search=${camera.id}}` which leverages the existing `resource` and `search` query params. This is best-effort filtering -- if the backend doesn't filter precisely by camera ID, the tab shows broader results but does not crash. No backend changes required.
 
-2. **Camera form edit mode**
+2. **Camera form edit mode** (RESOLVED)
    - What we know: `CameraFormDialog` currently only supports create (POST to `/api/sites/{siteId}/cameras`).
    - What's unclear: The detail page has inline edit fields -- the dialog needs to be extended for edit mode (pre-fill + PATCH).
    - Recommendation: Extend `CameraFormDialog` with optional `camera` prop. When present, pre-fill fields and use PATCH on submit.
+   - **Resolution:** Plan 01 Task 2 extends `CameraFormDialog` with an optional `camera` prop. When provided, fields are pre-filled via `useEffect`, dialog title changes to "Edit Camera", and submit uses `PATCH /api/cameras/${camera.id}` instead of `POST /api/sites/${siteId}/cameras`. Stream profile selection is added to both modes.
 
-3. **Stream URL for HLS playback in card hover**
+3. **Stream URL for HLS playback in card hover** (RESOLVED)
    - What we know: The detail page constructs HLS URLs as `${API_BASE}/api/cameras/${id}/stream/index.m3u8`.
    - What's unclear: Whether the list API returns enough info to construct HLS URLs, or if a separate endpoint is needed.
    - Recommendation: Construct URL from camera ID + API base. The pattern is already established in the detail page.
+   - **Resolution:** Plan 02 Task 1 constructs HLS URLs using `/api/cameras/${camera.id}/stream/index.m3u8` (relative path). The camera ID is available from the `CameraRow` type returned by the list API. No separate endpoint needed -- same pattern as existing detail page.
 
 ## Validation Architecture
 
