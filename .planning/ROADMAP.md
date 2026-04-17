@@ -73,12 +73,13 @@ Plans:
   2. Each table row has a "..." quick actions menu with contextually appropriate actions (Edit, Delete, etc.)
   3. Stream profiles page displays profiles in a data table (replacing card layout) with quick actions (Edit, Duplicate, Delete)
   4. All 5 tables share consistent visual patterns -- same filter bar position, same pagination controls, same action menu behavior
-**Plans**: TBD
+**Plans**: 3 plans
 **UI hint**: yes
 
 Plans:
-- [ ] 10-01: TBD
-- [ ] 10-02: TBD
+- [ ] 10-01-PLAN.md — Audit log backend offset pagination + frontend DataTable migration with server-side pagination
+- [ ] 10-02-PLAN.md — Users and API Keys table migrations to DataTable with faceted filters and quick actions
+- [ ] 10-03-PLAN.md — Webhooks and Stream Profiles table migrations (card grid to table for profiles)
 
 ### Phase 11: Camera Management
 **Goal**: Users can manage cameras efficiently through a powerful table, quick actions, card view with live preview, and a slide-in stream viewer
@@ -150,7 +151,7 @@ Phases execute in numeric order: 8 -> 9 -> 10 -> 11 -> 12 -> 13
 | 999.1. Role-based Sidebar Navigation | v1.0 | 5/5 | Complete | 2026-04-15 |
 | 8. Foundation Components | v1.1 | 0/2 | Planning | - |
 | 9. Layout & Login | v1.1 | 0/3 | Planning | - |
-| 10. Admin Table Migrations | v1.1 | 0/0 | Not started | - |
+| 10. Admin Table Migrations | v1.1 | 0/3 | Planning | - |
 | 11. Camera Management | v1.1 | 0/0 | Not started | - |
 | 12. Recordings | v1.1 | 0/0 | Not started | - |
 | 13. Hierarchy & Map | v1.1 | 0/0 | Not started | - |
