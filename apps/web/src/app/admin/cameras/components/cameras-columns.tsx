@@ -2,7 +2,7 @@
 
 import type { ColumnDef } from "@tanstack/react-table"
 import { formatDistanceToNow } from "date-fns"
-import { Pencil, Play, Circle, Code, Trash2 } from "lucide-react"
+import { Pencil, Play, Circle, Code, Trash2, Radio } from "lucide-react"
 
 import { DataTableColumnHeader } from "@/components/ui/data-table"
 import { DataTableRowActions, type RowAction } from "@/components/ui/data-table"
@@ -26,6 +26,7 @@ interface CamerasColumnCallbacks {
   onDelete: (camera: CameraRow) => void
   onRecordToggle: (camera: CameraRow) => void
   onEmbedCode: (camera: CameraRow) => void
+  onStreamToggle: (camera: CameraRow) => void
 }
 
 export function createCamerasColumns(
@@ -117,6 +118,11 @@ export function createCamerasColumns(
         const rowActions: RowAction<CameraRow>[] = [
           { label: "Edit", icon: Pencil, onClick: callbacks.onEdit },
           { label: "View Stream", icon: Play, onClick: callbacks.onViewStream },
+          {
+            label: camera.status === "online" ? "Stop Stream" : "Start Stream",
+            icon: Radio,
+            onClick: callbacks.onStreamToggle,
+          },
           {
             label: camera.isRecording ? "Stop Recording" : "Start Recording",
             icon: Circle,

@@ -10,6 +10,7 @@ import {
   Circle,
   Code,
   Trash2,
+  Radio,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -32,6 +33,7 @@ interface CameraCardProps {
   onEdit: (camera: CameraRow) => void
   onDelete: (camera: CameraRow) => void
   onRecordToggle: (camera: CameraRow) => void
+  onStreamToggle: (camera: CameraRow) => void
   onEmbedCode: (camera: CameraRow) => void
   activePlayersRef: React.MutableRefObject<number>
   maxConcurrent: number
@@ -87,6 +89,7 @@ export function CameraCard({
   onEdit,
   onDelete,
   onRecordToggle,
+  onStreamToggle,
   onEmbedCode,
   activePlayersRef,
   maxConcurrent,
@@ -197,6 +200,15 @@ export function CameraCard({
               }}
             >
               <Play className="mr-2 size-4" /> View Stream
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                onStreamToggle(camera)
+              }}
+            >
+              <Radio className="mr-2 size-4" />{" "}
+              {camera.status === "online" ? "Stop Stream" : "Start Stream"}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={(e) => {

@@ -17,6 +17,7 @@ interface CameraCardGridProps {
   onEdit: (camera: CameraRow) => void
   onDelete: (camera: CameraRow) => void
   onRecordToggle: (camera: CameraRow) => void
+  onStreamToggle: (camera: CameraRow) => void
   onEmbedCode: (camera: CameraRow) => void
   onCreateCamera?: () => void
 }
@@ -28,6 +29,7 @@ export function CameraCardGrid({
   onEdit,
   onDelete,
   onRecordToggle,
+  onStreamToggle,
   onEmbedCode,
   onCreateCamera,
 }: CameraCardGridProps) {
@@ -77,6 +79,7 @@ export function CameraCardGrid({
           onEdit={onEdit}
           onDelete={onDelete}
           onRecordToggle={onRecordToggle}
+          onStreamToggle={onStreamToggle}
           onEmbedCode={onEmbedCode}
           activePlayersRef={activePlayersRef}
           maxConcurrent={MAX_CONCURRENT}

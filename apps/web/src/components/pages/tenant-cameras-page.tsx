@@ -92,6 +92,21 @@ export default function TenantCamerasPage() {
     // View Stream Sheet — wired in Plan 03
   }
 
+  async function handleStreamToggle(camera: CameraRow) {
+    try {
+      if (camera.status === 'online') {
+        await apiFetch(`/api/cameras/${camera.id}/stream/stop`, { method: 'POST' });
+        toast.success('Stream stopped');
+      } else {
+        await apiFetch(`/api/cameras/${camera.id}/stream/start`, { method: 'POST' });
+        toast.success('Stream started');
+      }
+      fetchCameras();
+    } catch {
+      toast.error('Failed to toggle stream');
+    }
+  }
+
   async function handleRecordToggle(camera: CameraRow) {
     try {
       if (camera.isRecording) {
@@ -146,6 +161,7 @@ export default function TenantCamerasPage() {
         onViewStream={handleViewStream}
         onDelete={handleDelete}
         onRecordToggle={handleRecordToggle}
+        onStreamToggle={handleStreamToggle}
         onEmbedCode={handleEmbedCode}
         onCreateCamera={() => setCreateDialogOpen(true)}
         view={view}

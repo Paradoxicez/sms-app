@@ -44,6 +44,7 @@ interface CamerasDataTableProps {
   onViewStream: (camera: CameraRow) => void
   onDelete: (camera: CameraRow) => void
   onRecordToggle: (camera: CameraRow) => void
+  onStreamToggle: (camera: CameraRow) => void
   onEmbedCode: (camera: CameraRow) => void
   onCreateCamera: () => void
   view: "table" | "card"
@@ -57,6 +58,7 @@ export function CamerasDataTable({
   onViewStream,
   onDelete,
   onRecordToggle,
+  onStreamToggle,
   onEmbedCode,
   onCreateCamera,
   view,
@@ -69,9 +71,10 @@ export function CamerasDataTable({
         onViewStream,
         onDelete,
         onRecordToggle,
+        onStreamToggle,
         onEmbedCode,
       }),
-    [onEdit, onViewStream, onDelete, onRecordToggle, onEmbedCode]
+    [onEdit, onViewStream, onDelete, onRecordToggle, onStreamToggle, onEmbedCode]
   )
 
   const [sorting, setSorting] = useState<SortingState>([])
@@ -239,6 +242,7 @@ export function CamerasDataTable({
           onEdit={onEdit}
           onDelete={onDelete}
           onRecordToggle={onRecordToggle}
+          onStreamToggle={onStreamToggle}
           onEmbedCode={onEmbedCode}
           onCreateCamera={onCreateCamera}
         />
