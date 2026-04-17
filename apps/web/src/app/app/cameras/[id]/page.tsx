@@ -1,1 +1,5 @@
-export { default } from "@/app/admin/cameras/[id]/page";
+import { redirect } from "next/navigation"
+
+export default function CameraDetailPage() {
+  redirect("/app/cameras")
+}
