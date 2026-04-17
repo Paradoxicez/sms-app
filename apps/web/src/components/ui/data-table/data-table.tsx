@@ -49,6 +49,7 @@ interface DataTableProps<TData, TValue> {
     pageIndex: number
     pageSize: number
   }) => void
+  onColumnFiltersChange?: (filters: ColumnFiltersState) => void
   loading?: boolean
   emptyState?: EmptyStateConfig
 }
@@ -64,6 +65,7 @@ function DataTable<TData, TValue>({
   onRowSelectionChange,
   pageCount: externalPageCount,
   onPaginationChange,
+  onColumnFiltersChange: onColumnFiltersChangeProp,
   loading = false,
   emptyState,
 }: DataTableProps<TData, TValue>) {
@@ -114,6 +116,13 @@ function DataTable<TData, TValue>({
       onPaginationChange(pagination)
     }
   }, [pagination, onPaginationChange])
+
+  // Notify parent of column filter changes (server-side mode)
+  React.useEffect(() => {
+    if (onColumnFiltersChangeProp) {
+      onColumnFiltersChangeProp(columnFilters)
+    }
+  }, [columnFilters, onColumnFiltersChangeProp])
 
   // Notify parent of row selection changes
   React.useEffect(() => {

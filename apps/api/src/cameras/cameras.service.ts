@@ -81,6 +81,13 @@ export class CamerasService {
     });
   }
 
+  async findAllSites() {
+    return this.tenancy.site.findMany({
+      orderBy: { name: 'asc' },
+      include: { project: { select: { id: true, name: true } } },
+    });
+  }
+
   async findSitesByProject(projectId: string) {
     return this.tenancy.site.findMany({
       where: { projectId },

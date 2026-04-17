@@ -2,8 +2,9 @@
 
 import * as React from "react"
 import { useSearchParams, useRouter } from "next/navigation"
+import { type ColumnFiltersState } from "@tanstack/react-table"
 import { type DateRange } from "react-day-picker"
-import { Trash2, Loader2 } from "lucide-react"
+import { Trash2, Download, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 
@@ -65,19 +66,24 @@ export function RecordingsDataTable() {
   const [projects, setProjects] = React.useState<FilterOption[]>([])
   const [sites, setSites] = React.useState<FilterOption[]>([])
 
-  // Refetch counter to trigger re-fetches after mutations
+  // Refetch counter
   const [refetchCounter, setRefetchCounter] = React.useState(0)
 
   // Delete dialog state
   const [bulkDeleteOpen, setBulkDeleteOpen] = React.useState(false)
-  const [singleDeleteTarget, setSingleDeleteTarget] = React.useState<RecordingRow | null>(null)
+  const [singleDeleteTarget, setSingleDeleteTarget] =
+    React.useState<RecordingRow | null>(null)
   const [deleting, setDeleting] = React.useState(false)
 
   // Debounced search
   const [searchInput, setSearchInput] = React.useState(search)
-  const searchTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const searchTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  )
 
-  // Sync searchInput from URL on external changes
+  // Guard to skip URL update on initial column filter sync
+  const columnFilterInitRef = React.useRef(true)
+
   React.useEffect(() => {
     setSearchInput(search)
   }, [search])
@@ -93,7 +99,6 @@ export function RecordingsDataTable() {
           params.delete(key)
         }
       })
-      // Reset to page 1 on filter changes (Pitfall 6)
       if (resetPage && !("page" in updates)) {
         params.set("page", "1")
       }
@@ -102,23 +107,28 @@ export function RecordingsDataTable() {
     [searchParams, router]
   )
 
-  // --- Fetch filter options ---
+  // --- Fetch filter options (each independently so one failure doesn't break all) ---
   React.useEffect(() => {
-    async function fetchFilterOptions() {
-      try {
-        const [camerasRes, projectsRes, sitesRes] = await Promise.all([
-          apiFetch<{ data: FilterOption[] } | FilterOption[]>("/api/cameras"),
-          apiFetch<{ data: FilterOption[] } | FilterOption[]>("/api/projects"),
-          apiFetch<{ data: FilterOption[] } | FilterOption[]>("/api/sites"),
-        ])
-        setCameras(Array.isArray(camerasRes) ? camerasRes : camerasRes.data ?? [])
-        setProjects(Array.isArray(projectsRes) ? projectsRes : projectsRes.data ?? [])
-        setSites(Array.isArray(sitesRes) ? sitesRes : sitesRes.data ?? [])
-      } catch {
-        // Silently fail - filters just won't have options
-      }
-    }
-    fetchFilterOptions()
+    apiFetch<FilterOption[]>("/api/cameras")
+      .then((res) => {
+        const arr = Array.isArray(res) ? res : []
+        setCameras(arr.map((c) => ({ id: c.id, name: c.name })))
+      })
+      .catch(() => {})
+
+    apiFetch<FilterOption[]>("/api/projects")
+      .then((res) => {
+        const arr = Array.isArray(res) ? res : []
+        setProjects(arr.map((p) => ({ id: p.id, name: p.name })))
+      })
+      .catch(() => {})
+
+    apiFetch<FilterOption[]>("/api/sites")
+      .then((res) => {
+        const arr = Array.isArray(res) ? res : []
+        setSites(arr.map((s) => ({ id: s.id, name: s.name })))
+      })
+      .catch(() => {})
   }, [])
 
   // --- Fetch recordings data ---
@@ -162,25 +172,74 @@ export function RecordingsDataTable() {
     return () => {
       cancelled = true
     }
-  }, [page, pageSize, search, cameraFilter, projectFilter, siteFilter, statusFilter, fromDate, toDate, refetchCounter])
+  }, [
+    page,
+    pageSize,
+    search,
+    cameraFilter,
+    projectFilter,
+    siteFilter,
+    statusFilter,
+    fromDate,
+    toDate,
+    refetchCounter,
+  ])
 
-  // --- Refetch helper ---
   const refetch = React.useCallback(() => {
     setRefetchCounter((c) => c + 1)
   }, [])
 
+  // --- Sync DataTable column filter changes → URL params ---
+  const handleColumnFiltersChange = React.useCallback(
+    (filters: ColumnFiltersState) => {
+      if (columnFilterInitRef.current) {
+        columnFilterInitRef.current = false
+        return
+      }
+
+      const updates: Record<string, string | undefined> = {}
+
+      const cameraVal = filters.find((f) => f.id === "camera")?.value as
+        | string[]
+        | undefined
+      updates.camera = cameraVal?.length ? cameraVal.join(",") : undefined
+
+      const projectVal = filters.find((f) => f.id === "project")?.value as
+        | string[]
+        | undefined
+      updates.project = projectVal?.length ? projectVal.join(",") : undefined
+
+      const siteVal = filters.find((f) => f.id === "site")?.value as
+        | string[]
+        | undefined
+      updates.site = siteVal?.length ? siteVal.join(",") : undefined
+
+      const statusVal = filters.find((f) => f.id === "status")?.value as
+        | string[]
+        | undefined
+      updates.status = statusVal?.length ? statusVal.join(",") : undefined
+
+      updateUrlParams(updates)
+    },
+    [updateUrlParams]
+  )
+
   // --- Callbacks ---
   const handleDownload = React.useCallback(async (recording: RecordingRow) => {
     try {
-      const res = await apiFetch<{ url: string }>(
-        `/api/recordings/${recording.id}/download`
-      )
-      window.open(res.url, "_blank")
+      window.open(`/api/recordings/${recording.id}/manifest`, "_blank")
       toast("Download started")
     } catch {
       toast.error("Failed to start download")
     }
   }, [])
+
+  const handleBulkDownload = React.useCallback(async () => {
+    for (const recording of selectedRows) {
+      window.open(`/api/recordings/${recording.id}/manifest`, "_blank")
+    }
+    toast(`Downloading ${selectedRows.length} recording${selectedRows.length > 1 ? "s" : ""}`)
+  }, [selectedRows])
 
   const handleSingleDelete = React.useCallback((recording: RecordingRow) => {
     setSingleDeleteTarget(recording)
@@ -220,9 +279,7 @@ export function RecordingsDataTable() {
           `Deleted ${res.deleted} of ${count} recordings. ${res.failed} failed.`
         )
       } else {
-        toast(
-          `Deleted ${count} recording${count > 1 ? "s" : ""}`
-        )
+        toast(`Deleted ${count} recording${count > 1 ? "s" : ""}`)
       }
       setBulkDeleteOpen(false)
       setSelectedRows([])
@@ -276,7 +333,6 @@ export function RecordingsDataTable() {
     [cameras, projects, sites]
   )
 
-  // --- Determine if any filters are active ---
   const hasActiveFilters =
     !!search ||
     !!cameraFilter ||
@@ -290,7 +346,6 @@ export function RecordingsDataTable() {
     router.replace("?")
   }, [router])
 
-  // --- Date range from URL ---
   const dateRange: DateRange | undefined = React.useMemo(() => {
     if (!fromDate && !toDate) return undefined
     return {
@@ -309,7 +364,6 @@ export function RecordingsDataTable() {
     [updateUrlParams]
   )
 
-  // --- Debounced search handler ---
   const handleSearchChange = React.useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value
@@ -322,14 +376,12 @@ export function RecordingsDataTable() {
     [updateUrlParams]
   )
 
-  // Cleanup timer
   React.useEffect(() => {
     return () => {
       if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
     }
   }, [])
 
-  // --- Pagination handler ---
   const handlePaginationChange = React.useCallback(
     (p: { pageIndex: number; pageSize: number }) => {
       updateUrlParams(
@@ -337,13 +389,12 @@ export function RecordingsDataTable() {
           page: String(p.pageIndex + 1),
           pageSize: String(p.pageSize),
         },
-        false // don't reset page - we're setting it explicitly
+        false
       )
     },
     [updateUrlParams]
   )
 
-  // --- Empty state ---
   const emptyState = React.useMemo(() => {
     if (hasActiveFilters) {
       return {
@@ -366,15 +417,16 @@ export function RecordingsDataTable() {
       description:
         "Recordings will appear here when cameras start recording. Go to Cameras to start a recording.",
       action: (
-        <Button variant="ghost" size="sm" render={<Link href="/app/cameras" />}>
-          Go to Cameras
-        </Button>
+        <Link href="/app/cameras">
+          <Button variant="ghost" size="sm">
+            Go to Cameras
+          </Button>
+        </Link>
       ),
     }
   }, [hasActiveFilters, clearAllFilters])
 
   const selectedCount = selectedRows.length
-  const bulkDeleteLabel = `Delete Selected (${selectedCount})`
 
   return (
     <>
@@ -384,6 +436,7 @@ export function RecordingsDataTable() {
         facetedFilters={facetedFilters}
         enableRowSelection
         onRowSelectionChange={setSelectedRows}
+        onColumnFiltersChange={handleColumnFiltersChange}
         pageCount={Math.ceil(total / pageSize) || 1}
         onPaginationChange={handlePaginationChange}
         loading={loading}
@@ -403,7 +456,16 @@ export function RecordingsDataTable() {
               className="h-8 w-[260px]"
             />
             {selectedCount > 0 && (
-              <div className="ml-auto">
+              <div className="ml-auto flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleBulkDownload}
+                  aria-label={`Download ${selectedCount} selected recordings`}
+                >
+                  <Download className="mr-2 size-4" />
+                  Download ({selectedCount})
+                </Button>
                 <Button
                   variant="destructive"
                   size="sm"
@@ -411,7 +473,7 @@ export function RecordingsDataTable() {
                   aria-label={`Delete ${selectedCount} selected recordings`}
                 >
                   <Trash2 className="mr-2 size-4" />
-                  {bulkDeleteLabel}
+                  Delete ({selectedCount})
                 </Button>
               </div>
             )}
@@ -433,9 +495,7 @@ export function RecordingsDataTable() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>
-              Cancel
-            </AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               onClick={confirmBulkDelete}
@@ -470,9 +530,7 @@ export function RecordingsDataTable() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>
-              Cancel
-            </AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               onClick={confirmSingleDelete}

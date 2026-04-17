@@ -130,6 +130,13 @@ export class CamerasController {
     return this.camerasService.createSite(this.getOrgId(), projectId, result.data);
   }
 
+  @Get('sites')
+  @ApiOperation({ summary: 'List all sites' })
+  @ApiResponse({ status: 200, description: 'List of sites' })
+  async findAllSites() {
+    return this.camerasService.findAllSites();
+  }
+
   @Get('projects/:projectId/sites')
   @ApiOperation({ summary: 'List sites in a project' })
   @ApiResponse({ status: 200, description: 'List of sites' })
