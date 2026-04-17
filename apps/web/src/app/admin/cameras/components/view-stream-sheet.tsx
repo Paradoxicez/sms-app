@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/sheet"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 import { type CameraRow } from "./cameras-columns"
 import { CameraStatusBadge } from "./camera-status-badge"
@@ -81,41 +82,43 @@ function ViewStreamContent({
           <HlsPlayer src={streamUrl} autoPlay mode="live" />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="rounded-lg border">
-              <div className="px-4 py-3 border-b">
-                <h3 className="text-base font-semibold">Camera Info</h3>
-              </div>
-              <div className="px-4 py-2 space-y-1">
-                <div className="flex items-center justify-between py-1.5 pl-3">
-                  <span className="text-sm text-muted-foreground">Name</span>
-                  <span className="text-sm font-medium">{camera.name}</span>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Camera Info</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between py-1.5 pl-3">
+                    <span className="text-sm text-muted-foreground">Name</span>
+                    <span className="text-sm font-medium">{camera.name}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-1.5 pl-3">
+                    <span className="text-sm text-muted-foreground">Status</span>
+                    <CameraStatusBadge status={camera.status} />
+                  </div>
+                  <div className="flex items-center justify-between py-1.5 pl-3">
+                    <span className="text-sm text-muted-foreground">Site</span>
+                    <span className="text-sm font-medium">{camera.site?.name ?? "-"}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-1.5 pl-3">
+                    <span className="text-sm text-muted-foreground">Project</span>
+                    <span className="text-sm font-medium">{camera.site?.project?.name ?? "-"}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-1.5 pl-3">
+                    <span className="text-sm text-muted-foreground">Codec</span>
+                    <span className="text-sm font-medium font-mono">{camera.codecInfo?.video ?? "-"}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-1.5 pl-3">
+                    <span className="text-sm text-muted-foreground">Resolution</span>
+                    <span className="text-sm font-medium font-mono">
+                      {camera.codecInfo?.width && camera.codecInfo?.height
+                        ? `${camera.codecInfo.width}x${camera.codecInfo.height}`
+                        : "-"}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between py-1.5 pl-3">
-                  <span className="text-sm text-muted-foreground">Status</span>
-                  <CameraStatusBadge status={camera.status} />
-                </div>
-                <div className="flex items-center justify-between py-1.5 pl-3">
-                  <span className="text-sm text-muted-foreground">Site</span>
-                  <span className="text-sm font-medium">{camera.site?.name ?? "-"}</span>
-                </div>
-                <div className="flex items-center justify-between py-1.5 pl-3">
-                  <span className="text-sm text-muted-foreground">Project</span>
-                  <span className="text-sm font-medium">{camera.site?.project?.name ?? "-"}</span>
-                </div>
-                <div className="flex items-center justify-between py-1.5 pl-3">
-                  <span className="text-sm text-muted-foreground">Codec</span>
-                  <span className="text-sm font-medium font-mono">{camera.codecInfo?.video ?? "-"}</span>
-                </div>
-                <div className="flex items-center justify-between py-1.5 pl-3">
-                  <span className="text-sm text-muted-foreground">Resolution</span>
-                  <span className="text-sm font-medium font-mono">
-                    {camera.codecInfo?.width && camera.codecInfo?.height
-                      ? `${camera.codecInfo.width}x${camera.codecInfo.height}`
-                      : "-"}
-                  </span>
-                </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
             <ResolvedPolicyCard cameraId={camera.id} />
           </div>
