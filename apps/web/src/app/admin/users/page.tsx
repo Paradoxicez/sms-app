@@ -5,10 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
 
-import {
-  PlatformUsersTable,
-  type PlatformUserRow,
-} from "./components/platform-users-table";
+import type { PlatformUserRow } from "./components/users-columns";
+import { UsersDataTable } from "./components/users-data-table";
 import { CreatePlatformUserDialog } from "./components/create-platform-user-dialog";
 
 interface Organization {
@@ -95,7 +93,7 @@ export default function PlatformUsersPage() {
         <Button onClick={() => setDialogOpen(true)}>Create User</Button>
       </div>
 
-      <PlatformUsersTable
+      <UsersDataTable
         users={users}
         isLoading={loading}
         onRefetch={load}
