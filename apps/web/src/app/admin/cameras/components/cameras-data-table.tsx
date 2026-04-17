@@ -35,6 +35,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 
 import { type CameraRow, createCamerasColumns } from "./cameras-columns"
+import { CameraCardGrid } from "./camera-card-grid"
 
 interface CamerasDataTableProps {
   cameras: CameraRow[]
@@ -231,9 +232,16 @@ export function CamerasDataTable({
           <DataTablePagination table={table} />
         </>
       ) : (
-        <div>
-          {/* CameraCardGrid added in Plan 02 */}
-        </div>
+        <CameraCardGrid
+          cameras={table.getFilteredRowModel().rows.map((r) => r.original)}
+          loading={loading}
+          onViewStream={onViewStream}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onRecordToggle={onRecordToggle}
+          onEmbedCode={onEmbedCode}
+          onCreateCamera={onCreateCamera}
+        />
       )}
     </div>
   )
