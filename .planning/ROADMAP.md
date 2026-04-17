@@ -56,12 +56,13 @@ Plans:
   2. Sidebar collapse state persists across page navigation (cookie or localStorage)
   3. Existing pages (map with Leaflet, dashboard with Recharts) resize correctly when sidebar collapses -- no layout breakage
   4. Login page shows a redesigned form with "remember me" checkbox that extends session duration
-**Plans**: TBD
+**Plans**: 3 plans
 **UI hint**: yes
 
 Plans:
-- [ ] 09-01: TBD
-- [ ] 09-02: TBD
+- [ ] 09-01-PLAN.md — Sidebar migration: nav config arrays, shared AppSidebar component, layout integration, old nav deletion
+- [ ] 09-02-PLAN.md — Login page redesign: split-screen layout, remember me checkbox, backend 30-day session config
+- [ ] 09-03-PLAN.md — Sidebar resize handling: transitionend hook for Recharts/Leaflet + visual verification checkpoint
 
 ### Phase 10: Admin Table Migrations
 **Goal**: All admin and utility tables use the unified DataTable with consistent UX
@@ -148,7 +149,7 @@ Phases execute in numeric order: 8 -> 9 -> 10 -> 11 -> 12 -> 13
 | 7. Recordings | v1.0 | 5/5 | Complete | 2026-04-14 |
 | 999.1. Role-based Sidebar Navigation | v1.0 | 5/5 | Complete | 2026-04-15 |
 | 8. Foundation Components | v1.1 | 0/2 | Planning | - |
-| 9. Layout & Login | v1.1 | 0/0 | Not started | - |
+| 9. Layout & Login | v1.1 | 0/3 | Planning | - |
 | 10. Admin Table Migrations | v1.1 | 0/0 | Not started | - |
 | 11. Camera Management | v1.1 | 0/0 | Not started | - |
 | 12. Recordings | v1.1 | 0/0 | Not started | - |
