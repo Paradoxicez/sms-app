@@ -1,7 +1,9 @@
 "use client"
 
-import { Copy } from "lucide-react"
+import { Copy, Radio, Circle } from "lucide-react"
 import { toast } from "sonner"
+
+import { apiFetch } from "@/lib/api"
 
 import {
   Sheet,
@@ -23,15 +25,49 @@ interface ViewStreamSheetProps {
   camera: CameraRow | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  onStreamToggle?: (camera: CameraRow) => void
+  onRecordToggle?: (camera: CameraRow) => void
 }
 
-function ViewStreamContent({ camera }: { camera: CameraRow }) {
+function ViewStreamContent({
+  camera,
+  onStreamToggle,
+  onRecordToggle,
+}: {
+  camera: CameraRow
+  onStreamToggle?: (camera: CameraRow) => void
+  onRecordToggle?: (camera: CameraRow) => void
+}) {
   const streamUrl = `/api/cameras/${camera.id}/stream/index.m3u8`
 
   return (
     <>
       <SheetHeader className="p-4 border-b">
-        <SheetTitle className="text-lg font-semibold">{camera.name}</SheetTitle>
+        <div className="flex items-center justify-between pr-8">
+          <SheetTitle className="text-lg font-semibold">{camera.name}</SheetTitle>
+          <div className="flex items-center gap-1">
+            {onStreamToggle && (
+              <Button
+                variant="outline"
+                size="icon-sm"
+                onClick={() => onStreamToggle(camera)}
+                title={camera.status === "online" ? "Stop Stream" : "Start Stream"}
+              >
+                <Radio className="size-4" />
+              </Button>
+            )}
+            {onRecordToggle && (
+              <Button
+                variant="outline"
+                size="icon-sm"
+                onClick={() => onRecordToggle(camera)}
+                title={camera.isRecording ? "Stop Recording" : "Start Recording"}
+              >
+                <Circle className={`size-4 ${camera.isRecording ? "fill-red-500 text-red-500" : ""}`} />
+              </Button>
+            )}
+          </div>
+        </div>
         <SheetDescription className="text-sm text-muted-foreground">
           {camera.site?.name}
           {camera.site?.project?.name ? ` > ${camera.site.project.name}` : ""}
@@ -52,10 +88,10 @@ function ViewStreamContent({ camera }: { camera: CameraRow }) {
             <span className="text-muted-foreground font-medium">Name</span>
             <span>{camera.name}</span>
 
-            <span className="text-muted-foreground font-medium">Status</span>
-            <span>
+            <span className="text-muted-foreground font-medium self-center">Status</span>
+            <div className="flex items-center">
               <CameraStatusBadge status={camera.status} />
-            </span>
+            </div>
 
             <span className="text-muted-foreground font-medium">Site</span>
             <span>{camera.site?.name ?? "-"}</span>
@@ -113,6 +149,8 @@ export function ViewStreamSheet({
   camera,
   open,
   onOpenChange,
+  onStreamToggle,
+  onRecordToggle,
 }: ViewStreamSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -120,7 +158,13 @@ export function ViewStreamSheet({
         side="right"
         className="w-full md:!w-1/2 sm:!max-w-none p-0 flex flex-col"
       >
-        {camera && <ViewStreamContent camera={camera} />}
+        {camera && (
+          <ViewStreamContent
+            camera={camera}
+            onStreamToggle={onStreamToggle}
+            onRecordToggle={onRecordToggle}
+          />
+        )}
       </SheetContent>
     </Sheet>
   )

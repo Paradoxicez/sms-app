@@ -225,6 +225,8 @@ export default function TenantCamerasPage() {
         camera={selectedCamera}
         open={!!selectedCameraId}
         onOpenChange={(open) => { if (!open) setSelectedCameraId(null) }}
+        onStreamToggle={handleStreamToggle}
+        onRecordToggle={handleRecordToggle}
       />
     </div>
   );
