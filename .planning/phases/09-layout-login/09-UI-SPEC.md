@@ -55,14 +55,16 @@ Exceptions:
 | Role | Size | Weight | Line Height | Tailwind Class |
 |------|------|--------|-------------|----------------|
 | Body / Nav item label | 14px | 400 (normal) | 1.43 (20px) | `text-sm` |
-| Label / Form label | 14px | 500 (medium) | 1.43 (20px) | `text-sm font-medium` |
+| Label / Form label / Nav group label | 14px | 600 (semibold) | 1.43 (20px) | `text-sm font-semibold` |
 | Heading / Login title | 20px | 600 (semibold) | 1.4 (28px) | `text-xl font-semibold` |
-| Caption / Nav group label | 12px | 500 (medium) | 1.33 (16px) | `text-xs font-medium` |
-| Display / Branding tagline | 28px | 700 (bold) | 1.2 (34px) | `text-2xl font-bold` |
+| Caption | 12px | 400 (normal) | 1.33 (16px) | `text-xs` |
+| Display / Branding product name | 28px | 600 (semibold) | 1.2 (34px) | `text-2xl font-semibold` |
 
-Weights used in this phase: 400 (normal), 500 (medium), 600 (semibold), 700 (bold -- branding panel only).
+Font sizes: 12px, 14px, 20px, 28px (4 sizes).
 
-Source: Carried forward from Phase 8 typography. Display weight added for login branding panel (Claude's discretion area).
+Weights used in this phase: 400 (normal), 600 (semibold) (2 weights).
+
+Source: Carried forward from Phase 8 typography, consolidated per checker feedback. 16px (branding tagline) promoted to 14px body size. 36px (logo) demoted to 28px display size. 500 (medium) promoted to 600 (semibold). 700 (bold) demoted to 600 (semibold) -- larger font size provides sufficient visual prominence without extra weight.
 
 ---
 
@@ -153,7 +155,7 @@ Source: `apps/web/src/app/globals.css` lines 76-83.
 |  [Logo]  SMS Platform            |  <- SidebarHeader: h-14, px-4
 |  [OrgBadge] Organization Name   |
 +----------------------------------+
-|  OVERVIEW                        |  <- SidebarGroupLabel: text-xs font-medium, text-muted-foreground, px-4
+|  OVERVIEW                        |  <- SidebarGroupLabel: text-sm font-semibold, text-muted-foreground, px-4
 |  [icon] Dashboard                |  <- SidebarMenuButton: h-9, px-3, gap-2 (icon-to-label)
 |  [icon] Map                      |
 |  ─────────────────────────────── |  <- Separator
@@ -223,15 +225,15 @@ Dropdown: `align="end"` `side="right"`, `w-[220px]`, opens from avatar click.
 ```
 +-------------------------------------------+-------------------------------------------+
 |                                           |                                           |
-|         [SMS Logo - large]                |                                           |
-|                                           |           Sign in to SMS Platform         |
-|    Surveillance Management                |                                           |
-|         System                            |    Email                                  |
-|                                           |    [________________________]             |
-|    Embed live CCTV streams                |                                           |
-|    on your website with a                 |    Password                               |
-|    single API call.                       |    [________________________]             |
+|         [SMS Logo - text-2xl              |                                           |
+|          font-semibold text-primary]      |           Sign in to SMS Platform         |
 |                                           |                                           |
+|    Surveillance Management                |    Email                                  |
+|         System                            |    [________________________]             |
+|                                           |                                           |
+|    Embed live CCTV streams                |    Password                               |
+|    on your website with a                 |    [________________________]             |
+|    single API call.                       |                                           |
 |                                           |    [x] Remember me                        |
 |                                           |                                           |
 |         (decorative grid                  |    [      Sign In          ]              |
@@ -267,9 +269,9 @@ Dropdown: `align="end"` `side="right"`, `w-[220px]`, opens from avatar click.
 | Element | Specification |
 |---------|--------------|
 | Background | `var(--sidebar)` -- `hsl(142 30% 97%)` (light green-tinted) |
-| Logo text | "SMS" in `text-4xl font-bold text-primary` (green, 36px) |
-| Product name | "Surveillance Management System" in `text-2xl font-bold text-foreground` (28px) |
-| Tagline | "Embed live CCTV streams on your website with a single API call." in `text-base text-muted-foreground` (16px) |
+| Logo text | "SMS" in `text-2xl font-semibold text-primary` (28px, green) |
+| Product name | "Surveillance Management System" in `text-xl font-semibold text-foreground` (20px) |
+| Tagline | "Embed live CCTV streams on your website with a single API call." in `text-sm text-muted-foreground` (14px) |
 | Decorative element | CSS grid dot pattern using `radial-gradient` in `text-primary/10` (very subtle green dots) |
 | Content alignment | Left-aligned, vertically centered, `px-12 py-16` |
 | Max content width | `max-w-[420px]` |
@@ -312,7 +314,7 @@ Dropdown: `align="end"` `side="right"`, `w-[220px]`, opens from avatar click.
 
 | Interaction | Behavior |
 |-------------|----------|
-| Expanded state | Shows Avatar (32x32) + User name (`text-sm font-medium`) + email (`text-xs text-muted-foreground`). Non-interactive display. |
+| Expanded state | Shows Avatar (32x32) + User name (`text-sm font-semibold`) + email (`text-xs text-muted-foreground`). Non-interactive display. |
 | Collapsed state | Shows Avatar only (32x32), centered. Click opens DropdownMenu to the right. |
 | Click avatar (collapsed) | Opens DropdownMenu with user info + sign out action. |
 | Click "Sign out" | Calls `authClient.signOut()`, redirects to `/sign-in`. |
