@@ -4,13 +4,13 @@ milestone: v1.1
 milestone_name: UI Overhaul
 status: executing
 stopped_at: Phase 12 UI-SPEC approved
-last_updated: "2026-04-17T13:50:51.775Z"
+last_updated: "2026-04-17T14:26:31.884Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 6
-  completed_phases: 4
-  total_plans: 11
-  completed_plans: 11
+  completed_phases: 5
+  total_plans: 13
+  completed_plans: 13
   percent: 100
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-17)
 
 **Core value:** Developers can get a secure HLS playback URL for any registered camera via a single API call, and embed it on their website immediately.
-**Current focus:** Phase 11 — camera-management
+**Current focus:** Phase 12 — recordings
 
 ## Current Position
 
-Phase: 12
+Phase: 13
 Plan: Not started
-Status: Executing Phase 11
+Status: Executing Phase 12
 Last activity: 2026-04-17
 
 Progress: [░░░░░░░░░░] 0%
@@ -36,7 +36,7 @@ Progress: [░░░░░░░░░░] 0%
 
 **Velocity:**
 
-- Total plans completed: 49 (from v1.0)
+- Total plans completed: 51 (from v1.0)
 - Average duration: ~5 min/plan
 - Total execution time: ~3.2 hours
 
