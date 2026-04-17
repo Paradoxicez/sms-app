@@ -471,6 +471,20 @@ export class RecordingsService {
     return recording;
   }
 
+  async getRecordingWithSegments(id: string, orgId: string) {
+    const recording = await this.prisma.recording.findUnique({
+      where: { id },
+      include: {
+        segments: { select: { objectPath: true, seqNo: true } },
+        camera: { select: { name: true } },
+      },
+    });
+    if (!recording) {
+      throw new NotFoundException(`Recording ${id} not found`);
+    }
+    return recording;
+  }
+
   async deleteRecording(id: string, orgId: string) {
     const recording = await this.prisma.recording.findUnique({
       where: { id },

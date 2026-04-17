@@ -177,16 +177,39 @@ export class RecordingsController {
   }
 
   @Get(':id/download')
-  async getDownloadUrl(@Param('id') id: string) {
+  async downloadRecording(@Param('id') id: string, @Res() res: Response) {
     const orgId = this.cls.get('ORG_ID');
-    const recording = await this.recordingsService.getRecording(id, orgId);
+    const recording = await this.recordingsService.getRecordingWithSegments(id, orgId);
 
-    if (!recording.initSegment) {
+    if (!recording.initSegment || recording.segments.length === 0) {
       throw new BadRequestException('Recording has no downloadable file');
     }
 
-    const url = await this.minioService.getPresignedUrl(orgId, recording.initSegment, 14400);
-    return { url };
+    const cameraName = recording.camera?.name ?? 'recording';
+    const dateStr = new Date(recording.startedAt).toISOString().slice(0, 10);
+    const filename = `${cameraName}-${dateStr}.mp4`;
+
+    res.setHeader('Content-Type', 'video/mp4');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+    const initStream = await this.minioService.getObjectStream(orgId, recording.initSegment);
+    await new Promise<void>((resolve, reject) => {
+      initStream.on('data', (chunk: Buffer) => res.write(chunk));
+      initStream.on('end', () => resolve());
+      initStream.on('error', reject);
+    });
+
+    const sortedSegments = recording.segments.sort((a: any, b: any) => a.seqNo - b.seqNo);
+    for (const segment of sortedSegments) {
+      const segStream = await this.minioService.getObjectStream(orgId, segment.objectPath);
+      await new Promise<void>((resolve, reject) => {
+        segStream.on('data', (chunk: Buffer) => res.write(chunk));
+        segStream.on('end', () => resolve());
+        segStream.on('error', reject);
+      });
+    }
+
+    res.end();
   }
 
   @Get(':id/manifest')

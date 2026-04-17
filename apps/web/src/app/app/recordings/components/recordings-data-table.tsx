@@ -227,7 +227,7 @@ export function RecordingsDataTable() {
   // --- Callbacks ---
   const handleDownload = React.useCallback(async (recording: RecordingRow) => {
     try {
-      window.open(`/api/recordings/${recording.id}/manifest`, "_blank")
+      window.open(`/api/recordings/${recording.id}/download`, "_blank")
       toast("Download started")
     } catch {
       toast.error("Failed to start download")
@@ -236,7 +236,7 @@ export function RecordingsDataTable() {
 
   const handleBulkDownload = React.useCallback(async () => {
     for (const recording of selectedRows) {
-      window.open(`/api/recordings/${recording.id}/manifest`, "_blank")
+      window.open(`/api/recordings/${recording.id}/download`, "_blank")
     }
     toast(`Downloading ${selectedRows.length} recording${selectedRows.length > 1 ? "s" : ""}`)
   }, [selectedRows])
