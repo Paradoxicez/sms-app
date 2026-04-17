@@ -48,11 +48,11 @@ Exceptions: none. All spacing follows Phase 8 contract.
 | Role | Size | Weight | Line Height | Tailwind Class |
 |------|------|--------|-------------|----------------|
 | Body / Table cell | 14px | 400 (normal) | 1.43 (20px) | `text-sm` |
-| Label / Table header | 14px | 500 (medium) | 1.43 (20px) | `text-sm font-medium` |
+| Label / Table header | 14px | 600 (semibold) | 1.43 (20px) | `text-sm font-semibold` |
 | Heading (page title) | 20px | 600 (semibold) | 1.4 (28px) | `text-xl font-semibold` |
 | Caption / Muted text | 12px | 400 (normal) | 1.33 (16px) | `text-xs` |
 
-Source: Inherited from Phase 8 UI-SPEC. No changes.
+Source: Inherited from Phase 8 UI-SPEC. Consolidated to 2 weights (400, 600).
 
 ---
 
