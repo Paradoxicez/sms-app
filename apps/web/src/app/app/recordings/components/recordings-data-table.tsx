@@ -1,0 +1,495 @@
+"use client"
+
+import * as React from "react"
+import { useSearchParams, useRouter } from "next/navigation"
+import { type DateRange } from "react-day-picker"
+import { Trash2, Loader2 } from "lucide-react"
+import Link from "next/link"
+import { toast } from "sonner"
+
+import { apiFetch } from "@/lib/api"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { DataTable, type FacetedFilterConfig } from "@/components/ui/data-table"
+import { DateRangePicker } from "@/components/ui/date-range-picker"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
+  createRecordingsColumns,
+  type RecordingRow,
+} from "./recordings-columns"
+
+interface RecordingsResponse {
+  data: RecordingRow[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+interface FilterOption {
+  id: string
+  name: string
+}
+
+export function RecordingsDataTable() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+
+  // --- URL param state ---
+  const page = Number(searchParams.get("page") ?? "1")
+  const pageSize = Number(searchParams.get("pageSize") ?? "10")
+  const search = searchParams.get("search") ?? ""
+  const cameraFilter = searchParams.get("camera") ?? ""
+  const projectFilter = searchParams.get("project") ?? ""
+  const siteFilter = searchParams.get("site") ?? ""
+  const statusFilter = searchParams.get("status") ?? ""
+  const fromDate = searchParams.get("from") ?? ""
+  const toDate = searchParams.get("to") ?? ""
+
+  // --- Local state ---
+  const [data, setData] = React.useState<RecordingRow[]>([])
+  const [total, setTotal] = React.useState(0)
+  const [loading, setLoading] = React.useState(true)
+  const [selectedRows, setSelectedRows] = React.useState<RecordingRow[]>([])
+
+  // Filter options
+  const [cameras, setCameras] = React.useState<FilterOption[]>([])
+  const [projects, setProjects] = React.useState<FilterOption[]>([])
+  const [sites, setSites] = React.useState<FilterOption[]>([])
+
+  // Refetch counter to trigger re-fetches after mutations
+  const [refetchCounter, setRefetchCounter] = React.useState(0)
+
+  // Delete dialog state
+  const [bulkDeleteOpen, setBulkDeleteOpen] = React.useState(false)
+  const [singleDeleteTarget, setSingleDeleteTarget] = React.useState<RecordingRow | null>(null)
+  const [deleting, setDeleting] = React.useState(false)
+
+  // Debounced search
+  const [searchInput, setSearchInput] = React.useState(search)
+  const searchTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Sync searchInput from URL on external changes
+  React.useEffect(() => {
+    setSearchInput(search)
+  }, [search])
+
+  // --- URL update helper ---
+  const updateUrlParams = React.useCallback(
+    (updates: Record<string, string | undefined>, resetPage = true) => {
+      const params = new URLSearchParams(searchParams.toString())
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value) {
+          params.set(key, value)
+        } else {
+          params.delete(key)
+        }
+      })
+      // Reset to page 1 on filter changes (Pitfall 6)
+      if (resetPage && !("page" in updates)) {
+        params.set("page", "1")
+      }
+      router.replace(`?${params.toString()}`)
+    },
+    [searchParams, router]
+  )
+
+  // --- Fetch filter options ---
+  React.useEffect(() => {
+    async function fetchFilterOptions() {
+      try {
+        const [camerasRes, projectsRes, sitesRes] = await Promise.all([
+          apiFetch<{ data: FilterOption[] } | FilterOption[]>("/api/cameras"),
+          apiFetch<{ data: FilterOption[] } | FilterOption[]>("/api/projects"),
+          apiFetch<{ data: FilterOption[] } | FilterOption[]>("/api/sites"),
+        ])
+        setCameras(Array.isArray(camerasRes) ? camerasRes : camerasRes.data ?? [])
+        setProjects(Array.isArray(projectsRes) ? projectsRes : projectsRes.data ?? [])
+        setSites(Array.isArray(sitesRes) ? sitesRes : sitesRes.data ?? [])
+      } catch {
+        // Silently fail - filters just won't have options
+      }
+    }
+    fetchFilterOptions()
+  }, [])
+
+  // --- Fetch recordings data ---
+  React.useEffect(() => {
+    let cancelled = false
+
+    async function fetchData() {
+      setLoading(true)
+      try {
+        const params = new URLSearchParams()
+        params.set("page", String(page))
+        params.set("pageSize", String(pageSize))
+        if (search) params.set("search", search)
+        if (cameraFilter) params.set("cameraId", cameraFilter)
+        if (projectFilter) params.set("projectId", projectFilter)
+        if (siteFilter) params.set("siteId", siteFilter)
+        if (statusFilter) params.set("status", statusFilter)
+        if (fromDate) params.set("startDate", fromDate)
+        if (toDate) params.set("endDate", toDate)
+
+        const res = await apiFetch<RecordingsResponse>(
+          `/api/recordings?${params.toString()}`
+        )
+        if (!cancelled) {
+          setData(res.data)
+          setTotal(res.total)
+        }
+      } catch {
+        if (!cancelled) {
+          setData([])
+          setTotal(0)
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
+    }
+
+    fetchData()
+    return () => {
+      cancelled = true
+    }
+  }, [page, pageSize, search, cameraFilter, projectFilter, siteFilter, statusFilter, fromDate, toDate, refetchCounter])
+
+  // --- Refetch helper ---
+  const refetch = React.useCallback(() => {
+    setRefetchCounter((c) => c + 1)
+  }, [])
+
+  // --- Callbacks ---
+  const handleDownload = React.useCallback(async (recording: RecordingRow) => {
+    try {
+      const res = await apiFetch<{ url: string }>(
+        `/api/recordings/${recording.id}/download`
+      )
+      window.open(res.url, "_blank")
+      toast("Download started")
+    } catch {
+      toast.error("Failed to start download")
+    }
+  }, [])
+
+  const handleSingleDelete = React.useCallback((recording: RecordingRow) => {
+    setSingleDeleteTarget(recording)
+  }, [])
+
+  const confirmSingleDelete = React.useCallback(async () => {
+    if (!singleDeleteTarget) return
+    setDeleting(true)
+    try {
+      await apiFetch(`/api/recordings/${singleDeleteTarget.id}`, {
+        method: "DELETE",
+      })
+      toast("Recording deleted")
+      setSingleDeleteTarget(null)
+      refetch()
+    } catch {
+      toast.error("Failed to delete recording")
+    } finally {
+      setDeleting(false)
+    }
+  }, [singleDeleteTarget, refetch])
+
+  const confirmBulkDelete = React.useCallback(async () => {
+    const ids = selectedRows.map((r) => r.id)
+    const count = ids.length
+    setDeleting(true)
+    try {
+      const res = await apiFetch<{ deleted: number; failed: number }>(
+        "/api/recordings/bulk",
+        {
+          method: "DELETE",
+          body: JSON.stringify({ ids }),
+        }
+      )
+      if (res.failed > 0) {
+        toast.error(
+          `Deleted ${res.deleted} of ${count} recordings. ${res.failed} failed.`
+        )
+      } else {
+        toast(
+          `Deleted ${count} recording${count > 1 ? "s" : ""}`
+        )
+      }
+      setBulkDeleteOpen(false)
+      setSelectedRows([])
+      refetch()
+    } catch {
+      toast.error("Failed to delete recordings")
+    } finally {
+      setDeleting(false)
+    }
+  }, [selectedRows, refetch])
+
+  // --- Columns ---
+  const columns = React.useMemo(
+    () =>
+      createRecordingsColumns({
+        onDownload: handleDownload,
+        onDelete: handleSingleDelete,
+      }),
+    [handleDownload, handleSingleDelete]
+  )
+
+  // --- Faceted filter config ---
+  const facetedFilters: FacetedFilterConfig[] = React.useMemo(
+    () => [
+      {
+        columnId: "camera",
+        title: "Camera",
+        options: cameras.map((c) => ({ label: c.name, value: c.id })),
+      },
+      {
+        columnId: "project",
+        title: "Project",
+        options: projects.map((p) => ({ label: p.name, value: p.id })),
+      },
+      {
+        columnId: "site",
+        title: "Site",
+        options: sites.map((s) => ({ label: s.name, value: s.id })),
+      },
+      {
+        columnId: "status",
+        title: "Status",
+        options: [
+          { label: "Complete", value: "complete" },
+          { label: "Recording", value: "recording" },
+          { label: "Processing", value: "processing" },
+          { label: "Error", value: "error" },
+        ],
+      },
+    ],
+    [cameras, projects, sites]
+  )
+
+  // --- Determine if any filters are active ---
+  const hasActiveFilters =
+    !!search ||
+    !!cameraFilter ||
+    !!projectFilter ||
+    !!siteFilter ||
+    !!statusFilter ||
+    !!fromDate ||
+    !!toDate
+
+  const clearAllFilters = React.useCallback(() => {
+    router.replace("?")
+  }, [router])
+
+  // --- Date range from URL ---
+  const dateRange: DateRange | undefined = React.useMemo(() => {
+    if (!fromDate && !toDate) return undefined
+    return {
+      from: fromDate ? new Date(fromDate) : undefined,
+      to: toDate ? new Date(toDate) : undefined,
+    }
+  }, [fromDate, toDate])
+
+  const handleDateRangeChange = React.useCallback(
+    (range: DateRange | undefined) => {
+      updateUrlParams({
+        from: range?.from ? range.from.toISOString().split("T")[0] : undefined,
+        to: range?.to ? range.to.toISOString().split("T")[0] : undefined,
+      })
+    },
+    [updateUrlParams]
+  )
+
+  // --- Debounced search handler ---
+  const handleSearchChange = React.useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value
+      setSearchInput(value)
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+      searchTimerRef.current = setTimeout(() => {
+        updateUrlParams({ search: value || undefined })
+      }, 300)
+    },
+    [updateUrlParams]
+  )
+
+  // Cleanup timer
+  React.useEffect(() => {
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+    }
+  }, [])
+
+  // --- Pagination handler ---
+  const handlePaginationChange = React.useCallback(
+    (p: { pageIndex: number; pageSize: number }) => {
+      updateUrlParams(
+        {
+          page: String(p.pageIndex + 1),
+          pageSize: String(p.pageSize),
+        },
+        false // don't reset page - we're setting it explicitly
+      )
+    },
+    [updateUrlParams]
+  )
+
+  // --- Empty state ---
+  const emptyState = React.useMemo(() => {
+    if (hasActiveFilters) {
+      return {
+        title: "No recordings found",
+        description: "Try adjusting your search or filter criteria.",
+        action: (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearAllFilters}
+            aria-label="Clear all active filters"
+          >
+            Clear filters
+          </Button>
+        ),
+      }
+    }
+    return {
+      title: "No recordings yet",
+      description:
+        "Recordings will appear here when cameras start recording. Go to Cameras to start a recording.",
+      action: (
+        <Button variant="ghost" size="sm" render={<Link href="/app/cameras" />}>
+          Go to Cameras
+        </Button>
+      ),
+    }
+  }, [hasActiveFilters, clearAllFilters])
+
+  const selectedCount = selectedRows.length
+  const bulkDeleteLabel = `Delete Selected (${selectedCount})`
+
+  return (
+    <>
+      <DataTable
+        columns={columns}
+        data={data}
+        facetedFilters={facetedFilters}
+        enableRowSelection
+        onRowSelectionChange={setSelectedRows}
+        pageCount={Math.ceil(total / pageSize) || 1}
+        onPaginationChange={handlePaginationChange}
+        loading={loading}
+        emptyState={emptyState}
+        toolbar={
+          <div className="flex items-center gap-2 flex-1">
+            <Input
+              placeholder="Search recordings..."
+              value={searchInput}
+              onChange={handleSearchChange}
+              className="h-8 w-[240px]"
+            />
+            <DateRangePicker
+              dateRange={dateRange}
+              onDateRangeChange={handleDateRangeChange}
+              placeholder="Date range"
+              className="h-8 w-[260px]"
+            />
+            {selectedCount > 0 && (
+              <div className="ml-auto">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setBulkDeleteOpen(true)}
+                  aria-label={`Delete ${selectedCount} selected recordings`}
+                >
+                  <Trash2 className="mr-2 size-4" />
+                  {bulkDeleteLabel}
+                </Button>
+              </div>
+            )}
+          </div>
+        }
+      />
+
+      {/* Bulk delete confirmation */}
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete {selectedCount} Recording{selectedCount > 1 ? "s" : ""}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete {selectedCount} selected recording
+              {selectedCount > 1 ? "s" : ""} and their files. This action
+              cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={confirmBulkDelete}
+              disabled={deleting}
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                `Delete ${selectedCount} Recording${selectedCount > 1 ? "s" : ""}`
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Single delete confirmation */}
+      <AlertDialog
+        open={!!singleDeleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setSingleDeleteTarget(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Recording</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this recording and its files. This
+              action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={confirmSingleDelete}
+              disabled={deleting}
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Recording"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  )
+}
