@@ -1,9 +1,9 @@
 ---
 phase: 8
 slug: foundation-components
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: verified
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-04-17
 ---
 
@@ -21,7 +21,7 @@ created: 2026-04-17
 | **Config file** | `apps/web/vitest.config.ts` |
 | **Quick run command** | `cd apps/web && npx vitest run --reporter=verbose` |
 | **Full suite command** | `cd apps/web && npx vitest run` |
-| **Estimated runtime** | ~15 seconds |
+| **Estimated runtime** | ~2 seconds |
 
 ---
 
@@ -30,7 +30,7 @@ created: 2026-04-17
 - **After every task commit:** Run `cd apps/web && npx vitest run --reporter=verbose`
 - **After every plan wave:** Run `cd apps/web && npx vitest run`
 - **Before `/gsd-verify-work`:** Full suite must be green
-- **Max feedback latency:** 15 seconds
+- **Max feedback latency:** 2 seconds
 
 ---
 
@@ -38,10 +38,10 @@ created: 2026-04-17
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 08-01-01 | 01 | 0 | FOUND-01 | — | N/A | unit | `cd apps/web && npx vitest run src/__tests__/data-table.test.tsx -x` | ❌ W0 | ⬜ pending |
-| 08-01-02 | 01 | 1 | FOUND-01 | — | N/A | unit | `cd apps/web && npx vitest run src/__tests__/data-table.test.tsx -x` | ❌ W0 | ⬜ pending |
-| 08-02-01 | 02 | 0 | FOUND-02 | — | N/A | unit | `cd apps/web && npx vitest run src/__tests__/date-picker.test.tsx -x` | ❌ W0 | ⬜ pending |
-| 08-02-02 | 02 | 1 | FOUND-02 | — | N/A | unit | `cd apps/web && npx vitest run src/__tests__/date-picker.test.tsx -x` | ❌ W0 | ⬜ pending |
+| 08-01-01 | 01 | 1 | FOUND-01 | T-08-03 | Pagination caps page sizes 10/25/50 | unit | `cd apps/web && npx vitest run src/__tests__/data-table.test.tsx -x` | ✅ | ✅ green |
+| 08-01-02 | 01 | 1 | FOUND-01 | — | N/A | unit | `cd apps/web && npx vitest run src/__tests__/data-table.test.tsx -x` | ✅ | ✅ green |
+| 08-02-01 | 02 | 1 | FOUND-02 | — | N/A | unit | `cd apps/web && npx vitest run src/__tests__/date-picker.test.tsx -x` | ✅ | ✅ green |
+| 08-02-02 | 02 | 1 | FOUND-02 | — | N/A | unit | `cd apps/web && npx vitest run src/__tests__/date-picker.test.tsx -x` | ✅ | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -49,8 +49,8 @@ created: 2026-04-17
 
 ## Wave 0 Requirements
 
-- [ ] `apps/web/src/__tests__/data-table.test.tsx` — stubs for FOUND-01 (render, sorting, pagination, row selection, faceted filter)
-- [ ] `apps/web/src/__tests__/date-picker.test.tsx` — stubs for FOUND-02 (DatePicker popover/select, DateRangePicker range select)
+- [x] `apps/web/src/__tests__/data-table.test.tsx` — 5 tests covering FOUND-01 (render, sorting, pagination, row selection, faceted filter)
+- [x] `apps/web/src/__tests__/date-picker.test.tsx` — 9 tests covering FOUND-02 (DatePicker, DateRangePicker, native input removal)
 
 *Existing infrastructure covers test framework setup (Vitest + @testing-library/react already configured).*
 
@@ -67,11 +67,23 @@ created: 2026-04-17
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 15s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 2s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved 2026-04-17
+
+---
+
+## Validation Audit 2026-04-17
+
+| Metric | Count |
+|--------|-------|
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
+
+All 14 tests pass (5 DataTable + 9 DatePicker). Runtime: 1.69s.
