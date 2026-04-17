@@ -5,10 +5,11 @@ import Link from 'next/link';
 import { Loader2, Trash2 } from 'lucide-react';
 
 import { apiFetch } from '@/lib/api';
+import { formatDuration, formatSize } from '@/lib/format-utils';
+import { RecordingStatusBadge } from '@/components/recording-status-badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { DatePicker } from '@/components/ui/date-picker';
-import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -63,49 +64,6 @@ function formatTime(iso: string): string {
   });
 }
 
-function formatDuration(seconds: number | null | undefined): string {
-  if (!seconds) return '-';
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  if (h === 0 && m === 0) return `${s}s`;
-  if (h === 0) return s > 0 ? `${m}m ${s}s` : `${m}m`;
-  if (m === 0) return `${h}h`;
-  return `${h}h ${m}m`;
-}
-
-function formatSize(bytes: number | null | undefined): string {
-  if (!bytes) return '-';
-  const gb = bytes / (1024 * 1024 * 1024);
-  if (gb >= 1) return `${gb.toFixed(1)} GB`;
-  const mb = bytes / (1024 * 1024);
-  return `${mb.toFixed(0)} MB`;
-}
-
-function StatusBadge({ status }: { status: Recording['status'] }) {
-  switch (status) {
-    case 'complete':
-      return (
-        <Badge className="bg-chart-1 text-white hover:bg-chart-1/90">
-          Complete
-        </Badge>
-      );
-    case 'recording':
-      return (
-        <Badge className="bg-chart-5 text-white animate-pulse hover:bg-chart-5/90">
-          Recording
-        </Badge>
-      );
-    case 'processing':
-      return (
-        <Badge className="bg-chart-4 text-white hover:bg-chart-4/90">
-          Processing
-        </Badge>
-      );
-    default:
-      return <Badge variant="destructive">Error</Badge>;
-  }
-}
 
 export default function TenantRecordingsPage() {
   const [cameras, setCameras] = useState<Camera[]>([]);
@@ -349,7 +307,7 @@ export default function TenantRecordingsPage() {
                 <TableCell>{formatDuration(rec.totalDuration)}</TableCell>
                 <TableCell>{formatSize(rec.totalSize)}</TableCell>
                 <TableCell>
-                  <StatusBadge status={rec.status} />
+                  <RecordingStatusBadge status={rec.status} />
                 </TableCell>
               </TableRow>
             ))}

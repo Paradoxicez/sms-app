@@ -176,6 +176,19 @@ export class RecordingsController {
     };
   }
 
+  @Get(':id/download')
+  async getDownloadUrl(@Param('id') id: string) {
+    const orgId = this.cls.get('ORG_ID');
+    const recording = await this.recordingsService.getRecording(id, orgId);
+
+    if (!recording.initSegment) {
+      throw new BadRequestException('Recording has no downloadable file');
+    }
+
+    const url = await this.minioService.getPresignedUrl(orgId, recording.initSegment, 14400);
+    return { url };
+  }
+
   @Get(':id/manifest')
   async getManifest(
     @Param('id') id: string,

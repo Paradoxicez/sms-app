@@ -12,9 +12,10 @@ import {
   deleteRecording,
   type Recording,
 } from '@/hooks/use-recordings';
+import { formatDuration, formatSize } from '@/lib/format-utils';
+import { RecordingStatusBadge } from '@/components/recording-status-badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -65,47 +66,6 @@ function formatTime(iso: string): string {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-function formatDuration(seconds: number | null | undefined): string {
-  if (!seconds) return '-';
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  if (h === 0) return `${m}m`;
-  if (m === 0) return `${h}h`;
-  return `${h}h ${m}m`;
-}
-
-function formatSize(bytes: number | null | undefined): string {
-  if (!bytes) return '-';
-  const gb = bytes / (1024 * 1024 * 1024);
-  if (gb >= 1) return `${gb.toFixed(1)} GB`;
-  const mb = bytes / (1024 * 1024);
-  return `${mb.toFixed(0)} MB`;
-}
-
-function StatusBadge({ status }: { status: Recording['status'] }) {
-  switch (status) {
-    case 'complete':
-      return (
-        <Badge className="bg-chart-1 text-white hover:bg-chart-1/90">
-          Complete
-        </Badge>
-      );
-    case 'recording':
-      return (
-        <Badge className="bg-chart-5 text-white animate-pulse hover:bg-chart-5/90">
-          Recording
-        </Badge>
-      );
-    case 'processing':
-      return (
-        <Badge className="bg-chart-4 text-white hover:bg-chart-4/90">
-          Processing
-        </Badge>
-      );
-    default:
-      return <Badge variant="destructive">Error</Badge>;
-  }
-}
 
 export function RecordingsTab({ camera }: RecordingsTabProps) {
   const { enabled: featureEnabled, loading: featureLoading } =
@@ -337,7 +297,7 @@ export function RecordingsTab({ camera }: RecordingsTabProps) {
                 <TableCell>{formatDuration(rec.totalDuration)}</TableCell>
                 <TableCell>{formatSize(rec.totalSize)}</TableCell>
                 <TableCell>
-                  <StatusBadge status={rec.status} />
+                  <RecordingStatusBadge status={rec.status} />
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
