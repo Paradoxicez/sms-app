@@ -60,9 +60,9 @@ Plans:
 **UI hint**: yes
 
 Plans:
-- [ ] 09-01-PLAN.md — Sidebar migration: nav config arrays, shared AppSidebar component, layout integration, old nav deletion
-- [ ] 09-02-PLAN.md — Login page redesign: split-screen layout, remember me checkbox, backend 30-day session config
-- [ ] 09-03-PLAN.md — Sidebar resize handling: transitionend hook for Recharts/Leaflet + visual verification checkpoint
+- [x] 09-01-PLAN.md — Sidebar migration: nav config arrays, shared AppSidebar component, layout integration, old nav deletion
+- [x] 09-02-PLAN.md — Login page redesign: split-screen layout, remember me checkbox, backend 30-day session config
+- [x] 09-03-PLAN.md — Sidebar resize handling: transitionend hook for Recharts/Leaflet + visual verification checkpoint
 
 ### Phase 10: Admin Table Migrations
 **Goal**: All admin and utility tables use the unified DataTable with consistent UX
