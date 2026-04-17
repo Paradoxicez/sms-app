@@ -43,8 +43,20 @@ function ViewStreamContent({
   return (
     <>
       <SheetHeader className="p-4 border-b">
-        <div className="flex items-center justify-between pr-8">
-          <SheetTitle className="text-lg font-semibold">{camera.name}</SheetTitle>
+        <SheetTitle className="text-lg font-semibold">{camera.name}</SheetTitle>
+        <SheetDescription className="text-sm text-muted-foreground">
+          {camera.site?.name}
+          {camera.site?.project?.name ? ` > ${camera.site.project.name}` : ""}
+        </SheetDescription>
+      </SheetHeader>
+
+      <Tabs defaultValue="preview" className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between mx-4 mt-2">
+          <TabsList>
+            <TabsTrigger value="preview">Preview</TabsTrigger>
+            <TabsTrigger value="policies">Policies</TabsTrigger>
+            <TabsTrigger value="activity">Activity</TabsTrigger>
+          </TabsList>
           <div className="flex items-center gap-1">
             {onStreamToggle && (
               <Button
@@ -68,23 +80,11 @@ function ViewStreamContent({
             )}
           </div>
         </div>
-        <SheetDescription className="text-sm text-muted-foreground">
-          {camera.site?.name}
-          {camera.site?.project?.name ? ` > ${camera.site.project.name}` : ""}
-        </SheetDescription>
-      </SheetHeader>
-
-      <Tabs defaultValue="preview" className="flex-1 flex flex-col overflow-hidden">
-        <TabsList className="mx-4 mt-2">
-          <TabsTrigger value="preview">Preview</TabsTrigger>
-          <TabsTrigger value="policies">Policies</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
-        </TabsList>
 
         <TabsContent value="preview" className="flex-1 overflow-y-auto p-4 space-y-4">
           <HlsPlayer src={streamUrl} autoPlay mode="live" />
 
-          <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+          <div className="grid grid-cols-[7rem_1fr] gap-x-4 gap-y-2 text-sm">
             <span className="text-muted-foreground font-medium">Name</span>
             <span>{camera.name}</span>
 
