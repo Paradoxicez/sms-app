@@ -6,8 +6,8 @@ import { Loader2, Trash2 } from 'lucide-react';
 
 import { apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Badge } from '@/components/ui/badge';
 import {
   Select,
@@ -110,8 +110,8 @@ function StatusBadge({ status }: { status: Recording['status'] }) {
 export default function TenantRecordingsPage() {
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [selectedCamera, setSelectedCamera] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [statusFilter, setStatusFilter] = useState('all');
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [loading, setLoading] = useState(false);
@@ -134,7 +134,7 @@ export default function TenantRecordingsPage() {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (startDate) params.set('date', startDate);
+      if (startDate) params.set('date', startDate.toISOString().split('T')[0]);
       const data = await apiFetch<Recording[]>(
         `/api/recordings/camera/${selectedCamera}?${params.toString()}`,
       );
@@ -227,20 +227,20 @@ export default function TenantRecordingsPage() {
 
         <div className="space-y-1">
           <Label className="text-xs">Start Date</Label>
-          <Input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
+          <DatePicker
+            date={startDate}
+            onDateChange={setStartDate}
+            placeholder="Start date"
             className="w-[160px]"
           />
         </div>
 
         <div className="space-y-1">
           <Label className="text-xs">End Date</Label>
-          <Input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
+          <DatePicker
+            date={endDate}
+            onDateChange={setEndDate}
+            placeholder="End date"
             className="w-[160px]"
           />
         </div>

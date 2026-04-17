@@ -5,6 +5,7 @@ import { FileText } from 'lucide-react';
 
 import { apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/button';
+import { DatePicker } from '@/components/ui/date-picker';
 import {
   Select,
   SelectContent,
@@ -65,8 +66,8 @@ export default function PlatformAuditLogPage() {
 
   // Filter state
   const [actionFilter, setActionFilter] = useState<string>('__all__');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
 
   // Detail dialog
   const [selectedEntry, setSelectedEntry] = useState<PlatformAuditLog | null>(null);
@@ -84,7 +85,7 @@ export default function PlatformAuditLogPage() {
           params.set('action', actionFilter);
         }
         if (dateFrom) {
-          params.set('dateFrom', new Date(dateFrom).toISOString());
+          params.set('dateFrom', dateFrom.toISOString());
         }
         if (dateTo) {
           const end = new Date(dateTo);
@@ -163,34 +164,26 @@ export default function PlatformAuditLogPage() {
         </div>
 
         <div className="space-y-1">
-          <label
-            htmlFor="dateFrom"
-            className="text-xs font-medium text-muted-foreground"
-          >
+          <label className="text-xs font-medium text-muted-foreground">
             From
           </label>
-          <input
-            id="dateFrom"
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            className="flex h-8 rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          <DatePicker
+            date={dateFrom}
+            onDateChange={setDateFrom}
+            placeholder="Start date"
+            className="w-[160px]"
           />
         </div>
 
         <div className="space-y-1">
-          <label
-            htmlFor="dateTo"
-            className="text-xs font-medium text-muted-foreground"
-          >
+          <label className="text-xs font-medium text-muted-foreground">
             To
           </label>
-          <input
-            id="dateTo"
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            className="flex h-8 rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          <DatePicker
+            date={dateTo}
+            onDateChange={setDateTo}
+            placeholder="End date"
+            className="w-[160px]"
           />
         </div>
 
