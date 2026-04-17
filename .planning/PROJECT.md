@@ -142,6 +142,7 @@ Developers can get a secure HLS playback URL for any registered camera via a sin
 **Codebase:** 32,832 LOC TypeScript/TSX across 583 files
 **Stack:** NestJS 11 + Next.js 15 + PostgreSQL 16 + Prisma 6 + Redis 7 + SRS v6 + FFmpeg 7 + MinIO + Better Auth
 **Tests:** 31 web tests + 34 recording tests passing
+**Phase 10 complete (2026-04-17):** All 5 admin tables (Users, API Keys, Audit Log, Webhooks, Stream Profiles) migrated to unified DataTable component
 
 ## Evolution
 
@@ -161,4 +162,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-17 — Milestone v1.1 UI Overhaul started*
+*Last updated: 2026-04-17 — Phase 10 Admin Table Migrations complete*
