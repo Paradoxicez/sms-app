@@ -58,15 +58,19 @@ export class UsersService {
       },
     });
 
-    // Add as org member
-    const member = await this.prisma.member.create({
-      data: {
-        id: randomUUID(),
-        organizationId: orgId,
-        userId,
-        role: dto.role,
-      },
-    });
+    // Add as org member — use $transaction with set_config to set RLS context
+    // so the Member INSERT passes FORCE RLS policy for system org.
+    const [, member] = await this.prisma.$transaction([
+      this.prisma.$executeRaw`SELECT set_config('app.current_org_id', ${orgId}, TRUE)`,
+      this.prisma.member.create({
+        data: {
+          id: randomUUID(),
+          organizationId: orgId,
+          userId,
+          role: dto.role,
+        },
+      }),
+    ]);
 
     return { user, member };
   }

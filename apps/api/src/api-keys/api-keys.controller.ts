@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Param,
   Body,
@@ -60,8 +61,13 @@ export class ApiKeysController {
     return this.apiKeysService.getUsageStats(id, numDays);
   }
 
-  @Delete(':id')
+  @Patch(':id/revoke')
   async revoke(@Param('id') id: string) {
     return this.apiKeysService.revoke(id, this.getOrgId());
+  }
+
+  @Delete(':id')
+  async delete(@Param('id') id: string) {
+    return this.apiKeysService.delete(id, this.getOrgId());
   }
 }

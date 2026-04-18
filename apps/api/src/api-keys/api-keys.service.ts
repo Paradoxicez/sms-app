@@ -132,6 +132,21 @@ export class ApiKeysService {
   }
 
   /**
+   * Hard-delete an API key and its usage records (cascade).
+   */
+  async delete(id: string, orgId: string) {
+    const key = await this.tenancy.apiKey.findFirst({
+      where: { id, orgId },
+    });
+    if (!key) {
+      throw new NotFoundException(`API key ${id} not found`);
+    }
+
+    await this.tenancy.apiKey.delete({ where: { id } });
+    return { deleted: true };
+  }
+
+  /**
    * Update lastUsedAt timestamp (fire-and-forget from guard).
    */
   async updateLastUsed(id: string) {

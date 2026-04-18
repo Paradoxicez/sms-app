@@ -49,7 +49,7 @@ export function ApiKeysDataTable({ keys, onRefresh }: ApiKeysDataTableProps) {
     if (!revokeKey) return
     setRevoking(true)
     try {
-      await apiFetch(`/api/api-keys/${revokeKey.id}`, { method: "DELETE" })
+      await apiFetch(`/api/api-keys/${revokeKey.id}/revoke`, { method: "PATCH" })
       toast.success("API key revoked")
       setRevokeKey(null)
       onRefresh()
@@ -172,8 +172,7 @@ export function ApiKeysDataTable({ keys, onRefresh }: ApiKeysDataTableProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete API Key</AlertDialogTitle>
             <AlertDialogDescription>
-              Permanently delete API key &ldquo;{deleteKey?.name}&rdquo;? This
-              action cannot be undone.
+              This will permanently delete the API key &ldquo;{deleteKey?.name}&rdquo;. Any applications using this key will immediately lose access.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
