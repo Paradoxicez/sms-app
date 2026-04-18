@@ -103,20 +103,20 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
       }
     } else if (!camera && open) {
       if (defaultProjectId) setProjectId(defaultProjectId);
-      if (defaultSiteId) setSiteId(defaultSiteId);
     }
-  }, [camera, open, defaultProjectId, defaultSiteId]);
+  }, [camera, open, defaultProjectId]);
 
   useEffect(() => {
     if (projectId) {
-      const keepSite = (camera && camera.site?.project?.id === projectId) || (defaultProjectId === projectId && defaultSiteId);
-      if (!keepSite) {
+      if (!camera && !(defaultProjectId === projectId && defaultSiteId)) {
+        setSiteId('');
+      } else if (camera && camera.site?.project?.id !== projectId) {
         setSiteId('');
       }
       apiFetch<Site[]>(`/api/projects/${projectId}/sites`)
         .then((data) => {
           setSites(data);
-          if (defaultSiteId && defaultProjectId === projectId && !camera) {
+          if (!camera && defaultProjectId === projectId && defaultSiteId) {
             setSiteId(defaultSiteId);
           }
         })
@@ -124,7 +124,8 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
     } else {
       setSites([]);
     }
-  }, [projectId, camera, defaultProjectId, defaultSiteId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, camera]);
 
   function resetForm() {
     setName('');
