@@ -71,7 +71,13 @@ Plans:
   3. User receives in-app notification and webhook fires when a camera status changes (online/offline/degraded)
   4. FFmpeg processes shut down gracefully on server restart and re-enqueue on boot -- no orphaned processes
   5. User can toggle a camera into maintenance mode, which suppresses notifications/webhooks and shows a maintenance icon in the camera table alongside online/offline and recording status icons
-**Plans**: TBD
+**Plans**: 4 plans (Wave 1: 1 plan, Wave 2: 2 plans parallel, Wave 3: 1 plan)
+Plans:
+- [ ] 15-01-PLAN.md — Data + status suppression core: Camera schema maintenance columns + StatusService maintenance gate + 30s BullMQ debounce (RESIL-03, CAM-02)
+- [ ] 15-02-PLAN.md — FFmpeg resilience services: camera-health tick + SRS-restart detection + boot recovery + graceful shutdown + jobId unification (RESIL-01/02/03/04)
+- [ ] 15-03-PLAN.md — Maintenance API + audit trail: POST/DELETE /cameras/:id/maintenance with org scoping and interceptor-audited writes (CAM-01, CAM-02)
+- [ ] 15-04-PLAN.md — Camera table UI: composite 3-icon Status column + maintenance row-action + Thai confirmation dialogs (CAM-03)
+**UI hint**: yes
 
 ### Phase 16: User Self-Service
 **Goal**: Users can manage their own account and view their organization's plan and usage
@@ -135,7 +141,7 @@ Note: Phases 16, 17, 18 can execute in parallel after Phase 14 (independent of e
 | 12. Recordings | v1.1 | 2/2 | Complete | 2026-04-17 |
 | 13. Hierarchy & Map | v1.1 | 2/2 | Complete | 2026-04-17 |
 | 14. Bug Fixes & DataTable Migrations | v1.2 | 3/3 | Complete    | 2026-04-18 |
-| 15. FFmpeg Resilience & Camera Maintenance | v1.2 | 0/0 | Not started | - |
+| 15. FFmpeg Resilience & Camera Maintenance | v1.2 | 0/4 | Not started | - |
 | 16. User Self-Service | v1.2 | 0/0 | Not started | - |
 | 17. Recording Playback & Timeline | v1.2 | 0/0 | Not started | - |
 | 18. Dashboard & Map Polish | v1.2 | 0/0 | Not started | - |
