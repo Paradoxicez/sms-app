@@ -9,7 +9,7 @@ import { useClusterNodes } from '@/hooks/use-cluster-nodes';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ClusterStats } from './components/cluster-stats';
-import { NodeTable } from './components/node-table';
+import { ClusterDataTable } from '@/components/cluster/cluster-data-table';
 import { AddNodeDialog } from './components/add-node-dialog';
 import { NodeDetailDialog } from './components/node-detail-dialog';
 import { RemoveNodeDialog } from './components/remove-node-dialog';
@@ -83,9 +83,8 @@ export default function ClusterPage() {
         </Card>
       ) : (
         !error && (
-          <NodeTable
+          <ClusterDataTable
             nodes={nodes}
-            loading={loading}
             onViewDetails={(node) => setDetailNode(node)}
             onReloadConfig={handleReloadConfig}
             onRemoveNode={(node) => setRemoveNode(node)}
