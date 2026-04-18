@@ -138,13 +138,15 @@ Developers can get a secure HLS playback URL for any registered camera via a sin
 
 ## Current State
 
-**Shipped:** v1.0 MVP (2026-04-16)
-**Codebase:** 32,832 LOC TypeScript/TSX across 583 files
+**Shipped:** v1.1 UI Overhaul (2026-04-18)
 **Stack:** NestJS 11 + Next.js 15 + PostgreSQL 16 + Prisma 6 + Redis 7 + SRS v6 + FFmpeg 7 + MinIO + Better Auth
-**Tests:** 31 web tests + 34 recording tests passing
-**Phase 10 complete (2026-04-17):** All 5 admin tables (Users, API Keys, Audit Log, Webhooks, Stream Profiles) migrated to unified DataTable component
-**Phase 12 complete (2026-04-17):** Recordings page with cross-camera DataTable, faceted filters, URL state, bulk delete, presigned download — 3 new API endpoints + shared frontend utilities
-**Phase 13 complete (2026-04-17):** Hierarchy tree viewer (Project > Site > Camera), resizable split-panel Projects page, map floating tree overlay with camera filtering, click-to-place marker workflow, View Stream sheet integration
+**v1.1 delivered:**
+- DataTable component system (sorting, faceted filters, pagination) — used by 13+ pages
+- Collapsible sidebar with cookie persistence + split-screen login redesign
+- All admin tables migrated to unified DataTable (Audit Log, Users, API Keys, Webhooks, Stream Profiles)
+- Camera management: DataTable + card view with live HLS preview + View Stream sheet
+- Recordings page with cross-camera DataTable, bulk delete, presigned download
+- Hierarchy tree viewer (Project > Site > Camera) + resizable split-panel + map drag-to-relocate markers
 
 ## Evolution
 
@@ -164,4 +166,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-17 — Phase 13 Hierarchy & Map complete*
+*Last updated: 2026-04-18 after v1.1 milestone*

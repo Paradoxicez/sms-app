@@ -1,5 +1,27 @@
 # Milestones
 
+## v1.1 UI Overhaul (Shipped: 2026-04-18)
+
+**Phases completed:** 6 phases, 15 plans, 25 tasks
+
+**Key accomplishments:**
+
+- Generic DataTable with @tanstack/react-table: sorting, search, faceted filters, numbered pagination, row selection, and row action menus -- consumed by 13+ pages
+- DatePicker and DateRangePicker wrapper components using base-ui Popover + react-day-picker Calendar, replacing all 6 native date inputs across 3 pages
+- 1. [Rule 1 - Bug] React hooks rules violation in tenant layout
+- Split-screen login with branding panel, remember me checkbox wired to better-auth rememberMe param, and 30-day session config
+- One-liner:
+- Audit log migrated from cursor-based Load More to DataTable with server-side offset pagination, search, Action filter, DateRangePicker, and View Details dialog
+- Users and API Keys tables migrated to DataTable with sortable columns, faceted filters, search, and contextual quick actions
+- Webhooks and Stream Profiles migrated to DataTable with sortable columns, faceted filters, search, and quick action menus replacing manual table and card grid layouts
+- 1. [Rule 1 - Bug] Fixed useRef TypeScript strict mode error
+- Task 3 (checkpoint:human-verify)
+- Commit:
+- Commit:
+- Shared HierarchyTree component with collapsible search and resizable split-panel projects page showing context-sensitive DataTable for projects, sites, and cameras
+
+---
+
 ## v1.0 MVP (Shipped: 2026-04-16)
 
 **Phases completed:** 9 phases, 39 plans, 79 tasks
