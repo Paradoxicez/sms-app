@@ -47,11 +47,13 @@ Exceptions: none. Matches existing `space-y-6` container pattern from `recording
 
 ## Typography
 
+Two weights only: **600 (semibold)** for headings and interactive labels, **400 (regular)** for body and caption.
+
 | Role | Size | Weight | Line Height | Usage |
 |------|------|--------|-------------|-------|
 | Page heading | 24px (`text-xl` / `text-2xl`) | 600 (semibold) | 1.2 | Camera name in page header |
 | Body / table cell | 14px (`text-sm`) | 400 (regular) | 1.5 | Recording list rows, date label text |
-| Label / button | 14px (`text-sm`) | 500 (medium) | 1.4 | Date nav button label, table headers |
+| Label / button | 14px (`text-sm`) | 600 (semibold) | 1.4 | Date nav button label, table headers, list section heading |
 | Caption / meta | 12px (`text-xs`) | 400 (regular) | 1.5 | Timeline hour labels, selected range helper text, empty-state secondary copy |
 
 Source: existing app-level pages use `text-xl font-semibold` for H1 (see `app/app/recordings/page.tsx:23`), table cells use `text-sm`, TimelineBar meta uses `text-xs text-muted-foreground` (see `timeline-bar.tsx:191,201`).
@@ -125,7 +127,7 @@ Date formatting: `date-fns` `format(date, "MMM d, yyyy")` — same as `recording
 
 | Element | Copy |
 |---------|------|
-| List heading | `Recordings on {Apr 18, 2026}` in `text-sm font-medium` |
+| List heading | `Recordings on {Apr 18, 2026}` in `text-sm font-semibold` |
 | Column: Time Range | `Time Range` |
 | Column: Duration | `Duration` |
 | Column: Size | `Size` |
@@ -151,6 +153,8 @@ None in this phase. Delete remains only in the `/app/recordings` DataTable row a
 ---
 
 ## Layout Contract
+
+Focal point: the HLS player is the primary visual anchor — centered, aspect-video, max-w-[1024px]; timeline and list are supporting surfaces beneath it.
 
 ### Desktop (≥ `md`, ≥ 768px)
 
