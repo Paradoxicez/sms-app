@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Self-Service, Resilience & UI Polish
 status: executing
-stopped_at: Phase 14 UI-SPEC approved
-last_updated: "2026-04-18T13:08:02.160Z"
+stopped_at: Phase 16 context gathered
+last_updated: "2026-04-18T14:02:09.373Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 5
@@ -71,6 +71,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-18T11:43:56.181Z
-Stopped at: Phase 14 UI-SPEC approved
-Resume file: .planning/phases/14-bug-fixes-datatable-migrations/14-UI-SPEC.md
+Last session: 2026-04-18T14:02:09.366Z
+Stopped at: Phase 16 context gathered
+Resume file: .planning/phases/16-user-self-service/16-CONTEXT.md
