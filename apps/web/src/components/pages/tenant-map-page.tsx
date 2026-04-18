@@ -58,6 +58,11 @@ export default function TenantMapPage() {
   const handleDragEnd = useCallback(
     (id: string, name: string, lat: number, lng: number) => {
       setDragPending({ id, name, lat, lng });
+      setCameras((prev) =>
+        prev.map((c) =>
+          c.id === id ? { ...c, latitude: lat, longitude: lng } : c,
+        ),
+      );
     },
     [],
   );
