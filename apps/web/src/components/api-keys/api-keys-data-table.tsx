@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Ban, Copy, Trash2 } from "lucide-react"
+import { Ban, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { apiFetch } from "@/lib/api"
@@ -77,15 +77,6 @@ export function ApiKeysDataTable({ keys, onRefresh }: ApiKeysDataTableProps) {
 
   const activeActions: RowAction<ApiKeyRow>[] = useMemo(
     () => [
-      {
-        label: "Copy key",
-        icon: Copy,
-        onClick: async (key) => {
-          // Copy masked key only — full key never available in DOM per T-10-04
-          await navigator.clipboard.writeText(`${key.prefix}...${key.lastFour}`)
-          toast.success("API key copied to clipboard")
-        },
-      },
       {
         label: "Revoke",
         icon: Ban,

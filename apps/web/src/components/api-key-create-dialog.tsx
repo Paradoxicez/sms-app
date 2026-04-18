@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, AlertTriangle } from "lucide-react";
 
 import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -103,7 +103,7 @@ export function ApiKeyCreateDialog({
     if (!rawKey) return;
     await navigator.clipboard.writeText(rawKey);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => setCopied(false), 1500);
   }
 
   function handleClose() {
@@ -124,27 +124,28 @@ export function ApiKeyCreateDialog({
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="rounded-md bg-muted p-3">
-              <code className="block break-all font-mono text-sm">
+            <div className="rounded-md border bg-muted p-3 flex items-start justify-between gap-2">
+              <code className="block break-all font-mono text-xs flex-1">
                 {rawKey}
               </code>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="shrink-0"
+                onClick={handleCopyKey}
+              >
+                {copied ? (
+                  <Check className="h-4 w-4" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+              </Button>
             </div>
 
-            <Button
-              onClick={handleCopyKey}
-              className="w-full gap-2"
-            >
-              {copied ? (
-                <Check className="h-4 w-4" />
-              ) : (
-                <Copy className="h-4 w-4" />
-              )}
-              {copied ? "Copied!" : "Copy Key"}
-            </Button>
-
-            <p className="text-sm font-medium text-amber-600">
-              Copy this key now. It will not be shown again.
-            </p>
+            <div className="flex items-start gap-2 text-sm text-amber-600">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>Make sure to copy your API key now. You won&apos;t be able to see it again.</span>
+            </div>
           </div>
 
           <DialogFooter>
