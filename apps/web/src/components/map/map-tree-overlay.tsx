@@ -24,7 +24,7 @@ export function MapTreeOverlay({
   const [isOpen, setIsOpen] = useState(false)
 
   return (
-    <div className="absolute top-4 left-4 z-[1000]">
+    <div className="absolute top-4 left-14 z-[1000]">
       {/* Toggle button - always visible */}
       {!isOpen && (
         <Button

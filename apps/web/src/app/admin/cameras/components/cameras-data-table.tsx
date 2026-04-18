@@ -16,6 +16,7 @@ import {
   LayoutGrid,
   Plus,
   TableProperties,
+  Upload,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -47,6 +48,7 @@ interface CamerasDataTableProps {
   onStreamToggle: (camera: CameraRow) => void
   onEmbedCode: (camera: CameraRow) => void
   onCreateCamera: () => void
+  onImportCameras?: () => void
   view: "table" | "card"
   onViewChange: (view: "table" | "card") => void
 }
@@ -61,6 +63,7 @@ export function CamerasDataTable({
   onStreamToggle,
   onEmbedCode,
   onCreateCamera,
+  onImportCameras,
   view,
   onViewChange,
 }: CamerasDataTableProps) {
@@ -158,6 +161,12 @@ export function CamerasDataTable({
           <LayoutGrid className="size-4" />
           <span className="sr-only">Card view</span>
         </Button>
+        {onImportCameras && (
+          <Button variant="outline" onClick={onImportCameras}>
+            <Upload className="mr-2 size-4" />
+            Import
+          </Button>
+        )}
         <Button onClick={onCreateCamera}>
           <Plus className="mr-2 size-4" />
           Add Camera

@@ -23,6 +23,7 @@ import { CamerasDataTable } from '@/app/admin/cameras/components/cameras-data-ta
 import { CameraFormDialog } from '@/app/admin/cameras/components/camera-form-dialog';
 import { EmbedCodeDialog } from '@/app/admin/cameras/components/embed-code-dialog';
 import { ViewStreamSheet } from '@/app/admin/cameras/components/view-stream-sheet';
+import { BulkImportDialog } from '@/app/admin/cameras/components/bulk-import-dialog';
 
 export default function TenantCamerasPage() {
   const [cameras, setCameras] = useState<CameraRow[]>([]);
@@ -38,6 +39,7 @@ export default function TenantCamerasPage() {
   const [editCamera, setEditCamera] = useState<CameraRow | null>(null);
   const [deleteCamera, setDeleteCamera] = useState<CameraRow | null>(null);
   const [embedCamera, setEmbedCamera] = useState<CameraRow | null>(null);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [selectedCameraId, setSelectedCameraId] = useState<string | null>(null);
 
   const selectedCamera = cameras.find(c => c.id === selectedCameraId) ?? null;
@@ -164,6 +166,7 @@ export default function TenantCamerasPage() {
         onStreamToggle={handleStreamToggle}
         onEmbedCode={handleEmbedCode}
         onCreateCamera={() => setCreateDialogOpen(true)}
+        onImportCameras={() => setImportDialogOpen(true)}
         view={view}
         onViewChange={setView}
       />
@@ -220,6 +223,13 @@ export default function TenantCamerasPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Bulk import dialog */}
+      <BulkImportDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        onSuccess={fetchCameras}
+      />
 
       <ViewStreamSheet
         camera={selectedCamera}
