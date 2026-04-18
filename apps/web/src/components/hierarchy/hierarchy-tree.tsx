@@ -16,6 +16,7 @@ interface HierarchyTreeProps {
   className?: string
   tree: TreeNode[]
   isLoading?: boolean
+  onSetLocation?: (id: string, name: string) => void
 }
 
 /**
@@ -93,6 +94,7 @@ export function HierarchyTree({
   className,
   tree,
   isLoading,
+  onSetLocation,
 }: HierarchyTreeProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = useState("")
@@ -175,6 +177,7 @@ export function HierarchyTree({
           onToggle={handleToggle}
           focusedId={focusedId}
           onFocusChange={setFocusedId}
+          onSetLocation={onSetLocation}
         />
         {effectiveExpanded.has(node.id) &&
           node.children &&

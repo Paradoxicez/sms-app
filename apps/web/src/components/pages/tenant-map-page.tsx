@@ -311,6 +311,7 @@ export default function TenantMapPage() {
             isLoading={hierarchyData.isLoading}
             selectedId={filterNode?.id ?? null}
             onSelect={setFilterNode}
+            onSetLocation={handleSetLocation}
           />
         </div>
       )}

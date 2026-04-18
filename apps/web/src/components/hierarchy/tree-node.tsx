@@ -22,6 +22,7 @@ interface TreeNodeProps {
   onToggle: (nodeId: string) => void
   focusedId?: string | null
   onFocusChange?: (nodeId: string) => void
+  onSetLocation?: (id: string, name: string) => void
 }
 
 export function TreeNodeItem({
@@ -33,6 +34,7 @@ export function TreeNodeItem({
   onToggle,
   focusedId,
   onFocusChange,
+  onSetLocation,
 }: TreeNodeProps) {
   const hasChildren =
     (node.type === "project" || node.type === "site") && node.childCount > 0
@@ -145,6 +147,19 @@ export function TreeNodeItem({
           ({node.childCount}{" "}
           {node.childCount === 1 ? "camera" : "cameras"})
         </span>
+      )}
+      {node.type === "camera" && !node.hasLocation && onSetLocation && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            onSetLocation(node.id, node.name)
+          }}
+          className="ml-auto shrink-0 p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+          title="Set location on map"
+        >
+          <MapPin className="h-3.5 w-3.5" />
+        </button>
       )}
     </div>
   )

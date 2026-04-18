@@ -13,6 +13,7 @@ interface MapTreeOverlayProps {
   isLoading: boolean
   selectedId: string | null
   onSelect: (node: TreeNode | null) => void
+  onSetLocation?: (id: string, name: string) => void
 }
 
 export function MapTreeOverlay({
@@ -20,6 +21,7 @@ export function MapTreeOverlay({
   isLoading,
   selectedId,
   onSelect,
+  onSetLocation,
 }: MapTreeOverlayProps) {
   const [isOpen, setIsOpen] = useState(false)
 
@@ -84,6 +86,7 @@ export function MapTreeOverlay({
                 isLoading={isLoading}
                 selectedId={selectedId}
                 onSelect={onSelect}
+                onSetLocation={onSetLocation}
                 className="p-1"
               />
             </ScrollArea>
