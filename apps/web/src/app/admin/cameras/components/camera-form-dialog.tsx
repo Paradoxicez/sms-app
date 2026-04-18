@@ -217,7 +217,7 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera }: Came
             <div className="space-y-2">
               <Label>Project *</Label>
               <Select value={projectId} onValueChange={(v) => setProjectId(String(v ?? ''))}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full truncate">
                   <SelectValue placeholder="Select project">
                     {projects.find((p) => p.id === projectId)?.name}
                   </SelectValue>
@@ -232,7 +232,7 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera }: Came
             <div className="space-y-2">
               <Label>Site *</Label>
               <Select value={siteId} onValueChange={(v) => setSiteId(String(v ?? ''))} disabled={!projectId}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full truncate">
                   <SelectValue placeholder={projectId ? 'Select site' : 'Select project first'}>
                     {sites.find((s) => s.id === siteId)?.name}
                   </SelectValue>
@@ -292,21 +292,23 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera }: Came
             />
           </div>
 
-          <div className="space-y-2">
-            <Label>Stream Profile</Label>
-            <Select value={streamProfileId} onValueChange={(v) => setStreamProfileId(String(v ?? ''))}>
-              <SelectTrigger>
-                <SelectValue placeholder="Default">
-                  {streamProfiles.find((p) => p.id === streamProfileId)?.name || 'Default'}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">Default</SelectItem>
-                {streamProfiles.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Stream Profile</Label>
+              <Select value={streamProfileId} onValueChange={(v) => setStreamProfileId(String(v ?? ''))}>
+                <SelectTrigger className="w-full truncate">
+                  <SelectValue placeholder="Default">
+                    {streamProfiles.find((p) => p.id === streamProfileId)?.name || 'Default'}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Default</SelectItem>
+                  {streamProfiles.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {error && (
