@@ -52,9 +52,11 @@ interface CameraFormDialogProps {
     streamProfileId?: string | null;
     site?: { id: string; name: string; project?: { id: string; name: string } };
   } | null;
+  defaultProjectId?: string;
+  defaultSiteId?: string;
 }
 
-export function CameraFormDialog({ open, onOpenChange, onSuccess, camera }: CameraFormDialogProps) {
+export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaultProjectId, defaultSiteId }: CameraFormDialogProps) {
   const [name, setName] = useState('');
   const [streamUrl, setStreamUrl] = useState('');
   const [projectId, setProjectId] = useState('');
@@ -83,7 +85,7 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera }: Came
     }
   }, [open]);
 
-  // Pre-fill form when editing
+  // Pre-fill form when editing or when defaults provided
   useEffect(() => {
     if (camera && open) {
       setName(camera.name || '');
@@ -99,8 +101,11 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera }: Came
       if (camera.site?.id) {
         setSiteId(camera.site.id);
       }
+    } else if (!camera && open) {
+      if (defaultProjectId) setProjectId(defaultProjectId);
+      if (defaultSiteId) setSiteId(defaultSiteId);
     }
-  }, [camera, open]);
+  }, [camera, open, defaultProjectId, defaultSiteId]);
 
   useEffect(() => {
     if (projectId) {

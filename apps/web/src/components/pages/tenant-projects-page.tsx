@@ -942,6 +942,8 @@ export default function TenantProjectsPage() {
         open={createCameraOpen}
         onOpenChange={setCreateCameraOpen}
         onSuccess={refreshAll}
+        defaultProjectId={selectedNode?.type === "site" ? selectedNode.parentProject?.id : selectedNode?.type === "project" ? selectedNode.id : undefined}
+        defaultSiteId={selectedNode?.type === "site" ? selectedNode.id : undefined}
       />
 
       {/* ── Camera Edit Dialog ── */}
