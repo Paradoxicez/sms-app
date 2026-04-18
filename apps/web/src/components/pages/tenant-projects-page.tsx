@@ -167,6 +167,11 @@ export default function TenantProjectsPage() {
 
   // ── Node selection ──
   const handleNodeSelect = useCallback((node: TreeNode | null) => {
+    if (node?.type === "camera") {
+      setStreamCamera({ id: node.id, name: node.name, status: node.status ?? "offline" } as CameraRow)
+      setStreamOpen(true)
+      return
+    }
     setSelectedNode(node)
     setMobileTreeOpen(false)
   }, [])
