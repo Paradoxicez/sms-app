@@ -7,7 +7,9 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main",
-    "test": "vitest run --reporter=verbose"
+    "test": "vitest run --reporter=verbose",
+    "db:push": "prisma db push && psql $DATABASE_URL_MIGRATE -f src/prisma/migrations/rls_apply_all/migration.sql",
+    "db:push:skip-rls": "prisma db push"
   },
   "dependencies": {
     "@nestjs/bullmq": "^11.0.4",
