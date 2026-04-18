@@ -1,181 +1,307 @@
-# Feature Research: v1.1 UI Overhaul
+# Feature Research: v1.2 Self-Service, Resilience & UI Polish
 
-**Domain:** Surveillance Management SaaS Platform -- UI/UX patterns for camera management
-**Researched:** 2026-04-17
+**Domain:** Surveillance Management SaaS Platform -- v1.2 milestone features
+**Researched:** 2026-04-18
 **Confidence:** HIGH
 
 ## Feature Landscape
 
+This research covers the four feature clusters in v1.2: FFmpeg process resilience, recording playback with timeline, user self-service accounts, and camera maintenance mode. Existing v1.0/v1.1 features are already shipped; this focuses only on what is new.
+
 ### Table Stakes (Users Expect These)
 
-Features operators and developers expect from any modern surveillance/monitoring management UI. Missing these makes the platform feel unfinished compared to Milestone XProtect, Eagle Eye Networks, Verkada, or even open-source NVR interfaces.
+Features users assume exist. Missing these = product feels incomplete.
 
-| Feature | Why Expected | Complexity | Dependencies | Notes |
-|---------|--------------|------------|--------------|-------|
-| Unified data tables with sort, filter, pagination | Every SaaS dashboard has consistent tables. Current tables are bare -- no pagination, no column sorting, inconsistent filter patterns across pages. Users managing 50+ cameras/recordings cannot function without these. | HIGH | None (foundation component) | Build as reusable `DataTable` wrapper around TanStack Table + shadcn. Server-side pagination for recordings (large datasets). Client-side for cameras/profiles (small datasets). |
-| Table "..." quick action menus | Standard enterprise pattern -- MoreHorizontal dropdown per row for Edit, Delete, View, etc. Projects page already has this; cameras, recordings, stream profiles, API keys pages do not. | LOW | Unified data tables | Already have DropdownMenu component. Just needs consistent application across all table pages. |
-| Column sorting | Users expect click-to-sort on table headers. Surveillance operators sort by status, name, date, size constantly. | LOW | Unified data tables | TanStack Table handles this natively. |
-| Pagination | Tables without pagination break at scale. 100+ cameras, 1000+ recordings -- must paginate. Current recordings page loads all at once with client-side filtering only. | MEDIUM | Unified data tables | Server-side for recordings (needs backend API changes). Client-side acceptable for cameras, profiles, projects. |
-| Collapsible sidebar | Every modern SaaS app (Linear, Notion, Vercel) has a collapsible sidebar. Fixed 240px sidebar wastes screen real estate on camera preview pages and map view. | MEDIUM | None | shadcn's `Sidebar` component already installed in codebase but not used. Current `sidebar-nav.tsx` is custom. Must migrate to shadcn Sidebar with `collapsible="icon"` mode. Persist state via cookie. |
-| Unified datepicker components | Native `<input type="date">` looks broken on many browsers, inconsistent styling. Recordings page uses native date inputs that clash with shadcn design system. | LOW | None | shadcn Calendar + Popover already in codebase. Build DatePicker and DateRangePicker wrappers. |
-| Camera quick actions menu | Users should not need to navigate to a 5-tab detail page just to start/stop stream, toggle recording, or copy embed code. Quick actions from the table row are standard in VMS software. | MEDIUM | Unified data tables, quick action menus | Actions: Edit, View Stream, Stream Profile, Enable/Disable, Start/Stop Recording, Copy Embed Code, Delete. Some actions need API calls inline. |
-| Recordings page filters (all cameras) | Current recordings page requires selecting a single camera first. Operators need to see all recordings across all cameras, filter by project/site/camera/date/status. This is table stakes for any VMS. | MEDIUM | Unified data tables, server-side pagination | Needs new backend endpoint: `GET /api/recordings` with query params for camera, project, site, date range, status. Current endpoint is per-camera only. |
-| Bulk delete for recordings | Already partially implemented (checkboxes exist). Needs to work with paginated data and across cameras. | LOW | Recordings page filters | Selection state must persist across pagination. Add "select all on this page" and "select all matching filter" patterns. |
-| Login redesign with remember me | Current login is basic. "Remember me" is expected for operator workflows where people log in daily. | LOW | None (auth change) | Better Auth supports session duration config. "Remember me" = longer session TTL. UI redesign is cosmetic. |
+| Feature | Why Expected | Complexity | Depends On (Existing) |
+|---------|--------------|------------|----------------------|
+| **FFmpeg auto-reconnect on camera drop** | Cameras lose connection regularly (network, power, reboot). A VMS that doesn't reconnect is unusable. | MEDIUM | BullMQ stream queue (exists), StatusService state machine (exists) |
+| **FFmpeg auto-reconnect on SRS restart** | SRS restart kills all RTMP sessions. Platform must detect and re-push all active streams. | MEDIUM | SRS HTTP callbacks `on_unpublish` (exists), stream queue |
+| **Health check loop with status notification** | Operators need to know when cameras go down without watching a dashboard. Silent failures erode trust. | MEDIUM | StatusService (exists), NotificationsService (exists), WebhooksService (exists) |
+| **User change own password** | Every SaaS app allows this. Users locked out = support burden. | LOW | Better Auth `emailAndPassword` (exists) -- has built-in `changePassword` API |
+| **User change own name** | Basic account management. No SaaS ships without this. | LOW | Better Auth `updateUser` API (exists) |
+| **Recording playback with video player** | Recordings exist in DataTable but clicking one should play it. Currently only download/delete. | MEDIUM | ManifestService (exists), MinIO segment proxy (exists), hls.js (exists) |
+| **Camera status icons (online/offline, recording, maintenance)** | Operators need at-a-glance status. Current single-badge is insufficient for 3 orthogonal states. | LOW | Camera model `status` + `isRecording` fields (exist) |
 
 ### Differentiators (Competitive Advantage)
 
-Features that elevate SMS above basic VMS dashboards. Not required for v1.1 launch, but high value.
+Features that set the product apart. Not required, but valuable.
 
-| Feature | Value Proposition | Complexity | Dependencies | Notes |
-|---------|-------------------|------------|--------------|-------|
-| Camera table/card view toggle with HLS live preview | Most VMS show either a grid of live feeds OR a table of cameras. Toggling between table (data-dense, sortable) and card (visual preview) views in one page is uncommon and powerful. Cards showing actual HLS live thumbnails make this a standout feature. | HIGH | Unified data tables, HLS player component | Card view needs HLS.js player per card. Performance concern: 20+ simultaneous HLS streams = high bandwidth. Implement lazy loading -- only play visible cards. Use IntersectionObserver to pause off-screen streams. |
-| View Stream page (preview + policies + embed + activity) | Consolidates the most common camera workflows into one focused page instead of a 5-tab detail page. Preview stream, see/edit policies, grab embed code, view recent activity -- all in one view. | MEDIUM | Camera quick actions (links to this page) | This replaces the need to navigate through camera detail tabs for the most common tasks. Keep camera detail page for advanced settings (connection config, stream profile assignment). |
-| Project tree viewer (split panel: tree left, data table right) | Hierarchical tree navigation (Project > Site > Camera) with a data table on the right is the standard VMS pattern (Milestone XProtect uses this exact layout). Currently SMS has flat lists. Tree view makes large deployments navigable. | HIGH | Unified data tables | Split panel layout: resizable tree (250-350px) on left, data table on right. Tree nodes show counts (e.g., "Office Building (3 sites, 12 cameras)"). Clicking a node filters the right table. |
-| Map with tree viewer filter and drag-drop markers | Combining tree filter with map lets operators see cameras by location within their hierarchy. Drag-drop marker placement eliminates manual lat/lng entry -- a major pain point. | HIGH | Project tree viewer, map component | Leaflet supports drag events. Need: (1) tree filter panel overlaying map, (2) drag marker to set lat/lng, (3) save location on drop. Current map has no editing capability. |
-| Download recording clips | Operators expect to download recorded footage as MP4 files. Current system only plays back in browser. | MEDIUM | Recordings page | Needs backend: generate download URL from MinIO, possibly transcode segment range to MP4. Consider pre-signed URL pattern for large files. |
-| Stream profiles as table (replacing cards) | Cards are nice for 3-5 profiles but become unwieldy at 10+. Table view with quick actions is more scalable and consistent with rest of UI. | LOW | Unified data tables | Simple migration from card grid to DataTable. Keep "Default" badge, mode badge. Add quick actions: Edit, Duplicate, Set Default, Delete. |
+| Feature | Value Proposition | Complexity | Depends On (Existing) |
+|---------|-------------------|------------|----------------------|
+| **Timeline scrubber for recording playback** | Surveillance-grade UX: visual bar showing which hours have footage, click-to-seek. Separates VMS from basic file downloads. | HIGH | ManifestService `getSegmentsForDate` (exists), new UI component needed |
+| **Hour-level availability heatmap** | Shows 24-hour bar colored by recording availability. Operators instantly see gaps. Backend already returns hourly data via `getSegmentsForDate`. | MEDIUM | ManifestService (exists) -- frontend only |
+| **Camera maintenance mode** | Suppress alerts/notifications when camera is under planned maintenance. Prevents alert fatigue. Competitors (Milestone, Genetec) all have this. | MEDIUM | StatusService state machine needs new `maintenance` state |
+| **Plan/usage viewer** | Org admins see current package limits vs actual usage (cameras, storage, bandwidth). Builds trust, reduces "why is X not working" support tickets. | MEDIUM | Package model (exists), storage quota check (exists) |
+| **User avatar upload** | Professional touch for multi-user orgs. Not critical but expected in modern SaaS. | LOW | Need MinIO bucket or Better Auth image field |
+| **User change email** | Less common but expected. Better Auth supports it with re-verification flow. | LOW | Better Auth `changeEmail` API |
+| **FFmpeg output-based health detection** | Parse FFmpeg stderr for frame drops, bitrate anomalies, decode errors. Transition to `degraded` state proactively before full failure. | HIGH | FfmpegService (exists) -- needs stderr parsing |
+| **Cross-camera timeline view** | View multiple cameras' recordings on one timeline. Critical for incident investigation. | HIGH | ManifestService (exists) -- major UI effort |
 
 ### Anti-Features (Commonly Requested, Often Problematic)
 
+Features that seem good but create problems.
+
 | Feature | Why Requested | Why Problematic | Alternative |
 |---------|---------------|-----------------|-------------|
-| Real-time auto-refresh on all tables | "I want to see camera status change instantly in the table" | Polling every 2s on tables with 100+ rows causes excessive re-renders and API load. Socket.IO status updates already exist but full table refresh is wasteful. | Use targeted Socket.IO updates for status column only (already implemented). Add a manual "Refresh" button. Show "last updated" timestamp. |
-| Inline cell editing in tables | "Let me edit camera name right in the table" | Increases component complexity massively. Accidental edits. Validation becomes inline. Conflicts with quick action menus. | Use quick action menu > "Edit" which opens a focused dialog. Faster to build, less error-prone. |
-| Drag-and-drop row reordering in tables | "Let me reorder cameras by dragging" | Camera order is meaningless -- they should be sorted by status/name/date. DnD in tables is complex (especially with pagination) and adds no value for surveillance data. | Provide column sorting. Users sort by what matters to them. |
-| Multi-grid live view (2x2, 3x3, 4x4 camera grids) | "Show me 9 cameras at once like a security monitor" | This is a viewer feature, not a management feature. SMS is a developer platform for embedding streams, not a security guard's workstation. Building a multi-grid viewer is a separate product. | Card view toggle with HLS preview serves the "quick visual check" need. Multi-grid is out of scope -- developers embed streams on their own sites. |
-| Customizable dashboard with drag-drop widgets | "Let me arrange my dashboard cards" | Enormous complexity for marginal value at this stage. Dashboard layout works well as designed. Widget systems need persistence, layout engine, responsive breakpoints. | Keep curated dashboard layout. Add more cards/metrics if needed, but designer decides layout, not user. |
-| Dark mode toggle | "Every modern app has dark mode" | Current green theme is the brand identity. Supporting two themes doubles CSS testing surface. Not a v1.1 priority. | Defer to v1.2+. If implemented, use shadcn's built-in dark mode support which is already configured in the codebase. |
+| **Infinite FFmpeg retry without backoff cap** | "Camera should always reconnect" | CPU exhaustion, log flooding, obscures permanent failures (wrong URL, decommissioned camera). Current 20-attempt cap with exponential backoff is correct. | Keep current cap (20 attempts, 5-min max backoff). Add manual "retry now" button + notification when max retries exhausted. |
+| **Real-time frame-by-frame seeking** | "I need exact frame access" | Requires server-side thumbnail generation, massive storage for sprite sheets, complex seek logic. Over-engineering for v1.2. | Segment-level seeking (2-second granularity from HLS segments). Add frame-level in future if demanded. |
+| **User self-registration** | "Let anyone sign up" | Multi-tenant SaaS with org isolation -- uncontrolled signup creates orphan users, billing complexity. Admin-creates-user model is correct for B2B. | Keep admin-creates-user. Add invitation link flow (Better Auth has `invitation` plugin). |
+| **Editable plan/billing by org admin** | "Let org admins upgrade their own plan" | Billing is explicitly out of scope (PROJECT.md). Adding self-service billing is a massive scope expansion (Stripe, invoicing, proration). | View-only plan/usage. "Contact admin for upgrade" button. |
+| **Live transcoding quality selector per viewer** | "Viewers should pick quality" | ABR (Adaptive Bitrate) requires multi-rendition transcoding per camera. CPU cost scales linearly. SRS does not support dynamic multi-rendition. | Single stream profile per camera (already exists). ABR is a v2+ feature requiring dedicated transcoding infrastructure. |
+| **Recording playback with picture-in-picture** | "Drag video while browsing" | Browser PiP API is unreliable with HLS.js, especially for VOD manifests with proxy URLs. Edge cases with segment auth. | Standard embedded player is sufficient. PiP can be added later if browsers improve HLS PiP support. |
 
 ## Feature Dependencies
 
 ```
-[Unified DataTable component]
-    |--required-by--> [Camera table + quick actions]
-    |--required-by--> [Recordings page (dedicated)]
-    |--required-by--> [Stream profiles table]
-    |--required-by--> [Project tree viewer (right panel)]
-    |--required-by--> [All admin tables (users, API keys, audit log, webhooks)]
+[FFmpeg SRS restart recovery]
+    |-- requires --> [SRS on_unpublish callback handling]
+    |-- requires --> [Stream queue re-enqueue logic]
+    |-- enhances --> [Health check loop]
 
-[Unified DatePicker / DateRangePicker]
-    |--required-by--> [Recordings page filters]
-    |--required-by--> [Audit log page filters]
+[Health check loop]
+    |-- requires --> [FFmpeg process state tracking]
+    |-- requires --> [StatusService transitions] (exists)
+    |-- enhances --> [Camera status icons]
 
-[Collapsible sidebar]
-    |--independent-- (no dependencies, no dependents in this milestone)
+[Camera maintenance mode]
+    |-- requires --> [StatusService: add 'maintenance' state]
+    |-- requires --> [Notification suppression logic]
+    |-- enhances --> [Camera status icons]
 
-[Login redesign]
-    |--independent-- (no dependencies, no dependents in this milestone)
+[Camera status icons (3-state)]
+    |-- requires --> [Camera model: status + isRecording + maintenance flag]
+    |-- independent of --> [Recording playback timeline]
 
-[Camera quick actions menu]
-    |--requires--> [Unified DataTable]
-    |--enables--> [View Stream page] (quick action links to it)
+[Recording playback page]
+    |-- requires --> [ManifestService] (exists)
+    |-- requires --> [HLS player component] (exists -- hls-player.tsx)
+    |-- requires --> [Segment proxy endpoint] (exists)
 
-[View Stream page]
-    |--requires--> [HLS player component] (already exists)
-    |--requires--> [Policies display] (already exists in camera detail)
-    |--requires--> [Embed code generator] (already exists)
+[Timeline scrubber]
+    |-- requires --> [Recording playback page]
+    |-- requires --> [getSegmentsForDate API] (exists)
+    |-- enhances --> [Hour-level availability heatmap]
 
-[Project tree viewer]
-    |--requires--> [Unified DataTable] (right panel)
-    |--requires--> [Tree component] (new, use recursive Collapsible or react-arborist)
-    |--enables--> [Map tree viewer filter]
+[User self-service (password/name/email)]
+    |-- requires --> [Better Auth client API] (exists)
+    |-- independent of --> [FFmpeg features]
+    |-- independent of --> [Recording features]
 
-[Map tree viewer + drag-drop]
-    |--requires--> [Project tree viewer component] (reuse tree)
-    |--requires--> [Leaflet drag events] (new capability)
+[User avatar upload]
+    |-- requires --> [MinIO or static file upload endpoint]
+    |-- enhances --> [User self-service]
 
-[Camera card view with HLS preview]
-    |--requires--> [Unified DataTable] (toggle lives in table toolbar)
-    |--requires--> [HLS player component] (exists)
-    |--requires--> [IntersectionObserver lazy loading] (new, for performance)
-
-[Recordings dedicated page]
-    |--requires--> [Unified DataTable]
-    |--requires--> [Unified DateRangePicker]
-    |--requires--> [Backend: GET /api/recordings with cross-camera filters]
-
-[Download clips]
-    |--requires--> [Recordings dedicated page]
-    |--requires--> [Backend: pre-signed download URL from MinIO]
+[Plan/usage viewer]
+    |-- requires --> [Package model + limits] (exists)
+    |-- requires --> [Storage quota API] (exists)
+    |-- requires --> [Camera count per org query]
+    |-- independent of --> [all other features]
 ```
 
 ### Dependency Notes
 
-- **Unified DataTable is the critical foundation:** 7 of 12 features depend on it. Build this first.
-- **DatePicker is a quick win with wide impact:** Small component, used in recordings and audit log.
-- **Collapsible sidebar and login redesign are independent:** Can be built in parallel with anything.
-- **Tree viewer is the most complex dependency chain:** Tree component > project tree viewer > map tree filter. Plan for this to be a later phase.
-- **Camera card view has a hidden performance dependency:** HLS live preview in cards needs IntersectionObserver-based lazy loading or it will crush bandwidth with 20+ cameras.
+- **FFmpeg resilience features** are tightly coupled and should be built together in one phase. SRS restart recovery depends on callback handling; health check loop depends on process state tracking.
+- **User self-service** is fully independent -- can be built in parallel with any other feature group.
+- **Recording playback and timeline** build on each other sequentially: player first, then timeline scrubber on top.
+- **Camera maintenance mode** touches StatusService (shared with FFmpeg resilience). Build after or alongside FFmpeg resilience to avoid state machine conflicts.
+- **Plan/usage viewer** is independent and read-only. Lowest risk, can slot into any phase.
 
-## MVP Definition (v1.1 Milestone)
+## Implementation Details
 
-### Launch With (Must Have)
+### FFmpeg Full Resilience
 
-- [ ] **Unified DataTable component** -- Foundation for all table improvements. TanStack Table + shadcn. Sorting, filtering, pagination, row selection, quick actions.
-- [ ] **Unified DatePicker / DateRangePicker** -- Replace all native date inputs. Small effort, big visual consistency win.
-- [ ] **Collapsible sidebar** -- Migrate from custom sidebar-nav to shadcn Sidebar component. Cookie-persisted state.
-- [ ] **Camera table with quick actions** -- Apply DataTable to cameras page. Add "..." menu with Edit, View Stream, Disable, Delete, Record, Embed Code.
-- [ ] **Recordings dedicated page** -- All cameras, filter by camera/project/date/status, bulk delete. Needs backend endpoint.
-- [ ] **Stream profiles as table** -- Replace card layout with DataTable. Quick actions for Edit, Duplicate, Delete.
-- [ ] **Login redesign with remember me** -- Cosmetic + session TTL extension for "remember me" checkbox.
+**Current state:** BullMQ job with 20 retries, exponential backoff (1s to 5min cap). FfmpegService tracks running processes in-memory Map. StatusService has state machine: offline -> connecting -> online -> reconnecting/degraded -> offline.
 
-### Add After Core Tables Work (Should Have)
+**What is missing for full resilience:**
 
-- [ ] **Camera card view toggle with HLS preview** -- After DataTable is solid, add view toggle. Requires lazy-load HLS optimization.
-- [ ] **View Stream page** -- After camera quick actions exist (one action links here). Consolidate preview + policies + embed + activity.
-- [ ] **Project tree viewer** -- After DataTable is done (it's the right panel). Tree component is new and complex.
-- [ ] **Download recording clips** -- After recordings page is rebuilt. Backend pre-signed URL work needed.
+1. **SRS restart detection:** When SRS restarts, all RTMP connections drop. SRS fires `on_unpublish` for each stream. Backend must catch these callbacks and re-enqueue all affected cameras. Currently, `on_unpublish` likely does not distinguish between intentional stop vs SRS crash.
 
-### Defer to v1.2+ (Future)
+2. **Health check loop:** A periodic BullMQ repeatable job (every 30-60s) that:
+   - Checks all cameras with status `online` -- verifies FFmpeg process is still alive
+   - Checks all cameras with status `connecting` or `reconnecting` -- verifies BullMQ job exists
+   - Detects orphaned states (camera says `online` but no FFmpeg process) and corrects them
+   - Calls SRS `/api/v1/streams` to verify streams are actually being delivered
 
-- [ ] **Map tree viewer with drag-drop markers** -- Depends on tree viewer being stable. Drag-drop marker placement is complex.
-- [ ] **Map camera preview popup on hover** -- Nice but not essential. HLS popup on hover has performance implications.
+3. **FFmpeg stderr monitoring:** Parse FFmpeg output for:
+   - `Connection refused` / `Connection timed out` -- camera unreachable
+   - `frame=0` after N seconds -- stream stalled
+   - `dropping frame` / `overread` -- degraded quality
+   Transition to appropriate status based on pattern.
+
+4. **Notification on status change:** Already exists via NotificationsService + WebhooksService. Just needs to be wired to new transitions (maintenance mode suppression is the new part).
+
+5. **Graceful shutdown:** On API server shutdown, SIGTERM all FFmpeg processes cleanly. On restart, re-enqueue all cameras that were `online` or `connecting` before shutdown.
+
+**FFmpeg watchdog pattern (industry standard):**
+- Monitor process exit code and stderr
+- Respawn with backoff on unexpected exit
+- Cap retries, then notify and mark offline
+- Periodic liveness check independent of process events
+
+### Recording Playback with Timeline
+
+**Current state:** ManifestService generates VOD m3u8 from stored segments. `getSegmentsForDate` returns hourly availability. `getDaysWithRecordings` returns calendar data. Recordings page is DataTable with download/delete. HLS player component exists (`hls-player.tsx`).
+
+**What needs to be built:**
+
+1. **Recording playback page** (`/app/recordings/[id]` or modal):
+   - Camera selector (or navigate from camera detail)
+   - Date picker (calendar with dots on days that have recordings -- API exists)
+   - HLS.js player loading VOD manifest from ManifestService
+   - Basic play/pause/seek controls
+
+2. **Timeline scrubber component:**
+   - 24-hour horizontal bar divided into segments
+   - Colored blocks where recording data exists (from `getSegmentsForDate`)
+   - Click on a time block to seek the player to that position
+   - Current playback position indicator (needle/cursor)
+   - Zoom levels: full day / 6 hours / 1 hour
+   - Reference: react-video-timelines-slider -- React component specifically for CCTV timeline scrubbing
+
+3. **Segment-to-time mapping:** The manifest has segments with duration. To seek to a specific time, calculate cumulative duration and use hls.js `player.currentTime = targetSeconds`. hls.js supports accurate seeking on VOD streams (not limited to fragment boundaries).
+
+4. **Gap handling:** When no recording exists for a time range, the timeline shows empty space. Seeking into a gap should snap to the nearest available segment.
+
+### User Self-Service
+
+**Current state:** Better Auth handles auth with `emailAndPassword` plugin. Users are created by org admin. Auth client in frontend uses `createAuthClient` with `organizationClient` and `adminClient` plugins.
+
+**Better Auth built-in capabilities (HIGH confidence -- from auth config):**
+- `authClient.updateUser({ name, image })` -- change name and avatar URL
+- `authClient.changePassword({ currentPassword, newPassword })` -- change password
+- `authClient.changeEmail({ newEmail })` -- change email (may require verification)
+- Session is already handled (30-day expiry, daily refresh)
+
+**What needs to be built:**
+1. **Account settings page** (`/app/settings/account`):
+   - Profile section: name, avatar, email (with change flow)
+   - Security section: change password form (current + new + confirm)
+   - Session info: last login, active sessions (Better Auth tracks these)
+
+2. **Avatar upload:**
+   - Option A: Upload to MinIO, store URL in user record via `updateUser({ image: url })`
+   - Option B: Use a simple base64 data URL for small avatars (simpler, no MinIO dependency)
+   - Recommendation: Option A (MinIO already in stack, consistent with other file storage)
+
+3. **Plan/usage viewer** (`/app/settings/plan`):
+   - Read-only display of current package: name, limits (max cameras, max storage, max bandwidth)
+   - Current usage: active cameras count, storage used, bandwidth used (this month)
+   - Usage bars with percentage
+   - "Contact administrator for upgrade" button (mailto or in-app message)
+
+### Camera Maintenance Mode
+
+**Current state:** Camera status is a string field: `offline`, `connecting`, `online`, `reconnecting`, `degraded`. StatusService validates transitions. Webhooks and notifications fire on status changes.
+
+**What needs to be built:**
+
+1. **Schema change:** Add `maintenance` to valid camera statuses. Add `maintenanceNote` optional field to Camera model for reason text.
+
+2. **StatusService update:** Add valid transitions:
+   - Any state -> `maintenance` (operator puts camera in maintenance)
+   - `maintenance` -> `offline` (maintenance complete, ready to reconnect)
+   - `maintenance` suppresses all notifications and webhooks for this camera
+
+3. **API endpoint:** `PATCH /cameras/:id/maintenance` with `{ enabled: boolean, note?: string }`
+
+4. **UI:** Maintenance toggle button on camera detail page. When in maintenance:
+   - Status badge shows wrench icon + "Maintenance" label
+   - Stream controls disabled (cannot start stream while in maintenance)
+   - Recording controls disabled
+   - Alert/notification suppression active
+   - Optional: scheduled maintenance with start/end time (v2 feature)
+
+5. **Camera status column (3-icon design):**
+   - Icon 1: Connection status (green circle = online, red = offline, yellow = connecting/reconnecting, gray = maintenance)
+   - Icon 2: Recording status (red dot = recording, empty = not recording)
+   - Icon 3: Maintenance status (wrench icon when in maintenance, hidden otherwise)
+   - These are orthogonal indicators, not mutually exclusive
+
+## MVP Definition
+
+### Build in v1.2 (This Milestone)
+
+- [ ] FFmpeg auto-reconnect on camera drop -- enhance existing retry with health check
+- [ ] FFmpeg auto-reconnect on SRS restart -- handle `on_unpublish` callback for crash recovery
+- [ ] Health check loop -- BullMQ repeatable job, 60s interval
+- [ ] Notification on FFmpeg status change -- wire to existing NotificationsService (mostly exists)
+- [ ] User change name -- Better Auth `updateUser` + settings page
+- [ ] User change password -- Better Auth `changePassword` + settings page
+- [ ] Recording playback page with HLS player -- click recording row to play
+- [ ] Timeline scrubber with hourly availability -- 24-hour bar, click to seek
+- [ ] Plan/usage viewer (read-only) -- package limits vs current usage
+- [ ] Camera maintenance mode -- status + notification suppression
+- [ ] Camera status column (3-icon) -- online/offline + recording + maintenance
+- [ ] DataTable migration for missed pages (Team, Organizations, Cluster Nodes, Platform Audit)
+- [ ] Bug fixes (system org user creation, API key copy/delete)
+- [ ] Dashboard improvements (org admin + super admin)
+- [ ] Map UI improvements (thumbnail popup, pin design)
+
+### Add After v1.2 (v1.3+)
+
+- [ ] User avatar upload -- lower priority, cosmetic
+- [ ] User change email -- requires verification flow, edge cases
+- [ ] FFmpeg stderr parsing for proactive degradation detection -- complex, needs tuning
+- [ ] Timeline zoom levels (6h, 1h views) -- nice UX, not critical
+- [ ] Cross-camera timeline view -- major UI effort, incident investigation use case
+- [ ] Scheduled maintenance windows (auto-enter/exit maintenance) -- useful for large deployments
+
+### Future Consideration (v2+)
+
+- [ ] Frame-level seeking with thumbnail sprite sheets -- significant infrastructure
+- [ ] ABR multi-rendition streaming -- requires transcoding pipeline redesign
+- [ ] Recording clips/export (select time range, download as single file) -- needs FFmpeg concat on server
+- [ ] User self-registration with invitation links -- scope change for auth model
 
 ## Feature Prioritization Matrix
 
-| Feature | User Value | Implementation Cost | Priority | Phase Suggestion |
-|---------|------------|---------------------|----------|------------------|
-| Unified DataTable component | HIGH | HIGH | P1 | Phase 1 (foundation) |
-| Unified DatePicker/DateRangePicker | MEDIUM | LOW | P1 | Phase 1 (foundation) |
-| Collapsible sidebar | MEDIUM | MEDIUM | P1 | Phase 1 (independent) |
-| Login redesign + remember me | LOW | LOW | P1 | Phase 1 (independent) |
-| Camera table + quick actions | HIGH | MEDIUM | P1 | Phase 2 (applies DataTable) |
-| Stream profiles table | MEDIUM | LOW | P1 | Phase 2 (applies DataTable) |
-| Recordings dedicated page | HIGH | HIGH | P1 | Phase 3 (needs backend work) |
-| Camera card view + HLS preview | HIGH | HIGH | P2 | Phase 3 or 4 |
-| View Stream page | MEDIUM | MEDIUM | P2 | Phase 4 |
-| Project tree viewer | MEDIUM | HIGH | P2 | Phase 4 or 5 |
-| Download clips | MEDIUM | MEDIUM | P2 | Phase 3 (with recordings) |
-| Map tree viewer + drag-drop | LOW | HIGH | P3 | Phase 5 or defer |
-| Map camera preview popup | LOW | MEDIUM | P3 | Phase 5 or defer |
+| Feature | User Value | Implementation Cost | Priority | Notes |
+|---------|------------|---------------------|----------|-------|
+| FFmpeg SRS restart recovery | HIGH | MEDIUM | P1 | Core reliability -- silent stream death is unacceptable |
+| FFmpeg health check loop | HIGH | MEDIUM | P1 | Catches orphaned states, complements restart recovery |
+| Recording playback page | HIGH | MEDIUM | P1 | Recordings without playback is useless |
+| Timeline scrubber | HIGH | HIGH | P1 | Defines surveillance-grade UX |
+| Camera maintenance mode | MEDIUM | MEDIUM | P1 | Prevents alert fatigue, common VMS feature |
+| Camera status icons (3-state) | MEDIUM | LOW | P1 | At-a-glance operational awareness |
+| User change name/password | MEDIUM | LOW | P1 | Basic self-service, reduces admin burden |
+| DataTable migration (4 pages) | MEDIUM | MEDIUM | P1 | Consistency with v1.1 DataTable system |
+| Bug fixes (3 items) | HIGH | LOW | P1 | Broken features must be fixed |
+| Dashboard improvements | MEDIUM | MEDIUM | P1 | Remove noise, add actionable data |
+| Map UI improvements | LOW | MEDIUM | P2 | Cosmetic, not blocking workflows |
+| Plan/usage viewer | MEDIUM | MEDIUM | P2 | Useful but not blocking core workflows |
+| User avatar upload | LOW | LOW | P2 | Cosmetic, nice to have |
+| User change email | LOW | LOW | P3 | Rarely needed, complex verification flow |
+| FFmpeg stderr health parsing | MEDIUM | HIGH | P3 | Needs real-world tuning, can be iterative |
+| Cross-camera timeline | HIGH | HIGH | P3 | Major effort, defer to dedicated milestone |
+
+**Priority key:**
+- P1: Must have for v1.2 milestone
+- P2: Should have, include if time permits
+- P3: Defer to later milestone
 
 ## Competitor Feature Analysis
 
-| Feature | Milestone XProtect | Eagle Eye Networks | Verkada | SMS v1.1 Approach |
-|---------|-------------------|-------------------|---------|-------------------|
-| Camera hierarchy | Device tree (tree nav, groups, drag-drop) | Layouts + site grouping | Tags + locations | Project > Site > Camera tree viewer (split panel) |
-| Table views | Basic lists, not data-table focused | Searchable lists | Clean tables with filters | TanStack Table with full sort/filter/paginate |
-| Card/grid + table toggle | Grid-focused (video wall) | Grid layouts | Grid + list toggle | Table default, card toggle with HLS preview |
-| Quick actions | Right-click context menus | Inline action buttons | Hover action overlay | "..." dropdown menu per row (standard SaaS pattern) |
-| Map view | Static map with markers | Interactive map, site-based | Floor plan + map | Leaflet map with tree filter, drag-drop placement |
-| Recordings browse | Timeline scrubber per camera | Calendar + timeline | Timeline + search | Dedicated page with cross-camera filters, date range, bulk ops |
-| Sidebar | Collapsible tree panels | Fixed sidebar | Collapsible sidebar | shadcn Sidebar with icon collapse mode |
-| Download footage | Export clips with player | Cloud download | Direct download | Pre-signed URL download from MinIO |
-
-**Key insight:** Milestone and Eagle Eye are desktop-heavy VMS products. Verkada is the closest competitor in terms of modern web UI. SMS should aim for Verkada-level polish with a developer-first twist (embed codes, API keys are unique differentiators competitors lack).
+| Feature | Frigate NVR | Milestone XProtect | Nx Witness | Our Approach |
+|---------|-------------|-------------------|------------|--------------|
+| FFmpeg process management | Built-in watchdog, auto-respawn, stderr monitoring, frame drop detection | N/A (native SDK) | N/A (native SDK) | BullMQ-based watchdog with health check loop. Simpler than Frigate (no ML pipeline) but same resilience pattern. |
+| Recording timeline | Scrollable timeline bar, motion event markers, seek-to-time | Full timeline scrubber with motion/analytics markers, multi-camera sync | Timeline with bookmarks, cross-camera sync | 24-hour bar with hourly availability, click-to-seek. Motion markers are v2 (no analytics engine yet). |
+| Maintenance mode | Not applicable (home NVR) | Camera maintenance status, suppresses alarms, shows in system monitor | "Diagnostics mode" with alert suppression | Status field + notification suppression. No scheduled windows in v1.2. |
+| User self-service | Single user (home use) | Active Directory integration, full self-service | LDAP/AD, self-service profile | Better Auth built-in APIs for name/password/email. Simpler than enterprise LDAP but sufficient for SaaS. |
+| Plan/usage view | N/A (self-hosted) | License management dashboard | License server dashboard | Read-only package viewer with usage bars. No self-service billing (out of scope). |
 
 ## Sources
 
-- [Data Table UX Patterns & Best Practices -- Pencil & Paper](https://www.pencilandpaper.io/articles/ux-pattern-analysis-enterprise-data-tables) -- Enterprise table patterns (sorting, filtering, pagination, bulk actions, column config)
-- [Top 6 Features Every VMS Dashboard Should Have -- The Boring Lab](https://theboringlab.com/top-6-features-every-vms-dashboard-should-have-in-2024/) -- VMS dashboard feature requirements
-- [shadcn/ui Sidebar Documentation](https://ui.shadcn.com/docs/components/radix/sidebar) -- Collapsible sidebar component with icon mode, cookie persistence
-- [shadcn/ui Data Table](https://ui.shadcn.com/docs/components/radix/data-table) -- TanStack Table integration pattern
-- [tablecn (sadmann7)](https://github.com/sadmann7/tablecn) -- Server-side sorting, filtering, pagination reference implementation
-- [OpenStatus Data Table](https://data-table.openstatus.dev/) -- React data table with filters, shadcn + TanStack Table
-- [Milestone XProtect Views](https://doc.milestonesys.com/2024R1/en-US/standard_features/sf_sc/sf_viewing/current/sc_workingwithviews.htm) -- VMS tree view and device hierarchy patterns
-- [VMS UX Best Practices -- Hicron Software](https://hicronsoftware.com/blog/vms-user-friendly-design/) -- VMS user-friendly design principles
+- [ffmpeg-watchdog GitHub](https://github.com/rrymm/ffmpeg-watchdog) -- FFmpeg process monitor and auto-respawn pattern
+- [Frigate NVR camera configuration](https://docs.frigate.video/configuration/camera_specific/) -- Real-world FFmpeg management in surveillance
+- [Node.js watchdog timer pattern](https://dev.to/gajus/ensuring-healthy-node-js-program-using-watchdog-timer-4pjd) -- Health check loop design
+- [react-video-timelines-slider](https://github.com/prakhars144/react-video-timelines-slider) -- React component for CCTV timeline scrubbing
+- [hls.js API documentation](https://github.com/video-dev/hls.js/blob/master/docs/API.md) -- Accurate seeking on VOD streams
+- [Mux timeline hover previews](https://docs.mux.com/guides/video/create-timeline-hover-previews) -- Thumbnail preview design pattern
+- [Baymard accounts self-service UX](https://baymard.com/blog/current-state-accounts-selfservice) -- Self-service best practices 2025
+- [March Networks VMS features](https://marchnetworks.com/intelligent-ip-video-blog/find-video-surveillance-evidence-faster-with-these-5-must-have-vms-features) -- Surveillance timeline UI patterns
+- [rtsp-relay npm](https://www.npmjs.com/rtsp-relay) -- RTSP reconnection handling pattern
+- Existing codebase: FfmpegService, StreamProcessor, StatusService, ManifestService, Better Auth config
 
 ---
-*Feature research for: SMS Platform v1.1 UI Overhaul*
-*Researched: 2026-04-17*
+*Feature research for: SMS Platform v1.2 -- Self-Service, Resilience & UI Polish*
+*Researched: 2026-04-18*

@@ -1,181 +1,182 @@
 # Pitfalls Research
 
-**Domain:** UI Overhaul for Next.js 15 Surveillance Platform (adding unified tables, multi-HLS players, tree viewer, collapsible sidebar, Leaflet drag-drop, recordings bulk ops, datepicker replacement, login redesign)
-**Researched:** 2026-04-17
-**Confidence:** HIGH
+**Domain:** Adding FFmpeg resilience, recording timeline playback, user self-service, camera maintenance mode, DataTable migration, and plan/usage viewer to existing CCTV SaaS platform
+**Researched:** 2026-04-18
+**Confidence:** HIGH (based on direct codebase analysis of existing implementation)
 
 ## Critical Pitfalls
 
-### Pitfall 1: Multiple Simultaneous HLS Players Crash the Browser Tab
+### Pitfall 1: FFmpeg Reconnect Storm After SRS Restart
 
 **What goes wrong:**
-Card view showing 6-12+ camera previews each with their own hls.js instance causes memory to climb past 1.5GB within 15-20 minutes. Each HLS instance creates a separate MediaSource, downloads segments into SourceBuffers, and the default `backBufferLength: Infinity` means played segments are never freed. The browser tab eventually freezes or crashes.
+When SRS restarts (update, crash, OOM), ALL FFmpeg processes lose their RTMP output simultaneously. With current BullMQ config (`attempts: 20, backoff: exponential from 1s`), every camera job fails and retries at the same time. 50 cameras = 50 FFmpeg processes spawning within 1-2 seconds, all hitting SRS before it finishes startup. SRS either crashes again from the inrush or rejects connections, causing cascading retry storms that burn through all 20 attempts.
 
 **Why it happens:**
-The existing `HlsPlayer` component (`apps/web/src/app/admin/cameras/components/hls-player.tsx`) is designed for single-stream viewing. It sets `maxBufferLength: 10` and `backBufferLength: 0` for live mode, which is good for one player but insufficient when multiplied across a grid. Each instance also spawns its own Web Worker (`enableWorker: true`), and browsers limit concurrent MediaSource instances (Chrome caps around 75, but memory is the real constraint).
+The current `StreamProcessor` in `apps/api/src/streams/processors/stream.processor.ts` has no awareness of SRS health. It blindly spawns FFmpeg on retry, which tries to push RTMP to a port that may not be listening yet. The exponential backoff starts at 1s which is too aggressive for infrastructure-level failures. All cameras share the same backoff base, so retries are synchronized.
 
 **How to avoid:**
-1. **Viewport-only playback:** Use IntersectionObserver to only activate HLS instances for cards visible in the viewport. Cards scrolled out of view get `hls.destroy()` called immediately.
-2. **Cap concurrent players at 4-6 max.** Even visible cards beyond this count should show a static thumbnail with a "click to play" overlay.
-3. **Aggressive buffer settings for grid mode:** `backBufferLength: 0`, `maxBufferLength: 4`, `maxBufferSize: 2 * 1000 * 1000` (2MB per player).
-4. **Single worker mode:** Set `enableWorker: false` in grid mode to avoid spawning 12+ Web Workers. The performance hit per-player is negligible at low buffer sizes.
-5. **Thumbnail fallback:** For large grids (12+), use periodic snapshot images from the backend instead of live HLS. Only upgrade to HLS on hover/click.
+1. Add a health gate before FFmpeg spawn: poll SRS `/api/v1/versions` (or TCP check port 1935) before attempting reconnection. If SRS is down, use a separate "infrastructure wait" loop with longer intervals (10s), not the per-camera retry budget.
+2. Add jitter to backoff: `delay * (0.5 + Math.random())` so cameras do not all retry at the same millisecond.
+3. Separate "SRS down" failures from "camera unreachable" failures. SRS down should pause ALL jobs, not retry them individually.
+4. Consider a global circuit breaker: if >3 cameras fail within 10s, assume SRS is down and pause the BullMQ queue.
 
 **Warning signs:**
-- Browser DevTools Memory tab shows steady climb during card view usage
-- `performance.memory.usedJSHeapSize` exceeds 500MB with card view open
-- Users report "Aw, Snap!" or tab freezes after leaving dashboard open
+- CPU spikes when SRS restarts
+- All cameras show "reconnecting" simultaneously then go "offline" after exhausting retries
+- BullMQ `failed` job count spikes suddenly
+- SRS crashes repeatedly after restart (thundering herd)
 
 **Phase to address:**
-Camera card view phase. Must be designed into the card view component from day one -- retrofitting viewport-aware playback into existing grid is painful.
+FFmpeg Resilience phase -- must be early because everything else depends on stable streams.
 
 ---
 
-### Pitfall 2: Sidebar Collapse Breaks Existing Layout Math
+### Pitfall 2: Recording State Desync When FFmpeg Dies Mid-Recording
 
 **What goes wrong:**
-The current admin layout (`apps/web/src/app/admin/layout.tsx`) uses `<div className="flex min-h-screen">` with a fixed `md:w-[240px]` sidebar. The main content is `flex-1`. Replacing `SidebarNav`/`PlatformNav` with shadcn's collapsible `SidebarProvider` changes the width from 240px to 48px (3rem icon mode), causing:
-- Map components (`CameraMapInner`) that use `h-[calc(100vh-10rem)]` heights don't account for sidebar width changes, causing Leaflet's `invalidateSize()` to not fire and the map renders with stale dimensions.
-- Dashboard chart containers (Recharts) don't re-render on sidebar width change, leaving blank space or overflowing.
-- Content that relies on `flex-1` may flash/jump during the CSS transition.
+Camera has `isRecording: true` and an active `Recording` row with `status: 'recording'`. FFmpeg crashes or SRS restarts. The stream reconnects (via BullMQ retry), but nobody restarts recording. The camera shows "recording" in the UI but no new segments are being archived. Worse: the `on_hls` callback fires for the new stream session but `getActiveRecording()` returns the old recording row, so segments from the new SRS publish session get appended to the old recording with a time gap and potentially different fMP4 init segments, corrupting playback.
 
 **Why it happens:**
-The current layout has no concept of sidebar state. `PlatformNav` is a static 240px aside. shadcn's `SidebarProvider` manages state via cookie (`sidebar_state`) and CSS custom properties, but existing page components don't subscribe to sidebar state changes and don't trigger resize recalculations.
+The current architecture treats recording as completely separate from streaming. `startRecording()` in `RecordingsService` and the FFmpeg lifecycle in `StreamProcessor` are not coupled. When FFmpeg reconnects via BullMQ retry, there is no hook to check "was this camera recording before the crash?" and handle the recording boundary. The `on_unpublish` callback in `SrsCallbackController` explicitly comments "Reconnect is handled by BullMQ -- do not transition status here" but has no recording cleanup logic.
 
 **How to avoid:**
-1. **Place `SidebarProvider` in the root admin layout**, not in individual pages. The existing `sidebar.tsx` UI component already has cookie persistence (`SIDEBAR_COOKIE_NAME = "sidebar_state"` with 7-day max age).
-2. **Trigger resize events on transition end.** After sidebar animation completes (200ms), dispatch `window.dispatchEvent(new Event('resize'))` so Leaflet maps and Recharts pick up the new dimensions.
-3. **Replace calc-based heights** in map components with CSS that responds to the sidebar CSS custom property (`--sidebar-width`).
-4. **Use `transition-[width]` not `transition-all`** on sidebar to avoid animating unrelated properties.
-5. **Test collapsed state persistence.** The shadcn sidebar stores state in a cookie -- if the `SidebarProvider` is placed wrong (per-page instead of layout), it resets on every navigation.
+1. On successful reconnection (after `on_publish` callback fires), check `camera.isRecording`. If true, close the old recording (`status: 'complete'`, set `stoppedAt`) and create a new recording. This ensures each recording has a consistent init segment.
+2. Never append segments from a new SRS publish session to an old recording -- the fMP4 init segment will differ because SRS generates a new one per publish.
+3. Add a `publishSessionId` (from SRS `on_publish` `client_id`) to the recording to detect session boundaries.
+4. In `on_unpublish`, if camera `isRecording`, mark a "recording interrupted" flag so the reconnect handler knows to restart it.
 
 **Warning signs:**
-- Map appears zoomed wrong or has gray tiles after sidebar toggle
-- Charts have empty whitespace on the right after expanding sidebar
-- Sidebar state resets when navigating between pages
+- Recordings with time gaps in their segment timestamps
+- hls.js playback errors (codec switching error) on recordings that span a reconnection
+- `totalDuration` on recording row keeps growing but playback artifacts appear at the boundary
 
 **Phase to address:**
-Sidebar collapse must be the FIRST UI change implemented because every subsequent component (tables, maps, tree viewer) must be built to work within the collapsible layout. Doing it later means retrofitting every page.
+FFmpeg Resilience phase -- recording continuity is part of resilience, not a separate concern.
 
 ---
 
-### Pitfall 3: TanStack Table Column Definitions Cannot Be Passed as Server Component Props
+### Pitfall 3: Timeline UI Loading Entire Segment List Into Memory
 
 **What goes wrong:**
-In Next.js 15 App Router, page components are Server Components by default. TanStack Table column definitions often include `cell` render functions (JSX) and event handlers (onClick for quick actions). Passing column definitions from a Server Component parent to a Client Component table triggers: `"Functions cannot be passed directly to Client Components unless you explicitly expose it by marking it with 'use server'."` This breaks the entire table pattern.
+A camera recording 24/7 with 2-second HLS segments generates 43,200 segment records per day. The timeline playback page queries all segments for a day to render the timeline bar. The current `getSegmentsForDate()` in `ManifestService` fetches ALL segment timestamps for a day to compute which hours have data -- this query will become catastrophically slow. Similarly, `generateManifest()` fetches all segments for a recording without pagination, generating a manifest with potentially 43,000+ entries that hls.js must parse and buffer.
 
 **Why it happens:**
-Developers define columns in the page file alongside data fetching, then pass both `data` and `columns` to a `<DataTable>` client component. The column `cell` property is a function, which cannot cross the server-client boundary.
+The current implementation in `apps/api/src/recordings/manifest.service.ts` was built for browse-and-download, not timeline scrubbing. `getSegmentsForDate()` returns individual segment timestamps and processes them in JavaScript. `generateManifest()` builds a single m3u8 with every segment in the recording.
 
 **How to avoid:**
-1. **Define columns in a separate client file** (`columns.tsx` with `"use client"`), imported by the client DataTable component, not passed as props from server.
-2. **Pattern:** Server Component fetches data and passes raw data to Client Component. Client Component imports its own column definitions internally.
-3. **For quick action menus (edit, delete, etc.):** Pass callback names/action types as serializable data, not function references. The client component maps action types to handlers.
-4. **Standardize early:** Create a `DataTable<T>` generic component that encapsulates TanStack Table setup, pagination, filtering, and sorting. Every page reuses this one component.
+1. Use a SQL aggregate query for timeline data: `GROUP BY date_trunc('hour', timestamp)` or `date_trunc('minute', timestamp)` returns max 24 or 1440 rows regardless of segment count.
+2. For the timeline bar at minute-level granularity, consider a pre-computed availability bitmap: a JSON column or separate table tracking which minutes have coverage, updated on segment archival.
+3. Implement sub-manifest generation: clicking a point on the timeline requests a manifest for only that 1-hour (or 30-minute) window, not the entire recording.
+4. Add a composite index on `RecordingSegment(cameraId, orgId, timestamp)` if not already present (current schema only indexes `recordingId`).
 
 **Warning signs:**
-- Build errors about functions in Server Component props
-- Each table implementation diverges from the pattern (currently: 10 different table files with no shared abstraction)
-- Duplicate pagination/filter/sort logic across tables
+- Timeline page takes >3s to load for a full day of recording
+- Database CPU spikes when multiple users open the recordings page
+- API timeout errors when generating manifests for long recordings
+- hls.js takes 5+ seconds to parse a manifest with 10,000+ entries
 
 **Phase to address:**
-Unified table infrastructure phase. Must establish the DataTable pattern BEFORE migrating individual tables. Build the generic component first, migrate one table to prove the pattern, then migrate the rest.
+Recording Timeline phase -- must design the data access pattern before building the UI.
 
 ---
 
-### Pitfall 4: Leaflet Drag-Drop Markers Break on Re-render
+### Pitfall 4: Maintenance Mode Not Blocking Stream Auto-Reconnect
 
 **What goes wrong:**
-When adding drag-drop marker placement for camera lat/long, the marker position is stored in React state. Dragging a marker fires `dragend`, which updates state, which triggers a re-render, which re-creates the Marker component, which resets the marker position to the old state value (race condition). The marker "snaps back" to its previous position.
+Admin puts camera in "maintenance" mode. The current status state machine in `StatusService` has valid transitions: `offline -> connecting -> online -> reconnecting/degraded -> offline`. "Maintenance" does not exist. If the developer adds maintenance as a status but does not update `StreamProcessor` and BullMQ logic, the camera keeps trying to reconnect. If maintenance is implemented as just a UI label without stopping the FFmpeg process, it wastes server resources.
 
 **Why it happens:**
-React-Leaflet markers are controlled components. If the parent re-renders during a drag operation, the marker's position prop overrides the user's drag. The existing `CameraMapInner` component uses `useMemo` for camera filtering, which is fine for static markers but breaks with interactive drag-drop.
+Maintenance mode touches multiple layers: the status state machine in `StatusService`, the `StreamProcessor` retry logic, the `SrsCallbackController` callbacks, the recording service, and the UI. Developers often implement it in the UI layer only (a toggle that sets a database flag) without integrating it into the stream lifecycle.
 
 **How to avoid:**
-1. **Use `useRef` for drag state**, not `useState`. Store the dragged position in a ref during the drag, only commit to state on `dragend` with the ref value.
-2. **Use `eventHandlers` prop on `<Marker>`** with `dragend: (e) => { const latlng = e.target.getLatLng(); setPosition(latlng); }` -- this reads from the Leaflet marker instance directly, not from React state.
-3. **Wrap draggable markers in `React.memo`** with a custom comparator that ignores position changes during active drag.
-4. **For the tree viewer + map split panel:** The map component MUST NOT unmount/remount when the tree selection changes. Use CSS visibility or a stable key, not conditional rendering.
+1. Add `maintenance` to `StatusService.validTransitions`. Allow transitions from any state to `maintenance` and from `maintenance` only to `offline` or `connecting`.
+2. When entering maintenance: call `StreamsService.stopStream()` which kills FFmpeg and removes the BullMQ job, then set status to `maintenance`.
+3. In `StreamProcessor.process()`, check camera status at the START before spawning FFmpeg. If `maintenance`, complete the job without error (so it does not retry).
+4. In `SrsCallbackController.onPublish()`, check for maintenance status -- if a stream publishes for a maintenance camera, log a warning.
+5. When exiting maintenance: do NOT auto-start streaming. Require explicit "Start Stream" action. This prevents surprise resource usage.
+6. If camera was recording when maintenance was entered, close the active recording cleanly.
 
 **Warning signs:**
-- Marker visually snaps back after drag
-- Console shows multiple rapid state updates during drag
-- Map markers flicker when selecting different cameras in tree panel
+- Camera in maintenance still shows as "online" or "reconnecting" after toggling
+- FFmpeg processes running for cameras marked as maintenance
+- BullMQ jobs retrying for maintenance cameras
+- Recording continues after entering maintenance mode
 
 **Phase to address:**
-Map tree viewer phase. The existing map implementation is read-only -- drag-drop is a fundamentally different interaction model.
+Camera Maintenance Mode phase -- but the status state machine change should be designed alongside FFmpeg Resilience to avoid two migrations.
 
 ---
 
-### Pitfall 5: Tree Viewer with 500+ Camera Nodes Freezes Without Virtualization
+### Pitfall 5: Better Auth Self-Service Endpoints Bypassing Org Context and Audit Log
 
 **What goes wrong:**
-Rendering a tree of Project > Site > Camera with all nodes expanded causes the browser to create 500-2000+ DOM nodes. Each node may have status indicators updated via Socket.IO, causing cascade re-renders. The tree becomes unresponsive -- clicking to expand/collapse takes 200-500ms.
+Better Auth provides built-in endpoints for updating user profile (name, email, password) via its client SDK. But these operate at the user identity level, outside the multi-tenant org context. If the developer uses Better Auth's client `authClient.updateUser()` directly, the change: (a) bypasses the NestJS middleware that injects `orgId`, (b) does not create an audit log entry, (c) may not invalidate other sessions on password change, and (d) could allow email changes without re-verification.
 
 **Why it happens:**
-Naive tree implementations render all nodes in the DOM. With Socket.IO camera status updates (`camera:status` events in `use-camera-status.ts` hook), each status change triggers a re-render of the entire tree if state is lifted to the tree root.
+Better Auth's user management is identity-scoped, not org-scoped. The existing NestJS architecture uses `TENANCY_CLIENT` with org context for all operations. Better Auth's client routes go through its own handler (configured in `auth.config.ts`), which is separate from the NestJS controller pipeline.
 
 **How to avoid:**
-1. **Use a virtualized tree library.** React Arborist or headless-tree with TanStack Virtual provide windowed rendering -- only visible nodes create DOM elements.
-2. **Isolate Socket.IO updates.** Each camera node should subscribe to its own status independently (or use a context/store that provides granular subscriptions), NOT re-render the entire tree on every status event.
-3. **Lazy-load children.** Don't fetch all cameras for all sites upfront. Expand a site node -> fetch its cameras on demand.
-4. **Debounce bulk status updates.** If 50 cameras go offline simultaneously (SRS restart), batch the UI updates into a single render cycle using `requestAnimationFrame` or React's `startTransition`.
+1. Build self-service endpoints as NestJS controllers that wrap Better Auth calls, not as direct Better Auth client routes. This ensures the request flows through the existing auth guard, org context middleware, and audit logging.
+2. For email changes: require current password confirmation and decide whether re-verification is needed. Consider uniqueness validation across the platform.
+3. For password changes: require current password. Invalidate all other sessions for the user after password change.
+4. For avatar upload: use the existing MinIO infrastructure with a dedicated `avatars` bucket, not a separate upload mechanism.
+5. Log all self-service changes to the audit log with org context.
 
 **Warning signs:**
-- Tree panel visibly lags when expanding nodes
-- React DevTools Profiler shows >16ms renders on tree component
-- Memory grows as tree is fully expanded
+- Self-service changes not appearing in audit log
+- Email change succeeds without entering current password
+- Other sessions remain active after password change
+- Avatar upload uses a different storage path than recordings
 
 **Phase to address:**
-Project tree viewer phase. Architecture must be designed for virtualization from the start -- adding virtualization to a non-virtual tree is essentially a rewrite.
+User Self-Service phase.
 
 ---
 
-### Pitfall 6: base-ui Render Props Pattern Conflicts with Copied Radix-Style Code
+### Pitfall 6: fMP4 Manifest Using Wrong HLS Version
 
 **What goes wrong:**
-The codebase uses `@base-ui/react@^1.3.0` for 23 UI components (all in `apps/web/src/components/ui/`). shadcn/ui historically used Radix primitives with `asChild` for composition. base-ui uses `render` prop instead. When adding new shadcn components (datepicker, command palette, etc.) or copying shadcn examples, the `asChild` pattern does not exist in base-ui. Components silently fail to compose or render extra wrapper elements.
+The current `ManifestService.buildManifest()` generates manifests with `#EXT-X-VERSION:3`. The project uses fMP4 HLS segments (`hls_use_fmp4: on` in SRS config). fMP4 requires `#EXT-X-MAP` for init segments, which is only defined in HLS version 7+. Using version 3 with fMP4 causes some players (especially Safari and older hls.js versions) to reject the manifest or fail to load the init segment.
 
 **Why it happens:**
-shadcn/ui now supports both Radix and base-ui, but most tutorials and examples online still show Radix patterns. Developers copy code from shadcn docs without checking which primitive library is in use. The base-ui `render` prop requires explicit prop spreading (`{...props}`) while Radix's `asChild` does it implicitly.
+The manifest builder was written to match MPEG-TS HLS conventions (version 3 is sufficient for TS segments). When the project switched to fMP4 segments, the manifest version was not updated.
 
 **How to avoid:**
-1. **Audit which primitive library you are on.** This project uses base-ui (`@base-ui/react`). All new components must use the `render` prop pattern, not `asChild`.
-2. **When copying shadcn component code**, always select the "Base UI" variant from the shadcn docs (they now offer both).
-3. **Create a migration checklist** for any component being added: replace `asChild` with `render={<Component />}`, ensure `{...props}` spreading is explicit.
-4. **Do NOT mix Radix and base-ui in the same project.** Pick one. This project has already picked base-ui.
+1. Change `#EXT-X-VERSION:3` to `#EXT-X-VERSION:7` in `ManifestService.buildManifest()`.
+2. Ensure `#EXT-X-MAP:URI=` is present in every manifest that references fMP4 segments (already done, but verify version alignment).
+3. Test playback in Safari, Chrome, and Firefox. Safari is the strictest about HLS spec compliance.
 
 **Warning signs:**
-- TypeScript errors about `asChild` not being a valid prop
-- Components render extra wrapper `<div>` or `<span>` elements
-- Composition breaks (e.g., Button inside DropdownMenuItem doesn't merge correctly)
+- Recording playback works in Chrome but fails in Safari
+- hls.js console warns about version mismatch
+- Init segment not loaded, playback shows black screen with audio
 
 **Phase to address:**
-Every phase that adds UI components. Establish a "component addition checklist" in phase 1 of the overhaul.
+Recording Timeline phase -- fix before building the timeline UI to avoid debugging playback issues on top of UI bugs.
 
 ---
 
-### Pitfall 7: Bulk Operations on Recordings Page Without Optimistic UI Causes UX Stall
+### Pitfall 7: DataTable Migration for Super Admin Pages Using Wrong Prisma Client
 
 **What goes wrong:**
-Selecting 50 recordings and clicking "Delete" sends 50 API calls (or one bulk endpoint). Without optimistic UI, the table shows all 50 items with spinners for 5-30 seconds. Users don't know if it's working. They click delete again, causing duplicate requests. Or they navigate away, leaving orphaned operations.
+4 pages need DataTable migration: Team, Organizations, Cluster Nodes, Platform Audit. The developer copies the DataTable pattern from a tenant page (e.g., Users page) which uses `TENANCY_CLIENT` with RLS. Super admin pages (Organizations, Cluster Nodes, Platform Audit) are platform-scoped and should use `PrismaService` (raw, no RLS). Using `TENANCY_CLIENT` for super admin pages either: (a) shows empty results because there is no org context, or (b) leaks data if the wrong org context is injected.
 
 **Why it happens:**
-Bulk operations are inherently slow (deleting recording files from MinIO, updating database rows). If the UI waits for server confirmation before updating, the perceived performance is terrible.
+The v1.1 DataTable migrations were all tenant-scoped pages. Copy-pasting without adapting the data layer causes scope mismatches. The Team page is an edge case -- it is tenant-scoped (org members) so it correctly uses `TENANCY_CLIENT`, but it is listed alongside platform-scoped pages.
 
 **How to avoid:**
-1. **Optimistic removal:** Remove selected rows from the table immediately on action. Show a toast with "Undo" option (5-second window). After undo window closes, fire the actual API call.
-2. **Background job pattern:** For bulk delete, the API should return immediately with a job ID. The frontend polls or receives Socket.IO updates for completion. Show a progress indicator.
-3. **Disable selection/actions during pending operations** to prevent double-submit.
-4. **Add confirmation dialog** for destructive bulk operations (delete 50 recordings is irreversible).
+1. For super admin pages (Organizations, Cluster Nodes, Platform Audit): verify API endpoints use `PrismaService` (raw), not `TENANCY_CLIENT`.
+2. For Team page: uses `TENANCY_CLIENT` correctly since it shows org members.
+3. Add server-side pagination for Platform Audit -- this table will have millions of rows. Do NOT fetch all rows client-side.
+4. Test: login as super admin, verify Organizations shows ALL orgs. Login as tenant admin, verify no access to platform-scoped pages.
 
 **Warning signs:**
-- Users report "nothing happened" after clicking bulk delete
-- Duplicate delete API calls in server logs
-- Recordings reappear after page refresh (delete failed silently)
+- Super admin sees empty tables after migration
+- API returns 403 or empty array for platform-scoped endpoints
+- Platform Audit page takes >5s to load or causes browser tab to freeze
 
 **Phase to address:**
-Recordings page phase. Design the bulk operation UX pattern before building the page.
+DataTable Migration phase (low risk but requires attention to scope).
 
 ---
 
@@ -183,110 +184,113 @@ Recordings page phase. Design the bulk operation UX pattern before building the 
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Each table has its own pagination/filter logic (current state: 10 separate table files) | Fast initial development | Every table behaves slightly differently, bugs fixed in one aren't fixed in others | Never -- unify before adding more tables |
-| Using `useState` for all table state (filter, sort, page) | Simple, no URL sync | Users lose table state on navigation, can't share filtered views via URL | Only for non-filterable tables. Filtered tables should sync to URL params |
-| Inline HLS player in card view without viewport awareness | "It works" for 2-4 cameras | Memory leak crashes for 10+ cameras | Never for grid/card views. Acceptable for single-player detail pages |
-| Hardcoded sidebar width (240px) in calc() expressions | Quick layout | Every component breaks when sidebar becomes collapsible | Never -- use CSS custom properties or flex/grid |
-| Storing tree expand/collapse state in component state only | Simple implementation | Tree resets when navigating away and returning | Acceptable for MVP, but should persist to URL or localStorage before release |
+| Compute usage aggregates on every page load | No schema change needed | O(n) query on segments table per load; degrades with scale | Never for storage metrics (aggregate BigInt); acceptable for camera count (small table) |
+| Append segments to existing recording across FFmpeg reconnections | No recording boundary logic needed | Corrupted fMP4 playback (init segment mismatch), time gaps in timeline | Never -- always close and create new recording on reconnection |
+| Client-side filtering for super admin DataTables | Reuse existing DataTable component unchanged | Memory issues with 10K+ audit rows, browser tab crash | Only if total row count is guaranteed <500 permanently |
+| Skip email verification on self-service email change | Ship faster, simpler UX | Account takeover risk if attacker has session access | Never in production |
+| In-memory viewer count (`StatusService.viewerCounts` Map) | No Redis dependency for viewer counts | Lost on API restart, inaccurate across multiple API instances | Acceptable for single-instance deployment (current Docker Compose constraint) |
+| Hardcoded `#EXT-X-VERSION:3` in manifest builder | No immediate visible issue (Chrome is lenient) | Safari playback failures, spec non-compliance | Never for fMP4 content |
 
 ## Integration Gotchas
 
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| Leaflet + Next.js App Router | Importing leaflet CSS in a Server Component or in `globals.css` without checking if it loads | Import CSS only inside the dynamically imported client component (`camera-map-inner.tsx` pattern already does this correctly -- preserve this pattern) |
-| Socket.IO + TanStack Table | Subscribing to status updates in the table component, causing full table re-render on every event | Use a separate state store (React context or zustand). Table reads from store. Socket updates write to store. Only affected rows re-render via `React.memo` |
-| react-day-picker + base-ui Popover | Using Radix Popover examples from shadcn docs for the datepicker popover | Ensure the Calendar popover uses base-ui's `Popover` with `render` prop, not Radix's `asChild` pattern |
-| hls.js + React strict mode | HLS instance created twice in development (StrictMode double-mount), causing "MediaSource already attached" errors | The existing cleanup in `useEffect` return handles this, but new card view components must replicate the same cleanup pattern |
-| TanStack Table + Server-side pagination | Fetching all data client-side and paginating in-memory | For cameras/recordings with 100+ items, implement server-side pagination. Pass `page` and `pageSize` to API, return `{ data, total }`. TanStack Table supports `manualPagination` mode |
-| Leaflet MapContainer + sidebar toggle | Map does not auto-resize when container width changes | Call `map.invalidateSize()` on sidebar transition end. Use `useMap()` hook inside the map component to listen for container resize |
+| SRS restart + FFmpeg reconnect | Retrying FFmpeg without checking SRS health; thundering herd | Health-gate: check SRS `/api/v1/versions` or TCP port 1935 before spawning FFmpeg; add jitter |
+| SRS `on_publish` + recording continuity | Assuming same recording spans multiple SRS publish sessions | Close old recording on `on_unpublish` if `isRecording`, create new on next `on_publish` with fresh init segment |
+| Better Auth + NestJS audit trail | Calling Better Auth client directly for profile updates, bypassing NestJS middleware | Wrap Better Auth calls in NestJS controllers to preserve org context and audit logging pipeline |
+| BullMQ + maintenance mode | Job retries continue even when camera is in maintenance | Check camera status at START of `StreamProcessor.process()` before spawning FFmpeg; skip if `maintenance` |
+| MinIO + avatar uploads | Creating a new bucket per user or mixing avatars with recordings | Use a single `avatars` bucket with `{userId}.{ext}` object keys; keep separate from per-org recording buckets |
+| hls.js + fMP4 manifest | Using `#EXT-X-VERSION:3` with fMP4 segments and `#EXT-X-MAP` | Use `#EXT-X-VERSION:7`; test in Safari which is strictest on HLS spec compliance |
+| Timeline + large segment queries | Fetching all segment rows to compute timeline availability | Use SQL `date_trunc` aggregate for timeline data; generate sub-manifests for playback windows |
 
 ## Performance Traps
 
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| Rendering all HLS players in card grid | Tab memory exceeds 1GB, browser crashes | IntersectionObserver + max 4-6 concurrent players | 8+ simultaneous HLS streams |
-| Unvirtualized tree with Socket.IO updates | Tree panel lags on expand/collapse, high CPU | Virtualized tree (React Arborist) + isolated status subscriptions | 200+ camera nodes with active status updates |
-| Re-rendering entire page on sidebar toggle | Visible jank during sidebar animation | CSS transition on sidebar width only, `React.memo` on main content area | Any page with heavy content (map, charts, tables) |
-| Bulk recording downloads without streaming | Server buffers entire ZIP in memory, 504 timeout | Stream ZIP creation or use presigned MinIO URLs for direct download | 10+ recordings selected for download, each >100MB |
-| Uncontrolled re-renders from react-hook-form in table filters | Typing in filter input causes full table re-render | Use `useWatch` for specific fields, not `watch()` on entire form. Or debounce filter input by 300ms | Tables with 100+ visible rows |
-| TanStack Table without `useMemo` on data/columns | Table re-renders on every parent render, even if data hasn't changed | Wrap `data` and `columns` in `useMemo`. TanStack Table docs explicitly warn about this | Any table with frequent parent re-renders (Socket.IO updates, timers) |
+| Full segment scan for timeline | Timeline page >3s load, high DB CPU | Aggregate query with `date_trunc('minute', timestamp)`, composite index on `(cameraId, orgId, timestamp)` | >10,000 segments per camera (~1 day continuous at 2s segments) |
+| All cameras reconnecting simultaneously | CPU spike to 100%, API unresponsive, SRS crash | Jittered backoff, SRS health gate, circuit breaker on queue | >20 cameras on a single server |
+| Generating full-day manifest | API timeout, hls.js freezes loading 43K segments | Limit manifest to 1-hour windows; timeline UI requests sub-manifests | >1 hour of continuous recording |
+| Audit log DataTable without server-side pagination | Browser tab crashes, API OOM | Server-side cursor pagination, `manualPagination` in TanStack Table | >5,000 audit entries (~1-2 weeks active usage) |
+| Usage aggregate queries on page load | Plan viewer takes >2s, database contention | Pre-computed usage snapshot updated on write operations | >100,000 recording segments across org |
 
 ## Security Mistakes
 
 | Mistake | Risk | Prevention |
 |---------|------|------------|
-| Bulk delete endpoint without rate limiting | Attacker or buggy client deletes all recordings | Rate limit bulk operations (max 100 items per request, max 5 bulk operations per minute) |
-| HLS player card view loading streams without session validation | Expired playback sessions still show video in cached cards | Validate session on each HLS manifest request (SRS callback already does this), but also handle 403 gracefully in the player UI |
-| Drag-drop marker updates without authorization check | Operator role user moves camera markers they shouldn't edit | Backend must verify user role + camera ownership on lat/long update endpoint |
-| Tree viewer exposing cross-org cameras | Multi-tenant data leak in tree hierarchy | Ensure tree API endpoints filter by `orgId` from session, not from query params. RLS should handle this but verify |
+| Email change without password re-confirmation | Session hijacking: attacker with stolen session changes email, locks out real user | Require current password before email change; invalidate other sessions after |
+| Avatar upload without size/type validation | DoS via large file upload; stored XSS via SVG | Limit to 2MB, allow only PNG/JPG/WebP, strip EXIF metadata |
+| Maintenance mode not revoking active playback sessions | Viewers continue watching camera that should be offline for service | On maintenance entry, revoke active playback tokens for that camera |
+| Plan viewer exposing cross-org usage data | Information leak if API endpoint does not enforce org scope | Ensure usage endpoints use `TENANCY_CLIENT` with RLS, not `PrismaService` raw |
+| Password change not invalidating other sessions | Old sessions remain valid after password change; compromised session persists | Call Better Auth session invalidation for all sessions except current after password change |
 
 ## UX Pitfalls
 
 | Pitfall | User Impact | Better Approach |
 |---------|-------------|-----------------|
-| Card view as default for 100+ cameras | Page loads slowly, overwhelming visual noise | Default to table view. Card view available as toggle. Remember user preference in localStorage |
-| Collapsible sidebar without keyboard shortcut | Power users frustrated, accessibility issue | shadcn sidebar already includes Cmd+B shortcut (`SIDEBAR_KEYBOARD_SHORTCUT = "b"`). Ensure it works |
-| Datepicker replacement changes date format | Users accustomed to existing format get confused | Match the exact display format of native pickers being replaced. Audit every date display |
-| Tree viewer without search/filter | Users with 200+ cameras cannot find what they need | Add search input at top of tree panel. Filter tree nodes as user types |
-| Removing camera detail page entirely for quick actions | Users lose the "full view" context for complex operations | Keep a "View Stream" detail page accessible from quick actions. Quick actions replace navigation-heavy workflows, not detailed views |
-| Login redesign losing browser autofill | Users have to re-enter credentials after redesign | Ensure `<input name="email">` and `<input name="password">` maintain the same `name` attributes for browser autofill continuity |
+| Timeline with no visual indication of recording gaps | User sees continuous bar, tries to play a gap, gets buffering/black screen | Show gaps as gray/hatched sections in the timeline; auto-skip to next available segment on click |
+| Recording playback starting from beginning every time | User wants to jump to 14:30, has to scrub through hours of footage | Timeline click-to-seek: clicking a point generates a sub-manifest starting from that timestamp |
+| Maintenance mode toggle with no confirmation dialog | Accidental toggle stops recording and streaming immediately | Confirmation dialog: "This will stop live stream and recording for Camera X. N active viewers will be disconnected." |
+| Self-service password change with no strength indicator | User sets weak password, gets rejected by server validation after submit | Client-side password strength meter matching `minPasswordLength: 8` rule; show requirements upfront |
+| Plan/usage viewer with raw numbers only | User sees "47 GB / 100 GB" but cannot gauge impact | Show estimated days remaining based on current recording rate; highlight cameras consuming most storage |
+| Camera status showing only 2 states in list | User cannot distinguish live/recording/maintenance at a glance | Three-icon status column: streaming indicator (green/gray), recording indicator (red dot), maintenance indicator (wrench) |
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **Unified table:** Often missing keyboard navigation (arrow keys between rows, Enter to open) -- verify with keyboard-only testing
-- [ ] **Card view HLS:** Often missing cleanup on unmount -- verify no `hls.js` instances survive after navigating away from card view page
-- [ ] **Collapsible sidebar:** Often missing mobile behavior -- verify Sheet/drawer still works on mobile when sidebar is in icon mode
-- [ ] **Tree viewer:** Often missing empty states -- verify "No cameras in this site" message when expanding empty site node
-- [ ] **Drag-drop markers:** Often missing undo -- verify user can revert marker position (not just re-drag)
-- [ ] **Bulk operations:** Often missing partial failure handling -- verify UI shows which items failed when 3 of 50 deletes fail
-- [ ] **Datepicker:** Often missing timezone handling -- verify date ranges work correctly across timezone boundaries (server stores UTC, UI displays local)
-- [ ] **Login redesign:** Often missing error state styling -- verify validation errors, rate limit messages, and server error states are all styled
-- [ ] **Quick actions menu:** Often missing loading states -- verify "Delete" shows spinner and disables other actions while pending
-- [ ] **Recordings page:** Often missing "no results" state for filters -- verify empty state when date range filter returns zero recordings
+- [ ] **FFmpeg Resilience:** Often missing SRS health check before reconnect -- verify reconnect waits for SRS to be healthy, not just retries blindly
+- [ ] **FFmpeg Resilience:** Often missing jitter in backoff -- verify that 50 cameras do not all retry at the exact same second after SRS restart
+- [ ] **FFmpeg Resilience:** Often missing recording boundary handling -- verify old recording closes and new one starts on reconnection when `isRecording` is true
+- [ ] **Recording Timeline:** Often missing gap visualization -- verify time periods with no segments show visually distinct from recorded periods
+- [ ] **Recording Timeline:** Often missing sub-manifest generation -- verify clicking a 1-hour mark generates manifest for just that hour, not entire day
+- [ ] **Recording Timeline:** Often missing fMP4 version fix -- verify `ManifestService` outputs `#EXT-X-VERSION:7` not `3`
+- [ ] **Maintenance Mode:** Often missing recording cleanup -- verify entering maintenance stops recording AND closes active recording row cleanly
+- [ ] **Maintenance Mode:** Often missing playback session revocation -- verify active viewers are disconnected when camera enters maintenance
+- [ ] **Maintenance Mode:** Often missing BullMQ job cleanup -- verify no FFmpeg retry jobs remain in queue for maintenance cameras
+- [ ] **User Self-Service:** Often missing audit log entries -- verify name/email/password changes appear in org audit log
+- [ ] **User Self-Service:** Often missing session invalidation on password change -- verify all other sessions are terminated
+- [ ] **DataTable Migration:** Often missing super admin scope handling -- verify super admin pages show ALL data, not tenant-filtered empty results
+- [ ] **Plan Viewer:** Often missing incremental updates -- verify storage usage reflects latest segment archival within reasonable delay
 
 ## Recovery Strategies
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| HLS memory leak in card view | MEDIUM | Add IntersectionObserver wrapper around existing HlsPlayer. Max 4 hours work if player component stays the same API |
-| Sidebar breaks layout | HIGH | If layout was built assuming fixed width, every page's spacing needs audit. Use CSS custom properties from start to avoid |
-| Table pattern divergence (no unified component) | HIGH | Must build generic DataTable, then migrate each of 10 existing tables. ~2 hours per table migration |
-| Leaflet marker snap-back | LOW | Fix is localized to drag event handler. Switch from `useState` to `useRef` for drag tracking. 1-2 hours |
-| Tree performance | HIGH | Retrofitting virtualization requires rewriting tree component from scratch. Choose virtualized approach upfront |
-| base-ui/Radix confusion | MEDIUM | Audit all UI components for pattern consistency. ~30 min per component to fix |
-| Bulk operation failures | MEDIUM | Add job queue pattern for bulk ops, update frontend to poll status. ~1 day |
+| Reconnect storm crashes SRS | LOW | Restart SRS, add health gate to StreamProcessor, redeploy. No data loss. |
+| Recording segments from mixed publish sessions | MEDIUM | Write migration script to split recordings at timestamp gaps >30s; re-archive init segments per sub-recording from MinIO. |
+| Timeline query too slow at scale | MEDIUM | Add composite index with `CREATE INDEX CONCURRENTLY` (no downtime), then add summary/aggregate query. |
+| Maintenance mode not stopping reconnects | LOW | Add status check to StreamProcessor, redeploy. Manually kill orphaned FFmpeg processes via `pkill`. |
+| Self-service changes not in audit log | LOW | Add audit middleware to self-service endpoints. Backfill not possible but future changes logged. |
+| DataTable showing wrong scope (data leak) | HIGH | Immediate hotfix to add org context guard or switch to correct Prisma client. Audit access logs to assess exposure. |
+| fMP4 manifest version wrong | LOW | One-line fix in ManifestService. Existing recordings do not need re-processing. |
 
 ## Pitfall-to-Phase Mapping
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| Sidebar collapse breaks layout | Phase 1 (Foundation) | Toggle sidebar on every page -- map, dashboard, tables all resize correctly |
-| base-ui render prop confusion | Phase 1 (Foundation) | Component addition checklist established, one new component added correctly |
-| TanStack Table server/client boundary | Phase 2 (Unified Tables) | Generic DataTable component works with server-fetched data, columns defined client-side |
-| Table pattern divergence | Phase 2 (Unified Tables) | All 10 existing tables migrated to shared DataTable component |
-| HLS multi-player memory leak | Phase 3 (Camera Card View) | Card view with 12 cameras open for 30 min, memory stays under 500MB |
-| Tree viewer performance | Phase 4 (Tree Viewer) | 500-node tree with Socket.IO updates, expand/collapse under 50ms |
-| Leaflet drag-drop snap-back | Phase 5 (Map Enhancement) | Drag marker to new position, no snap-back, position persists after save |
-| Bulk operation UX stall | Phase 6 (Recordings Page) | Select 50 recordings, bulk delete, UI responds within 500ms (optimistic) |
-| Datepicker format mismatch | Phase 7 (Datepicker Replacement) | All date displays match previous format, timezone handling verified |
-| Login autofill regression | Phase 8 (Login Redesign) | Browser autofill still works after redesign, "remember me" persists session |
+| Reconnect storm after SRS restart | FFmpeg Resilience | Simulate SRS restart with 10+ cameras; verify staggered reconnect, no SRS crash |
+| Recording desync on reconnect | FFmpeg Resilience | Kill FFmpeg mid-recording; verify old recording closes with `stoppedAt`, new one starts after reconnect |
+| fMP4 manifest version mismatch | Recording Timeline (early fix) | Play back a recording in Safari; verify no codec errors, init segment loads correctly |
+| Timeline loading full segment list | Recording Timeline | Load timeline for 24h continuous recording; verify <1s API response, aggregate query in logs |
+| Maintenance not blocking reconnect | Camera Maintenance Mode | Put camera in maintenance while online; verify FFmpeg killed, BullMQ job removed, no retry |
+| Maintenance not closing recording | Camera Maintenance Mode | Enter maintenance while recording; verify recording row gets `status: complete` and `stoppedAt` |
+| Self-service bypassing org context | User Self-Service | Change name/email via self-service; verify audit log entry appears with correct orgId |
+| Password change not invalidating sessions | User Self-Service | Change password in browser A; verify browser B session is terminated |
+| DataTable scope mismatch | DataTable Migration | Login as super admin; verify Organizations shows all orgs. Login as tenant; verify 403 on platform endpoints |
+| Plan viewer stale data | Plan/Usage Viewer | Archive a segment; verify usage counter updates on next page load without manual cache bust |
 
 ## Sources
 
-- [hls.js memory leak with multiple players - GitHub Issue #1220](https://github.com/video-dev/hls.js/issues/1220) -- confirms memory grows with multiple instances (HIGH confidence)
-- [hls.js memory increase with live streaming - GitHub Issue #5402](https://github.com/video-dev/hls.js/issues/5402) -- documents multi-screen memory growth pattern (HIGH confidence)
-- [HLS.js cautionary tale: QoE and video player memory - Mux](https://www.mux.com/blog/an-hls-js-cautionary-tale-qoe-and-video-player-memory) -- backBufferLength default Infinity problem (HIGH confidence)
-- [hls.js memory limit discussion - GitHub Issue #2668](https://github.com/video-dev/hls.js/issues/2668) -- developer seeking 200MB cap (MEDIUM confidence)
-- [Migrating from Radix UI to Base UI - basecn](https://basecn.dev/docs/get-started/migrating-from-radix-ui) -- asChild vs render prop migration guide (HIGH confidence)
-- [shadcn/ui Base UI migration discussion - GitHub #9562](https://github.com/shadcn-ui/ui/discussions/9562) -- community migration guide (MEDIUM confidence)
-- [base-ui useRender documentation](https://base-ui.com/react/utils/use-render) -- official render prop API reference (HIGH confidence)
-- [Radix to base-ui asChild conversion gist](https://gist.github.com/phibr0/48ac88eafbd711784963a3b72015fd09) -- automated conversion script (MEDIUM confidence)
-- [shadcn Sidebar documentation](https://ui.shadcn.com/docs/components/radix/sidebar) -- cookie persistence, keyboard shortcuts, transition config (HIGH confidence)
-- [shadcn Sidebar layout best practices - Easton Blog](https://eastondev.com/blog/en/posts/dev/20260327-shadcn-ui-sidebar-layout/) -- SidebarProvider placement guidance (MEDIUM confidence)
-- [Next.js Leaflet dynamic import issue #18336](https://github.com/vercel/next.js/issues/18336) -- SSR compatibility challenges (HIGH confidence)
-- [TanStack Table + Next.js App Router issue #5165](https://github.com/TanStack/table/issues/5165) -- column definition serialization problem (HIGH confidence)
-- Codebase analysis: 10 existing table implementations with no shared abstraction, base-ui used across 23 UI components, existing HLS player designed for single-stream use (HIGH confidence -- direct code inspection)
+- Codebase analysis: `apps/api/src/streams/processors/stream.processor.ts` -- BullMQ config: 20 attempts, exponential backoff from 1s, no jitter, no SRS health check (HIGH confidence)
+- Codebase analysis: `apps/api/src/streams/ffmpeg/ffmpeg.service.ts` -- in-memory process Map, intentional stop tracking via Set, no reconnect awareness (HIGH confidence)
+- Codebase analysis: `apps/api/src/streams/streams.service.ts` -- stopStream kills FFmpeg then removes job, no maintenance awareness (HIGH confidence)
+- Codebase analysis: `apps/api/src/status/status.service.ts` -- state machine: offline/connecting/online/reconnecting/degraded, no maintenance state (HIGH confidence)
+- Codebase analysis: `apps/api/src/srs/srs-callback.controller.ts` -- on_unpublish explicitly skips status transition, no recording cleanup (HIGH confidence)
+- Codebase analysis: `apps/api/src/recordings/manifest.service.ts` -- `#EXT-X-VERSION:3` used with fMP4, `getSegmentsForDate()` fetches all rows (HIGH confidence)
+- Codebase analysis: `apps/api/src/recordings/recordings.service.ts` -- recording not coupled to stream lifecycle, segment archival has no session boundary check (HIGH confidence)
+- Codebase analysis: `apps/api/src/auth/auth.config.ts` -- Better Auth with organization plugin, no self-service profile endpoints exposed (HIGH confidence)
+- Codebase analysis: `apps/api/src/prisma/schema.prisma` -- Camera model has no maintenance field, Recording model has no publishSessionId (HIGH confidence)
+- HLS specification: fMP4 with EXT-X-MAP requires version 7+ (HIGH confidence)
+- BullMQ documentation: exponential backoff without jitter causes synchronized retries (HIGH confidence)
 
 ---
-*Pitfalls research for: SMS Platform v1.1 UI Overhaul*
-*Researched: 2026-04-17*
+*Pitfalls research for: SMS Platform v1.2 -- Self-Service, Resilience & UI Polish*
+*Researched: 2026-04-18*

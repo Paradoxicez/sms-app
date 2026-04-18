@@ -1,210 +1,233 @@
-# Technology Stack: v1.1 UI Overhaul
+# Stack Research: v1.2 Self-Service, Resilience & UI Polish
 
-**Project:** SMS Platform -- UI Overhaul Milestone
-**Researched:** 2026-04-17
-**Overall confidence:** HIGH
+**Domain:** SaaS CCTV streaming platform -- new capabilities for existing stack
+**Researched:** 2026-04-18
+**Confidence:** HIGH
 
 ## Existing Stack (DO NOT change)
 
-Already installed and validated in v1.0:
+Already installed and validated through v1.1:
 
 | Technology | Version | Purpose |
 |------------|---------|---------|
-| Next.js | 15.x | App Router, SSR |
-| React | 19.x | UI framework |
-| shadcn/ui | 4.2.0 (base-nova style, base-ui primitives) | Component library |
-| Tailwind CSS | 4.2.x | Styling |
-| react-day-picker | 9.14.0 | Calendar/datepicker (used by shadcn Calendar) |
-| Leaflet + react-leaflet | 1.9.4 / 5.0.0 | Maps |
-| leaflet.markercluster | 1.5.3 | Map marker clustering |
-| hls.js | 1.6.15 | HLS video playback |
-| Socket.IO client | 4.8.3 | Real-time updates |
-| lucide-react | 1.8.0 | Icons |
-| react-hook-form + zod | 7.72.1 / 4.3.6 | Forms and validation |
-| cmdk | 1.1.1 | Command palette |
-| recharts | 3.8.0 | Charts |
-| date-fns | 4.1.0 | Date utilities |
-| sonner | 2.0.7 | Toast notifications |
-| class-variance-authority | 0.7.1 | Component variants |
+| NestJS | 11.x | Backend framework |
+| Next.js | 15.x | Frontend (App Router) |
+| PostgreSQL | 16 | Primary database |
+| Prisma | 6.x | ORM |
+| Redis | 7.x | Cache/sessions/BullMQ backend |
+| SRS | v6.0 | Stream engine |
+| FFmpeg | 7.x | RTSP pull, transcoding |
+| MinIO | 8.x | Object storage (recordings) |
+| Better Auth | 1.6.x | Auth (orgs, RBAC, sessions) |
+| BullMQ | 5.x | Job queues |
+| Socket.IO | 4.8.x | Real-time updates |
+| hls.js | 1.6.x | HLS playback |
+| fluent-ffmpeg | 2.1.x | FFmpeg process wrapper |
+| @tanstack/react-table | 8.21.x | DataTable logic |
+| shadcn/ui | 4.2.0 | Component library |
+| recharts | 3.8.x | Charts |
+| react-hook-form + zod | 7.72 / 4.3 | Forms + validation |
 
-### Existing shadcn/ui Components (already installed)
+---
 
+## New Dependencies Required: ZERO npm packages
+
+Every feature in v1.2 can be built with the existing stack. No new npm dependencies needed.
+
+### Feature-by-Feature Analysis
+
+---
+
+### 1. FFmpeg Full Resilience (Auto-Reconnect, Health Check, Notification)
+
+**What exists:** `StreamProcessor` with BullMQ exponential backoff (20 attempts), `FfmpegService` with process tracking, `StatusService` with state machine (offline -> connecting -> online -> reconnecting -> degraded -> offline).
+
+**What's missing:** Active health check loop, SRS restart detection, proactive reconnection (not just retry-on-failure).
+
+**Stack needed:** Nothing new.
+
+| Capability | How to Build | Uses |
+|-----------|-------------|------|
+| Health check loop | BullMQ repeatable job (every 30s) polling FFmpeg process liveness + SRS `/api/v1/streams` API | `@nestjs/bullmq` (installed), `@nestjs/schedule` (installed) |
+| SRS restart detection | SRS `on_publish`/`on_unpublish` HTTP callbacks already configured; add startup scan of `/api/v1/streams` to detect missing streams after SRS restart | Built-in HTTP fetch |
+| Auto-reconnect on camera drop | FFmpeg `error` event already triggers BullMQ retry; enhance with immediate re-queue instead of waiting for backoff when stream was previously healthy | `bullmq` (installed) |
+| Auto-reconnect on SRS restart | When health check detects SRS is back but streams are missing, re-queue all previously-online cameras | `bullmq` (installed) |
+| Notification on status change | `StatusService.transition()` already calls `NotificationsService.createForCameraEvent()` and `WebhooksService.emitEvent()` | Already wired |
+
+**Implementation pattern:**
 ```
-alert-dialog, avatar, badge, breadcrumb, button, calendar, card, chart,
-collapsible, command, dialog, dropdown-menu, hover-card, input-group,
-input, label, popover, progress, radio-group, scroll-area, select,
-separator, sheet, sidebar, skeleton, slider, sonner, switch, table,
-tabs, textarea, toggle, tooltip
+Health Check Processor (BullMQ repeatable job, 30s interval):
+  1. For each camera with status 'online' or 'reconnecting':
+     a. Check if FFmpeg process is alive (FfmpegService.isRunning)
+     b. Check if SRS has the stream (GET /api/v1/streams, match stream key)
+     c. If FFmpeg dead but camera should be online -> re-queue stream job
+     d. If SRS has no stream but FFmpeg running -> restart FFmpeg
+  2. For SRS health: GET /api/v1/versions (if fails, SRS is down)
+     a. When SRS comes back, scan all 'online' cameras, restart missing streams
 ```
 
----
-
-## New Dependencies Required
-
-### 1. @tanstack/react-table (REQUIRED -- single new npm dependency)
-
-| Property | Value |
-|----------|-------|
-| Package | `@tanstack/react-table` |
-| Version | `^8.21.3` (stable, latest) |
-| Purpose | Headless table logic: sorting, filtering, pagination, column visibility, row selection, row actions |
-| Why | shadcn's Data Table pattern is built on TanStack Table. The existing `table.tsx` is only the presentational shell (HTML table elements with styling). TanStack provides ALL interactive logic: column sorting, multi-column filtering, pagination state, row selection for bulk actions, column visibility toggles. This is the standard approach documented at ui.shadcn.com/docs/components/base/data-table. Every table page (cameras, stream profiles, recordings, API keys, users, audit log, webhooks) needs this. |
-| Confidence | HIGH -- official shadcn documentation prescribes this exact pairing |
-
-**Do NOT use v9.0.0-alpha.** The alpha (released April 2026) has breaking API changes and the shadcn data-table pattern targets v8 stable. Stick with 8.21.x.
+**Why no new library:** BullMQ repeatable jobs + `@nestjs/schedule` Cron already handle periodic tasks. The health check is a simple HTTP poll to SRS API + process liveness check. No circuit breaker library needed -- the exponential backoff in BullMQ IS the circuit breaker.
 
 ---
 
-## Conditionally Required
+### 2. Recording Playback Page with Timeline
 
-### 2. @dnd-kit/react (MAYBE -- depends on UX design)
+**What exists:** `TimelineBar` component (24-hour drag-to-select, seek), `Recording` + `RecordingSegment` models in Prisma (with timestamps, durations, MinIO paths), `MinioService` for presigned URLs, `hls.js` for playback.
 
-| Property | Value |
-|----------|-------|
-| Package | `@dnd-kit/react` |
-| Version | `^0.4.0` |
-| Purpose | Drag camera from sidebar list onto map to set lat/long |
-| Confidence | MEDIUM |
+**What's missing:** A playback page that combines timeline + video player + segment-level seeking.
 
-**When this IS needed:** If the "drag-drop marker placement" feature means dragging a camera item from a sidebar list and dropping it onto the map to assign coordinates.
+**Stack needed:** Nothing new.
 
-**When this is NOT needed:** If the feature means either (a) clicking on the map to place a marker, or (b) dragging an already-placed marker to reposition it. Both are handled natively by react-leaflet:
-- Click-to-place: `useMapEvents({ click: (e) => setPosition(e.latlng) })`
-- Drag existing marker: `<Marker draggable eventHandlers={{ dragend: ... }} />`
+| Capability | How to Build | Uses |
+|-----------|-------------|------|
+| Timeline with segment-level granularity | Enhance existing `TimelineBar` -- query `RecordingSegment` timestamps to show exact coverage (not just hour-level) | Existing component |
+| Video playback of recording segments | Generate presigned URLs for fMP4 init segment + media segments from MinIO, construct an HLS manifest on-the-fly (or serve pre-built manifest) | `hls.js` (installed), `minio` (installed) |
+| Seek to specific time | Map timeline click position to segment `seqNo`/`timestamp`, load corresponding segment via HLS | `hls.js` currentTime API |
+| Date picker for selecting day | Existing `Calendar` + `Popover` composition (shadcn) | Already available |
+| Multi-camera recording comparison | DataTable of recordings with play action | `@tanstack/react-table` (installed) |
 
-**Recommendation:** Start WITHOUT @dnd-kit. Implement click-to-place + draggable markers first (zero new deps). Only add @dnd-kit if the UX specifically requires dragging from a list panel onto the map.
+**Recording playback architecture:**
+```
+Backend endpoint: GET /recordings/:id/manifest
+  1. Fetch Recording + segments from DB
+  2. Generate HLS manifest (#EXTM3U with #EXT-X-MAP for init segment)
+  3. Each segment gets a presigned MinIO URL (short TTL, e.g., 15 min)
+  4. Return manifest as application/vnd.apple.mpegurl
+
+Frontend:
+  1. TimelineBar shows segment coverage for selected date
+  2. Click/drag on timeline -> seek to time
+  3. hls.js loads manifest from backend
+  4. Seeking = hls.js.currentTime = targetSeconds
+```
+
+**Why no video.js:** hls.js is already installed and working for live streams. Recording playback uses the same HLS protocol -- just point hls.js at a recording manifest instead of a live manifest. Adding video.js (240KB+ gzipped) for a seek bar would be absurd when the custom `TimelineBar` already exists with drag-select and keyboard navigation.
 
 ---
 
-## NO New Dependencies Needed For These Features
+### 3. User Account Self-Service (Avatar Upload, Password Change, Name Update)
 
-### Unified Data Tables (filter, pagination, sorting, quick actions)
+**What exists:** Better Auth with `emailAndPassword` enabled, `authClient` on frontend with `signIn`/`signOut`/`useSession`.
 
-| Need | Covered By |
-|------|------------|
-| Table presentation | `table.tsx` (shadcn, already installed) |
-| Interactive logic | `@tanstack/react-table` (new, see above) |
-| Quick actions dropdown | `dropdown-menu.tsx` (already installed) |
-| Filter inputs | `input.tsx`, `select.tsx`, `popover.tsx`, `command.tsx` (all installed) |
-| Search/filter popover | `popover.tsx` + `command.tsx` (already installed) |
-| Pagination controls | Add `pagination` via shadcn CLI (see below) |
+**What's already available in Better Auth (no new dependencies):**
 
-### Tree Viewer (Project > Site > Camera hierarchy)
+| Feature | Better Auth API | Client Method |
+|---------|----------------|---------------|
+| Change password | Built-in | `authClient.changePassword({ currentPassword, newPassword, revokeOtherSessions })` |
+| Update name | Built-in | `authClient.updateUser({ name })` |
+| Update avatar URL | Built-in | `authClient.updateUser({ image: "url" })` |
 
-| Need | Covered By |
-|------|------------|
-| Expand/collapse nodes | `collapsible.tsx` (already installed) |
-| Scrollable tree | `scroll-area.tsx` (already installed) |
-| Tree node icons | lucide-react: `ChevronRight`, `Folder`, `FolderOpen`, `Camera`, `Building2`, `MapPin` |
-| Selection state | React useState/useContext |
+**Avatar upload approach:**
+```
+1. Frontend: File input -> upload to MinIO via backend endpoint
+2. Backend: POST /users/avatar
+   - Accept multipart/form-data
+   - Validate file type (image/jpeg, image/png, image/webp) + size (max 2MB)
+   - Upload to MinIO bucket (e.g., avatars/{userId}/{filename})
+   - Generate permanent or long-lived presigned URL
+   - Call Better Auth updateUser({ image: url }) server-side
+3. Frontend: After upload success, refresh session to get new image URL
+```
 
-Build a recursive `<TreeNode>` component. The hierarchy is only 3 levels deep -- no tree library warranted. A custom 50-line component with shadcn Collapsible is simpler and more maintainable than any tree library.
+**Why upload to MinIO instead of base64:** Better Auth can store avatar as base64 in the `image` column, but this bloats the database and slows down every session fetch. Store in MinIO (already running), save URL in Better Auth.
 
-### Collapsible Sidebar
+**File upload handling:** NestJS `@nestjs/platform-express` (already installed) includes Multer for multipart file uploads. No additional package needed.
 
-The existing `sidebar.tsx` already has FULL collapsible support:
-- `SidebarProvider` with `open`/`setOpen` state management
-- Cookie-based persistence (`sidebar_state` cookie, 7-day expiry)
-- `collapsible` prop: `"offcanvas"` | `"icon"` | `"none"`
-- Mobile: auto-switches to Sheet overlay
-- `SidebarTrigger` toggle button component
+| Capability | Uses |
+|-----------|------|
+| File upload parsing | `@nestjs/platform-express` Multer (installed) |
+| File storage | `minio` client (installed) |
+| Image URL in user record | `better-auth` updateUser (installed) |
+| Password change | `better-auth` changePassword (installed) |
 
-**Work needed:** Set `collapsible="icon"` on the Sidebar component and ensure nav items render icon-only when collapsed. This is pure configuration -- zero new dependencies.
+---
 
-### Slide-in Panels / Sheet Dialogs
+### 4. Camera Maintenance Mode
 
-`sheet.tsx` is already installed (base-ui Dialog underneath). Use for:
-- Camera quick actions side panel
-- View Stream detail panel
-- Bulk edit / bulk delete confirmation
-- Any slide-in overlay that's not a full page navigation
+**What exists:** Camera status state machine in `StatusService` with transitions: offline -> connecting -> online -> reconnecting -> degraded -> offline.
 
-### Card View with Live HLS Preview Grid
+**What's needed:** Add `maintenance` as a new status value.
 
-| Need | Covered By |
-|------|------------|
-| Card container | `card.tsx` (already installed) |
-| HLS playback | `hls.js` (already installed) |
-| Grid layout | Tailwind CSS grid classes |
-| Table/Card toggle | `toggle-group` component (add via CLI) or shadcn `Tabs` |
-| View toggle icons | lucide-react: `LayoutGrid`, `LayoutList` |
+**Stack needed:** Nothing new. This is a schema + business logic change.
 
-**Performance note:** Lazy-load HLS instances using IntersectionObserver. Only initialize hls.js for cards in the viewport. Cap concurrent HLS players at 6-9 to avoid browser connection limits and memory issues.
+| Change | Detail |
+|--------|--------|
+| Prisma schema | Add `maintenance` to Camera status (it's a string field, no enum change needed) |
+| StatusService | Add valid transitions: any status -> maintenance, maintenance -> offline/connecting |
+| StreamsService | When entering maintenance: stop FFmpeg process, prevent auto-reconnect |
+| Frontend | New status badge variant, maintenance toggle action in camera actions dropdown |
 
-### Unified Datepicker (single/range/multiple)
+**State machine update:**
+```
+Add to validTransitions:
+  maintenance: ['offline', 'connecting']  // can only exit to offline or connecting
+  online: ['reconnecting', 'degraded', 'offline', 'maintenance']  // add maintenance
+  offline: ['connecting', 'maintenance']  // add maintenance
+  connecting: ['online', 'offline', 'maintenance']
+  reconnecting: ['online', 'offline', 'maintenance']
+  degraded: ['online', 'offline', 'maintenance']
+```
 
-react-day-picker v9 (already installed at 9.14.0) and `calendar.tsx` (already installed) natively support:
-- `mode="single"` -- single date selection
-- `mode="range"` -- date range with start/end
-- `mode="multiple"` -- multiple non-consecutive dates
-- `numberOfMonths={2}` -- two-month view for range picking
+**Health check integration:** When camera is in `maintenance` status, the health check loop MUST skip it -- do not attempt reconnection.
 
-Build a `<DatePicker>` wrapper composing: `Popover` + `Calendar` + `date-fns` format. One component, three modes via prop. Zero new dependencies.
+---
 
-### Map Features (drag-drop markers, preview popup, filter)
+### 5. DataTable Migrations (Team, Organizations, Cluster Nodes, Platform Audit)
 
-| Need | Covered By |
-|------|------------|
-| Draggable markers | react-leaflet `<Marker draggable>` + `dragend` event (native) |
-| Click-to-place | `useMapEvents` hook from react-leaflet (native) |
-| Camera preview popup | react-leaflet `<Popup>` + hls.js mini-player |
-| Hover tooltip | react-leaflet `<Tooltip>` (native) |
-| Marker clustering | `leaflet.markercluster` (already installed) |
-| Filter sidebar | shadcn `Select`, `Input`, `Badge` (all installed) |
+**Stack needed:** Nothing new. Reuse the existing `DataTable` component pattern with `@tanstack/react-table` already installed.
 
-### Login Page Redesign
+---
 
-All form components already available: `input.tsx`, `button.tsx`, `label.tsx`, `card.tsx`. Add `checkbox` via shadcn CLI for "Remember me" toggle.
+### 6. Dashboard Improvements + Map UI Improvements
+
+**Stack needed:** Nothing new. Uses existing `recharts`, `leaflet`/`react-leaflet`, shadcn components.
 
 ---
 
 ## shadcn Components to Add via CLI
 
-These are NOT npm dependencies. shadcn components are copy-pasted source files added via the CLI:
+These are copy-pasted source files, NOT npm dependencies:
 
 ```bash
 cd apps/web
 
-# Table pagination controls
-npx shadcn@latest add pagination
+# Avatar component for user self-service page (if not already added)
+npx shadcn@latest add avatar
 
-# Login "remember me" checkbox
-npx shadcn@latest add checkbox
-
-# Table/card view toggle
-npx shadcn@latest add toggle-group
-
-# Split panel for tree + table layout
-npx shadcn@latest add resizable
+# Slider for timeline zoom control (optional, nice-to-have)
+# Already installed per existing stack list
 ```
 
-**Optional (add if needed during implementation):**
-```bash
-# Right-click context menu for table rows
-npx shadcn@latest add context-menu
-
-# Multi-select for bulk filter chips
-npx shadcn@latest add badge  # already installed
-```
+**Note:** The `avatar` component is already listed in the existing shadcn components. No new shadcn components needed.
 
 ---
 
 ## Installation Summary
 
 ```bash
-cd apps/web
+# === NO NEW npm DEPENDENCIES ===
+# Every v1.2 feature uses existing packages.
 
-# === REQUIRED: One new npm dependency ===
-npm install @tanstack/react-table@^8.21.3
-
-# === CONDITIONAL: Only if drag-from-list-to-map UX ===
-# npm install @dnd-kit/react@^0.4.0
-
-# === shadcn components (CLI, not npm) ===
-npx shadcn@latest add pagination checkbox toggle-group resizable
+# Verify existing packages are current:
+cd apps/api && npm ls better-auth bullmq @nestjs/bullmq minio fluent-ffmpeg
+cd apps/web && npm ls better-auth hls.js
 ```
 
-**Total new npm dependencies: 1 (or 2 if @dnd-kit needed)**
+**Total new npm dependencies: 0**
+
+---
+
+## Alternatives Considered
+
+| Approach | Rejected | Why |
+|----------|----------|-----|
+| video.js for recording playback | YES | 240KB+ bundle, already have hls.js + custom TimelineBar. Adding video.js just for a seek bar is wasteful when TimelineBar already handles drag-select + keyboard seek. |
+| sharp for avatar image processing | MAYBE LATER | Server-side image resize/crop. Currently overkill -- accept standard sizes (max 2MB), let the browser handle display sizing. Add sharp only if avatar images cause performance issues. |
+| piscina/workerpool for FFmpeg health checks | NO | BullMQ repeatable jobs already run in worker threads. Adding another worker pool creates coordination complexity. |
+| node-cron instead of @nestjs/schedule | NO | @nestjs/schedule is already installed and integrates with NestJS DI. node-cron would be redundant. |
+| circuit-breaker library (opossum, cockatiel) | NO | BullMQ's exponential backoff with max attempts IS a circuit breaker. Adding a separate library would duplicate existing behavior. |
+| better-auth-ui package for self-service | NO | Pre-built React components but tightly coupled to their styling. Our shadcn-based UI needs custom forms that match the green theme. Use Better Auth's API methods directly. |
+| Multer S3 adapter for direct MinIO upload | NO | Adds unnecessary dependency. Upload to NestJS first (Multer memory storage), then push to MinIO via existing `minio` client. Simpler, more control over validation. |
 
 ---
 
@@ -212,77 +235,106 @@ npx shadcn@latest add pagination checkbox toggle-group resizable
 
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| ag-grid / react-data-grid | Heavy (200KB+), opinionated styling clashes with shadcn, paid enterprise features | @tanstack/react-table + shadcn Table |
-| MUI DataGrid / Ant Design Table | Wrong design system, would clash with base-ui primitives | @tanstack/react-table + shadcn Table |
-| react-beautiful-dnd | Deprecated and unmaintained since 2024, no React 19 support | @dnd-kit/react if DnD needed |
-| react-dnd | Complex multi-backend API, HTML5 backend issues | @dnd-kit/react if DnD needed |
-| react-arborist / react-treeview | Over-engineering for 3-level hierarchy, adds bundle weight for no gain | Custom component with shadcn Collapsible |
-| react-datepicker | Already have react-day-picker v9 via shadcn Calendar with full feature parity | Existing react-day-picker v9 |
-| react-virtualized / react-window | Premature optimization; tables will use server-side pagination (max 50 rows visible). Add only if a specific page needs 1000+ visible rows | Native scrolling + pagination |
-| framer-motion | Already have tw-animate-css. Sidebar collapse and sheet transitions use CSS transitions. Only consider if complex spring/gesture animations needed | Tailwind CSS transitions + tw-animate-css |
-| react-resizable-panels (directly) | shadcn `resizable` component wraps this already with proper styling | `npx shadcn@latest add resizable` |
-| nuqs (URL state management) | Nice-to-have for table filter persistence via URL, but adds complexity. Use React state first, add nuqs only if URL-shareable filters become a requirement | React useState + optional localStorage |
+| video.js or plyr | Massive bundle, HLS already working with hls.js | hls.js + custom TimelineBar |
+| better-auth-ui | Opinionated React components that won't match shadcn theme | Better Auth API methods + custom shadcn forms |
+| sharp (for now) | Premature optimization for avatar processing | Accept size-limited uploads, resize via CSS |
+| @aws-sdk/client-s3 | MinIO client already handles S3-compatible API | Existing `minio` package |
+| Agenda/cron libraries | @nestjs/schedule + BullMQ repeatable jobs already cover periodic tasks | Existing BullMQ repeatable jobs |
+| WebSocket health check library | Simple HTTP polling to SRS API is sufficient | Built-in fetch/axios |
+| react-player | Wrapper around hls.js/video.js, adds abstraction for no benefit | Direct hls.js usage |
 
 ---
 
 ## Architecture Notes for Implementation
 
-### Reusable DataTable Pattern
-
-Build ONE generic `<DataTable<TData>>` component:
+### FFmpeg Health Check Architecture
 
 ```
-<DataTable>
-  props: columns, data, searchKey, filterableColumns, pageSize
-  internally:
-    - useReactTable() from @tanstack/react-table
-    - <DataTableToolbar> (search, filters, view toggle)
-    - <Table> from shadcn (presentation)
-    - <DataTablePagination> (page controls)
-    - Row actions via <DropdownMenu>
+BullMQ Repeatable Job: "ffmpeg-health-check" (every 30s)
+  |
+  +-> Check SRS status: GET http://srs:1985/api/v1/versions
+  |     |-> If SRS down: mark all online cameras as 'reconnecting'
+  |     |-> If SRS up: continue
+  |
+  +-> For each camera where status IN ('online', 'reconnecting'):
+  |     |-> Is FFmpeg running? (FfmpegService.isRunning)
+  |     |-> Is stream in SRS? (GET /api/v1/streams, match key)
+  |     |
+  |     |-> FFmpeg running + SRS stream exists = healthy (no action)
+  |     |-> FFmpeg dead + SRS no stream = re-queue stream job
+  |     |-> FFmpeg running + SRS no stream = kill FFmpeg, re-queue
+  |     |-> Camera in 'maintenance' = SKIP entirely
+  |
+  +-> Notification: StatusService.transition() already handles
+        webhook + in-app notification on status change
 ```
 
-Every page passes different `columns` and `data` to the same `<DataTable>`. This ensures consistent UX across: cameras, stream profiles, recordings, API keys, users, audit log, webhooks.
+### Recording Manifest Generation
 
-### HLS Card Grid Performance Strategy
+```
+GET /api/recordings/:recordingId/playback
 
-1. Use IntersectionObserver to detect visible cards
-2. Initialize hls.js only for cards in viewport
-3. Destroy hls.js instance when card leaves viewport
-4. Cap at 6 concurrent HLS connections (browser limit is ~6 per domain)
-5. Use poster image / last-known thumbnail as placeholder for off-screen cards
-6. Consider using low-bitrate stream profile for grid previews
+Response: HLS manifest (application/vnd.apple.mpegurl)
 
-### Tree + Table Split Panel
+#EXTM3U
+#EXT-X-VERSION:7
+#EXT-X-TARGETDURATION:2
+#EXT-X-MEDIA-SEQUENCE:0
+#EXT-X-MAP:URI="<presigned-url-to-init-segment>"
+#EXTINF:2.0,
+<presigned-url-to-segment-0>
+#EXTINF:2.0,
+<presigned-url-to-segment-1>
+...
+#EXT-X-ENDLIST
 
-Use shadcn `Resizable` (wraps react-resizable-panels):
-- Left: `<ProjectTree>` (recursive Collapsible nodes, ~200px default width)
-- Right: `<DataTable>` filtered by selected tree node
-- Persist split ratio in localStorage
-- On mobile: tree collapses to a dropdown/sheet instead of side panel
+Key: Use EXT-X-PROGRAM-DATE-TIME for each segment so hls.js can map
+     real-world timestamps to playback position, enabling timeline seek.
+```
+
+### Avatar Upload Flow
+
+```
+Frontend:
+  1. <input type="file" accept="image/*"> with 2MB limit check
+  2. POST /api/users/avatar (multipart/form-data)
+  3. On success: authClient.useSession().refetch()
+
+Backend (NestJS):
+  1. @UseInterceptors(FileInterceptor('avatar'))
+  2. Validate: mimetype in ['image/jpeg','image/png','image/webp'], size <= 2MB
+  3. Upload to MinIO: bucket=avatars, key={userId}/{uuid}.{ext}
+  4. Generate presigned URL (long TTL or public bucket)
+  5. Update user image via Better Auth admin API or direct Prisma update
+  6. Return { imageUrl }
+```
 
 ---
 
 ## Version Compatibility
 
-| New Package | Compatible With | Verified |
-|-------------|-----------------|----------|
-| @tanstack/react-table 8.21.x | React 19, Next.js 15, TypeScript 5.7 | YES -- supports React 16.8+ |
-| @dnd-kit/react 0.4.x | React 19 | YES -- designed for React 18+, works with 19 |
-| shadcn CLI components | base-nova style, base-ui primitives | YES -- same component system as existing |
+| Existing Package | Used For (v1.2) | Verified |
+|-----------------|----------------|----------|
+| better-auth 1.6.x | changePassword, updateUser (name, image) | YES -- v1.6.5 fixed session refresh after password change |
+| bullmq 5.x | Repeatable health check jobs, stream retry | YES -- repeatable jobs API stable |
+| @nestjs/schedule 6.x | Cron decorator alternative (if needed) | YES -- works with NestJS 11 |
+| minio 8.x | Avatar storage, recording segment storage | YES -- S3-compatible, presigned URLs |
+| hls.js 1.6.x | Recording playback (fMP4 manifest) | YES -- supports EXT-X-PROGRAM-DATE-TIME for seek |
+| fluent-ffmpeg 2.1.x | Process management, error events | YES -- stable API |
+| @nestjs/platform-express | Multer file upload for avatars | YES -- built-in, no additional package |
 
 ---
 
 ## Sources
 
-- [shadcn Data Table docs](https://ui.shadcn.com/docs/components/base/data-table) -- Official TanStack Table integration (HIGH confidence)
-- [shadcn Sidebar docs](https://ui.shadcn.com/docs/components/radix/sidebar) -- Collapsible modes: offcanvas, icon, none (HIGH confidence)
-- [shadcn Date Picker docs](https://ui.shadcn.com/docs/components/radix/date-picker) -- Popover + Calendar composition (HIGH confidence)
-- [@tanstack/react-table npm](https://www.npmjs.com/package/@tanstack/react-table) -- v8.21.3 stable (HIGH confidence)
-- [@dnd-kit/react npm](https://www.npmjs.com/package/@dnd-kit/react) -- v0.4.0 (HIGH confidence)
-- [react-leaflet draggable marker](https://react-leaflet.js.org/docs/example-draggable-marker/) -- Native drag support (HIGH confidence)
-- [OpenStatus data-table reference](https://data-table.openstatus.dev/) -- shadcn + TanStack Table patterns (MEDIUM confidence)
+- [Better Auth User & Accounts docs](https://better-auth.com/docs/concepts/users-accounts) -- changePassword, updateUser API (HIGH confidence)
+- [Better Auth Changelog](https://better-auth.com/changelog) -- v1.6.5 session refresh fix April 2026 (HIGH confidence)
+- [SRS HTTP API v6 docs](https://ossrs.net/lts/en-us/docs/v6/doc/http-api) -- /api/v1/streams, /api/v1/versions endpoints (HIGH confidence)
+- [hls.js API docs](https://github.com/video-dev/hls.js/blob/master/docs/API.md) -- EXT-X-PROGRAM-DATE-TIME, currentTime seeking (HIGH confidence)
+- [NestJS File Upload docs](https://docs.nestjs.com/techniques/file-upload) -- Multer integration via @nestjs/platform-express (HIGH confidence)
+- [BullMQ Repeatable Jobs docs](https://docs.bullmq.io/guide/jobs/repeatable) -- every/cron pattern for health checks (HIGH confidence)
+- Existing codebase analysis: `ffmpeg.service.ts`, `stream.processor.ts`, `status.service.ts`, `timeline-bar.tsx`, `schema.prisma` (HIGH confidence)
 
 ---
-*Stack research for: SMS Platform v1.1 UI Overhaul*
-*Researched: 2026-04-17*
+*Stack research for: SMS Platform v1.2 Self-Service, Resilience & UI Polish*
+*Researched: 2026-04-18*
