@@ -109,16 +109,22 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
 
   useEffect(() => {
     if (projectId) {
-      if (!camera || camera.site?.project?.id !== projectId) {
+      const keepSite = (camera && camera.site?.project?.id === projectId) || (defaultProjectId === projectId && defaultSiteId);
+      if (!keepSite) {
         setSiteId('');
       }
       apiFetch<Site[]>(`/api/projects/${projectId}/sites`)
-        .then(setSites)
+        .then((data) => {
+          setSites(data);
+          if (defaultSiteId && defaultProjectId === projectId && !camera) {
+            setSiteId(defaultSiteId);
+          }
+        })
         .catch(() => setSites([]));
     } else {
       setSites([]);
     }
-  }, [projectId, camera]);
+  }, [projectId, camera, defaultProjectId, defaultSiteId]);
 
   function resetForm() {
     setName('');
