@@ -181,7 +181,7 @@ export function CreatePlatformUserDialog({
               name="organizationId"
               render={({ field }) => (
                 <Select
-                  value={field.value || undefined}
+                  value={field.value}
                   onValueChange={(v) => field.onChange(String(v))}
                 >
                   <SelectTrigger
