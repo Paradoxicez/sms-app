@@ -27,6 +27,7 @@ interface CameraMapProps {
   onMapClick?: (lat: number, lng: number) => void;
   onViewStream?: (id: string) => void;
   onSetLocation?: (id: string, name: string) => void;
+  onDragEnd?: (id: string, name: string, lat: number, lng: number) => void;
   children?: React.ReactNode;
 }
 
@@ -37,6 +38,7 @@ export function CameraMap({
   onMapClick,
   onViewStream,
   onSetLocation,
+  onDragEnd,
   children,
 }: CameraMapProps) {
   return (
@@ -47,6 +49,7 @@ export function CameraMap({
       onMapClick={onMapClick}
       onViewStream={onViewStream}
       onSetLocation={onSetLocation}
+      onDragEnd={onDragEnd}
     >
       {children}
     </CameraMapInner>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import { CameraPopup } from './camera-popup';
@@ -14,6 +14,7 @@ interface CameraMarkerProps {
   viewerCount?: number;
   onViewStream?: (id: string) => void;
   onSetLocation?: (id: string, name: string) => void;
+  onDragEnd?: (id: string, name: string, lat: number, lng: number) => void;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -33,7 +34,9 @@ export function CameraMarker({
   viewerCount,
   onViewStream,
   onSetLocation,
+  onDragEnd,
 }: CameraMarkerProps) {
+  const markerRef = useRef<L.Marker>(null);
   const icon = useMemo(() => {
     const color = STATUS_COLORS[status] || STATUS_COLORS.offline;
     const pulseClass = status === 'reconnecting' ? 'animation: pulse 2s infinite;' : '';
@@ -55,8 +58,27 @@ export function CameraMarker({
     });
   }, [status]);
 
+  const eventHandlers = useMemo(
+    () => ({
+      dragend() {
+        const marker = markerRef.current;
+        if (marker && onDragEnd) {
+          const pos = marker.getLatLng();
+          onDragEnd(id, name, pos.lat, pos.lng);
+        }
+      },
+    }),
+    [id, name, onDragEnd],
+  );
+
   return (
-    <Marker position={[latitude, longitude]} icon={icon}>
+    <Marker
+      ref={markerRef}
+      position={[latitude, longitude]}
+      icon={icon}
+      draggable={!!onDragEnd}
+      eventHandlers={eventHandlers}
+    >
       <Popup maxWidth={240} minWidth={200}>
         <CameraPopup
           id={id}

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { MapPin } from 'lucide-react';
 
+import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
 import { authClient } from '@/lib/auth-client';
 import { useFeatureCheck } from '@/hooks/use-feature-check';
@@ -47,6 +48,47 @@ export default function TenantMapPage() {
   // View Stream sheet state
   const [viewStreamCamera, setViewStreamCamera] = useState<CameraRow | null>(null);
   const [viewStreamOpen, setViewStreamOpen] = useState(false);
+
+  // Drag-to-relocate state
+  const [dragPending, setDragPending] = useState<{
+    id: string; name: string; lat: number; lng: number;
+  } | null>(null);
+  const [dragSaving, setDragSaving] = useState(false);
+
+  const handleDragEnd = useCallback(
+    (id: string, name: string, lat: number, lng: number) => {
+      setDragPending({ id, name, lat, lng });
+    },
+    [],
+  );
+
+  const confirmDrag = useCallback(async () => {
+    if (!dragPending) return;
+    setDragSaving(true);
+    try {
+      await apiFetch(`/api/cameras/${dragPending.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          location: { lat: dragPending.lat, lng: dragPending.lng },
+        }),
+      });
+      toast.success('Location updated');
+      setDragPending(null);
+      fetchCameras();
+      hierarchyData.refresh();
+    } catch {
+      toast.error('Failed to update location');
+    } finally {
+      setDragSaving(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dragPending]);
+
+  const cancelDrag = useCallback(() => {
+    setDragPending(null);
+    fetchCameras();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Placement mode
   const placement = usePlacementMode(() => {
@@ -213,6 +255,33 @@ export default function TenantMapPage() {
           <PlacementBanner state={placement.state} onCancel={placement.cancel} />
 
           {/* Map */}
+          {/* Drag confirm bar */}
+          {dragPending && (
+            <div
+              role="alert"
+              className="absolute top-0 left-0 right-0 z-[2000] flex items-center justify-center gap-3 bg-primary text-primary-foreground py-2 px-4 text-sm"
+            >
+              <span>Move &apos;{dragPending.name}&apos; to ({dragPending.lat.toFixed(4)}, {dragPending.lng.toFixed(4)})?</span>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={confirmDrag}
+                disabled={dragSaving}
+                className="h-7 text-xs"
+              >
+                {dragSaving ? 'Saving...' : 'Save'}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={cancelDrag}
+                className="h-7 text-xs text-primary-foreground hover:text-primary-foreground/80"
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
+
           <CameraMap
             cameras={cameras}
             filteredCameraIds={filteredCameraIds}
@@ -220,6 +289,7 @@ export default function TenantMapPage() {
             onMapClick={placement.onMapClick}
             onViewStream={handleViewStream}
             onSetLocation={handleSetLocation}
+            onDragEnd={handleDragEnd}
           >
             {/* Placement marker renders inside MapContainer */}
             <PlacementMarker

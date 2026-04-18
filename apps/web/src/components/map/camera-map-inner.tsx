@@ -26,6 +26,7 @@ interface CameraMapInnerProps {
   onMapClick?: (lat: number, lng: number) => void;
   onViewStream?: (id: string) => void;
   onSetLocation?: (id: string, name: string) => void;
+  onDragEnd?: (id: string, name: string, lat: number, lng: number) => void;
   children?: ReactNode;
 }
 
@@ -85,6 +86,7 @@ export default function CameraMapInner({
   onMapClick,
   onViewStream,
   onSetLocation,
+  onDragEnd,
   children,
 }: CameraMapInnerProps) {
   // Filter to cameras that have valid lat/lng, then apply filteredCameraIds
@@ -138,6 +140,7 @@ export default function CameraMapInner({
             viewerCount={camera.viewerCount}
             onViewStream={onViewStream}
             onSetLocation={onSetLocation}
+            onDragEnd={onDragEnd}
           />
         ))}
       </MarkerClusterGroup>
