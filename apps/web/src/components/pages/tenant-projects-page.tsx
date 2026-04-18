@@ -51,6 +51,7 @@ import {
 import { CamerasDataTable } from "@/app/admin/cameras/components/cameras-data-table"
 import type { CameraRow } from "@/app/admin/cameras/components/cameras-columns"
 import { ViewStreamSheet } from "@/app/admin/cameras/components/view-stream-sheet"
+import { BulkImportDialog } from "@/app/admin/cameras/components/bulk-import-dialog"
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -90,6 +91,7 @@ export default function TenantProjectsPage() {
   const [streamCamera, setStreamCamera] = useState<CameraRow | null>(null)
   const [streamOpen, setStreamOpen] = useState(false)
   const [cameraView, setCameraView] = useState<"table" | "card">("table")
+  const [importDialogOpen, setImportDialogOpen] = useState(false)
 
   // ── Project CRUD ──
   const [createProjectOpen, setCreateProjectOpen] = useState(false)
@@ -575,6 +577,7 @@ export default function TenantProjectsPage() {
           onCreateCamera={() => {
             // Camera creation is on the cameras page
           }}
+          onImportCameras={() => setImportDialogOpen(true)}
           view={cameraView}
           onViewChange={setCameraView}
         />
@@ -621,6 +624,13 @@ export default function TenantProjectsPage() {
         }
         mobileTreeOpen={mobileTreeOpen}
         onMobileTreeOpenChange={setMobileTreeOpen}
+      />
+
+      {/* Bulk import dialog */}
+      <BulkImportDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        onSuccess={refreshAll}
       />
 
       {/* View Stream Sheet */}
