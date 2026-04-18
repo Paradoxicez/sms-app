@@ -1137,22 +1137,25 @@ export function AccountSecuritySection() {
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Bandwidth MTD display semantic (§10)** — Progress bar vs `maxBandwidthMbps`: show avg Mbps this month (progresses from 0 upward) or cumulative GB vs monthly budget? UI-SPEC label says "Mbps" but D-16 says MTD.
    - What we know: `ApiKeyUsage.bandwidth` stores cumulative bytes
    - What's unclear: the intended UX — does the user want to see "how much of my monthly cap am I using" or "what's my typical throughput"?
    - Recommendation: Planner proposes Option 1 (avgMbps = bytes × 8 / seconds_elapsed / 1e6) and flag to user in plan discussion. Simple math, preserves UI-SPEC label.
+   - **RESOLVED (2026-04-19, orchestrator clarification):** Avg Mbps MTD selected. Formula: `(total bytes this month × 8) / (seconds since 1st of month) / 1e6`, compared against `Package.maxBandwidthMbps`. Implemented in `PlanUsageService` (Plan 16-01 Task 6) and displayed in `AccountPlanSection` (Plan 16-02 Task 5). UI-SPEC label "Bandwidth (MTD)" unchanged.
 
 2. **MinIO public endpoint vs internal endpoint in Docker Compose** — `MINIO_ENDPOINT=minio:9000` works in-container, but browsers need `localhost:9000` (dev) or `storage.example.com` (prod).
    - What we know: existing MinioService uses `MINIO_ENDPOINT` for both server-side client and URL generation
    - What's unclear: does the reverse proxy (Next.js rewrites? nginx?) already forward `/minio/*`?
    - Recommendation: Add `MINIO_PUBLIC_ENDPOINT` + `MINIO_PUBLIC_PORT` env vars. Default to `MINIO_ENDPOINT`/`MINIO_PORT` if unset. Planner to document.
+   - **RESOLVED (2026-04-19, Plan 16-01):** `MINIO_PUBLIC_ENDPOINT` and `MINIO_PUBLIC_PORT` env vars added. `MinioService.getAvatarUrl(userId, version)` prefers public vars when set, falls back to internal `MINIO_ENDPOINT` / `MINIO_PORT` otherwise. Documented in Plan 16-01 `user_setup` block.
 
 3. **Avatar fallback on sidebar trigger** — UI-SPEC §Component Inventory shows Avatar in the Profile section only, but the sidebar-footer currently shows initials-only. Should Phase 16 also update the sidebar trigger to show `user.image`?
    - What we know: `AvatarImage` + `AvatarFallback` primitive is already in place
    - What's unclear: in-scope or deferred polish?
    - Recommendation: IN scope — the avatar field now exists, showing it in the dropdown trigger is a zero-cost win. Flag as bonus task in PLAN.
+   - **RESOLVED (2026-04-19, Plan 16-02 Task 3):** IN scope. `SidebarFooterContent` accepts a `userImage` prop and renders `<AvatarImage src={userImage} />` with initials `AvatarFallback`. Applied in both tenant and super-admin portal layouts.
 
 ---
 
