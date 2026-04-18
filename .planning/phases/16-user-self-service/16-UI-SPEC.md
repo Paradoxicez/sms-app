@@ -1,10 +1,11 @@
 ---
 phase: 16
 slug: user-self-service
-status: draft
+status: approved
 shadcn_initialized: true
 preset: base-nova
 created: 2026-04-18
+reviewed_at: 2026-04-18
 ---
 
 # Phase 16 — UI Design Contract
@@ -52,17 +53,19 @@ Exceptions:
 
 ## Typography
 
-Inherited from Phase 14. Four roles declared, two weights used:
+Inherited from Phase 14. **Four sizes**, **two weights** total:
 
 | Role | Size | Weight | Line Height | Usage |
 |------|------|--------|-------------|-------|
 | Body | 14px | 400 (regular) | 1.5 | Form input text, helper text, info paragraphs, plan description |
-| Label | 14px | 500 (medium) | 1.4 | Field labels, progress bar labels, feature flag rows |
+| Label | 14px | 600 (semibold) | 1.4 | Field labels, progress bar labels, feature flag rows, strength bar status text |
+| Heading (section) | 18px | 600 (semibold) | 1.3 | "Profile", "Security", "Plan & Usage" section titles, and plan name inside Plan & Usage card |
 | Heading (page) | 24px | 600 (semibold) | 1.2 | "Account settings" page title |
-| Heading (section) | 18px | 600 (semibold) | 1.3 | "Profile", "Security", "Plan & Usage" section titles |
 
 Supporting:
 - Mono (file name display after avatar select): 12px / 400 / 1.5 — reuses `font-mono text-xs` pattern
+
+Weight note: shadcn's default `Label` primitive sometimes ships at `font-medium` (500). This contract **overrides** that — every `<Label>` in this phase renders at `font-semibold` (600). Planner/executor: add `className="font-semibold"` on each label, or adjust the project-local `label.tsx` primitive.
 
 ---
 
@@ -206,7 +209,7 @@ Add a `DropdownMenuSeparator` between the new item and `Sign out` (already prese
 │                                                │
 │  [md (16px) divider gap]                       │
 │                                                │
-│  Label: Display name                           │
+│  Label: Display name  (14/600/1.4)             │
 │  [ Input field .......................... ]   │
 │                                                │
 │  [sm (8px) gap]                                │
@@ -256,18 +259,18 @@ Remove request: `DELETE /api/users/me/avatar`
 
 ```
 ┌────────────────────────────────────────────────┐
-│  Label: Current password                       │
+│  Label: Current password  (14/600/1.4)         │
 │  [ Input type=password ....................]   │
 │                                                │
 │  [md (16px) gap]                               │
 │                                                │
-│  Label: New password                           │
+│  Label: New password  (14/600/1.4)             │
 │  [ Input type=password ....................]   │
 │  [ strength bar (3 segments) ]  "Weak"         │
 │                                                │
 │  [md (16px) gap]                               │
 │                                                │
-│  Label: Confirm new password                   │
+│  Label: Confirm new password  (14/600/1.4)     │
 │  [ Input type=password ....................]   │
 │                                                │
 │  [md (16px) gap]                               │
@@ -282,7 +285,7 @@ Remove request: `DELETE /api/users/me/avatar`
 - As user types in "New password":
   - zxcvbn runs on each keystroke, debounced 150ms
   - Fills segments per table in Color section above
-  - Label text to the right of the bar (`text-sm font-medium`): "Weak" / "Medium" / "Strong"
+  - Label text to the right of the bar (`text-sm font-semibold` — 14/600): "Weak" / "Medium" / "Strong"
 - When input is empty, all 3 segments show `bg-muted` and label shows `text-muted-foreground` "Enter a password"
 - **Accessibility:** wrap the strength bar + label in a `<div aria-live="polite" aria-atomic="true">` so screen readers announce level changes without being chatty
 
@@ -318,13 +321,13 @@ Hidden entirely on `/admin/account`. Backend endpoint: `GET /api/organizations/:
 
 ```
 ┌────────────────────────────────────────────────┐
-│  <h3>  Professional  (20/600/1.2)              │
+│  <h3>  Professional  (18/600/1.3)              │
 │  <p>   For growing teams with 10+ cameras.     │
 │        (plan description, body/regular/muted)  │
 │                                                │
 │  [lg (24px) gap + hr border-border]            │
 │                                                │
-│  <h4>  Usage                                   │
+│  <h4>  Usage  (14/600/1.4)                     │
 │  [md (16px) gap]                               │
 │                                                │
 │  ┌ Cameras ──────────────────── 8 / 25 ──┐     │
@@ -349,7 +352,7 @@ Hidden entirely on `/admin/account`. Backend endpoint: `GET /api/organizations/:
 │                                                 │
 │  [lg (24px) gap + hr border-border]             │
 │                                                 │
-│  <h4>  Features                                 │
+│  <h4>  Features  (14/600/1.4)                   │
 │  [md (16px) gap]                                │
 │  ✓ Recordings                                   │
 │  ✓ Webhooks                                     │
@@ -363,24 +366,26 @@ Hidden entirely on `/admin/account`. Backend endpoint: `GET /api/organizations/:
 └─────────────────────────────────────────────────┘
 ```
 
+Note: The plan name (`<h3>`) sits at the same typographic tier as the Section Heading (18/600/1.3) — no dedicated tier between section title and body. The `<h4>` "Usage" and "Features" subheadings use the Label tier (14/600/1.4), not a new typography role.
+
 ### Progress Row Spec (for each of 4 capped metrics)
 
 - Single row per metric, two-line:
-  - Line 1: `Label` (left, 14/500) + spacer + `{used} / {max} {unit}` (right, 14/500, `tabular-nums`)
+  - Line 1: `Label` (left, 14/600) + spacer + `{used} / {max} {unit}` (right, 14/600, `tabular-nums`)
   - Line 2: Progress track 8px tall, full-width, rounded-full
 - Percentage label ("32%") right-aligned inside or adjacent to bar, body/regular/muted-foreground when safe, amber or destructive at thresholds
 - Use shadcn `Progress` primitive; wrap fill color in className that branches on computed threshold
 
 ### API Calls Row Spec (D-15: count only, no max)
 
-- Single-line, Label left, `{count}` right in `tabular-nums`
+- Single-line, Label left (14/600), `{count}` right in `tabular-nums` (14/600)
 - No bar
 - Helper hint below in `text-xs text-muted-foreground`: "Month-to-date"
 
 ### Features List Spec
 
 - Ordered: Recordings, Webhooks, Map view (stable order regardless of Package.features JSON key order)
-- Each row: icon (4×4 w-4 h-4, with `mr-sm` 8px gap) + label (14/500)
+- Each row: icon (4×4 w-4 h-4, with `mr-sm` 8px gap) + label (14/600)
 - Enabled row: `text-foreground`; disabled row: `text-muted-foreground`
 
 ### Empty / Missing Data
@@ -575,7 +580,7 @@ All interactive elements use the accent focus ring already declared in `globals.
 |-----------|--------|---------|
 | `Card`, `CardHeader`, `CardContent`, `CardTitle`, `CardDescription` | `@/components/ui/card.tsx` | All 3 sections |
 | `Input` | `@/components/ui/input.tsx` | Display name, all password fields |
-| `Label` | `@/components/ui/label.tsx` | All form field labels |
+| `Label` | `@/components/ui/label.tsx` | All form field labels (override weight to 600 via `className="font-semibold"`) |
 | `Button` | `@/components/ui/button.tsx` | All CTAs (default, ghost, destructive variants) |
 | `Avatar`, `AvatarImage`, `AvatarFallback` | `@/components/ui/avatar.tsx` | Profile avatar display |
 | `Progress`, `ProgressTrack`, `ProgressIndicator` | `@/components/ui/progress.tsx` | 4 usage progress bars |
