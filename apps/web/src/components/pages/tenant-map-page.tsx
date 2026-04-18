@@ -187,13 +187,23 @@ export default function TenantMapPage() {
     [cameras],
   );
 
-  // Handle Set Location from map popup
+  // Handle Set Location — when placement mode clicks map, route to drag confirm bar
   const handleSetLocation = useCallback(
     (cameraId: string, cameraName: string) => {
       placement.startPlacing(cameraId, cameraName);
     },
     [placement],
   );
+
+  // Bridge placement confirming → drag confirm bar
+  useEffect(() => {
+    if (placement.state.mode === 'confirming') {
+      const { cameraId, cameraName, lat, lng } = placement.state;
+      setDragPending({ id: cameraId, name: cameraName, lat, lng });
+      placement.cancel();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [placement.state.mode]);
 
   // Feature loading state
   if (featureLoading) {
