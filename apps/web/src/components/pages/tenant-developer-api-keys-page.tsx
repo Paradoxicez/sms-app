@@ -1,28 +1,16 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, Key } from "lucide-react";
+import { Plus } from "lucide-react";
 
 import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { ApiKeyCreateDialog } from "@/components/api-key-create-dialog";
 import { ApiKeysDataTable } from "@/components/api-keys/api-keys-data-table";
-
-interface ApiKey {
-  id: string;
-  name: string;
-  prefix: string;
-  lastFour: string;
-  scope: string;
-  scopeId: string;
-  createdAt: string;
-  lastUsedAt: string | null;
-  revokedAt: string | null;
-}
+import type { ApiKeyRow } from "@/components/api-keys/api-keys-columns";
 
 export default function TenantDeveloperApiKeysPage() {
-  const [keys, setKeys] = useState<ApiKey[]>([]);
+  const [keys, setKeys] = useState<ApiKeyRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -31,7 +19,7 @@ export default function TenantDeveloperApiKeysPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await apiFetch<ApiKey[]>("/api/api-keys");
+      const data = await apiFetch<ApiKeyRow[]>("/api/api-keys");
       setKeys(Array.isArray(data) ? data : []);
     } catch {
       setError("Could not load API keys.");
@@ -45,7 +33,7 @@ export default function TenantDeveloperApiKeysPage() {
   }, [fetchKeys]);
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">API Keys</h1>
         <Button onClick={() => setCreateOpen(true)}>
@@ -60,28 +48,11 @@ export default function TenantDeveloperApiKeysPage() {
         </div>
       )}
 
-      {isLoading ? (
-        <div className="space-y-2">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-12 w-full" />
-          ))}
-        </div>
-      ) : !error && keys.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <Key className="h-12 w-12 text-muted-foreground mb-4" />
-          <h2 className="text-xl font-semibold">No API keys yet</h2>
-          <p className="mt-2 text-sm text-muted-foreground max-w-md">
-            Create an API key to start making API calls. Keys can be scoped to a
-            project or site.
-          </p>
-          <Button onClick={() => setCreateOpen(true)} className="mt-4">
-            <Plus className="mr-2 h-4 w-4" />
-            Create API Key
-          </Button>
-        </div>
-      ) : (
-        <ApiKeysDataTable keys={keys} onRefresh={fetchKeys} />
-      )}
+      <ApiKeysDataTable
+        keys={keys}
+        loading={isLoading}
+        onRefresh={fetchKeys}
+      />
 
       <ApiKeyCreateDialog
         open={createOpen}

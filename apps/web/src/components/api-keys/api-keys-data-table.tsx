@@ -5,10 +5,7 @@ import { Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { apiFetch } from "@/lib/api"
-import {
-  DataTable,
-  type FacetedFilterConfig,
-} from "@/components/ui/data-table"
+import { DataTable } from "@/components/ui/data-table"
 import type { RowAction } from "@/components/ui/data-table"
 import {
   AlertDialog,
@@ -25,12 +22,11 @@ import { createApiKeysColumns, type ApiKeyRow } from "./api-keys-columns"
 
 interface ApiKeysDataTableProps {
   keys: ApiKeyRow[]
+  loading: boolean
   onRefresh: () => void
 }
 
-const facetedFilters: FacetedFilterConfig[] = []
-
-export function ApiKeysDataTable({ keys, onRefresh }: ApiKeysDataTableProps) {
+export function ApiKeysDataTable({ keys, loading, onRefresh }: ApiKeysDataTableProps) {
   const [deleteKey, setDeleteKey] = useState<ApiKeyRow | null>(null)
   const [deleting, setDeleting] = useState(false)
 
@@ -73,7 +69,7 @@ export function ApiKeysDataTable({ keys, onRefresh }: ApiKeysDataTableProps) {
         data={keys}
         searchKey="name"
         searchPlaceholder="Search API keys..."
-        facetedFilters={facetedFilters}
+        loading={loading}
         emptyState={{
           title: "No API keys yet",
           description: "Get started by creating your first API key.",
