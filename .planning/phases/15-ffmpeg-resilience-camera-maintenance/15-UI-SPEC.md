@@ -1,10 +1,11 @@
 ---
 phase: 15
 slug: ffmpeg-resilience-camera-maintenance
-status: draft
+status: approved
 shadcn_initialized: true
 preset: base-nova
 created: 2026-04-18
+reviewed_at: 2026-04-18
 ---
 
 # Phase 15 — UI Design Contract
