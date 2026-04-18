@@ -2,7 +2,6 @@ import {
   Controller,
   Get,
   Post,
-  Patch,
   Delete,
   Param,
   Body,
@@ -59,11 +58,6 @@ export class ApiKeysController {
       throw new BadRequestException('days must be between 1 and 90');
     }
     return this.apiKeysService.getUsageStats(id, numDays);
-  }
-
-  @Patch(':id/revoke')
-  async revoke(@Param('id') id: string) {
-    return this.apiKeysService.revoke(id, this.getOrgId());
   }
 
   @Delete(':id')

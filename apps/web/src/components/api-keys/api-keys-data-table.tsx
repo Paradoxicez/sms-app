@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Ban, Trash2 } from "lucide-react"
+import { Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { apiFetch } from "@/lib/api"
@@ -28,37 +28,11 @@ interface ApiKeysDataTableProps {
   onRefresh: () => void
 }
 
-const facetedFilters: FacetedFilterConfig[] = [
-  {
-    columnId: "status",
-    title: "Status",
-    options: [
-      { label: "Active", value: "active" },
-      { label: "Revoked", value: "revoked" },
-    ],
-  },
-]
+const facetedFilters: FacetedFilterConfig[] = []
 
 export function ApiKeysDataTable({ keys, onRefresh }: ApiKeysDataTableProps) {
-  const [revokeKey, setRevokeKey] = useState<ApiKeyRow | null>(null)
-  const [revoking, setRevoking] = useState(false)
   const [deleteKey, setDeleteKey] = useState<ApiKeyRow | null>(null)
   const [deleting, setDeleting] = useState(false)
-
-  async function handleRevoke() {
-    if (!revokeKey) return
-    setRevoking(true)
-    try {
-      await apiFetch(`/api/api-keys/${revokeKey.id}/revoke`, { method: "PATCH" })
-      toast.success("API key revoked")
-      setRevokeKey(null)
-      onRefresh()
-    } catch {
-      toast.error("Failed to revoke API key")
-    } finally {
-      setRevoking(false)
-    }
-  }
 
   async function handleDelete() {
     if (!deleteKey) return
@@ -75,25 +49,7 @@ export function ApiKeysDataTable({ keys, onRefresh }: ApiKeysDataTableProps) {
     }
   }
 
-  const activeActions: RowAction<ApiKeyRow>[] = useMemo(
-    () => [
-      {
-        label: "Revoke",
-        icon: Ban,
-        onClick: (key) => setRevokeKey(key),
-        variant: "destructive" as const,
-      },
-      {
-        label: "Delete",
-        icon: Trash2,
-        onClick: (key) => setDeleteKey(key),
-        variant: "destructive" as const,
-      },
-    ],
-    [],
-  )
-
-  const revokedActions: RowAction<ApiKeyRow>[] = useMemo(
+  const actions: RowAction<ApiKeyRow>[] = useMemo(
     () => [
       {
         label: "Delete",
@@ -106,8 +62,8 @@ export function ApiKeysDataTable({ keys, onRefresh }: ApiKeysDataTableProps) {
   )
 
   const columns = useMemo(
-    () => createApiKeysColumns({ activeActions, revokedActions }),
-    [activeActions, revokedActions],
+    () => createApiKeysColumns({ actions }),
+    [actions],
   )
 
   return (
@@ -123,34 +79,6 @@ export function ApiKeysDataTable({ keys, onRefresh }: ApiKeysDataTableProps) {
           description: "Get started by creating your first API key.",
         }}
       />
-
-      {/* Revoke confirmation */}
-      <AlertDialog
-        open={!!revokeKey}
-        onOpenChange={(open) => {
-          if (!open) setRevokeKey(null)
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Revoke API Key</AlertDialogTitle>
-            <AlertDialogDescription>
-              Revoke API key &ldquo;{revokeKey?.name}&rdquo;? Applications using
-              this key will stop working immediately.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={revoking}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleRevoke}
-              disabled={revoking}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {revoking ? "Revoking..." : "Revoke"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* Delete confirmation */}
       <AlertDialog

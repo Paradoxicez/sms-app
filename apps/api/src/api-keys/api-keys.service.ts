@@ -108,31 +108,8 @@ export class ApiKeysService {
   }
 
   /**
-   * Revoke an API key by setting revokedAt.
-   */
-  async revoke(id: string, orgId: string) {
-    const key = await this.tenancy.apiKey.findFirst({
-      where: { id, orgId },
-    });
-    if (!key) {
-      throw new NotFoundException(`API key ${id} not found`);
-    }
-
-    return this.tenancy.apiKey.update({
-      where: { id },
-      data: { revokedAt: new Date() },
-      select: {
-        id: true,
-        name: true,
-        prefix: true,
-        lastFour: true,
-        revokedAt: true,
-      },
-    });
-  }
-
-  /**
    * Hard-delete an API key and its usage records (cascade).
+   * ApiKey table has no RLS — use raw PrismaService directly.
    */
   async delete(id: string, orgId: string) {
     const key = await this.tenancy.apiKey.findFirst({
@@ -142,7 +119,12 @@ export class ApiKeysService {
       throw new NotFoundException(`API key ${id} not found`);
     }
 
-    await this.tenancy.apiKey.delete({ where: { id } });
+    try {
+      await this.prisma.apiKey.delete({ where: { id } });
+    } catch (error) {
+      console.error('[ApiKeysService.delete] Failed:', error);
+      throw error;
+    }
     return { deleted: true };
   }
 
