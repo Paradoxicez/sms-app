@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import { CameraPopup } from './camera-popup';
@@ -58,6 +58,20 @@ export function CameraMarker({
     });
   }, [status]);
 
+  const closePopup = useCallback(() => {
+    markerRef.current?.closePopup();
+  }, []);
+
+  const handleViewStream = useCallback((cameraId: string) => {
+    closePopup();
+    onViewStream?.(cameraId);
+  }, [closePopup, onViewStream]);
+
+  const handleSetLocation = useCallback((cameraId: string, cameraName: string) => {
+    closePopup();
+    onSetLocation?.(cameraId, cameraName);
+  }, [closePopup, onSetLocation]);
+
   const eventHandlers = useMemo(
     () => ({
       dragend() {
@@ -85,8 +99,8 @@ export function CameraMarker({
           name={name}
           status={status}
           viewerCount={viewerCount}
-          onViewStream={onViewStream}
-          onSetLocation={onSetLocation}
+          onViewStream={handleViewStream}
+          onSetLocation={handleSetLocation}
         />
       </Popup>
     </Marker>
