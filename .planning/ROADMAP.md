@@ -87,7 +87,11 @@ Plans:
   1. User can change their display name and password from an Account settings page
   2. User can upload and change their avatar image
   3. User can view their current plan name, usage counts against limits (cameras, storage, API calls), on a read-only Plan page
-**Plans**: TBD
+**Plans**: 3 plans (Wave 0 inside Plan 01/02, Wave 1 backend + tests, Wave 3 tenant UI, Wave 4 admin UI)
+Plans:
+- [ ] 16-01-PLAN.md — Backend: sharp install, avatar fixtures, stub tests, MinIO avatars bucket, POST/DELETE /api/users/me/avatar, GET /api/organizations/:orgId/plan-usage, AccountModule (USER-01 verification, USER-02 backend, USER-03 backend)
+- [ ] 16-02-PLAN.md — Frontend shared + tenant: zxcvbn-ts install, Account composites (Profile, Security, Plan, PasswordStrengthBar, UsageProgressRow, FeatureFlagRow), sidebar-footer "Account settings" entry in both portals, /app/account page with all 3 sections (USER-01/02/03 tenant UI)
+- [ ] 16-03-PLAN.md — Frontend super admin: /admin/account page (Profile + Security only, no Plan & Usage per D-02) reusing composites from 16-02 (USER-01/02 super admin UI)
 **UI hint**: yes
 
 ### Phase 17: Recording Playback & Timeline
@@ -142,6 +146,6 @@ Note: Phases 16, 17, 18 can execute in parallel after Phase 14 (independent of e
 | 13. Hierarchy & Map | v1.1 | 2/2 | Complete | 2026-04-17 |
 | 14. Bug Fixes & DataTable Migrations | v1.2 | 3/3 | Complete    | 2026-04-18 |
 | 15. FFmpeg Resilience & Camera Maintenance | v1.2 | 0/4 | Not started | - |
-| 16. User Self-Service | v1.2 | 0/0 | Not started | - |
+| 16. User Self-Service | v1.2 | 0/3 | Not started | - |
 | 17. Recording Playback & Timeline | v1.2 | 0/0 | Not started | - |
 | 18. Dashboard & Map Polish | v1.2 | 0/0 | Not started | - |
