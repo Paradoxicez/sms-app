@@ -5,6 +5,7 @@ import {
   Patch,
   Delete,
   Param,
+  Query,
   Body,
   Req,
   Res,
@@ -13,7 +14,7 @@ import {
   NotFoundException,
   Logger,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiExcludeEndpoint } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiExcludeEndpoint } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { ClsService } from 'nestjs-cls';
 import { AuthGuard } from '../auth/guards/auth.guard';
@@ -188,8 +189,9 @@ export class CamerasController {
   @Get('cameras')
   @ApiOperation({ summary: 'List all cameras' })
   @ApiResponse({ status: 200, description: 'List of cameras' })
-  async findAllCameras() {
-    return this.camerasService.findAllCameras();
+  @ApiQuery({ name: 'siteId', required: false, description: 'Filter by site ID' })
+  async findAllCameras(@Query('siteId') siteId?: string) {
+    return this.camerasService.findAllCameras(siteId);
   }
 
   @Get('cameras/:id')

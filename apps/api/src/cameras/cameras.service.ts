@@ -141,8 +141,9 @@ export class CamerasService {
     });
   }
 
-  async findAllCameras() {
+  async findAllCameras(siteId?: string) {
     return this.tenancy.camera.findMany({
+      where: siteId ? { siteId } : undefined,
       orderBy: { createdAt: 'desc' },
       include: {
         site: {

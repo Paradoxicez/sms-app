@@ -52,6 +52,9 @@ import { CamerasDataTable } from "@/app/admin/cameras/components/cameras-data-ta
 import type { CameraRow } from "@/app/admin/cameras/components/cameras-columns"
 import { ViewStreamSheet } from "@/app/admin/cameras/components/view-stream-sheet"
 import { BulkImportDialog } from "@/app/admin/cameras/components/bulk-import-dialog"
+import { CameraFormDialog } from "@/app/admin/cameras/components/camera-form-dialog"
+import { EmbedCodeDialog } from "@/app/admin/cameras/components/embed-code-dialog"
+import { startRecording, stopRecording } from "@/hooks/use-recordings"
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -92,6 +95,10 @@ export default function TenantProjectsPage() {
   const [streamOpen, setStreamOpen] = useState(false)
   const [cameraView, setCameraView] = useState<"table" | "card">("table")
   const [importDialogOpen, setImportDialogOpen] = useState(false)
+  const [createCameraOpen, setCreateCameraOpen] = useState(false)
+  const [editCameraRow, setEditCameraRow] = useState<CameraRow | null>(null)
+  const [deleteCameraRow, setDeleteCameraRow] = useState<CameraRow | null>(null)
+  const [embedCameraRow, setEmbedCameraRow] = useState<CameraRow | null>(null)
 
   // ── Project CRUD ──
   const [createProjectOpen, setCreateProjectOpen] = useState(false)
@@ -354,22 +361,25 @@ export default function TenantProjectsPage() {
   // ── Camera callbacks (for CamerasDataTable) ──
   const cameraCallbacks = useMemo(
     () => ({
-      onEdit: (_camera: CameraRow) => {
-        // Camera edit handled by cameras page
+      onEdit: (camera: CameraRow) => {
+        setEditCameraRow(camera)
       },
       onViewStream: (camera: CameraRow) => {
         setStreamCamera(camera)
         setStreamOpen(true)
       },
-      onDelete: (_camera: CameraRow) => {
-        // Camera delete handled by cameras page
+      onDelete: (camera: CameraRow) => {
+        setDeleteCameraRow(camera)
       },
       onRecordToggle: async (camera: CameraRow) => {
         try {
-          await apiFetch(`/api/cameras/${camera.id}/${camera.isRecording ? "stop-recording" : "start-recording"}`, {
-            method: "POST",
-          })
-          toast.success(camera.isRecording ? "Recording stopped" : "Recording started")
+          if (camera.isRecording) {
+            await stopRecording(camera.id)
+            toast.success("Recording stopped")
+          } else {
+            await startRecording(camera.id)
+            toast.success("Recording started")
+          }
           refreshAll()
         } catch {
           toast.error("Failed to toggle recording.")
@@ -377,22 +387,37 @@ export default function TenantProjectsPage() {
       },
       onStreamToggle: async (camera: CameraRow) => {
         try {
-          await apiFetch(`/api/cameras/${camera.id}/${camera.status === "online" ? "stop" : "start"}`, {
-            method: "POST",
-          })
-          toast.success(camera.status === "online" ? "Stream stopped" : "Stream started")
+          if (camera.status === "online") {
+            await apiFetch(`/api/cameras/${camera.id}/stream/stop`, { method: "POST" })
+            toast.success("Stream stopped")
+          } else {
+            await apiFetch(`/api/cameras/${camera.id}/stream/start`, { method: "POST" })
+            toast.success("Stream started")
+          }
           refreshAll()
         } catch {
           toast.error("Failed to toggle stream.")
         }
       },
-      onEmbedCode: (_camera: CameraRow) => {
-        // Embed code handled by cameras page
+      onEmbedCode: (camera: CameraRow) => {
+        setEmbedCameraRow(camera)
       },
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   )
+
+  async function confirmDeleteCamera() {
+    if (!deleteCameraRow) return
+    try {
+      await apiFetch(`/api/cameras/${deleteCameraRow.id}`, { method: "DELETE" })
+      toast.success("Camera deleted")
+      setDeleteCameraRow(null)
+      refreshAll()
+    } catch {
+      toast.error("Failed to delete camera.")
+    }
+  }
 
   // ── Column definitions ──
   const projectColumns = useMemo(
@@ -574,9 +599,7 @@ export default function TenantProjectsPage() {
           onRecordToggle={cameraCallbacks.onRecordToggle}
           onStreamToggle={cameraCallbacks.onStreamToggle}
           onEmbedCode={cameraCallbacks.onEmbedCode}
-          onCreateCamera={() => {
-            // Camera creation is on the cameras page
-          }}
+          onCreateCamera={() => setCreateCameraOpen(true)}
           onImportCameras={() => setImportDialogOpen(true)}
           view={cameraView}
           onViewChange={setCameraView}
@@ -908,6 +931,55 @@ export default function TenantProjectsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* ── Camera Create Dialog ── */}
+      <CameraFormDialog
+        open={createCameraOpen}
+        onOpenChange={setCreateCameraOpen}
+        onSuccess={refreshAll}
+      />
+
+      {/* ── Camera Edit Dialog ── */}
+      <CameraFormDialog
+        open={!!editCameraRow}
+        onOpenChange={(open) => { if (!open) setEditCameraRow(null) }}
+        onSuccess={refreshAll}
+        camera={editCameraRow}
+      />
+
+      {/* ── Camera Delete Confirmation ── */}
+      <AlertDialog
+        open={!!deleteCameraRow}
+        onOpenChange={(open) => { if (!open) setDeleteCameraRow(null) }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Camera</AlertDialogTitle>
+            <AlertDialogDescription>
+              Permanently delete &quot;{deleteCameraRow?.name}&quot;? Existing
+              recordings will be kept but no longer associated with a camera.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteCamera}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Camera Embed Code Dialog ── */}
+      {embedCameraRow && (
+        <EmbedCodeDialog
+          cameraId={embedCameraRow.id}
+          open={!!embedCameraRow}
+          onOpenChange={(open) => { if (!open) setEmbedCameraRow(null) }}
+        />
+      )}
     </div>
   )
 }
