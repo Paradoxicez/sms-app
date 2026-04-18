@@ -84,34 +84,34 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| RESIL-01 | — | Pending |
-| RESIL-02 | — | Pending |
-| RESIL-03 | — | Pending |
-| RESIL-04 | — | Pending |
-| CAM-01 | — | Pending |
-| CAM-02 | — | Pending |
-| CAM-03 | — | Pending |
-| REC-01 | — | Pending |
-| REC-02 | — | Pending |
-| REC-03 | — | Pending |
-| USER-01 | — | Pending |
-| USER-02 | — | Pending |
-| USER-03 | — | Pending |
-| UI-01 | — | Pending |
-| UI-02 | — | Pending |
-| UI-03 | — | Pending |
-| UI-04 | — | Pending |
-| UI-05 | — | Pending |
-| UI-06 | — | Pending |
-| FIX-01 | — | Pending |
-| FIX-02 | — | Pending |
-| FIX-03 | — | Pending |
+| FIX-01 | Phase 14 | Pending |
+| FIX-02 | Phase 14 | Pending |
+| FIX-03 | Phase 14 | Pending |
+| UI-01 | Phase 14 | Pending |
+| UI-02 | Phase 14 | Pending |
+| UI-03 | Phase 14 | Pending |
+| UI-04 | Phase 14 | Pending |
+| RESIL-01 | Phase 15 | Pending |
+| RESIL-02 | Phase 15 | Pending |
+| RESIL-03 | Phase 15 | Pending |
+| RESIL-04 | Phase 15 | Pending |
+| CAM-01 | Phase 15 | Pending |
+| CAM-02 | Phase 15 | Pending |
+| CAM-03 | Phase 15 | Pending |
+| USER-01 | Phase 16 | Pending |
+| USER-02 | Phase 16 | Pending |
+| USER-03 | Phase 16 | Pending |
+| REC-01 | Phase 17 | Pending |
+| REC-02 | Phase 17 | Pending |
+| REC-03 | Phase 17 | Pending |
+| UI-05 | Phase 18 | Pending |
+| UI-06 | Phase 18 | Pending |
 
 **Coverage:**
 - v1.2 requirements: 22 total
-- Mapped to phases: 0
-- Unmapped: 22 ⚠️
+- Mapped to phases: 22/22
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-18*
-*Last updated: 2026-04-18 after initial definition*
+*Last updated: 2026-04-18 after roadmap creation*

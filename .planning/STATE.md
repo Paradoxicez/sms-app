@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Self-Service, Resilience & UI Polish
-status: defining
+status: ready_to_plan
 stopped_at: null
 last_updated: "2026-04-18"
 last_activity: 2026-04-18
 progress:
-  total_phases: 0
+  total_phases: 5
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -21,22 +21,31 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-18)
 
 **Core value:** Developers can get a secure HLS playback URL for any registered camera via a single API call, and embed it on their website immediately.
-**Current focus:** Defining requirements for v1.2
+**Current focus:** Phase 14 — Bug Fixes & DataTable Migrations
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-04-18 — Milestone v1.2 started
+Phase: 14 of 18 (Bug Fixes & DataTable Migrations)
+Plan: 0 of TBD in current phase
+Status: Ready to plan
+Last activity: 2026-04-18 — v1.2 roadmap created (5 phases, 22 requirements mapped)
+
+Progress: [░░░░░░░░░░] 0% (v1.2: 0/5 phases)
 
 ## Performance Metrics
 
 **Velocity:**
-
-- Total plans completed: 53 (from v1.0) + 15 (v1.1) = 68
+- Total plans completed: 68 (v1.0: 53, v1.1: 15)
 - Average duration: ~5 min/plan
 - Total execution time: ~3.2 hours
+
+**By Milestone:**
+
+| Milestone | Phases | Plans | Status |
+|-----------|--------|-------|--------|
+| v1.0 MVP | 8 | 53 | Complete |
+| v1.1 UI Overhaul | 6 | 15 | Complete |
+| v1.2 Self-Service | 5 | TBD | In progress |
 
 *Updated after each plan completion*
 
@@ -47,10 +56,9 @@ Last activity: 2026-04-18 — Milestone v1.2 started
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- [v1.1 Roadmap]: DataTable component built first -- 13+ pages consume it, prevents rework
-- [v1.1 Roadmap]: Sidebar collapse before page modifications -- layout-level change affects every page
-- [v1.1 Roadmap]: View Stream is a slide-in sheet (half-screen right), NOT a separate page
-- [v1.1 Roadmap]: HLS card view capped at 4-6 concurrent players with IntersectionObserver
+- [v1.2 Roadmap]: Bug fixes + DataTable migrations first (Phase 14) to unblock broken features
+- [v1.2 Roadmap]: FFmpeg resilience + maintenance mode grouped in Phase 15 (both touch StatusService)
+- [v1.2 Roadmap]: Phases 16/17/18 can run in parallel after Phase 14 completes
 
 ### Pending Todos
 
@@ -58,13 +66,10 @@ None yet.
 
 ### Blockers/Concerns
 
-- HLS multi-player memory: each hls.js instance buffers indefinitely unless capped (backBufferLength: 0, maxBufferLength: 4)
-- Sidebar collapse may break Leaflet maps and Recharts charts -- must dispatch resize event on transition end
-- TanStack Table columns with JSX cannot cross Next.js server/client boundary -- separate "use client" files required
-- base-ui render prop pattern (not Radix asChild) must be followed for all new components
+None yet.
 
 ## Session Continuity
 
 Last session: 2026-04-18
-Stopped at: Milestone v1.2 initialized
-Resume file: .planning/PROJECT.md
+Stopped at: v1.2 roadmap created, ready to plan Phase 14
+Resume file: None

@@ -3,7 +3,8 @@
 ## Milestones
 
 - ✅ **v1.0 MVP** — Phases 1-7 + 999.1 (shipped 2026-04-16) — [archive](milestones/v1.0-ROADMAP.md)
-- 🚧 **v1.1 UI Overhaul** — Phases 8-13 (in progress)
+- ✅ **v1.1 UI Overhaul** — Phases 8-13 (shipped 2026-04-18) — [archive](milestones/v1.1-ROADMAP.md)
+- 🚧 **v1.2 Self-Service, Resilience & UI Polish** — Phases 14-18 (in progress)
 
 ## Phases
 
@@ -21,122 +22,91 @@
 
 </details>
 
-### v1.1 UI Overhaul
+<details>
+<summary>✅ v1.1 UI Overhaul (Phases 8-13) — SHIPPED 2026-04-18</summary>
 
-- [ ] **Phase 8: Foundation Components** - Reusable DataTable system and DatePicker components consumed by all subsequent phases
-- [ ] **Phase 9: Layout & Login** - Collapsible sidebar and login page redesign
-- [x] **Phase 10: Admin Table Migrations** - Migrate 5 admin/utility tables to DataTable with quick actions (completed 2026-04-17)
-- [x] **Phase 11: Camera Management** - Camera table with card view, quick actions, and View Stream sheet (completed 2026-04-17)
-- [x] **Phase 12: Recordings** - Dedicated recordings page with cross-camera filters, bulk delete, and downloads (completed 2026-04-17)
-- [x] **Phase 13: Hierarchy & Map** - Project tree viewer and map enhancements with filter, drag-drop, and preview (completed 2026-04-17)
+- [x] Phase 8: Foundation Components (2/2 plans)
+- [x] Phase 9: Layout & Login (3/3 plans)
+- [x] Phase 10: Admin Table Migrations (3/3 plans)
+- [x] Phase 11: Camera Management (3/3 plans)
+- [x] Phase 12: Recordings (2/2 plans)
+- [x] Phase 13: Hierarchy & Map (2/2 plans)
+
+</details>
+
+### v1.2 Self-Service, Resilience & UI Polish
+
+- [ ] **Phase 14: Bug Fixes & DataTable Migrations** - Fix broken features and migrate remaining pages to DataTable
+- [ ] **Phase 15: FFmpeg Resilience & Camera Maintenance** - Auto-reconnect, health checks, notifications, and maintenance mode
+- [ ] **Phase 16: User Self-Service** - Account management and plan/usage viewer
+- [ ] **Phase 17: Recording Playback & Timeline** - HLS playback page with timeline scrubber and availability heatmap
+- [ ] **Phase 18: Dashboard & Map Polish** - Dashboard data improvements and map UI enhancements
 
 ## Phase Details
 
-### Phase 8: Foundation Components
-**Goal**: Every page has access to a consistent, reusable table and date picker component system
-**Depends on**: Nothing (first phase of v1.1)
-**Requirements**: FOUND-01, FOUND-02
+### Phase 14: Bug Fixes & DataTable Migrations
+**Goal**: All known bugs are fixed and remaining admin pages use the unified DataTable component
+**Depends on**: Phase 13 (v1.1 complete)
+**Requirements**: FIX-01, FIX-02, FIX-03, UI-01, UI-02, UI-03, UI-04
 **Success Criteria** (what must be TRUE):
-  1. A reusable DataTable component exists with column sorting, text/select filtering, and pagination that any page can consume by providing column definitions and data
-  2. A DatePicker component (single date) and DateRangePicker component (date range) exist using shadcn Calendar -- no native browser date inputs remain in the codebase
-  3. Column definitions are defined in separate "use client" files to avoid Next.js server/client boundary issues
-  4. DataTable supports row selection via checkboxes and "..." row action menus as standard features
-**Plans**: 2 plans
-
-Plans:
-- [x] 08-01-PLAN.md — DataTable system (sorting, filtering, pagination, row selection, row actions) + Checkbox component
-- [x] 08-02-PLAN.md — DatePicker + DateRangePicker components and native date input replacement
-
-### Phase 9: Layout & Login
-**Goal**: Users experience a collapsible sidebar and a polished login page across the entire application
-**Depends on**: Phase 8
-**Requirements**: FOUND-03, FOUND-04
-**Success Criteria** (what must be TRUE):
-  1. User can collapse the sidebar to icon-only mode by clicking a toggle or pressing Cmd+B
-  2. Sidebar collapse state persists across page navigation (cookie or localStorage)
-  3. Existing pages (map with Leaflet, dashboard with Recharts) resize correctly when sidebar collapses -- no layout breakage
-  4. Login page shows a redesigned form with "remember me" checkbox that extends session duration
-**Plans**: 3 plans
+  1. Super admin can create users for the system organization without errors
+  2. Copying an API key returns the actual key value, not the masked version
+  3. Deleting an API key removes it successfully and updates the table
+  4. Admin org Team page uses DataTable with sorting, filtering, and quick actions
+  5. Super admin Organizations, Cluster Nodes, and Platform Audit pages all use DataTable with consistent UX
+**Plans**: TBD
 **UI hint**: yes
 
-Plans:
-- [x] 09-01-PLAN.md — Sidebar migration: nav config arrays, shared AppSidebar component, layout integration, old nav deletion
-- [x] 09-02-PLAN.md — Login page redesign: split-screen layout, remember me checkbox, backend 30-day session config
-- [x] 09-03-PLAN.md — Sidebar resize handling: transitionend hook for Recharts/Leaflet + visual verification checkpoint
-
-### Phase 10: Admin Table Migrations
-**Goal**: All admin and utility tables use the unified DataTable with consistent UX
-**Depends on**: Phase 8, Phase 9
-**Requirements**: ADMIN-01, ADMIN-02, ADMIN-03, ADMIN-04, HIER-03
+### Phase 15: FFmpeg Resilience & Camera Maintenance
+**Goal**: Camera streams recover automatically from failures and operators can put cameras in maintenance mode
+**Depends on**: Phase 14
+**Requirements**: RESIL-01, RESIL-02, RESIL-03, RESIL-04, CAM-01, CAM-02, CAM-03
 **Success Criteria** (what must be TRUE):
-  1. Users table, API keys table, audit log table, and webhooks table all use the DataTable component with sort, filter, and pagination
-  2. Each table row has a "..." quick actions menu with contextually appropriate actions (Edit, Delete, etc.)
-  3. Stream profiles page displays profiles in a data table (replacing card layout) with quick actions (Edit, Duplicate, Delete)
-  4. All 5 tables share consistent visual patterns -- same filter bar position, same pagination controls, same action menu behavior
-**Plans**: 3 plans
+  1. When SRS container restarts, all previously-active FFmpeg streams reconnect automatically without manual intervention
+  2. Health check loop detects and recovers dead FFmpeg processes within 60 seconds
+  3. User receives in-app notification and webhook fires when a camera status changes (online/offline/degraded)
+  4. FFmpeg processes shut down gracefully on server restart and re-enqueue on boot -- no orphaned processes
+  5. User can toggle a camera into maintenance mode, which suppresses notifications/webhooks and shows a maintenance icon in the camera table alongside online/offline and recording status icons
+**Plans**: TBD
+
+### Phase 16: User Self-Service
+**Goal**: Users can manage their own account and view their organization's plan and usage
+**Depends on**: Phase 14
+**Requirements**: USER-01, USER-02, USER-03
+**Success Criteria** (what must be TRUE):
+  1. User can change their display name and password from an Account settings page
+  2. User can upload and change their avatar image
+  3. User can view their current plan name, usage counts against limits (cameras, storage, API calls), on a read-only Plan page
+**Plans**: TBD
 **UI hint**: yes
 
-Plans:
-- [x] 10-01-PLAN.md — Audit log backend offset pagination + frontend DataTable migration with server-side pagination
-- [x] 10-02-PLAN.md — Users and API Keys table migrations to DataTable with faceted filters and quick actions
-- [x] 10-03-PLAN.md — Webhooks and Stream Profiles table migrations (card grid to table for profiles)
-
-### Phase 11: Camera Management
-**Goal**: Users can manage cameras efficiently through a powerful table, quick actions, card view with live preview, and a slide-in stream viewer
-**Depends on**: Phase 8, Phase 9
-**Requirements**: CAM-01, CAM-02, CAM-03, CAM-04
+### Phase 17: Recording Playback & Timeline
+**Goal**: Users can play back recorded footage with a visual timeline for navigation
+**Depends on**: Phase 14
+**Requirements**: REC-01, REC-02, REC-03
 **Success Criteria** (what must be TRUE):
-  1. Camera page shows a DataTable with sort, filter (including faceted status filter), and pagination
-  2. Each camera row has a "..." menu with actions: Edit, View Stream, Start/Stop Recording, Embed Code, Delete
-  3. User can toggle between table view and card view -- card view shows HLS live preview per card with a maximum of 4-6 concurrent players managed by IntersectionObserver
-  4. Clicking "View Stream" opens a slide-in sheet (half-screen from right) showing live preview, Policies, and Activity tabs
-  5. Card view does not crash the browser -- players outside viewport are destroyed, buffer limits are capped
-**Plans**: 3 plans
+  1. User can click a recording and play it back via an HLS player on a dedicated playback page
+  2. Playback page has a 24-hour timeline scrubber bar that user can click to seek to any point in time
+  3. Timeline displays an availability heatmap showing which hours have recorded footage and which do not
+**Plans**: TBD
 **UI hint**: yes
 
-Plans:
-- [x] 11-01-PLAN.md — Camera DataTable with columns, faceted filters, quick actions, view toggle, and extended CameraFormDialog
-- [x] 11-02-PLAN.md — Card view with responsive grid, hover HLS preview, and concurrent player management
-- [x] 11-03-PLAN.md — View Stream sheet (Preview/Policies/Activity tabs), page wiring, and detail page removal
-
-### Phase 12: Recordings
-**Goal**: Users can browse, filter, and manage recordings across all cameras from a single dedicated page
-**Depends on**: Phase 8, Phase 9
-**Requirements**: REC-01, REC-02, REC-03, REC-04
+### Phase 18: Dashboard & Map Polish
+**Goal**: Dashboard shows relevant data for each role and map markers/popups look polished
+**Depends on**: Phase 14
+**Requirements**: UI-05, UI-06
 **Success Criteria** (what must be TRUE):
-  1. A dedicated recordings page exists showing recordings from all cameras (not per-camera only)
-  2. User can filter recordings by camera, project, site, date range (using DateRangePicker), and status
-  3. User can select multiple recordings via checkboxes and bulk delete them with confirmation
-  4. User can download individual recording clips as files via presigned MinIO URLs
-  5. Backend API supports cross-camera recording queries with server-side pagination
-**Plans**: 2 plans
+  1. Org admin dashboard shows data relevant to their organization -- unnecessary widgets removed, missing data added
+  2. Super admin dashboard shows platform-wide metrics appropriate for system operations
+  3. Map camera markers have improved pin design and thumbnail popups display correctly with camera preview
+**Plans**: TBD
 **UI hint**: yes
-
-Plans:
-- [x] 12-01-PLAN.md — Backend API: cross-camera query, bulk delete, download endpoints + shared frontend utilities
-- [x] 12-02-PLAN.md — Frontend DataTable: column definitions, faceted filters, URL state, bulk delete UI, page wiring
-
-### Phase 13: Hierarchy & Map
-**Goal**: Users can navigate the Project > Site > Camera hierarchy via a tree viewer and manage camera locations on an enhanced map
-**Depends on**: Phase 8, Phase 9, Phase 10
-**Requirements**: HIER-01, HIER-02, MAP-01, MAP-02, MAP-03
-**Success Criteria** (what must be TRUE):
-  1. Project page shows a split panel -- tree viewer on the left with collapsible Project > Site > Camera nodes, DataTable on the right showing children of the selected node
-  2. Selecting a tree node updates the right-panel table to show that node's children (projects show sites, sites show cameras)
-  3. Map page includes the same tree viewer component for filtering which cameras appear on the map
-  4. User can drag-drop a marker on the map to set a camera's latitude/longitude
-  5. Hovering or clicking a map marker shows a camera preview popup with status and thumbnail
-**Plans**: 2 plans
-**UI hint**: yes
-
-Plans:
-- [x] 13-01-PLAN.md — Hierarchy tree component, resizable split panel, and projects page with tree + DataTable navigation
-- [x] 13-02-PLAN.md — Map tree overlay, placement mode for camera location, and popup updates with View Stream sheet
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 8 -> 9 -> 10 -> 11 -> 12 -> 13
+Phases execute in numeric order: 14 -> 15 -> 16 -> 17 -> 18
+Note: Phases 16, 17, 18 can execute in parallel after Phase 14 (independent of each other).
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -148,9 +118,14 @@ Phases execute in numeric order: 8 -> 9 -> 10 -> 11 -> 12 -> 13
 | 6. SRS Cluster & Scaling | v1.0 | 3/3 | Complete | 2026-04-14 |
 | 7. Recordings | v1.0 | 5/5 | Complete | 2026-04-14 |
 | 999.1. Role-based Sidebar Navigation | v1.0 | 5/5 | Complete | 2026-04-15 |
-| 8. Foundation Components | v1.1 | 0/2 | Planning | - |
-| 9. Layout & Login | v1.1 | 0/3 | Planning | - |
-| 10. Admin Table Migrations | v1.1 | 3/3 | Complete    | 2026-04-17 |
-| 11. Camera Management | v1.1 | 3/3 | Complete    | 2026-04-17 |
-| 12. Recordings | v1.1 | 2/2 | Complete    | 2026-04-17 |
-| 13. Hierarchy & Map | v1.1 | 2/2 | Complete    | 2026-04-17 |
+| 8. Foundation Components | v1.1 | 2/2 | Complete | 2026-04-17 |
+| 9. Layout & Login | v1.1 | 3/3 | Complete | 2026-04-17 |
+| 10. Admin Table Migrations | v1.1 | 3/3 | Complete | 2026-04-17 |
+| 11. Camera Management | v1.1 | 3/3 | Complete | 2026-04-17 |
+| 12. Recordings | v1.1 | 2/2 | Complete | 2026-04-17 |
+| 13. Hierarchy & Map | v1.1 | 2/2 | Complete | 2026-04-17 |
+| 14. Bug Fixes & DataTable Migrations | v1.2 | 0/0 | Not started | - |
+| 15. FFmpeg Resilience & Camera Maintenance | v1.2 | 0/0 | Not started | - |
+| 16. User Self-Service | v1.2 | 0/0 | Not started | - |
+| 17. Recording Playback & Timeline | v1.2 | 0/0 | Not started | - |
+| 18. Dashboard & Map Polish | v1.2 | 0/0 | Not started | - |
