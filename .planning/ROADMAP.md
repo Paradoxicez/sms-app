@@ -54,7 +54,11 @@
   3. Deleting an API key removes it successfully and updates the table
   4. Admin org Team page uses DataTable with sorting, filtering, and quick actions
   5. Super admin Organizations, Cluster Nodes, and Platform Audit pages all use DataTable with consistent UX
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 14-01-PLAN.md — Fix backend bugs (system org user creation RLS, API key hard delete) and API key copy UX
+- [ ] 14-02-PLAN.md — Migrate Team and Organizations pages to DataTable
+- [ ] 14-03-PLAN.md — Migrate Cluster Nodes and Platform Audit pages to DataTable
 **UI hint**: yes
 
 ### Phase 15: FFmpeg Resilience & Camera Maintenance
@@ -124,7 +128,7 @@ Note: Phases 16, 17, 18 can execute in parallel after Phase 14 (independent of e
 | 11. Camera Management | v1.1 | 3/3 | Complete | 2026-04-17 |
 | 12. Recordings | v1.1 | 2/2 | Complete | 2026-04-17 |
 | 13. Hierarchy & Map | v1.1 | 2/2 | Complete | 2026-04-17 |
-| 14. Bug Fixes & DataTable Migrations | v1.2 | 0/0 | Not started | - |
+| 14. Bug Fixes & DataTable Migrations | v1.2 | 0/3 | Not started | - |
 | 15. FFmpeg Resilience & Camera Maintenance | v1.2 | 0/0 | Not started | - |
 | 16. User Self-Service | v1.2 | 0/0 | Not started | - |
 | 17. Recording Playback & Timeline | v1.2 | 0/0 | Not started | - |
