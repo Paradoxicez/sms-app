@@ -9,7 +9,8 @@ import { useCurrentRole } from "@/hooks/use-current-role";
 import { authClient } from "@/lib/auth-client";
 import { apiFetch } from "@/lib/api";
 
-import { TeamTable, type TeamMemberRow } from "./components/team-table";
+import { TeamDataTable } from "@/components/team/team-data-table";
+import type { TeamMemberRow } from "@/components/team/team-columns";
 import { AddTeamMemberDialog } from "./components/add-team-member-dialog";
 
 interface MemberApiRecord {
@@ -126,13 +127,12 @@ export default function TeamPage() {
           </Button>
         </div>
       ) : (
-        <TeamTable
+        <TeamDataTable
           members={members}
           orgId={activeOrgId}
           orgName={orgName}
           currentUserId={currentUserId}
-          isLoading={fetching}
-          onRefetch={load}
+          onRefresh={load}
         />
       )}
 
