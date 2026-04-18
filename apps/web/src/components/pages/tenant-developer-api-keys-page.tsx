@@ -45,8 +45,6 @@ export default function TenantDeveloperApiKeysPage() {
     fetchKeys();
   }, [fetchKeys]);
 
-  const activeKeys = keys.filter((k) => !k.revokedAt);
-
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
@@ -57,18 +55,8 @@ export default function TenantDeveloperApiKeysPage() {
         </Button>
       </div>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Active Keys
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{activeKeys.length}</p>
-          </CardContent>
-        </Card>
+      {/* Summary card */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-1 max-w-xs">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -77,18 +65,6 @@ export default function TenantDeveloperApiKeysPage() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{keys.length}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Revoked Keys
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">
-              {keys.length - activeKeys.length}
-            </p>
           </CardContent>
         </Card>
       </div>
