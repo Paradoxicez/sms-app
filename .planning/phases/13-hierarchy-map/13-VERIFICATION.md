@@ -1,7 +1,7 @@
 ---
 phase: 13-hierarchy-map
 verified: 2026-04-17T18:00:00Z
-status: human_needed
+status: passed
 score: 14/14 must-haves verified
 human_verification:
   - test: "Load /app/projects and verify tree renders with correct Project > Site > Camera hierarchy"
