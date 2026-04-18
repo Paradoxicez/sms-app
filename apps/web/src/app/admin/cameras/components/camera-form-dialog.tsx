@@ -45,9 +45,8 @@ interface CameraFormDialogProps {
     id: string;
     name: string;
     streamUrl: string;
-    description?: string;
-    latitude?: number;
-    longitude?: number;
+    description?: string | null;
+    location?: { lat: number; lng: number } | null;
     tags?: string[];
     streamProfileId?: string | null;
     site?: { id: string; name: string; project?: { id: string; name: string } };
@@ -88,8 +87,8 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
         setName(camera.name || '');
         setStreamUrl(camera.streamUrl || '');
         setDescription(camera.description || '');
-        setLat(camera.latitude != null ? String(camera.latitude) : '');
-        setLng(camera.longitude != null ? String(camera.longitude) : '');
+        setLat(camera.location?.lat != null ? String(camera.location.lat) : '');
+        setLng(camera.location?.lng != null ? String(camera.location.lng) : '');
         setTags(camera.tags?.join(', ') || '');
         setStreamProfileId(camera.streamProfileId || '');
         if (camera.site?.project?.id) setProjectId(camera.site.project.id);
@@ -154,8 +153,7 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
       };
       if (description.trim()) body.description = description.trim();
       if (lat && lng) {
-        body.latitude = parseFloat(lat);
-        body.longitude = parseFloat(lng);
+        body.location = { lat: parseFloat(lat), lng: parseFloat(lng) };
       }
       if (tags.trim()) {
         body.tags = tags.split(',').map((t) => t.trim()).filter(Boolean);

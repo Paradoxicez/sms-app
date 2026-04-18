@@ -16,6 +16,9 @@ export interface CameraRow {
   streamUrl: string
   codecInfo?: { video?: string; width?: number; height?: number } | null
   streamProfileId?: string | null
+  location?: { lat: number; lng: number } | null
+  description?: string | null
+  tags?: string[]
   site?: { id: string; name: string; project?: { id: string; name: string } }
   createdAt: string
 }
