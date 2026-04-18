@@ -56,7 +56,7 @@ const ORGANIZATION: NavItem[] = [
 ];
 
 const DEVELOPER: NavItem[] = [
-  { label: "Overview", href: "/app/developer", icon: Code2 },
+  { label: "Overview", href: "/app/developer", icon: Code2, exactMatch: true },
   { label: "API Keys", href: "/app/developer/api-keys", icon: Key, feature: "apiKeys" },
   { label: "Webhooks", href: "/app/developer/webhooks", icon: Bell, feature: "webhooks" },
   { label: "Docs", href: "/app/developer/docs", icon: BookOpen },
