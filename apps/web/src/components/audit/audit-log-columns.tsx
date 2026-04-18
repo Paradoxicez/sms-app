@@ -19,6 +19,7 @@ export interface AuditLogRow {
   method: string
   path: string
   user?: { name: string | null; email: string } | null
+  orgName?: string
 }
 
 const ACTION_COLORS: Record<string, string> = {
@@ -27,8 +28,13 @@ const ACTION_COLORS: Record<string, string> = {
   delete: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
 }
 
+interface AuditLogColumnsOptions {
+  showOrganization?: boolean
+}
+
 export function createAuditLogColumns(
   actions: RowAction<AuditLogRow>[],
+  options?: AuditLogColumnsOptions,
 ): ColumnDef<AuditLogRow, unknown>[] {
   return [
     {
@@ -45,6 +51,22 @@ export function createAuditLogColumns(
         )
       },
     },
+    ...(options?.showOrganization
+      ? [
+          {
+            accessorKey: "orgName",
+            header: ({ column }: any) => (
+              <DataTableColumnHeader column={column} title="Organization" />
+            ),
+            cell: ({ row }: any) => {
+              const orgName = row.getValue("orgName") as string | undefined
+              return <span className="text-sm">{orgName || "Unknown"}</span>
+            },
+            filterFn: (row: any, id: string, value: string[]) =>
+              value.includes(row.getValue(id) as string),
+          } satisfies ColumnDef<AuditLogRow, unknown>,
+        ]
+      : []),
     {
       id: "actor",
       accessorFn: (row) => row.user?.name || row.user?.email || "System",

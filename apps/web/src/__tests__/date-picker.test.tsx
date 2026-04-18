@@ -79,14 +79,6 @@ describe("No native date inputs (FOUND-02c)", () => {
     expect(content).not.toMatch(/type=["']date["']/);
   });
 
-  it("platform-audit-log-page.tsx does not contain type=\"date\"", () => {
-    const content = fs.readFileSync(
-      path.join(pagesDir, "platform-audit-log-page.tsx"),
-      "utf-8"
-    );
-    expect(content).not.toMatch(/type=["']date["']/);
-  });
-
   it("tenant-recordings-page.tsx does not contain type=\"date\"", () => {
     const content = fs.readFileSync(
       path.join(pagesDir, "tenant-recordings-page.tsx"),

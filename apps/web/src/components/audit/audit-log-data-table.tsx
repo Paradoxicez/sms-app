@@ -13,6 +13,7 @@ import { createAuditLogColumns, type AuditLogRow } from "./audit-log-columns"
 
 interface AuditLogDataTableProps {
   apiUrl?: string
+  showOrganization?: boolean
 }
 
 interface AuditResponse {
@@ -32,7 +33,7 @@ const ACTION_FILTER_CONFIG: FacetedFilterConfig[] = [
   },
 ]
 
-export function AuditLogDataTable({ apiUrl = "/api/audit-log" }: AuditLogDataTableProps) {
+export function AuditLogDataTable({ apiUrl = "/api/audit-log", showOrganization }: AuditLogDataTableProps) {
   const [data, setData] = React.useState<AuditLogRow[]>([])
   const [totalCount, setTotalCount] = React.useState(0)
   const [loading, setLoading] = React.useState(true)
@@ -62,17 +63,40 @@ export function AuditLogDataTable({ apiUrl = "/api/audit-log" }: AuditLogDataTab
 
   const columns = React.useMemo(
     () =>
-      createAuditLogColumns([
-        {
-          label: "View Details",
-          icon: Eye,
-          onClick: (row) => {
-            setSelectedEntry(row)
-            setDetailOpen(true)
+      createAuditLogColumns(
+        [
+          {
+            label: "View Details",
+            icon: Eye,
+            onClick: (row) => {
+              setSelectedEntry(row)
+              setDetailOpen(true)
+            },
           },
-        },
-      ]),
-    [],
+        ],
+        { showOrganization },
+      ),
+    [showOrganization],
+  )
+
+  // Build dynamic org filter from fetched data when showOrganization is enabled
+  const orgFilterConfig = React.useMemo<FacetedFilterConfig[]>(() => {
+    if (!showOrganization) return []
+    const uniqueOrgs = [
+      ...new Set(data.map((d) => d.orgName).filter(Boolean)),
+    ] as string[]
+    return [
+      {
+        columnId: "orgName",
+        title: "Organization",
+        options: uniqueOrgs.map((name) => ({ label: name, value: name })),
+      },
+    ]
+  }, [data, showOrganization])
+
+  const allFilters = React.useMemo(
+    () => [...ACTION_FILTER_CONFIG, ...orgFilterConfig],
+    [orgFilterConfig],
   )
 
   // Fetch data
@@ -171,7 +195,7 @@ export function AuditLogDataTable({ apiUrl = "/api/audit-log" }: AuditLogDataTab
       <DataTable
         columns={columns}
         data={data}
-        facetedFilters={ACTION_FILTER_CONFIG}
+        facetedFilters={allFilters}
         pageCount={Math.ceil(totalCount / pagination.pageSize) || 1}
         onPaginationChange={handlePaginationChange}
         loading={loading}
