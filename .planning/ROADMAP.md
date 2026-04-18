@@ -36,7 +36,7 @@
 
 ### v1.2 Self-Service, Resilience & UI Polish
 
-- [ ] **Phase 14: Bug Fixes & DataTable Migrations** - Fix broken features and migrate remaining pages to DataTable
+- [x] **Phase 14: Bug Fixes & DataTable Migrations** - Fix broken features and migrate remaining pages to DataTable (completed 2026-04-18)
 - [ ] **Phase 15: FFmpeg Resilience & Camera Maintenance** - Auto-reconnect, health checks, notifications, and maintenance mode
 - [ ] **Phase 16: User Self-Service** - Account management and plan/usage viewer
 - [ ] **Phase 17: Recording Playback & Timeline** - HLS playback page with timeline scrubber and availability heatmap
@@ -56,9 +56,9 @@
   5. Super admin Organizations, Cluster Nodes, and Platform Audit pages all use DataTable with consistent UX
 **Plans**: 3 plans
 Plans:
-- [ ] 14-01-PLAN.md — Fix backend bugs (system org user creation RLS, API key hard delete) and API key copy UX
-- [ ] 14-02-PLAN.md — Migrate Team and Organizations pages to DataTable
-- [ ] 14-03-PLAN.md — Migrate Cluster Nodes and Platform Audit pages to DataTable
+- [x] 14-01-PLAN.md — Fix backend bugs (system org user creation RLS, API key hard delete) and API key copy UX
+- [x] 14-02-PLAN.md — Migrate Team and Organizations pages to DataTable
+- [x] 14-03-PLAN.md — Migrate Cluster Nodes and Platform Audit pages to DataTable
 **UI hint**: yes
 
 ### Phase 15: FFmpeg Resilience & Camera Maintenance
@@ -128,7 +128,7 @@ Note: Phases 16, 17, 18 can execute in parallel after Phase 14 (independent of e
 | 11. Camera Management | v1.1 | 3/3 | Complete | 2026-04-17 |
 | 12. Recordings | v1.1 | 2/2 | Complete | 2026-04-17 |
 | 13. Hierarchy & Map | v1.1 | 2/2 | Complete | 2026-04-17 |
-| 14. Bug Fixes & DataTable Migrations | v1.2 | 0/3 | Not started | - |
+| 14. Bug Fixes & DataTable Migrations | v1.2 | 3/3 | Complete    | 2026-04-18 |
 | 15. FFmpeg Resilience & Camera Maintenance | v1.2 | 0/0 | Not started | - |
 | 16. User Self-Service | v1.2 | 0/0 | Not started | - |
 | 17. Recording Playback & Timeline | v1.2 | 0/0 | Not started | - |
