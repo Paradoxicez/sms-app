@@ -1,49 +1,42 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: UI Overhaul
-status: executing
-stopped_at: Phase 13 UI-SPEC approved
-last_updated: "2026-04-18T09:12:25.127Z"
+milestone: v1.2
+milestone_name: Self-Service, Resilience & UI Polish
+status: defining
+stopped_at: null
+last_updated: "2026-04-18"
 last_activity: 2026-04-18
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 15
-  completed_plans: 15
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-17)
+See: .planning/PROJECT.md (updated 2026-04-18)
 
 **Core value:** Developers can get a secure HLS playback URL for any registered camera via a single API call, and embed it on their website immediately.
-**Current focus:** Phase 13 — Hierarchy & Map
+**Current focus:** Defining requirements for v1.2
 
 ## Current Position
 
-Phase: 13
-Plan: Not started
-Status: Executing Phase 13
-Last activity: 2026-04-18
-
-Progress: [░░░░░░░░░░] 0%
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-04-18 — Milestone v1.2 started
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 53 (from v1.0)
+- Total plans completed: 53 (from v1.0) + 15 (v1.1) = 68
 - Average duration: ~5 min/plan
 - Total execution time: ~3.2 hours
-
-**Recent Trend:**
-
-- Last 5 plans: 337s, 305s, 78s, 130s, ~5min (Phase 07)
-- Trend: Stable
 
 *Updated after each plan completion*
 
@@ -56,7 +49,6 @@ Recent decisions affecting current work:
 
 - [v1.1 Roadmap]: DataTable component built first -- 13+ pages consume it, prevents rework
 - [v1.1 Roadmap]: Sidebar collapse before page modifications -- layout-level change affects every page
-- [v1.1 Roadmap]: Simple table migrations before complex features -- validates DataTable API cheaply
 - [v1.1 Roadmap]: View Stream is a slide-in sheet (half-screen right), NOT a separate page
 - [v1.1 Roadmap]: HLS card view capped at 4-6 concurrent players with IntersectionObserver
 
@@ -69,11 +61,10 @@ None yet.
 - HLS multi-player memory: each hls.js instance buffers indefinitely unless capped (backBufferLength: 0, maxBufferLength: 4)
 - Sidebar collapse may break Leaflet maps and Recharts charts -- must dispatch resize event on transition end
 - TanStack Table columns with JSX cannot cross Next.js server/client boundary -- separate "use client" files required
-- Recordings page needs backend API additions: cross-camera query, bulk delete, download URL endpoints
 - base-ui render prop pattern (not Radix asChild) must be followed for all new components
 
 ## Session Continuity
 
-Last session: 2026-04-17T16:35:01.259Z
-Stopped at: Phase 13 UI-SPEC approved
-Resume file: .planning/phases/13-hierarchy-map/13-UI-SPEC.md
+Last session: 2026-04-18
+Stopped at: Milestone v1.2 initialized
+Resume file: .planning/PROJECT.md
