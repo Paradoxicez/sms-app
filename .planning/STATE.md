@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Self-Service, Resilience & UI Polish
-status: ready_to_plan
-stopped_at: null
-last_updated: "2026-04-18"
-last_activity: 2026-04-18
+status: planning
+stopped_at: Phase 14 context gathered
+last_updated: "2026-04-18T11:38:56.719Z"
+last_activity: 2026-04-18 — v1.2 roadmap created (5 phases, 22 requirements mapped)
 progress:
   total_phases: 5
   completed_phases: 0
@@ -35,6 +35,7 @@ Progress: [░░░░░░░░░░] 0% (v1.2: 0/5 phases)
 ## Performance Metrics
 
 **Velocity:**
+
 - Total plans completed: 68 (v1.0: 53, v1.1: 15)
 - Average duration: ~5 min/plan
 - Total execution time: ~3.2 hours
@@ -70,6 +71,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-18
-Stopped at: v1.2 roadmap created, ready to plan Phase 14
-Resume file: None
+Last session: 2026-04-18T11:38:56.714Z
+Stopped at: Phase 14 context gathered
+Resume file: .planning/phases/14-bug-fixes-datatable-migrations/14-CONTEXT.md
