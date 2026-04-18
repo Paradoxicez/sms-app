@@ -735,26 +735,27 @@ async getRecording(id: string, orgId: string) {
 | A3 | Pure-Vitest validation (jsdom + RTL + mocked router/apiFetch) is sufficient to verify row-click navigation, URL sync, and seek behavior | Validation Architecture | If team prefers true browser-level E2E, we'd need to introduce Playwright (new dep, new CI job, ~1 day). **[ASSUMED]** — repo currently has no Playwright/Cypress; existing validation pattern is jsdom + RTL. |
 | A4 | The minimal `useRecording(id)` hook is preferable to inline fetch in the page | Pattern 4 | If the team prefers no new hooks, inline `apiFetch` in the page is also acceptable (~10 LOC inlined vs. ~25 LOC in a separate file). **[ASSUMED]** based on existing hook-per-resource convention in `use-recordings.ts`. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should the page handle a recording with `status: "recording"` (still in progress)?**
    - What we know: Manifest endpoint serves whatever segments exist. HLS VOD playback of an active recording will play current segments and stop at the live edge.
    - What's unclear: Should the player auto-refresh manifest? Show a "Live recording" badge? Or treat it as VOD and let the user re-navigate to refresh?
-   - Recommendation: Treat as VOD for this phase (per D-10 — no special handling for recording-in-progress). Future enhancement: a "recording in progress" badge if `recording.status === 'recording'` with manual refresh button.
+   - **RESOLVED:** Recommendation: Treat as VOD for this phase (per D-10 — no special handling for recording-in-progress). Future enhancement: a "recording in progress" badge if `recording.status === 'recording'` with manual refresh button.
 
 2. **What happens when a user lands on `/app/recordings/[id]` for a recording they have no access to?**
    - What we know: API returns 403 (FeatureGuard) or 404 (RLS / not found).
    - What's unclear: UI-SPEC §Page-Level Error / Edge States covers 403 → `FeatureGateEmptyState` and 404 → "Recording not available" but is the 403 path correct? FeatureGuard rejects the entire request when `recordings` feature is off, but cross-org access (correct feature, wrong org) is a 404, not 403.
-   - Recommendation: Use the `useRecording` hook's three-state error (`'not-found' | 'forbidden' | 'network'`) to render distinct copy. Don't conflate 404 (recording deleted or wrong org) with 403 (feature gate disabled at org level).
+   - **RESOLVED:** Recommendation: Use the `useRecording` hook's three-state error (`'not-found' | 'forbidden' | 'network'`) to render distinct copy. Don't conflate 404 (recording deleted or wrong org) with 403 (feature gate disabled at org level).
 
 3. **Should the bottom recordings list show only complete recordings, or all (including in-progress, errored)?**
    - What we know: `useRecordingsList` returns all statuses; `recordings-tab.tsx` shows all.
    - What's unclear: Whether to filter on the new page.
-   - Recommendation: Mirror `recordings-tab.tsx` — show all, with `RecordingStatusBadge` indicating state. Users can choose what to play.
+   - **RESOLVED:** Recommendation: Mirror `recordings-tab.tsx` — show all, with `RecordingStatusBadge` indicating state. Users can choose what to play.
 
 4. **`recording-controls.tsx` and `retention-settings.tsx` are NOT mounted on the new page — confirmed?**
    - What we know: UI-SPEC scope is playback only; D-14 keeps RecordingsTab as the management surface.
    - What's unclear: Nothing — this is locked. Calling out for the planner: do NOT mount RecordingControls / RetentionSettings / ScheduleDialog on the playback page.
+   - **RESOLVED:** Confirmed locked by D-14. RecordingControls / RetentionSettings / ScheduleDialog stay in the admin/cameras RecordingsTab and are NOT mounted on `/app/recordings/[id]`.
 
 ## Environment Availability
 

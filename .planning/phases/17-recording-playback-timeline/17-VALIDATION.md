@@ -41,6 +41,7 @@ updated: 2026-04-18
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
 | 17-02-T1 | 02 | 1 | REC-01 | T-17-V4 | API returns 404 (not 403/recording) for cross-org id | unit (api) | `cd apps/api && pnpm vitest run tests/recordings/get-recording.test.ts -t "cross-org 404"` | 17-00 W0 | ⬜ pending |
 | 17-02-T1 | 02 | 1 | REC-01 | — | `GET /api/recordings/:id` returns recording with camera+site+project include | unit (api) | `cd apps/api && pnpm vitest run tests/recordings/get-recording.test.ts -t "returns camera include"` | 17-00 W0 | ⬜ pending |
+| 17-02-T2 | 02 | 1 | REC-01 (supporting) | T-17-V7 | useRecording hook returns 3-state error (not-found/forbidden/network) and does not fetch when id is undefined | unit (web) | `cd apps/web && pnpm test src/__tests__/use-recording-hook.test.ts --run` | 17-00 W0 | ⬜ pending |
 | 17-04-T2 | 04 | 3 | REC-01 | — | Page mounts HlsPlayer with src=`/api/recordings/:id/manifest` | component (web) | `cd apps/web && pnpm test src/__tests__/playback-page.test.tsx -t "REC-01"` --run | 17-00 W0 | ⬜ pending |
 | 17-04-T2 | 04 | 3 | REC-02 | — | Timeline click triggers `router.push` to recording containing the hour | component (web) | `cd apps/web && pnpm test src/__tests__/playback-page.test.tsx -t "REC-02 click-to-seek"` --run | 17-00 W0 | ⬜ pending |
 | 17-04-T2 | 04 | 3 | REC-02 | — | Timeline click on empty hour does NOT navigate | component (web) | `cd apps/web && pnpm test src/__tests__/playback-page.test.tsx -t "REC-02 empty hour no-op"` --run | 17-00 W0 | ⬜ pending |
@@ -62,6 +63,7 @@ updated: 2026-04-18
 - [ ] `apps/web/src/__tests__/timeline-bar.test.tsx` — covers REC-03 heatmap render (pure component test) — created in 17-00 with it.todo, GREEN in 17-03
 - [ ] `apps/web/src/__tests__/playback-page-feature-gate.test.tsx` — mirrors `recordings-feature-gate.test.tsx` for `[id]` route — created in 17-00 with it.todo, GREEN in 17-04
 - [ ] `apps/api/tests/recordings/get-recording.test.ts` — covers camera include + cross-org 404 (mock Prisma per `cross-camera-list.test.ts:46-83`) — created in 17-00 with it.todo, GREEN in 17-02
+- [ ] `apps/web/src/__tests__/use-recording-hook.test.ts` — direct unit tests for useRecording hook contract (3-state error API + undefined-id no-fetch) — created in 17-00 with it.todo, GREEN in 17-02
 - [ ] Extend `apps/web/src/__tests__/data-table.test.tsx` — add `FOUND-01f onRowClick` test cases — extended in 17-00 with it.todo, GREEN in 17-01
 - [ ] No new framework install needed; Vitest + RTL + jsdom already configured
 
