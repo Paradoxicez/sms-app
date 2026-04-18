@@ -4,8 +4,8 @@ milestone: v1.2
 milestone_name: Self-Service, Resilience & UI Polish
 status: executing
 stopped_at: Phase 17 UI-SPEC approved
-last_updated: "2026-04-18T15:01:58.879Z"
-last_activity: 2026-04-18 -- Phase 17 planning complete
+last_updated: "2026-04-18T15:16:31.888Z"
+last_activity: 2026-04-18 -- Phase 15 planning complete
 progress:
   total_phases: 5
   completed_phases: 1
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 Phase: 15
 Plan: Not started
 Status: Ready to execute
-Last activity: 2026-04-18 -- Phase 17 planning complete
+Last activity: 2026-04-18 -- Phase 15 planning complete
 
 Progress: [░░░░░░░░░░] 0% (v1.2: 0/5 phases)
 
