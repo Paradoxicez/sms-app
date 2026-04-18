@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -73,6 +73,7 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
   const [error, setError] = useState<string | null>(null);
 
   const isEditMode = !!camera;
+  const pendingSiteIdRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     if (open) {
@@ -82,49 +83,47 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
       apiFetch<StreamProfile[]>('/api/stream-profiles')
         .then(setStreamProfiles)
         .catch(() => setStreamProfiles([]));
-    }
-  }, [open]);
 
-  // Pre-fill form when editing or when defaults provided
-  useEffect(() => {
-    if (camera && open) {
-      setName(camera.name || '');
-      setStreamUrl(camera.streamUrl || '');
-      setDescription(camera.description || '');
-      setLat(camera.latitude != null ? String(camera.latitude) : '');
-      setLng(camera.longitude != null ? String(camera.longitude) : '');
-      setTags(camera.tags?.join(', ') || '');
-      setStreamProfileId(camera.streamProfileId || '');
-      if (camera.site?.project?.id) {
-        setProjectId(camera.site.project.id);
+      if (camera) {
+        setName(camera.name || '');
+        setStreamUrl(camera.streamUrl || '');
+        setDescription(camera.description || '');
+        setLat(camera.latitude != null ? String(camera.latitude) : '');
+        setLng(camera.longitude != null ? String(camera.longitude) : '');
+        setTags(camera.tags?.join(', ') || '');
+        setStreamProfileId(camera.streamProfileId || '');
+        if (camera.site?.project?.id) setProjectId(camera.site.project.id);
+        if (camera.site?.id) setSiteId(camera.site.id);
+        pendingSiteIdRef.current = undefined;
+      } else {
+        if (defaultProjectId) {
+          setProjectId(defaultProjectId);
+          pendingSiteIdRef.current = defaultSiteId;
+        }
       }
-      if (camera.site?.id) {
-        setSiteId(camera.site.id);
-      }
-    } else if (!camera && open) {
-      if (defaultProjectId) setProjectId(defaultProjectId);
     }
-  }, [camera, open, defaultProjectId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   useEffect(() => {
     if (projectId) {
-      if (!camera && !(defaultProjectId === projectId && defaultSiteId)) {
-        setSiteId('');
-      } else if (camera && camera.site?.project?.id !== projectId) {
-        setSiteId('');
+      if (!pendingSiteIdRef.current) {
+        if (!camera || camera.site?.project?.id !== projectId) {
+          setSiteId('');
+        }
       }
       apiFetch<Site[]>(`/api/projects/${projectId}/sites`)
         .then((data) => {
           setSites(data);
-          if (!camera && defaultProjectId === projectId && defaultSiteId) {
-            setSiteId(defaultSiteId);
+          if (pendingSiteIdRef.current) {
+            setSiteId(pendingSiteIdRef.current);
+            pendingSiteIdRef.current = undefined;
           }
         })
         .catch(() => setSites([]));
     } else {
       setSites([]);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, camera]);
 
   function resetForm() {
