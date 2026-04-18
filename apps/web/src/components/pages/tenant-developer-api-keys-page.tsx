@@ -5,7 +5,6 @@ import { Plus, Key } from "lucide-react";
 
 import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiKeyCreateDialog } from "@/components/api-key-create-dialog";
 import { ApiKeysDataTable } from "@/components/api-keys/api-keys-data-table";
@@ -53,20 +52,6 @@ export default function TenantDeveloperApiKeysPage() {
           <Plus className="mr-2 h-4 w-4" />
           Create API Key
         </Button>
-      </div>
-
-      {/* Summary card */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-1 max-w-xs">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Keys
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{keys.length}</p>
-          </CardContent>
-        </Card>
       </div>
 
       {error && (
