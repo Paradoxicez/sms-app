@@ -92,7 +92,13 @@ Plans:
   1. User can click a recording and play it back via an HLS player on a dedicated playback page
   2. Playback page has a 24-hour timeline scrubber bar that user can click to seek to any point in time
   3. Timeline displays an availability heatmap showing which hours have recorded footage and which do not
-**Plans**: TBD
+**Plans**: 5 plans (1 Wave 0, 2 in Wave 1, 1 in Wave 2, 1 in Wave 3)
+Plans:
+- [ ] 17-00-PLAN.md — Wave 0 test scaffolds (it.todo stubs for REC-01/02/03 + FOUND-01f)
+- [ ] 17-01-PLAN.md — DataTable onRowClick + cell stopPropagation + recordings-data-table row navigation (D-02)
+- [ ] 17-02-PLAN.md — API getRecording: camera include + cross-org 404 (T-17-V4); useRecording hook with 3-state error
+- [ ] 17-03-PLAN.md — Move HlsPlayer + TimelineBar to @/components/recordings/ (D-13); REC-03 heatmap tests GREEN
+- [ ] 17-04-PLAN.md — /app/recordings/[id] playback page + header + bottom list; REC-01/02 tests GREEN
 **UI hint**: yes
 
 ### Phase 18: Dashboard & Map Polish
