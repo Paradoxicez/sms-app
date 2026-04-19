@@ -353,3 +353,37 @@ describe("DataTable onRowClick (FOUND-01f — Phase 17)", () => {
     expect(dataRow.className).not.toContain("cursor-pointer")
   })
 })
+
+describe("RecordingsDataTable cells stopPropagation (Phase 17 — REC-01 wiring)", () => {
+  // This test exists to lock the contract that recordings-columns checkbox + actions cells
+  // do NOT trigger row navigation. Rather than mounting RecordingsDataTable (heavy: requires
+  // mocking useRouter, useSession, useRecordingsList, hooks-deps), we verify the wrapper
+  // exists at the source level via grep. The DataTable contract test in FOUND-01f confirms
+  // the wrapper behavior end-to-end.
+  it("recordings-columns Checkbox cell wraps in stopPropagation div", async () => {
+    const fs = await import("node:fs/promises")
+    const path = await import("node:path")
+    const src = await fs.readFile(
+      path.resolve(
+        process.cwd(),
+        "src/app/app/recordings/components/recordings-columns.tsx"
+      ),
+      "utf8"
+    )
+    // Must contain a stopPropagation wrapper around the Checkbox cell
+    expect(src).toMatch(/<div onClick=\{\(e\) => e\.stopPropagation\(\)\}>\s*\n\s*<Checkbox/)
+  })
+
+  it("recordings-columns actions cell wraps DataTableRowActions in stopPropagation div", async () => {
+    const fs = await import("node:fs/promises")
+    const path = await import("node:path")
+    const src = await fs.readFile(
+      path.resolve(
+        process.cwd(),
+        "src/app/app/recordings/components/recordings-columns.tsx"
+      ),
+      "utf8"
+    )
+    expect(src).toMatch(/<div onClick=\{\(e\) => e\.stopPropagation\(\)\}>\s*\n\s*<DataTableRowActions/)
+  })
+})

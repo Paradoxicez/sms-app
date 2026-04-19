@@ -302,6 +302,13 @@ export function RecordingsDataTable() {
     setSingleDeleteTarget(recording)
   }, [])
 
+  const handleRowClick = React.useCallback(
+    (row: RecordingRow) => {
+      router.push(`/app/recordings/${row.id}`)
+    },
+    [router]
+  )
+
   const confirmSingleDelete = React.useCallback(async () => {
     if (!singleDeleteTarget) return
     setDeleting(true)
@@ -492,6 +499,7 @@ export function RecordingsDataTable() {
         data={data}
         facetedFilters={facetedFilters}
         enableRowSelection
+        onRowClick={handleRowClick}
         onRowSelectionChange={setSelectedRows}
         onColumnFiltersChange={handleColumnFiltersChange}
         pageCount={Math.ceil(total / pageSize) || 1}

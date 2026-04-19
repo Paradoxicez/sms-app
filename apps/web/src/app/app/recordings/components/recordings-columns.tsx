@@ -51,11 +51,13 @@ export function createRecordingsColumns(
         />
       ),
       cell: ({ row }) => (
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label={`Select recording from ${row.original.camera.name} at ${format(new Date(row.original.startedAt), "HH:mm")}`}
-        />
+        <div onClick={(e) => e.stopPropagation()}>
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
+            aria-label={`Select recording from ${row.original.camera.name} at ${format(new Date(row.original.startedAt), "HH:mm")}`}
+          />
+        </div>
       ),
       enableSorting: false,
       size: 40,
@@ -149,7 +151,11 @@ export function createRecordingsColumns(
             variant: "destructive",
           },
         ]
-        return <DataTableRowActions row={row} actions={rowActions} />
+        return (
+          <div onClick={(e) => e.stopPropagation()}>
+            <DataTableRowActions row={row} actions={rowActions} />
+          </div>
+        )
       },
     },
   ]
