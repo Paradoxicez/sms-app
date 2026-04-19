@@ -7,6 +7,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+import { ClsService } from 'nestjs-cls';
 import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
 import { CreatePolicyDto } from './dto/create-policy.dto';
 import { UpdatePolicyDto } from './dto/update-policy.dto';
@@ -49,14 +50,20 @@ export class PoliciesService implements OnModuleInit {
 
   constructor(
     @Inject(TENANCY_CLIENT) private readonly prisma: any,
+    private readonly cls: ClsService,
   ) {}
 
   async onModuleInit() {
-    await this.seedSystemDefault();
+    // Seed runs outside any request, so there is no CLS context. The tenancy
+    // extension requires a positive IS_SUPERUSER signal to bypass RLS — set it
+    // explicitly for this bootstrap operation (SYSTEM policy has no orgId).
+    await this.cls.run(async () => {
+      this.cls.set('IS_SUPERUSER', 'true');
+      await this.seedSystemDefault();
+    });
   }
 
   async seedSystemDefault(): Promise<void> {
-    // Use raw PrismaClient to bypass tenancy (SYSTEM has no orgId)
     const existing = await this.prisma.policy.findFirst({
       where: { level: 'SYSTEM' },
     });
