@@ -24,3 +24,15 @@ The following failing files existed before Phase 16 and should be addressed by a
 | tests/srs/on-play-verification.test.ts | srs | JWT / domain verification |
 
 None of these touch `apps/api/src/account/**`, `apps/api/src/recordings/minio.service.ts` (new avatar methods), or `apps/api/src/app.module.ts` (AccountModule import). Phase 16-01 does not regress any of them; they were already failing on `3a8808e`.
+
+## Side findings from Phase 16 UAT (not phase 16 scope)
+
+### Audit log duplicate entries
+- `create organization` event logged twice in `AuditLog` (~87ms apart, same orgId/userId/action).
+- Discovered during UAT on 2026-04-19 viewing `/app/audit-log` as `demo.viewer@demo.local`.
+- Likely cause: audit interceptor firing twice, or org.create hits both the app's controller and a Better Auth org plugin callback.
+- Recommend: dedup by (orgId, action, resourceId, createdAt rounded to second), OR fix the double-fire at source.
+
+### Audit log Actor column shows "System" instead of user name
+- `userId = 'super-admin-user-id'` is stored in `AuditLog`, but the tenant audit-log UI renders Actor as "System" rather than resolving to `User.name`.
+- Recommend: include `User` in the audit-log query response and render `user.name` (or email) when `userId` is set; fall back to "System" only when `userId IS NULL`.
