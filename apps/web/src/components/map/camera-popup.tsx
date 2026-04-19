@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import Hls from 'hls.js';
 import { MapPin } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -23,12 +23,15 @@ const STATUS_VARIANT: Record<string, 'default' | 'destructive' | 'secondary' | '
   reconnecting: 'outline',
 };
 
-export function CameraPopup({ id, name, status, viewerCount, onViewStream, onSetLocation }: CameraPopupProps) {
+// Memoized so viewerCount broadcasts do not tear down + re-attach HLS.
+// Without this, every camera:viewers event caused a remount → new SRS
+// `on_play` → viewerCount broadcast → remount loop, which produced the
+// flicker and a runaway viewer count.
+const PreviewVideo = memo(function PreviewVideo({ id, status }: { id: string; status: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
 
   useEffect(() => {
-    // Only attempt HLS preview if camera is online
     if (status !== 'online' || !videoRef.current) return;
 
     const hlsUrl = `/api/cameras/${id}/preview/playlist.m3u8`;
@@ -44,7 +47,6 @@ export function CameraPopup({ id, name, status, viewerCount, onViewStream, onSet
       hls.attachMedia(videoRef.current);
       hlsRef.current = hls;
     } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
-      // Safari native HLS
       videoRef.current.src = hlsUrl;
     }
 
@@ -55,6 +57,27 @@ export function CameraPopup({ id, name, status, viewerCount, onViewStream, onSet
       }
     };
   }, [id, status]);
+
+  if (status !== 'online') {
+    return (
+      <div className="flex h-full w-full items-center justify-center">
+        <span className="text-xs text-gray-400">Stream offline</span>
+      </div>
+    );
+  }
+
+  return (
+    <video
+      ref={videoRef}
+      muted
+      autoPlay
+      playsInline
+      className="h-full w-full object-cover"
+    />
+  );
+});
+
+export function CameraPopup({ id, name, status, viewerCount, onViewStream, onSetLocation }: CameraPopupProps) {
 
   return (
     <div className="space-y-2 p-1">
@@ -73,21 +96,9 @@ export function CameraPopup({ id, name, status, viewerCount, onViewStream, onSet
         )}
       </div>
 
-      {/* Mini HLS preview */}
+      {/* Mini HLS preview — memoized so viewer-count broadcasts don't remount it */}
       <div className="overflow-hidden rounded border bg-black" style={{ width: 200, height: 112 }}>
-        {status === 'online' ? (
-          <video
-            ref={videoRef}
-            muted
-            autoPlay
-            playsInline
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center">
-            <span className="text-xs text-gray-400">Stream offline</span>
-          </div>
-        )}
+        <PreviewVideo id={id} status={status} />
       </div>
 
       {/* Action buttons */}
