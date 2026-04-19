@@ -85,14 +85,18 @@ describe('AUTH-03 + D-02: Permission overrides via checkPermission', () => {
     });
     orgId = org.id;
 
-    // Create membership
-    await testPrisma.member.create({
-      data: {
-        id: `rbac-member-${user.id.slice(0, 8)}`,
-        organizationId: orgId,
-        userId: userId,
-        role: 'viewer',
-      },
+    // Gap 15.1: Member table now requires positive-signal superuser flag for
+    // seed inserts when testPrisma connects as app_user (RLS-enforced role).
+    await testPrisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT set_config('app.is_superuser', 'true', TRUE)`;
+      await tx.member.create({
+        data: {
+          id: `rbac-member-${user.id.slice(0, 8)}`,
+          organizationId: orgId,
+          userId: userId,
+          role: 'viewer',
+        },
+      });
     });
   });
 
@@ -113,32 +117,38 @@ describe('AUTH-03 + D-02: Permission overrides via checkPermission', () => {
   });
 
   it('checkPermission with "grant" override adds permission not in role', async () => {
-    // Grant camera:create to viewer via override
-    await testPrisma.userPermissionOverride.create({
-      data: {
-        userId,
-        orgId,
-        permission: 'camera:create',
-        action: 'grant',
-      },
+    // Grant camera:create to viewer via override, then run checkPermission
+    // inside the same positive-signal RLS context so reads can see the row.
+    const hasCreate = await testPrisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT set_config('app.is_superuser', 'true', TRUE)`;
+      await tx.userPermissionOverride.create({
+        data: {
+          userId,
+          orgId,
+          permission: 'camera:create',
+          action: 'grant',
+        },
+      });
+      return checkPermission(tx as any, userId, orgId, 'viewer', 'camera:create');
     });
 
-    const hasCreate = await checkPermission(testPrisma, userId, orgId, 'viewer', 'camera:create');
     expect(hasCreate).toBe(true);
   });
 
   it('checkPermission with "deny" override removes permission that is in role', async () => {
-    // Deny camera:read from viewer via override
-    await testPrisma.userPermissionOverride.create({
-      data: {
-        userId,
-        orgId,
-        permission: 'camera:read',
-        action: 'deny',
-      },
+    const hasRead = await testPrisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT set_config('app.is_superuser', 'true', TRUE)`;
+      await tx.userPermissionOverride.create({
+        data: {
+          userId,
+          orgId,
+          permission: 'camera:read',
+          action: 'deny',
+        },
+      });
+      return checkPermission(tx as any, userId, orgId, 'viewer', 'camera:read');
     });
 
-    const hasRead = await checkPermission(testPrisma, userId, orgId, 'viewer', 'camera:read');
     expect(hasRead).toBe(false);
   });
 

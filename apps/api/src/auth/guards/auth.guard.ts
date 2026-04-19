@@ -1,6 +1,7 @@
 import {
   CanActivate,
   ExecutionContext,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -31,10 +32,26 @@ export class AuthGuard implements CanActivate {
       throw new UnauthorizedException('Not authenticated');
     }
 
-    // Set org context from active organization
+    // Gap 15.1 — positive-signal tenancy:
+    //   - Authenticated user WITH activeOrganizationId  -> tenant-scoped (ORG_ID)
+    //   - Authenticated admin WITHOUT activeOrganizationId -> superuser (IS_SUPERUSER)
+    //   - Authenticated non-admin WITHOUT activeOrganizationId -> 403, never reaches Prisma
+    //
+    // Super admin identifier matches SuperAdminGuard contract: session.user.role === 'admin'.
     const orgId = session.session?.activeOrganizationId;
+    const isSuperAdmin = session.user?.role === 'admin';
+
+    if (!orgId && !isSuperAdmin) {
+      throw new ForbiddenException(
+        'No active organization. User must be a member of at least one organization.',
+      );
+    }
+
     if (orgId) {
       this.cls.set('ORG_ID', orgId);
+    }
+    if (isSuperAdmin) {
+      this.cls.set('IS_SUPERUSER', 'true');
     }
 
     // Attach user to request for downstream use

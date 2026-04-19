@@ -86,26 +86,41 @@ describe('RLS policy enforcement on Member table', () => {
     await testPrisma.$executeRawUnsafe(`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_user`);
     await testPrisma.$executeRawUnsafe(`GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_user`);
 
-    // Create two orgs and a user (as superuser, bypasses RLS)
-    org1 = await createTestOrganization(testPrisma, { name: 'Org Alpha', slug: 'org-alpha' });
-    org2 = await createTestOrganization(testPrisma, { name: 'Org Beta', slug: 'org-beta' });
-    user1 = await testPrisma.user.create({
-      data: {
-        id: randomUUID(),
-        name: 'Test User',
-        email: `test-rls-${randomUUID().slice(0, 8)}@test.com`,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
+    // Seed data with superuser flag (positive-signal contract). The testPrisma
+    // connection uses the RLS-enforced app_user role, so seeds must opt into the
+    // bypass policy via set_config('app.is_superuser', 'true', TRUE).
+    const seeded = await testPrisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT set_config('app.is_superuser', 'true', TRUE)`;
+
+      const o1 = await tx.organization.create({
+        data: { id: randomUUID(), name: 'Org Alpha', slug: `org-alpha-${randomUUID().slice(0, 8)}` },
+      });
+      const o2 = await tx.organization.create({
+        data: { id: randomUUID(), name: 'Org Beta', slug: `org-beta-${randomUUID().slice(0, 8)}` },
+      });
+      const u1 = await tx.user.create({
+        data: {
+          id: randomUUID(),
+          name: 'Test User',
+          email: `test-rls-${randomUUID().slice(0, 8)}@test.com`,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+
+      await tx.member.create({
+        data: { id: randomUUID(), organizationId: o1.id, userId: u1.id, role: 'admin' },
+      });
+      await tx.member.create({
+        data: { id: randomUUID(), organizationId: o2.id, userId: u1.id, role: 'viewer' },
+      });
+
+      return { o1, o2, u1 };
     });
 
-    // Add user as member of both orgs
-    await testPrisma.member.create({
-      data: { id: randomUUID(), organizationId: org1.id, userId: user1.id, role: 'admin' },
-    });
-    await testPrisma.member.create({
-      data: { id: randomUUID(), organizationId: org2.id, userId: user1.id, role: 'viewer' },
-    });
+    org1 = seeded.o1;
+    org2 = seeded.o2;
+    user1 = seeded.u1;
   });
 
   afterAll(async () => {
@@ -181,70 +196,91 @@ describe('RLS superuser bypass uses positive signal app.is_superuser', () => {
     await testPrisma.$executeRawUnsafe(`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_user`);
     await testPrisma.$executeRawUnsafe(`GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_user`);
 
-    // Seed two distinct orgs + one camera + one member per org (as superuser, bypasses RLS)
-    orgA = await createTestOrganization(testPrisma, { name: 'Positive-Signal Org A', slug: 'pos-org-a' });
-    orgB = await createTestOrganization(testPrisma, { name: 'Positive-Signal Org B', slug: 'pos-org-b' });
+    // Seed with superuser flag (positive-signal contract).
+    const seeded = await testPrisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT set_config('app.is_superuser', 'true', TRUE)`;
 
-    userA = await testPrisma.user.create({
-      data: {
-        id: randomUUID(),
-        name: 'Positive Signal User A',
-        email: `pos-signal-a-${randomUUID().slice(0, 8)}@test.com`,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    });
-    userB = await testPrisma.user.create({
-      data: {
-        id: randomUUID(),
-        name: 'Positive Signal User B',
-        email: `pos-signal-b-${randomUUID().slice(0, 8)}@test.com`,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
+      const oA = await tx.organization.create({
+        data: { id: randomUUID(), name: 'Positive-Signal Org A', slug: `pos-org-a-${randomUUID().slice(0, 8)}` },
+      });
+      const oB = await tx.organization.create({
+        data: { id: randomUUID(), name: 'Positive-Signal Org B', slug: `pos-org-b-${randomUUID().slice(0, 8)}` },
+      });
+
+      const uA = await tx.user.create({
+        data: {
+          id: randomUUID(),
+          name: 'Positive Signal User A',
+          email: `pos-signal-a-${randomUUID().slice(0, 8)}@test.com`,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+      const uB = await tx.user.create({
+        data: {
+          id: randomUUID(),
+          name: 'Positive Signal User B',
+          email: `pos-signal-b-${randomUUID().slice(0, 8)}@test.com`,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+
+      await tx.member.create({
+        data: { id: randomUUID(), organizationId: oA.id, userId: uA.id, role: 'admin' },
+      });
+      await tx.member.create({
+        data: { id: randomUUID(), organizationId: oB.id, userId: uB.id, role: 'admin' },
+      });
+
+      const pA = await tx.project.create({
+        data: { id: randomUUID(), orgId: oA.id, name: 'Project A' },
+      });
+      const pB = await tx.project.create({
+        data: { id: randomUUID(), orgId: oB.id, name: 'Project B' },
+      });
+
+      const sA = await tx.site.create({
+        data: { id: randomUUID(), orgId: oA.id, projectId: pA.id, name: 'Site A' },
+      });
+      const sB = await tx.site.create({
+        data: { id: randomUUID(), orgId: oB.id, projectId: pB.id, name: 'Site B' },
+      });
+
+      const cA = await tx.camera.create({
+        data: {
+          id: randomUUID(),
+          orgId: oA.id,
+          siteId: sA.id,
+          name: 'Camera A',
+          streamUrl: 'rtsp://example.com/a',
+          status: 'offline',
+        },
+      });
+      const cB = await tx.camera.create({
+        data: {
+          id: randomUUID(),
+          orgId: oB.id,
+          siteId: sB.id,
+          name: 'Camera B',
+          streamUrl: 'rtsp://example.com/b',
+          status: 'offline',
+        },
+      });
+
+      return { oA, oB, uA, uB, pA, pB, sA, sB, cA, cB };
     });
 
-    await testPrisma.member.create({
-      data: { id: randomUUID(), organizationId: orgA.id, userId: userA.id, role: 'admin' },
-    });
-    await testPrisma.member.create({
-      data: { id: randomUUID(), organizationId: orgB.id, userId: userB.id, role: 'admin' },
-    });
-
-    projectA = await testPrisma.project.create({
-      data: { id: randomUUID(), orgId: orgA.id, name: 'Project A' },
-    });
-    projectB = await testPrisma.project.create({
-      data: { id: randomUUID(), orgId: orgB.id, name: 'Project B' },
-    });
-
-    siteA = await testPrisma.site.create({
-      data: { id: randomUUID(), orgId: orgA.id, projectId: projectA.id, name: 'Site A' },
-    });
-    siteB = await testPrisma.site.create({
-      data: { id: randomUUID(), orgId: orgB.id, projectId: projectB.id, name: 'Site B' },
-    });
-
-    cameraA = await testPrisma.camera.create({
-      data: {
-        id: randomUUID(),
-        orgId: orgA.id,
-        siteId: siteA.id,
-        name: 'Camera A',
-        streamUrl: 'rtsp://example.com/a',
-        status: 'offline',
-      },
-    });
-    cameraB = await testPrisma.camera.create({
-      data: {
-        id: randomUUID(),
-        orgId: orgB.id,
-        siteId: siteB.id,
-        name: 'Camera B',
-        streamUrl: 'rtsp://example.com/b',
-        status: 'offline',
-      },
-    });
+    orgA = seeded.oA;
+    orgB = seeded.oB;
+    userA = seeded.uA;
+    userB = seeded.uB;
+    projectA = seeded.pA;
+    projectB = seeded.pB;
+    siteA = seeded.sA;
+    siteB = seeded.sB;
+    cameraA = seeded.cA;
+    cameraB = seeded.cB;
   });
 
   afterAll(async () => {

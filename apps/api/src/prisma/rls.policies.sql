@@ -61,16 +61,18 @@ CREATE POLICY tenant_isolation_permission_override ON "UserPermissionOverride"
   USING ("orgId" = current_setting('app.current_org_id', true)::text)
   WITH CHECK ("orgId" = current_setting('app.current_org_id', true)::text);
 
--- Superuser bypass: allow access when app.current_org_id is not set (NULL or empty)
--- Used by: seeds, migrations, super admin operations without org context
+-- Superuser bypass: positive-signal only. Allow access when the caller has
+-- explicitly flagged themselves via set_config('app.is_superuser', 'true', TRUE).
+-- AuthGuard sets this flag in CLS when session.user.role === 'admin'. Any
+-- authenticated user without this flag (and without an active org) sees 0 rows.
 CREATE POLICY superuser_bypass_member ON "Member"
-  USING (current_setting('app.current_org_id', true) IS NULL OR current_setting('app.current_org_id', true) = '');
+  USING (current_setting('app.is_superuser', true) = 'true');
 
 CREATE POLICY superuser_bypass_invitation ON "Invitation"
-  USING (current_setting('app.current_org_id', true) IS NULL OR current_setting('app.current_org_id', true) = '');
+  USING (current_setting('app.is_superuser', true) = 'true');
 
 CREATE POLICY superuser_bypass_permission_override ON "UserPermissionOverride"
-  USING (current_setting('app.current_org_id', true) IS NULL OR current_setting('app.current_org_id', true) = '');
+  USING (current_setting('app.is_superuser', true) = 'true');
 
 -- ─────────────────────────────────────────────────────────────
 -- Phase 5: Dashboard & Monitoring RLS Policies
@@ -84,7 +86,7 @@ CREATE POLICY audit_log_org_isolation ON "AuditLog"
   WITH CHECK ("orgId" = current_setting('app.current_org_id', true));
 
 CREATE POLICY superuser_bypass_audit_log ON "AuditLog"
-  USING (current_setting('app.current_org_id', true) IS NULL OR current_setting('app.current_org_id', true) = '');
+  USING (current_setting('app.is_superuser', true) = 'true');
 
 ALTER TABLE "Notification" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "Notification" FORCE ROW LEVEL SECURITY;
@@ -94,7 +96,7 @@ CREATE POLICY notification_org_isolation ON "Notification"
   WITH CHECK ("orgId" = current_setting('app.current_org_id', true));
 
 CREATE POLICY superuser_bypass_notification ON "Notification"
-  USING (current_setting('app.current_org_id', true) IS NULL OR current_setting('app.current_org_id', true) = '');
+  USING (current_setting('app.is_superuser', true) = 'true');
 
 ALTER TABLE "NotificationPreference" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "NotificationPreference" FORCE ROW LEVEL SECURITY;
@@ -104,4 +106,4 @@ CREATE POLICY notification_pref_org_isolation ON "NotificationPreference"
   WITH CHECK ("orgId" = current_setting('app.current_org_id', true));
 
 CREATE POLICY superuser_bypass_notification_pref ON "NotificationPreference"
-  USING (current_setting('app.current_org_id', true) IS NULL OR current_setting('app.current_org_id', true) = '');
+  USING (current_setting('app.is_superuser', true) = 'true');

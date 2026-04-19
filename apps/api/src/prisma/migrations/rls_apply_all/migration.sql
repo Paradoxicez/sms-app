@@ -14,7 +14,7 @@ DO $$ BEGIN
       USING ("orgId" = current_setting('app.current_org_id', true)::text)
       WITH CHECK ("orgId" = current_setting('app.current_org_id', true)::text);
     CREATE POLICY superuser_bypass_camera ON "Camera"
-      USING (current_setting('app.current_org_id', true) IS NULL OR current_setting('app.current_org_id', true) = '');
+      USING (current_setting('app.is_superuser', true) = 'true');
   END IF;
 END $$;
 
@@ -26,7 +26,7 @@ DO $$ BEGIN
       USING ("orgId" = current_setting('app.current_org_id', true)::text)
       WITH CHECK ("orgId" = current_setting('app.current_org_id', true)::text);
     CREATE POLICY superuser_bypass_project ON "Project"
-      USING (current_setting('app.current_org_id', true) IS NULL OR current_setting('app.current_org_id', true) = '');
+      USING (current_setting('app.is_superuser', true) = 'true');
   END IF;
 END $$;
 
@@ -38,7 +38,7 @@ DO $$ BEGIN
       USING ("orgId" = current_setting('app.current_org_id', true)::text)
       WITH CHECK ("orgId" = current_setting('app.current_org_id', true)::text);
     CREATE POLICY superuser_bypass_site ON "Site"
-      USING (current_setting('app.current_org_id', true) IS NULL OR current_setting('app.current_org_id', true) = '');
+      USING (current_setting('app.is_superuser', true) = 'true');
   END IF;
 END $$;
 
@@ -50,7 +50,7 @@ DO $$ BEGIN
       USING ("orgId" = current_setting('app.current_org_id', true)::text)
       WITH CHECK ("orgId" = current_setting('app.current_org_id', true)::text);
     CREATE POLICY superuser_bypass_streamprofile ON "StreamProfile"
-      USING (current_setting('app.current_org_id', true) IS NULL OR current_setting('app.current_org_id', true) = '');
+      USING (current_setting('app.is_superuser', true) = 'true');
   END IF;
 END $$;
 
@@ -62,7 +62,7 @@ DO $$ BEGIN
       USING ("orgId" = current_setting('app.current_org_id', true)::text)
       WITH CHECK ("orgId" = current_setting('app.current_org_id', true)::text);
     CREATE POLICY superuser_bypass_playbacksession ON "PlaybackSession"
-      USING (current_setting('app.current_org_id', true) IS NULL OR current_setting('app.current_org_id', true) = '');
+      USING (current_setting('app.is_superuser', true) = 'true');
   END IF;
 END $$;
 
@@ -74,7 +74,7 @@ DO $$ BEGIN
       USING ("orgId" = current_setting('app.current_org_id', true)::text OR "orgId" IS NULL)
       WITH CHECK ("orgId" = current_setting('app.current_org_id', true)::text);
     CREATE POLICY superuser_bypass_policy ON "Policy"
-      USING (current_setting('app.current_org_id', true) IS NULL OR current_setting('app.current_org_id', true) = '');
+      USING (current_setting('app.is_superuser', true) = 'true');
   END IF;
 END $$;
 
@@ -87,7 +87,7 @@ DO $$ BEGIN
       USING ("orgId" = current_setting('app.current_org_id', true)::text)
       WITH CHECK ("orgId" = current_setting('app.current_org_id', true)::text);
     CREATE POLICY superuser_bypass_apikey ON "ApiKey"
-      USING (current_setting('app.current_org_id', true) IS NULL OR current_setting('app.current_org_id', true) = '');
+      USING (current_setting('app.is_superuser', true) = 'true');
   END IF;
 END $$;
 
@@ -99,7 +99,7 @@ DO $$ BEGIN
       USING ("orgId" = current_setting('app.current_org_id', true)::text)
       WITH CHECK ("orgId" = current_setting('app.current_org_id', true)::text);
     CREATE POLICY superuser_bypass_webhook ON "WebhookSubscription"
-      USING (current_setting('app.current_org_id', true) IS NULL OR current_setting('app.current_org_id', true) = '');
+      USING (current_setting('app.is_superuser', true) = 'true');
   END IF;
 END $$;
 
@@ -111,7 +111,7 @@ DO $$ BEGIN
       USING ("orgId" = current_setting('app.current_org_id', true)::text)
       WITH CHECK ("orgId" = current_setting('app.current_org_id', true)::text);
     CREATE POLICY superuser_bypass_orgsettings ON "OrgSettings"
-      USING (current_setting('app.current_org_id', true) IS NULL OR current_setting('app.current_org_id', true) = '');
+      USING (current_setting('app.is_superuser', true) = 'true');
   END IF;
 END $$;
 
@@ -123,7 +123,7 @@ DO $$ BEGIN
       USING ("orgId" = current_setting('app.current_org_id', true)::text)
       WITH CHECK ("orgId" = current_setting('app.current_org_id', true)::text);
     CREATE POLICY superuser_bypass_recording ON "Recording"
-      USING (current_setting('app.current_org_id', true) IS NULL OR current_setting('app.current_org_id', true) = '');
+      USING (current_setting('app.is_superuser', true) = 'true');
   END IF;
 END $$;
 
@@ -135,7 +135,7 @@ DO $$ BEGIN
       USING ("orgId" = current_setting('app.current_org_id', true)::text)
       WITH CHECK ("orgId" = current_setting('app.current_org_id', true)::text);
     CREATE POLICY superuser_bypass_recordingsegment ON "RecordingSegment"
-      USING (current_setting('app.current_org_id', true) IS NULL OR current_setting('app.current_org_id', true) = '');
+      USING (current_setting('app.is_superuser', true) = 'true');
   END IF;
 END $$;
 
@@ -147,6 +147,6 @@ DO $$ BEGIN
       USING ("orgId" = current_setting('app.current_org_id', true)::text)
       WITH CHECK ("orgId" = current_setting('app.current_org_id', true)::text);
     CREATE POLICY superuser_bypass_recordingschedule ON "RecordingSchedule"
-      USING (current_setting('app.current_org_id', true) IS NULL OR current_setting('app.current_org_id', true) = '');
+      USING (current_setting('app.is_superuser', true) = 'true');
   END IF;
 END $$;

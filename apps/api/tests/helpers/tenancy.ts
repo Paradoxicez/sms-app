@@ -55,6 +55,10 @@ export async function createTestPackage(
 
 /**
  * Cleans up all test data in the correct order to respect foreign key constraints.
+ *
+ * Test harness connects as the database superuser (DATABASE_URL_MIGRATE, role
+ * "sms" with rolbypassrls=true) so DELETE sees all rows across orgs without
+ * needing the Gap 15.1 positive-signal bypass flag.
  */
 export async function cleanupTestData(prisma: PrismaClient) {
   await prisma.playbackSession.deleteMany();
