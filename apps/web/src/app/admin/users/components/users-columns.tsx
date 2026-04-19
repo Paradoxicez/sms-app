@@ -7,12 +7,15 @@ import { Badge } from "@/components/ui/badge"
 import { DataTableColumnHeader } from "@/components/ui/data-table"
 import { DataTableRowActions, type RowAction } from "@/components/ui/data-table"
 
+export type TenantRole = "admin" | "operator" | "developer" | "viewer"
+
 export interface PlatformUserRow {
   userId: string
   email: string
   name: string
-  role: "admin" | "operator" | "developer" | "viewer"
-  orgs: Array<{ id: string; name: string }>
+  /** Role in the first org encountered — only used for the Role column badge. */
+  role: TenantRole
+  orgs: Array<{ id: string; name: string; role: TenantRole }>
   lastSignInAt?: string | null
 }
 

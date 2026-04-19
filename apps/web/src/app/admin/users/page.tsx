@@ -60,14 +60,14 @@ export default function PlatformUsersPage() {
           for (const m of members) {
             const existing = rowsByEmail.get(m.user.email);
             if (existing) {
-              existing.orgs.push({ id: org.id, name: org.name });
+              existing.orgs.push({ id: org.id, name: org.name, role: m.role });
             } else {
               rowsByEmail.set(m.user.email, {
                 userId: m.user.id,
                 email: m.user.email,
                 name: m.user.name,
                 role: m.role,
-                orgs: [{ id: org.id, name: org.name }],
+                orgs: [{ id: org.id, name: org.name, role: m.role }],
                 lastSignInAt: null,
               });
             }

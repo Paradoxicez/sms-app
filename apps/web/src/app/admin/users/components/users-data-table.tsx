@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/alert-dialog"
 
 import { createUsersColumns, type PlatformUserRow } from "./users-columns"
+import { UserDetailsDialog } from "./user-details-dialog"
+import { EditUserRoleDialog } from "./edit-user-role-dialog"
 
 interface UsersDataTableProps {
   users: PlatformUserRow[]
@@ -47,6 +49,8 @@ export function UsersDataTable({
   onRefetch,
 }: UsersDataTableProps) {
   const [confirming, setConfirming] = useState<PlatformUserRow | null>(null)
+  const [viewing, setViewing] = useState<PlatformUserRow | null>(null)
+  const [editing, setEditing] = useState<PlatformUserRow | null>(null)
   const [pending, setPending] = useState(false)
 
   async function handleDeactivate() {
@@ -77,17 +81,11 @@ export function UsersDataTable({
     () => [
       {
         label: "View details",
-        onClick: (user) => {
-          // TODO: Navigate to user detail page when it exists
-          toast.info(`User: ${user.email} (${user.role})`)
-        },
+        onClick: (user) => setViewing(user),
       },
       {
         label: "Edit role",
-        onClick: (user) => {
-          // TODO: Open role edit dialog when it exists
-          toast.info(`Edit role for ${user.email}`)
-        },
+        onClick: (user) => setEditing(user),
       },
       {
         label: "Deactivate",
@@ -141,6 +139,17 @@ export function UsersDataTable({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <UserDetailsDialog
+        user={viewing}
+        onOpenChange={(open) => !open && setViewing(null)}
+      />
+
+      <EditUserRoleDialog
+        user={editing}
+        onOpenChange={(open) => !open && setEditing(null)}
+        onSaved={onRefetch}
+      />
     </>
   )
 }
