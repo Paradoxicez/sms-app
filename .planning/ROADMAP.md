@@ -37,7 +37,7 @@
 ### v1.2 Self-Service, Resilience & UI Polish
 
 - [x] **Phase 14: Bug Fixes & DataTable Migrations** - Fix broken features and migrate remaining pages to DataTable (completed 2026-04-18)
-- [ ] **Phase 15: FFmpeg Resilience & Camera Maintenance** - Auto-reconnect, health checks, notifications, and maintenance mode
+- [x] **Phase 15: FFmpeg Resilience & Camera Maintenance** - Auto-reconnect, health checks, notifications, and maintenance mode (completed 2026-04-19)
 - [ ] **Phase 16: User Self-Service** - Account management and plan/usage viewer
 - [ ] **Phase 17: Recording Playback & Timeline** - HLS playback page with timeline scrubber and availability heatmap
 - [ ] **Phase 18: Dashboard & Map Polish** - Dashboard data improvements and map UI enhancements
@@ -73,11 +73,21 @@ Plans:
   5. User can toggle a camera into maintenance mode, which suppresses notifications/webhooks and shows a maintenance icon in the camera table alongside online/offline and recording status icons
 **Plans**: 4 plans (Wave 1: 1 plan, Wave 2: 2 plans parallel, Wave 3: 1 plan)
 Plans:
-- [ ] 15-01-PLAN.md — Data + status suppression core: Camera schema maintenance columns + StatusService maintenance gate + 30s BullMQ debounce (RESIL-03, CAM-02)
-- [ ] 15-02-PLAN.md — FFmpeg resilience services: camera-health tick + SRS-restart detection + boot recovery + graceful shutdown + jobId unification (RESIL-01/02/03/04)
-- [ ] 15-03-PLAN.md — Maintenance API + audit trail: POST/DELETE /cameras/:id/maintenance with org scoping and interceptor-audited writes (CAM-01, CAM-02)
-- [ ] 15-04-PLAN.md — Camera table UI: composite 3-icon Status column + maintenance row-action + Thai confirmation dialogs (CAM-03)
+- [x] 15-01-PLAN.md — Data + status suppression core: Camera schema maintenance columns + StatusService maintenance gate + 30s BullMQ debounce (RESIL-03, CAM-02)
+- [x] 15-02-PLAN.md — FFmpeg resilience services: camera-health tick + SRS-restart detection + boot recovery + graceful shutdown + jobId unification (RESIL-01/02/03/04)
+- [x] 15-03-PLAN.md — Maintenance API + audit trail: POST/DELETE /cameras/:id/maintenance with org scoping and interceptor-audited writes (CAM-01, CAM-02)
+- [x] 15-04-PLAN.md — Camera table UI: composite 3-icon Status column + maintenance row-action + Thai confirmation dialogs (CAM-03)
 **UI hint**: yes
+
+### Phase 15.1: Tenancy RLS bypass + StreamProcessor transition fixes (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Requirements**: TBD
+**Depends on:** Phase 15
+**Plans:** 4/4 plans complete
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 15.1 to break down)
 
 ### Phase 16: User Self-Service
 **Goal**: Users can manage their own account and view their organization's plan and usage
@@ -145,7 +155,7 @@ Note: Phases 16, 17, 18 can execute in parallel after Phase 14 (independent of e
 | 12. Recordings | v1.1 | 2/2 | Complete | 2026-04-17 |
 | 13. Hierarchy & Map | v1.1 | 2/2 | Complete | 2026-04-17 |
 | 14. Bug Fixes & DataTable Migrations | v1.2 | 3/3 | Complete    | 2026-04-18 |
-| 15. FFmpeg Resilience & Camera Maintenance | v1.2 | 0/4 | Not started | - |
+| 15. FFmpeg Resilience & Camera Maintenance | v1.2 | 4/4 | Complete    | 2026-04-19 |
 | 16. User Self-Service | v1.2 | 0/3 | Not started | - |
 | 17. Recording Playback & Timeline | v1.2 | 0/0 | Not started | - |
 | 18. Dashboard & Map Polish | v1.2 | 0/0 | Not started | - |

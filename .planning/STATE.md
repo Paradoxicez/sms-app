@@ -4,14 +4,14 @@ milestone: v1.2
 milestone_name: Self-Service, Resilience & UI Polish
 status: executing
 stopped_at: Phase 17 UI-SPEC approved
-last_updated: "2026-04-18T18:01:37.838Z"
-last_activity: 2026-04-18 -- Phase 16 planning complete
+last_updated: "2026-04-19T05:23:35.911Z"
+last_activity: 2026-04-19
 progress:
-  total_phases: 5
-  completed_phases: 1
+  total_phases: 6
+  completed_phases: 2
   total_plans: 15
-  completed_plans: 3
-  percent: 20
+  completed_plans: 7
+  percent: 47
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-18)
 
 **Core value:** Developers can get a secure HLS playback URL for any registered camera via a single API call, and embed it on their website immediately.
-**Current focus:** Phase 14 — Bug Fixes & DataTable Migrations
+**Current focus:** Phase 15 — ffmpeg-resilience-camera-maintenance
 
 ## Current Position
 
-Phase: 15
+Phase: 15.1
 Plan: Not started
-Status: Ready to execute
-Last activity: 2026-04-18 -- Phase 16 planning complete
+Status: Executing Phase 15
+Last activity: 2026-04-19
 
 Progress: [░░░░░░░░░░] 0% (v1.2: 0/5 phases)
 
@@ -36,7 +36,7 @@ Progress: [░░░░░░░░░░] 0% (v1.2: 0/5 phases)
 
 **Velocity:**
 
-- Total plans completed: 71 (v1.0: 53, v1.1: 15)
+- Total plans completed: 75 (v1.0: 53, v1.1: 15)
 - Average duration: ~5 min/plan
 - Total execution time: ~3.2 hours
 
@@ -60,6 +60,10 @@ Recent decisions affecting current work:
 - [v1.2 Roadmap]: Bug fixes + DataTable migrations first (Phase 14) to unblock broken features
 - [v1.2 Roadmap]: FFmpeg resilience + maintenance mode grouped in Phase 15 (both touch StatusService)
 - [v1.2 Roadmap]: Phases 16/17/18 can run in parallel after Phase 14 completes
+
+### Roadmap Evolution
+
+- Phase 15.1 inserted after Phase 15: Tenancy RLS bypass + StreamProcessor transition fixes (URGENT)
 
 ### Pending Todos
 
