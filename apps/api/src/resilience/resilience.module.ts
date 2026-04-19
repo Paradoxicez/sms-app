@@ -3,6 +3,9 @@ import { BullModule } from '@nestjs/bullmq';
 import { PrismaModule } from '../prisma/prisma.module';
 import { StreamsModule } from '../streams/streams.module';
 import { SrsModule } from '../srs/srs.module';
+import { CameraHealthService } from './camera-health.service';
+import { CameraHealthProcessor } from './camera-health.processor';
+import { SrsRestartDetector } from './srs-restart-detector';
 
 @Module({
   imports: [
@@ -14,7 +17,11 @@ import { SrsModule } from '../srs/srs.module';
       { name: 'stream-ffmpeg' },
     ),
   ],
-  providers: [], // populated by Tasks 3-5
-  exports: [],
+  providers: [
+    CameraHealthService,
+    CameraHealthProcessor,
+    SrsRestartDetector,
+  ],
+  exports: [CameraHealthService, SrsRestartDetector],
 })
 export class ResilienceModule {}
