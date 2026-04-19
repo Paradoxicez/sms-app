@@ -34,7 +34,7 @@ describe('StreamsService', () => {
     mockQueue = {
       add: vi.fn().mockResolvedValue({ id: 'job-1' }),
       remove: vi.fn().mockResolvedValue(undefined),
-      getJob: vi.fn().mockResolvedValue({ id: 'job-1', remove: vi.fn() }),
+      getJob: vi.fn().mockResolvedValue({ id: 'job-1', remove: vi.fn().mockResolvedValue(undefined) }),
     };
 
     mockFfmpegService = {
@@ -74,7 +74,7 @@ describe('StreamsService', () => {
         rtspUrl: 'rtsp://192.168.1.100/stream',
       }),
       expect.objectContaining({
-        jobId: 'stream:cam-1',
+        jobId: 'camera:cam-1',
       }),
     );
   });

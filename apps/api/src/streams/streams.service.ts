@@ -55,13 +55,13 @@ export class StreamsService {
     };
 
     // Remove any existing job for this camera before adding new one
-    const existingJob = await this.streamQueue.getJob(`stream-${cameraId}`);
+    const existingJob = await this.streamQueue.getJob(`camera:${cameraId}`);
     if (existingJob) {
       await existingJob.remove().catch(() => {});
     }
 
     await this.streamQueue.add('start', jobData, {
-      jobId: `stream-${cameraId}`,
+      jobId: `camera:${cameraId}`,
       attempts: 20,
       backoff: {
         type: 'exponential',
@@ -92,7 +92,7 @@ export class StreamsService {
     // Best-effort remove the job. If it's still locked (worker not fully
     // released), that's fine — the worker will finish and removeOnComplete
     // flag from startStream() will clean it up.
-    const job = await this.streamQueue.getJob(`stream-${cameraId}`);
+    const job = await this.streamQueue.getJob(`camera:${cameraId}`);
     if (job) {
       await job.remove().catch((err) => {
         this.logger.debug(

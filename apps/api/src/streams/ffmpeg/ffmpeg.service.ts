@@ -93,4 +93,18 @@ export class FfmpegService {
       handler.resolve();
     }
   }
+
+  getRunningCameraIds(): string[] {
+    return Array.from(this.runningProcesses.keys());
+  }
+
+  forceKill(cameraId: string): void {
+    const cmd = this.runningProcesses.get(cameraId);
+    if (!cmd) return;
+    // Same intentional-stop contract as stopStream — tells the 'error'
+    // handler to treat this as clean so BullMQ does not retry.
+    this.intentionalStops.add(cameraId);
+    cmd.kill('SIGKILL');
+    this.logger.warn(`FFmpeg SIGKILLed for camera ${cameraId} (grace expired)`);
+  }
 }
