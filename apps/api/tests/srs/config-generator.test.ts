@@ -112,6 +112,11 @@ describe('SRS Config Generator', () => {
       apiPort: 1985,
     });
 
+    // Production runs SRS in docker and the API on the host, so callbacks
+    // default to `host.docker.internal:3003`. Override via SRS_CALLBACK_HOST
+    // / SRS_CALLBACK_PORT for other topologies.
+    const callbackHost = process.env.SRS_CALLBACK_HOST || 'host.docker.internal';
+    const callbackPort = process.env.SRS_CALLBACK_PORT || '3003';
     const callbacks = [
       'on-publish',
       'on-unpublish',
@@ -121,7 +126,9 @@ describe('SRS Config Generator', () => {
       'on-dvr',
     ];
     for (const cb of callbacks) {
-      expect(config).toContain(`http://api:3001/api/srs/callbacks/${cb}`);
+      expect(config).toContain(
+        `http://${callbackHost}:${callbackPort}/api/srs/callbacks/${cb}`,
+      );
     }
   });
 });

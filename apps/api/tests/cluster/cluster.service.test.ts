@@ -44,9 +44,14 @@ describe('ClusterService', () => {
         isLocal: true,
       };
       mockSrsApiService.getVersions.mockResolvedValue({ code: 0, server: 'srs' });
+      // Edge testConnection does `fetch(hlsUrl/health)`; mock it to succeed so
+      // the service writes status=CONNECTING (not OFFLINE).
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockResolvedValue({ ok: true } as any);
       mockPrisma.srsNode.create.mockResolvedValue(expectedNode);
 
       const result = await service.create(dto);
+      globalThis.fetch = originalFetch;
 
       expect(result).toEqual(expectedNode);
       expect(mockPrisma.srsNode.create).toHaveBeenCalledWith({

@@ -179,6 +179,11 @@ describe('FfmpegService', () => {
 
     expect(service.isRunning('cam-1')).toBe(true);
     service.stopStream('cam-1');
+    // stopStream sends SIGTERM and defers removal from runningProcesses to
+    // the async 'error' / 'end' handler — see FfmpegService#stopStream for
+    // the "do not delete here" comment. Simulate the process exit so the
+    // handler fires in this synchronous test.
+    (service as any).simulateEnd?.('cam-1');
     expect(service.isRunning('cam-1')).toBe(false);
   });
 

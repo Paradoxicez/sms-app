@@ -88,10 +88,13 @@ describe('StreamProcessor', () => {
     await processor.process(mockJob as any);
 
     expect(mockStatusService.transition).toHaveBeenCalledWith('cam-1', 'org-1', 'connecting');
+    // The RTMP target host comes from env (SRS_HOST / SRS_RTMP_PORT). With
+    // no override it defaults to `rtmp://localhost:1935` — assert the path
+    // and profile shape without pinning a specific hostname.
     expect(mockFfmpegService.startStream).toHaveBeenCalledWith(
       'cam-1',
       'rtsp://192.168.1.100/stream',
-      'rtmp://srs:1935/live/org-1/cam-1',
+      expect.stringMatching(/^rtmp:\/\/[^/]+\/live\/org-1\/cam-1$/),
       { codec: 'copy', audioCodec: 'aac' },
       false,
     );

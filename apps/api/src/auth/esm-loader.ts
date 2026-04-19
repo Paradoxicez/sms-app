@@ -1,6 +1,17 @@
 /**
- * Bypass TypeScript/SWC conversion of dynamic import() to require().
- * better-auth is ESM-only and cannot be require()'d.
+ * Load ESM-only Better Auth modules.
+ *
+ * Production (nest build → SWC → CJS): SWC rewrites `import()` to
+ * `Promise.resolve().then(() => require())`, which fails for ESM-only
+ * modules. The `new Function(...)` trick escapes SWC's static analysis —
+ * it sees the `import()` only as a string literal at build time and
+ * evaluates the real dynamic import at runtime.
+ *
+ * Tests (Vitest + Vite): the VM executor does NOT register an importer
+ * callback for Function-constructed code, so the same trick throws
+ * ERR_VM_DYNAMIC_IMPORT_CALLBACK_MISSING. Tests that need the real
+ * loader should mock this module with vi.mock (see tests/helpers/auth.ts
+ * patterns), or integration-test against the running API.
  */
 // eslint-disable-next-line @typescript-eslint/no-implied-eval
 const dynamicImport = new Function('specifier', 'return import(specifier)');

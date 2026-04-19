@@ -103,7 +103,10 @@ describe('Playback routing to edges', () => {
 
     const result = await playbackService.createSession('cam-2', 'org-2');
 
-    expect(result.hlsUrl).toContain('http://srs:8080/live/org-2/cam-2.m3u8');
+    // Playback base URL comes from env; in tests with no env override it is
+    // the Nest default `http://localhost:8080`. Assert the path structure is
+    // correct and that the JWT is appended.
+    expect(result.hlsUrl).toMatch(/\/live\/org-2\/cam-2\.m3u8/);
     expect(result.hlsUrl).toContain('token=mock-jwt-token');
   });
 });

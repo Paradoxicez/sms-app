@@ -59,7 +59,9 @@ export class ManifestService {
     const maxDuration = Math.ceil(Math.max(...segments.map(s => s.duration)));
 
     let m3u8 = '#EXTM3U\n';
-    m3u8 += '#EXT-X-VERSION:3\n';
+    // HLS v7 is required for EXT-X-MAP (fMP4 init segments) — SRS is
+    // configured with hls_use_fmp4=on.
+    m3u8 += '#EXT-X-VERSION:7\n';
     m3u8 += `#EXT-X-TARGETDURATION:${maxDuration}\n`;
     m3u8 += '#EXT-X-MEDIA-SEQUENCE:0\n';
     m3u8 += '#EXT-X-PLAYLIST-TYPE:VOD\n';
@@ -78,7 +80,7 @@ export class ManifestService {
   }
 
   buildEmptyManifest(): string {
-    return '#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:3\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-PLAYLIST-TYPE:VOD\n#EXT-X-ENDLIST\n';
+    return '#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-TARGETDURATION:3\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-PLAYLIST-TYPE:VOD\n#EXT-X-ENDLIST\n';
   }
 
   async getSegmentsForDate(

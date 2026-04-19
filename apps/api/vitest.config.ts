@@ -9,5 +9,13 @@ export default defineConfig({
     testTimeout: 30000,
     passWithNoTests: true,
     fileParallelism: false,
+    server: {
+      // Better Auth's esm-loader uses `new Function('...import()...')` to
+      // escape SWC's CommonJS transform. Vitest's VM executor blocks that
+      // pattern unless the module is inlined into the test bundle.
+      deps: {
+        inline: [/better-auth/, /@better-auth\/.*/],
+      },
+    },
   },
 });

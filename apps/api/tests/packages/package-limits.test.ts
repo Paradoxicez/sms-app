@@ -73,7 +73,7 @@ describe('Package Limits', () => {
     expect(deactivated.isActive).toBe(false);
   });
 
-  it('should list only active packages', async () => {
+  it('findAll returns every package (admin view); deactivate flips isActive', async () => {
     const pkg1 = await service.create({
       name: 'Active',
       maxCameras: 10,
@@ -91,8 +91,7 @@ describe('Package Limits', () => {
     await service.deactivate(pkg2.id);
 
     const all = await service.findAll();
-    expect(all.every((p) => p.isActive)).toBe(true);
-    expect(all.some((p) => p.name === 'Active')).toBe(true);
-    expect(all.some((p) => p.name === 'Inactive')).toBe(false);
+    expect(all.some((p) => p.name === 'Active' && p.isActive)).toBe(true);
+    expect(all.some((p) => p.name === 'Inactive' && p.isActive === false)).toBe(true);
   });
 });

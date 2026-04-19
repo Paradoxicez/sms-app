@@ -35,7 +35,16 @@ export class ScheduleProcessor extends WorkerHost {
         continue;
       }
 
-      const shouldBeRecording = currentTime >= config.startTime && currentTime < config.endTime;
+      // Schedule windows that cross midnight (startTime > endTime, e.g.
+       // 23:00 → 07:00) must be treated as two half-open ranges
+       //   [startTime, 24:00) ∪ [00:00, endTime)
+       // rather than the single `>= start AND < end` check, which would
+       // always be false for wrap-around windows.
+      const { startTime, endTime } = config;
+      const crossesMidnight = startTime > endTime;
+      const shouldBeRecording = crossesMidnight
+        ? currentTime >= startTime || currentTime < endTime
+        : currentTime >= startTime && currentTime < endTime;
 
       try {
         const camera = await this.prisma.camera.findUnique({

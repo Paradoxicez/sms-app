@@ -119,6 +119,7 @@ vhost __defaultVhost__ {
         enabled         on;
         hls_fragment    ${settings.hlsFragment};
         hls_window      ${settings.hlsWindow};
+        hls_use_fmp4    on;
         hls_cleanup     on;
         hls_dispose     30;
         hls_wait_keyframe on;

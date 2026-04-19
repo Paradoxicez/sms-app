@@ -1,11 +1,47 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { testPrisma } from '../setup';
 import { createTestUser, createTestSession } from '../helpers/auth';
 import { cleanupTestData } from '../helpers/tenancy';
+
+// Swap Better Auth's Function-wrapped dynamic import for a vitest-native one.
+vi.mock('../../src/auth/esm-loader', async () => {
+  const [
+    { betterAuth },
+    { prismaAdapter },
+    plugins,
+    { createAccessControl },
+    adminAccess,
+  ] = await Promise.all([
+    import('better-auth'),
+    import('better-auth/adapters/prisma'),
+    import('better-auth/plugins'),
+    import('better-auth/plugins/access'),
+    import('better-auth/plugins/admin/access'),
+  ]);
+  return {
+    loadBetterAuth: async () => ({ betterAuth }),
+    loadBetterAuthAdapters: async () => ({ prismaAdapter }),
+    loadBetterAuthPlugins: async () => ({
+      organization: (plugins as any).organization,
+      admin: (plugins as any).admin,
+    }),
+    loadBetterAuthAccess: async () => ({
+      createAccessControl,
+      defaultStatements: (adminAccess as any).defaultStatements,
+      adminAc: (adminAccess as any).adminAc,
+    }),
+    loadBetterAuthNode: async () => ({
+      toNodeHandler: (await import('better-auth/node')).toNodeHandler,
+    }),
+  };
+});
+
 import { SuperAdminGuard } from '../../src/auth/guards/super-admin.guard';
+import { initAuth } from '../../src/auth/auth.config';
 
 describe('AUTH-04: Super admin guard and impersonation', () => {
   beforeAll(async () => {
+    await initAuth();
     await cleanupTestData(testPrisma);
   });
 

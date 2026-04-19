@@ -176,12 +176,18 @@ export class SrsCallbackController {
     const fullPath = app ? `${app}/${stream}` : stream;
     const parts = fullPath.replace(/^live\//, '').split('/');
     if (parts.length >= 2 && parts[0] && parts[1]) {
-      // SRS passes stream with HLS/segment extensions attached on play events
-      // (e.g. "{cameraId}.m3u8", "{cameraId}-5.ts"). Strip so downstream
-      // token/status lookups see the canonical cameraId.
-      const cameraId = parts[1]
-        .replace(/\.(m3u8|ts|m4s|mp4|flv)$/, '')
-        .replace(/-\d+$/, '');
+      // SRS passes stream with HLS/segment extensions on play events:
+      //   - playlist: "{cameraId}.m3u8"
+      //   - segment:  "{cameraId}-{seq}.ts" / ".m4s"
+      // Strip the extension first, then only strip the segment `-{seq}`
+      // suffix when an extension was actually present. Without this guard a
+      // legitimate cameraId like "cam-1" would be mangled to "cam" on
+      // publish/play events that pass the canonical key.
+      let cameraId = parts[1];
+      const extMatch = cameraId.match(/\.(m3u8|ts|m4s|mp4|flv)$/);
+      if (extMatch) {
+        cameraId = cameraId.slice(0, -extMatch[0].length).replace(/-\d+$/, '');
+      }
       return { orgId: parts[0], cameraId };
     }
     return {};
