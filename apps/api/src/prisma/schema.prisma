@@ -219,6 +219,10 @@ model Camera {
   retentionDays    Int?     // null = use org default (per D-10)
   isRecording      Boolean  @default(false)
 
+  maintenanceMode       Boolean   @default(false)
+  maintenanceEnteredAt  DateTime?
+  maintenanceEnteredBy  String?
+
   policy            Policy?
   playbackSessions  PlaybackSession[]
   recordings        Recording[]
@@ -226,6 +230,7 @@ model Camera {
   @@index([orgId])
   @@index([siteId])
   @@index([status])
+  @@index([maintenanceMode])
 }
 
 model StreamProfile {
