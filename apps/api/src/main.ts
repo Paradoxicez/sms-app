@@ -14,6 +14,11 @@ async function bootstrap() {
   // rawBody: true gives Better Auth access to raw body while keeping JSON parsing for all routes
   const app = await NestFactory.create(AppModule, { rawBody: true });
 
+  // Enable NestJS shutdown hooks so OnApplicationShutdown fires on
+  // SIGTERM/SIGINT/SIGHUP — required by ResilienceService to SIGTERM
+  // running FFmpeg children before the process exits (T-15-05 mitigation).
+  app.enableShutdownHooks();
+
   app.enableCors({
     origin: [
       'http://localhost:3000',

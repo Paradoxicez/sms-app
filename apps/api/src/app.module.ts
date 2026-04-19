@@ -24,6 +24,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { ClusterModule } from './cluster/cluster.module';
 import { RecordingsModule } from './recordings/recordings.module';
+import { ResilienceModule } from './resilience/resilience.module';
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { RecordingsModule } from './recordings/recordings.module';
     DashboardModule,
     ClusterModule,
     RecordingsModule,
+    ResilienceModule,
     ThrottlerModule.forRoot({
       throttlers:
         process.env.NODE_ENV === 'production'
