@@ -20,6 +20,7 @@ describe('Recording Download (REC-04)', () => {
     tenancyClient = {
       recording: {
         findUnique: vi.fn(),
+        findFirst: vi.fn(),
         delete: vi.fn(),
         findMany: vi.fn(),
         count: vi.fn(),
@@ -56,44 +57,58 @@ describe('Recording Download (REC-04)', () => {
   });
 
   it('getRecording returns recording with initSegment when it exists', async () => {
-    tenancyClient.recording.findUnique.mockResolvedValue({
+    tenancyClient.recording.findFirst.mockResolvedValue({
       id: 'rec-1',
       orgId: 'org-1',
       initSegment: 'cam-1/2026-04-10/init.mp4',
       _count: { segments: 5 },
+      camera: {
+        id: 'cam-1',
+        name: 'Cam',
+        site: { id: 's', name: 'S', project: { id: 'p', name: 'P' } },
+      },
     });
 
     const recording = await service.getRecording('rec-1', 'org-1');
 
     expect(recording.initSegment).toBe('cam-1/2026-04-10/init.mp4');
-    expect(tenancyClient.recording.findUnique).toHaveBeenCalledWith({
-      where: { id: 'rec-1' },
-      include: { _count: { select: { segments: true } } },
-    });
+    // After Phase 17 plan 02 (T-17-V4): getRecording uses findFirst with {id, orgId}
+    expect(tenancyClient.recording.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'rec-1', orgId: 'org-1' },
+        include: expect.objectContaining({
+          _count: { select: { segments: true } },
+        }),
+      }),
+    );
   });
 
   it('getRecording throws NotFoundException for non-existent recording', async () => {
-    tenancyClient.recording.findUnique.mockResolvedValue(null);
+    tenancyClient.recording.findFirst.mockResolvedValue(null);
 
     await expect(service.getRecording('rec-missing', 'org-1')).rejects.toThrow(
       NotFoundException,
     );
   });
 
-  it('getRecording verifies org ownership via TENANCY_CLIENT (IDOR prevention T-12-04)', async () => {
-    tenancyClient.recording.findUnique.mockResolvedValue({
+  it('getRecording verifies org ownership via TENANCY_CLIENT (IDOR prevention T-12-04 / T-17-V4)', async () => {
+    tenancyClient.recording.findFirst.mockResolvedValue({
       id: 'rec-1',
       orgId: 'org-1',
       initSegment: 'cam-1/2026-04-10/init.mp4',
       _count: { segments: 5 },
+      camera: {
+        id: 'cam-1',
+        name: 'Cam',
+        site: { id: 's', name: 'S', project: { id: 'p', name: 'P' } },
+      },
     });
 
     await service.getRecording('rec-1', 'org-1');
 
-    // The TENANCY_CLIENT auto-filters by orgId, so findUnique is scoped
-    // This test verifies the method is called with correct ID
-    expect(tenancyClient.recording.findUnique).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 'rec-1' } }),
+    // T-17-V4: findFirst is now called with {id, orgId} so cross-org access returns null → 404
+    expect(tenancyClient.recording.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'rec-1', orgId: 'org-1' } }),
     );
   });
 

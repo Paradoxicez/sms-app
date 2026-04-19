@@ -461,9 +461,24 @@ export class RecordingsService {
   }
 
   async getRecording(id: string, orgId: string) {
-    const recording = await this.prisma.recording.findUnique({
-      where: { id },
-      include: { _count: { select: { segments: true } } },
+    const recording = await this.prisma.recording.findFirst({
+      where: { id, orgId },
+      include: {
+        _count: { select: { segments: true } },
+        camera: {
+          select: {
+            id: true,
+            name: true,
+            site: {
+              select: {
+                id: true,
+                name: true,
+                project: { select: { id: true, name: true } },
+              },
+            },
+          },
+        },
+      },
     });
     if (!recording) {
       throw new NotFoundException(`Recording ${id} not found`);
