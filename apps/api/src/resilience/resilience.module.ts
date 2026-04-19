@@ -6,6 +6,7 @@ import { SrsModule } from '../srs/srs.module';
 import { CameraHealthService } from './camera-health.service';
 import { CameraHealthProcessor } from './camera-health.processor';
 import { SrsRestartDetector } from './srs-restart-detector';
+import { BootRecoveryService } from './boot-recovery.service';
 
 @Module({
   imports: [
@@ -21,7 +22,8 @@ import { SrsRestartDetector } from './srs-restart-detector';
     CameraHealthService,
     CameraHealthProcessor,
     SrsRestartDetector,
+    BootRecoveryService,
   ],
-  exports: [CameraHealthService, SrsRestartDetector],
+  exports: [CameraHealthService, SrsRestartDetector, BootRecoveryService],
 })
 export class ResilienceModule {}
