@@ -15,6 +15,21 @@ export interface Recording {
   totalDuration?: number | null;
 }
 
+export interface RecordingCameraInclude {
+  id: string;
+  name: string;
+  site: {
+    id: string;
+    name: string;
+    project: { id: string; name: string };
+  };
+}
+
+export interface RecordingWithCamera extends Recording {
+  camera: RecordingCameraInclude;
+  _count?: { segments: number };
+}
+
 export interface TimelineHour {
   hour: number;
   hasData: boolean;
@@ -58,6 +73,47 @@ export function useRecordingStatus(cameraId: string | undefined) {
   }, [fetch]);
 
   return { isRecording, loading, refetch: fetch };
+}
+
+/* ---------- Single Recording (with camera include) ---------- */
+
+export type RecordingLoadError = 'not-found' | 'forbidden' | 'network';
+
+export function useRecording(id: string | undefined) {
+  const [recording, setRecording] = useState<RecordingWithCamera | null>(null);
+  const [loading, setLoading] = useState<boolean>(!!id);
+  const [error, setError] = useState<RecordingLoadError | null>(null);
+
+  useEffect(() => {
+    if (!id) {
+      setRecording(null);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    apiFetch<RecordingWithCamera>(`/api/recordings/${id}`)
+      .then((r) => {
+        if (!cancelled) setRecording(r);
+      })
+      .catch((err: Error) => {
+        if (cancelled) return;
+        const msg = err.message ?? '';
+        if (msg.includes('404')) setError('not-found');
+        else if (msg.includes('403')) setError('forbidden');
+        else setError('network');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  return { recording, loading, error };
 }
 
 /* ---------- Timeline ---------- */
