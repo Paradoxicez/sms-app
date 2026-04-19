@@ -43,7 +43,6 @@ vhost __defaultVhost__ {
         hls_cleanup     on;
         hls_dispose     30;
         hls_wait_keyframe on;
-        hls_use_fmp4    on;
 ${hlsKeysBlock}    }
 
     http_hooks {
