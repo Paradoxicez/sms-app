@@ -146,7 +146,7 @@ export function CameraCard({
       >
         {shouldPlay && camera.status === "online" ? (
           <HoverPreviewPlayer
-            src={`/api/cameras/${camera.id}/stream/index.m3u8`}
+            src={`/api/cameras/${camera.id}/preview/playlist.m3u8`}
           />
         ) : (
           <div className="flex h-full items-center justify-center">

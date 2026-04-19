@@ -36,7 +36,7 @@ function ViewStreamContent({
   onStreamToggle?: (camera: CameraRow) => void
   onRecordToggle?: (camera: CameraRow) => void
 }) {
-  const streamUrl = `/api/cameras/${camera.id}/stream/index.m3u8`
+  const streamUrl = `/api/cameras/${camera.id}/preview/playlist.m3u8`
 
   return (
     <>
