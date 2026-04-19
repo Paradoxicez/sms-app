@@ -140,8 +140,9 @@ describe('RLS policy enforcement on Member table', () => {
     expect(members[0].organizationId).toBe(org2.id);
   });
 
-  it('without org context (superuser bypass), returns all members', async () => {
-    // As app_user without org context -- bypass policy allows all rows
+  it('without org context AND without is_superuser flag, returns 0 rows', async () => {
+    // New positive-signal policy: bypass requires explicit app.is_superuser='true'.
+    // A session without either signal must see zero rows.
     const members = await testPrisma.$transaction(async (tx) => {
       await tx.$executeRawUnsafe('SET ROLE app_user');
       const result = await tx.member.findMany();
@@ -149,6 +150,148 @@ describe('RLS policy enforcement on Member table', () => {
       return result;
     });
 
-    expect(members.length).toBeGreaterThanOrEqual(2);
+    expect(members.length).toBe(0);
+  });
+});
+
+describe('RLS superuser bypass uses positive signal app.is_superuser', () => {
+  let orgA: any;
+  let orgB: any;
+  let userA: any;
+  let userB: any;
+  let projectA: any;
+  let projectB: any;
+  let siteA: any;
+  let siteB: any;
+  let cameraA: any;
+  let cameraB: any;
+
+  beforeAll(async () => {
+    await cleanupTestData(testPrisma);
+
+    // Ensure app_user role exists
+    await testPrisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'app_user') THEN
+          CREATE ROLE app_user LOGIN PASSWORD 'sms_app_user_password';
+        END IF;
+      END $$;
+    `);
+    await testPrisma.$executeRawUnsafe(`GRANT USAGE ON SCHEMA public TO app_user`);
+    await testPrisma.$executeRawUnsafe(`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_user`);
+    await testPrisma.$executeRawUnsafe(`GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_user`);
+
+    // Seed two distinct orgs + one camera + one member per org (as superuser, bypasses RLS)
+    orgA = await createTestOrganization(testPrisma, { name: 'Positive-Signal Org A', slug: 'pos-org-a' });
+    orgB = await createTestOrganization(testPrisma, { name: 'Positive-Signal Org B', slug: 'pos-org-b' });
+
+    userA = await testPrisma.user.create({
+      data: {
+        id: randomUUID(),
+        name: 'Positive Signal User A',
+        email: `pos-signal-a-${randomUUID().slice(0, 8)}@test.com`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+    userB = await testPrisma.user.create({
+      data: {
+        id: randomUUID(),
+        name: 'Positive Signal User B',
+        email: `pos-signal-b-${randomUUID().slice(0, 8)}@test.com`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+
+    await testPrisma.member.create({
+      data: { id: randomUUID(), organizationId: orgA.id, userId: userA.id, role: 'admin' },
+    });
+    await testPrisma.member.create({
+      data: { id: randomUUID(), organizationId: orgB.id, userId: userB.id, role: 'admin' },
+    });
+
+    projectA = await testPrisma.project.create({
+      data: { id: randomUUID(), orgId: orgA.id, name: 'Project A' },
+    });
+    projectB = await testPrisma.project.create({
+      data: { id: randomUUID(), orgId: orgB.id, name: 'Project B' },
+    });
+
+    siteA = await testPrisma.site.create({
+      data: { id: randomUUID(), orgId: orgA.id, projectId: projectA.id, name: 'Site A' },
+    });
+    siteB = await testPrisma.site.create({
+      data: { id: randomUUID(), orgId: orgB.id, projectId: projectB.id, name: 'Site B' },
+    });
+
+    cameraA = await testPrisma.camera.create({
+      data: {
+        id: randomUUID(),
+        orgId: orgA.id,
+        siteId: siteA.id,
+        name: 'Camera A',
+        streamUrl: 'rtsp://example.com/a',
+        status: 'offline',
+      },
+    });
+    cameraB = await testPrisma.camera.create({
+      data: {
+        id: randomUUID(),
+        orgId: orgB.id,
+        siteId: siteB.id,
+        name: 'Camera B',
+        streamUrl: 'rtsp://example.com/b',
+        status: 'offline',
+      },
+    });
+  });
+
+  afterAll(async () => {
+    await cleanupTestData(testPrisma);
+  });
+
+  it('no current_org_id AND no is_superuser -> 0 rows (closed default)', async () => {
+    const cameras = await testPrisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe('SET ROLE app_user');
+      const result = await tx.camera.findMany();
+      await tx.$executeRawUnsafe('RESET ROLE');
+      return result;
+    });
+    expect(cameras.length).toBe(0);
+
+    const members = await testPrisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe('SET ROLE app_user');
+      const result = await tx.member.findMany();
+      await tx.$executeRawUnsafe('RESET ROLE');
+      return result;
+    });
+    expect(members.length).toBe(0);
+  });
+
+  it("is_superuser='true' without current_org_id -> all rows across orgs", async () => {
+    const cameras = await testPrisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe('SET ROLE app_user');
+      await tx.$executeRaw`SELECT set_config('app.is_superuser', 'true', TRUE)`;
+      const result = await tx.camera.findMany();
+      await tx.$executeRawUnsafe('RESET ROLE');
+      return result;
+    });
+    const orgIds = new Set(cameras.map((c) => c.orgId));
+    expect(cameras.length).toBeGreaterThanOrEqual(2);
+    expect(orgIds.has(orgA.id)).toBe(true);
+    expect(orgIds.has(orgB.id)).toBe(true);
+  });
+
+  it('current_org_id set AND no is_superuser -> only that org rows (tenant isolation still works)', async () => {
+    const cameras = await testPrisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe('SET ROLE app_user');
+      await tx.$executeRaw`SELECT set_config('app.current_org_id', ${orgA.id}, TRUE)`;
+      const result = await tx.camera.findMany();
+      await tx.$executeRawUnsafe('RESET ROLE');
+      return result;
+    });
+    expect(cameras.length).toBe(1);
+    expect(cameras[0].orgId).toBe(orgA.id);
   });
 });
