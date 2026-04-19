@@ -49,7 +49,7 @@ describe('BootRecoveryService', () => {
       expect(jobName).toBe('start');
       expect(payload).toHaveProperty('cameraId');
       expect(payload).toHaveProperty('orgId');
-      expect(options.jobId).toMatch(/^camera:cam-/);
+      expect(options.jobId).toMatch(/^camera:cam-.*:ffmpeg$/);
       expect(options.delay).toBeGreaterThanOrEqual(0);
       expect(options.delay).toBeLessThan(30_000);
       expect(options.attempts).toBe(20);
@@ -102,7 +102,7 @@ describe('BootRecoveryService', () => {
     // Both calls target the same deterministic jobId — BullMQ's jobId dedup
     // silently keeps the first job, which is the expected behavior.
     for (const call of mockStreamQueue.add.mock.calls) {
-      expect(call[2].jobId).toBe('camera:cam-idem');
+      expect(call[2].jobId).toBe('camera:cam-idem:ffmpeg');
     }
   });
 

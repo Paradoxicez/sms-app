@@ -113,7 +113,7 @@ export class CameraHealthService implements OnModuleInit {
       'start',
       buildStreamJobData(camera),
       {
-        jobId: `camera:${camera.id}`,
+        jobId: `camera:${camera.id}:ffmpeg`,
         attempts: 20,
         backoff: { type: 'exponential', delay: 1000 },
         removeOnComplete: true,

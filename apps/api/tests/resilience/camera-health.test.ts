@@ -117,7 +117,7 @@ describe('CameraHealthService', () => {
         'start',
         expect.objectContaining({ cameraId: 'cam-dead-1', orgId: 'org-1' }),
         expect.objectContaining({
-          jobId: 'camera:cam-dead-1',
+          jobId: 'camera:cam-dead-1:ffmpeg',
           attempts: 20,
           removeOnComplete: true,
           removeOnFail: false,

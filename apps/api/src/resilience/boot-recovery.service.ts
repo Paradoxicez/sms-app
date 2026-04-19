@@ -43,7 +43,7 @@ export class BootRecoveryService implements OnApplicationBootstrap {
         'start',
         buildStreamJobData(camera),
         {
-          jobId: `camera:${camera.id}`,
+          jobId: `camera:${camera.id}:ffmpeg`,
           delay,
           attempts: 20,
           backoff: { type: 'exponential', delay: 1000 },
