@@ -3,63 +3,71 @@ status: partial
 phase: 15-ffmpeg-resilience-camera-maintenance
 source: [15-VERIFICATION.md]
 started: 2026-04-19T09:10:00Z
-updated: 2026-04-19T10:22:00Z
+updated: 2026-04-19T10:50:00Z
 ---
 
 ## Current Test
 
-[live-stack automated UAT complete — 5/6 passed, 1 partial (needs real SRS container restart), 1 tenancy gap discovered]
+[live-stack UAT complete against Bedrock org + real Axis RTSP camera — 4 passed, 1 partial (blocked by pre-existing SRS config bug), 1 pending visual; 1 Phase 15 regression discovered & fixed]
 
 ## Tests
 
 ### 1. SRS Docker restart → all cameras auto-reconnect within ~60s
 expected: `docker compose restart srs` → within 60s all online/connecting/reconnecting/degraded cameras (maintenanceMode=false) return to status=online after staggered 0-30s jitter; log shows `SrsRestartDetector: SRS restart detected: pid X -> Y` followed by N × `enqueued {cam} (delay=Nms)`
-result: partial — `SrsRestartDetector: baseline pid=1 initialized` observed in live API log at boot, and `enqueued cam-1 (delay=Nms)` log format confirmed in vitest. The service is correctly wired and polling SRS `/api/v1/summaries`. Full test requires live FFmpeg streams running against SRS + a real `docker compose restart srs` to observe pid delta. No RTSP source available in this session.
+result: partial — blocked by pre-existing `hls_use_fmp4` config bug (see Gaps). Phase 15 behavior confirmed observable on live stack:
+- `SrsRestartDetector: baseline pid=1 initialized` at API boot ✓
+- Poll cycle active every 5s; when SRS unreachable: `SrsRestartDetector: getSummaries failed — fetch failed` logged (no false-positive pid delta, defensive as designed) ✓
+- `CameraHealthService: dead stream detected for camera <id> (ffmpeg=false, srs=false)` + `enqueued recovery for <id>` fired at 60s tick when SRS went down ✓
+- StreamProcessor backoff retry cycle observed (attempt 1→7 over ~60s) ✓
+- Pid delta detection (`SRS restart detected: pid X -> Y`) not reached because SRS container stuck in restart loop on boot due to pre-existing config directive (`hls_use_fmp4 on;` rejected by SRS 6.0.184 on cold start; SettingsService template writes it on every API boot). All 9 vitest cases for SrsRestartDetector/recovery pass (`tests/resilience/srs-restart-detection.test.ts` 5, `srs-restart-recovery.test.ts` 4).
 
 ### 2. Server SIGTERM → clean FFmpeg shutdown within 10s grace
 expected: `docker compose stop api` → logs show `Shutting down N FFmpeg processes (signal=SIGTERM)` → either `All FFmpegs exited cleanly within grace` OR `SIGKILLed stragglers: ...` → container exits in ≤10s → `docker compose start api` → `Boot recovery: re-enqueuing N streams` → cameras reconnect within ~60s
-result: passed (observable path, no FFmpeg children). `SIGTERM → ResilienceService` hook fired on live API (`Shutdown: no running FFmpeg processes` logged, port released immediately). `BootRecoveryService` fired on boot (`Boot recovery: re-enqueuing 0 streams`). Both hooks wired via `app.enableShutdownHooks()` in `main.ts:20`. SIGKILL straggler path has vitest coverage with fake timers (tests/resilience/shutdown.test.ts 4/4 pass).
+result: passed — `kill -TERM <api-pid>` fired `ResilienceService: Shutdown: no running FFmpeg processes` log + immediate port release; with live FFmpeg the full path `Shutting down N FFmpeg processes (signal=SIGTERM)` + grace window + SIGKILL straggler is covered by `tests/resilience/shutdown.test.ts` (4/4 pass with fake timers). `BootRecoveryService: Boot recovery: re-enqueuing 0 streams` fired on every API boot observed.
 
 ### 3. Webhook + notification fires on camera status change (with 30s debounce)
 expected: Force an online→offline transition (kill FFmpeg or block RTSP source) on a non-maintenance camera → wait 30s → in-app notification + webhook subscribers receive `camera.offline` POST. During the 30s window, additional flaps REPLACE (not duplicate) the pending dispatch.
-result: passed (queue contract verified, consumer not tested end-to-end). Triggered `connecting→online` transition on a non-maintenance camera via SRS `on-publish` callback simulation:
-- StatusService logged: `Camera camB: connecting -> online (notify scheduled T+30s, jobId=camera:camB:notify)`
-- Redis BullMQ key `bull:camera-notify:camera:camB:notify` populated with `{data:{orgId,cameraId:"camB",cameraName,newStatus:"online",previousStatus:"connecting"}, delay:30000, removeOnComplete:true, removeOnFail:10}`
-- Re-triggered transition within the 30s window → count of jobs for jobId stayed at 1 (debounce-by-replacement confirmed)
-- Actual webhook POST delivery + NotificationsGateway emission still require a live subscriber to observe end-to-end; queue enqueue + dedup are green.
+result: passed — observed end-to-end on live stack:
+- Started stream on Bedrock cam1 (real Axis RTSP at `rtsp://root:pass@hfd09b7jy9k.sn.mynetname.net:20091/...`)
+- `StatusService: Camera bcf7d2c9... connecting -> online (notify scheduled T+30s, jobId=camera:bcf7d2c9...:notify)` ✓
+- Redis `bull:camera-notify:camera:<id>:notify` key populated with full payload (orgId/cameraId/cameraName/newStatus=online/previousStatus=connecting), delay=30000, removeOnComplete=true ✓
+- At T+30s exactly: `WebhooksService: Emitted camera.online to 0 subscriptions for org <id>` + `NotifyDispatchProcessor: delivered camera.online for <id>` fired ✓ (0 subscribers because none configured; delivery logic ran through)
+- Killed FFmpeg (SIGTERM) → StreamProcessor retried attempts 2-5 with exponential backoff → transition `online -> reconnecting (notify scheduled T+30s)` ✓
+- Redis debounce key replaced with latest payload `{newStatus:"reconnecting", previousStatus:"online"}` — only 1 active job (no duplication) ✓
 
 ### 4. Composite 3-icon Status column visual alignment
 expected: Cameras page shows 3 icons with invisible slot preserved for wrench; Thai tooltips match UI-SPEC.
-result: pending — requires browser + running web app. DOM class assertion (`invisible`) verified in `cameras-columns.test.tsx` (9/9 pass). Pixel-level alignment is a visual check; cannot auto-verify without Puppeteer/Playwright.
+result: pending — requires browser + running web app. DOM class assertion (`invisible`) verified in `cameras-columns.test.tsx` (9/9 pass). Pixel-level alignment + tooltip portal rendering need visual verification.
 
 ### 5. Enter maintenance on a running camera → stream stops, webhook NOT dispatched
 expected: Row-actions → `เข้าโหมดซ่อมบำรุง` → AlertDialog (destructive variant) → confirm → stream stops; status=offline; wrench amber; toast; NO webhook delivered; AuditLog row created.
-result: passed (API contract verified end-to-end):
-- `POST /api/cameras/test-cam-001/maintenance` → HTTP 201, response reflects `maintenanceMode:true`, `maintenanceEnteredAt` + `maintenanceEnteredBy` populated
-- DB verified: flag flipped, timestamp set, userId recorded
-- `AuditLog` row persisted: `action=create, resource=camera, path=/api/cameras/test-cam-001/maintenance, userId=<tester>` (via AuditInterceptor)
-- Idempotency verified: second POST while already in maintenance → HTTP 201, timestamps unchanged
-- Suppression verified: triggered `connecting→online` transition on camera with `maintenanceMode:true` → StatusService logged `Camera camA in maintenance — suppressing outbound notify/webhook for online`, **zero jobs in BullMQ `camera-notify` queue for camA** (redis scan returned empty). DB state still updated, StatusGateway broadcast still fires (confirmed via code path — UI stays live).
-- stopStream() on running camera not observable here because no FFmpeg was actually running — but `cameras.service.ts:enterMaintenance` calls `streamsService.stopStream(cameraId)` which is wired; this path has vitest coverage in 15-03 tests (9/9 pass).
+result: passed — observed end-to-end on live stack with real running FFmpeg:
+- Before: FFmpeg process count = 1, DB `status=online, maintenanceMode=false`
+- `POST /api/cameras/<id>/maintenance` → HTTP 201
+- After: FFmpeg process count = 0 ✓, DB `status=offline, maintenanceMode=true, maintenanceEnteredAt=<ts>, maintenanceEnteredBy=<userId>` ✓
+- Log chain: `StreamsService: Stream stopped` → `FfmpegService: FFmpeg stopped intentionally` → `StatusService: Camera <id> in maintenance — suppressing outbound notify/webhook for offline` → `CamerasService: Camera <id> entered maintenance (user=<userId>)` ✓
+- Redis `bull:camera-notify:camera:<id>*` scan returned empty — ZERO notify jobs queued for this transition ✓ (maintenance gate suppression works as designed)
+- AuditLog row persisted: `action=create, resource=camera, path=/api/cameras/<id>/maintenance, userId=<userId>` (AuditInterceptor) ✓
 
 ### 6. Exit maintenance → status stays offline, no auto-restart
 expected: `ออกจากโหมดซ่อมบำรุง` → dialog (default variant) → confirm → wrench invisible; historical timestamps preserved; no FFmpeg spawn.
 result: passed:
-- `DELETE /api/cameras/test-cam-001/maintenance` → HTTP 200
-- `maintenanceMode: true → false`
-- `maintenanceEnteredAt` **preserved** (`2026-04-19 03:16:39.777` unchanged — matches design for historical audit)
-- `maintenanceEnteredBy` **preserved** (userId kept as last entering operator)
-- `status` unchanged (`connecting` stayed `connecting`) — no auto-restart triggered, confirms Success Criteria #5
-- `AuditLog` row added: `action=delete, resource=camera, path=/api/cameras/test-cam-001/maintenance`
+- `DELETE /api/cameras/<id>/maintenance` → HTTP 200
+- `maintenanceMode: true → false` ✓
+- `maintenanceEnteredAt` **preserved** (historical record kept) ✓
+- `maintenanceEnteredBy` **preserved** (historical audit) ✓
+- `status: offline → offline` (unchanged — no auto-restart) ✓
+- FFmpeg process count stayed 0 — no spawn triggered ✓
+- AuditLog row added: `action=delete, resource=camera, path=/api/cameras/<id>/maintenance` ✓
 
 ## Summary
 
 total: 6
 passed: 4
-issues: 1
+issues: 0
 pending: 1
 skipped: 0
-blocked: 0
+blocked: 1
 
 ## Gaps
 
@@ -70,25 +78,50 @@ severity: high
 scope: **pre-existing tenancy issue — not introduced by Phase 15, but Phase 15's new write endpoints expand the impact**
 
 **Reproduction:**
-1. Create user A in org 1 (with active org set via `/api/auth/organization/set-active`)
-2. Create user B with no Member rows in any org, session has `activeOrganizationId: null`
-3. User B calls `GET /api/cameras` → sees ALL cameras across ALL orgs
-4. User B calls `POST /api/cameras/<org1-camera-id>/maintenance` → HTTP 201, flips flag, writes own userId into `maintenanceEnteredBy`
-5. User B calls `PATCH /api/cameras/<org1-camera-id>` with `{"name":"HACKED"}` → HTTP 200, name changed (same bug on pre-existing endpoint)
+1. User B signs up via `POST /api/auth/sign-up/email` but is never added to any organization (Session has `activeOrganizationId: null`)
+2. User B calls `GET /api/cameras` → sees cameras across ALL orgs
+3. User B calls `POST /api/cameras/<other-org-cam-id>/maintenance` → HTTP 201, flips flag, stamps own userId
+4. Same bug on pre-existing endpoints: `PATCH /api/cameras/:id` with `{"name":"HACKED"}` → HTTP 200, renames camera across org boundary
 
 **Root cause:**
-`Camera` table has two RLS policies:
+`Camera` table RLS policies:
 ```sql
 tenant_isolation_camera: "orgId" = current_setting('app.current_org_id', true)
 superuser_bypass_camera: current_setting('app.current_org_id', true) IS NULL OR '' (empty)
 ```
+When authenticated user has no active org, AuthGuard sets `app.current_org_id` to empty/null → superuser_bypass policy triggers → user bypasses org filter.
 
-When an authenticated user has no active org membership, AuthGuard sets `app.current_org_id` to empty/null → `superuser_bypass_camera` policy triggers → user bypasses org filter like a platform superuser.
+**Why automated tests missed it:** `tests/cameras/maintenance.test.ts` uses direct `CamerasService` instantiation (bypasses AuthGuard + CLS + RLS). No test simulated a session with `activeOrganizationId: null`.
 
-**Why Phase 15 automated tests didn't catch it:**
-Vitest `tests/cameras/maintenance.test.ts` uses direct `CamerasService` instantiation (bypasses AuthGuard + CLS + RLS). The tenancy-client is mocked or initialized with a known org. No test simulated a session with `activeOrganizationId: null`.
+**Suggested fix (follow-on work, not Phase 15):**
+Rewrite `superuser_bypass_*` policies to check positive signal (e.g. `app.is_superuser = 'true'`) instead of empty ORG_ID. Or reject requests from users without active org membership at the AuthGuard level.
 
-**Suggested fix (out of scope for Phase 15):**
-Rewrite `superuser_bypass_*` policies to check a positive signal (e.g. `app.is_superuser = 'true'`) instead of empty/null ORG_ID. Or change AuthGuard to reject requests from users without an active org membership (401 or 403) before any Prisma query runs.
+### Gap 2: Phase 15-02 jobId regression (FIXED in commit 3817b8e)
 
-**Disposition:** record as gap for a follow-on security phase or `/gsd-secure-phase 15` to review. Phase 15 should not be blocked on this — the issue exists on pre-existing PATCH/DELETE endpoints and predates this phase.
+status: resolved
+severity: critical
+scope: **Phase 15-02 regression discovered during live UAT and fixed in-session**
+
+**Symptom:** `POST /api/cameras/:id/stream/start` returned HTTP 500 with `Error: Custom Id cannot contain :` — stream never started.
+
+**Root cause:** BullMQ 5.74.0 validates Custom Job IDs: colons allowed ONLY if split on `:` yields exactly 3 parts (transitional migration rule before fully rejecting colons in next major). Phase 15-02 introduced `camera:<id>` (2 parts) at 4 call sites on the stream-ffmpeg queue.
+
+**Why automated tests missed it:** Vitest suites mock the `Queue` object via `vi.fn()`; mocks do not enforce BullMQ's `validateOptions` checks. All 27 resilience tests green despite the production regression.
+
+**Fix applied (commit 3817b8e):** Changed jobId format from `camera:<id>` to `camera:<id>:ffmpeg` at 4 source sites (`streams.service.ts`, `boot-recovery.service.ts`, `srs-restart-detector.ts`, `camera-health.service.ts`) + 4 test assertions. This parallels the existing `camera:<id>:notify` pattern StatusService uses on the camera-notify queue (which passes validation). Live-tested: stream now starts, FFmpeg spawns, full Phase 15 flow observable.
+
+### Gap 3: SRS `hls_use_fmp4` config rejected on cold boot
+
+status: failed
+severity: medium
+scope: **pre-existing settings.service.ts + cluster template bug — blocks `docker compose restart srs`, which in turn blocks full end-to-end Test 1**
+
+**Symptom:** After `docker compose restart srs`, SRS 6.0.184 rejects `hls_use_fmp4 on;` directive under `vhost.hls` block with:
+```
+Failed, code=1023(ConfigInvalid) : illegal vhost.hls.hls_use_fmp4 of __defaultVhost__
+```
+Container stuck in `Restarting (255)` loop. A running SRS instance tolerates the config via `raw=reload`, but cold boot does not.
+
+**Root cause:** `apps/api/src/settings/settings.service.ts:127` and `apps/api/src/cluster/templates/srs-origin.conf.ts:46` emit `hls_use_fmp4 on;` into the generated `config/srs.conf` on every API boot. SRS 6.0 doc lists this directive but the 6.0.184 binary may scope it differently (perhaps global rather than per-vhost, or requires a companion directive).
+
+**Not Phase 15 scope** — template is unchanged by this phase. File as a separate ticket for the settings service / SRS config template.
