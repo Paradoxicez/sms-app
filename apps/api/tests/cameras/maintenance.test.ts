@@ -1,38 +1,32 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Test } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { CamerasService } from '../../src/cameras/cameras.service';
-import { TENANCY_CLIENT } from '../../src/tenancy/prisma-tenancy.extension';
-import { PrismaService } from '../../src/prisma/prisma.service';
-import { StreamsService } from '../../src/streams/streams.service';
 
 describe('CamerasService maintenance mode', () => {
   let service: CamerasService;
   let tenancy: any;
+  let prisma: any;
   let streams: any;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     tenancy = {
       camera: {
         findUnique: vi.fn(),
         update: vi.fn(),
       },
     };
+    prisma = {};
     streams = {
       stopStream: vi.fn().mockResolvedValue(undefined),
       startStream: vi.fn(),
     };
 
-    const moduleRef = await Test.createTestingModule({
-      providers: [
-        CamerasService,
-        { provide: TENANCY_CLIENT, useValue: tenancy },
-        { provide: PrismaService, useValue: {} },
-        { provide: StreamsService, useValue: streams },
-      ],
-    }).compile();
-
-    service = moduleRef.get(CamerasService);
+    // Direct instantiation — matches the pattern used by all other
+    // vitest files in this repo (e.g., status/maintenance-suppression.test.ts,
+    // cameras/camera-crud.test.ts). Vitest's esbuild transform doesn't emit
+    // `design:paramtypes`, so NestJS DI container can't resolve classes
+    // implicitly.
+    service = new CamerasService(tenancy, prisma, streams);
   });
 
   it('enterMaintenance flips maintenanceMode=true, sets enteredAt + enteredBy, calls streamsService.stopStream', async () => {

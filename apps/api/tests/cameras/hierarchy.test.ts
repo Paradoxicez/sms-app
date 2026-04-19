@@ -12,7 +12,11 @@ describe('Camera Hierarchy (Project > Site > Camera)', () => {
     await cleanupTestData(testPrisma);
     const org = await createTestOrganization(testPrisma);
     orgId = org.id;
-    service = new CamerasService(testPrisma as any, testPrisma as any);
+    service = new CamerasService(
+      testPrisma as any,
+      testPrisma as any,
+      undefined as any,
+    );
   });
 
   afterEach(async () => {
