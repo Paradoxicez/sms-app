@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { PrismaService } from '../prisma/prisma.service';
+import { SystemPrismaService } from '../prisma/system-prisma.service';
 import { SrsApiService } from '../srs/srs-api.service';
 import { FfmpegService } from '../streams/ffmpeg/ffmpeg.service';
 import { buildStreamJobData } from './job-data.helper';
@@ -29,7 +29,7 @@ export class SrsRestartDetector {
   private firstTick = true;
 
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly prisma: SystemPrismaService,
     private readonly srsApi: SrsApiService,
     private readonly ffmpeg: FfmpegService,
     @InjectQueue('stream-ffmpeg') private readonly streamQueue: Queue,

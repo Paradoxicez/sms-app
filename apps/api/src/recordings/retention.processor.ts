@@ -1,7 +1,7 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
-import { PrismaService } from '../prisma/prisma.service';
+import { SystemPrismaService } from '../prisma/system-prisma.service';
 import { MinioService } from './minio.service';
 
 @Processor('recording-retention')
@@ -10,7 +10,7 @@ export class RetentionProcessor extends WorkerHost {
   private readonly logger = new Logger(RetentionProcessor.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly prisma: SystemPrismaService,
     private readonly minioService: MinioService,
   ) {
     super();

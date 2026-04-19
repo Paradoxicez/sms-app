@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { PrismaService } from '../prisma/prisma.service';
+import { SystemPrismaService } from '../prisma/system-prisma.service';
 import { buildStreamJobData } from './job-data.helper';
 
 /**
@@ -20,7 +20,7 @@ export class BootRecoveryService implements OnApplicationBootstrap {
   private readonly logger = new Logger(BootRecoveryService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly prisma: SystemPrismaService,
     @InjectQueue('stream-ffmpeg') private readonly streamQueue: Queue,
   ) {}
 

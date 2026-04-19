@@ -2,7 +2,7 @@ import { Logger } from '@nestjs/common';
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { forwardRef, Inject } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
+import { SystemPrismaService } from '../../prisma/system-prisma.service';
 import { WebhooksService } from '../../webhooks/webhooks.service';
 import { NotificationsService } from '../../notifications/notifications.service';
 
@@ -19,7 +19,7 @@ export class NotifyDispatchProcessor extends WorkerHost {
   private readonly logger = new Logger(NotifyDispatchProcessor.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly prisma: SystemPrismaService,
     private readonly webhooksService: WebhooksService,
     @Inject(forwardRef(() => NotificationsService))
     private readonly notificationsService: NotificationsService,

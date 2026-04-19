@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { PrismaService } from '../prisma/prisma.service';
+import { SystemPrismaService } from '../prisma/system-prisma.service';
 import { SrsApiService } from '../srs/srs-api.service';
 import { FfmpegService } from '../streams/ffmpeg/ffmpeg.service';
 import { StatusService } from '../status/status.service';
@@ -26,7 +26,7 @@ export class CameraHealthService implements OnModuleInit {
   private readonly logger = new Logger(CameraHealthService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly prisma: SystemPrismaService,
     private readonly srsApi: SrsApiService,
     private readonly ffmpeg: FfmpegService,
     private readonly statusService: StatusService,

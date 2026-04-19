@@ -1,7 +1,7 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
-import { PrismaService } from '../prisma/prisma.service';
+import { SystemPrismaService } from '../prisma/system-prisma.service';
 import { RecordingsService } from './recordings.service';
 
 @Processor('recording-schedule')
@@ -10,7 +10,7 @@ export class ScheduleProcessor extends WorkerHost {
   private readonly logger = new Logger(ScheduleProcessor.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly prisma: SystemPrismaService,
     private readonly recordingsService: RecordingsService,
   ) {
     super();
