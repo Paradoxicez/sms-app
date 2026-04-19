@@ -14,13 +14,13 @@ describe('AUTH-04: Super admin guard and impersonation', () => {
   });
 
   it('SuperAdminGuard class exists and implements CanActivate', () => {
-    const guard = new SuperAdminGuard();
+    const guard = new SuperAdminGuard({ set: () => {}, get: () => undefined } as any);
     expect(guard).toBeDefined();
     expect(typeof guard.canActivate).toBe('function');
   });
 
   it('SuperAdminGuard rejects when no session exists', async () => {
-    const guard = new SuperAdminGuard();
+    const guard = new SuperAdminGuard({ set: () => {}, get: () => undefined } as any);
 
     const mockContext = {
       switchToHttp: () => ({

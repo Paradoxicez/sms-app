@@ -74,9 +74,23 @@ export class AuditInterceptor implements NestInterceptor {
 
     const action = METHOD_TO_ACTION[method] || 'update';
 
-    // Derive resource from path: /api/{resource}/...
-    const segments = path.split('/').filter(Boolean);
-    const resourceSegment = segments[1] || 'unknown';
+    // Derive resource from path. Strip query, then take the last non-id
+    // segment — that is the ACTUAL resource being acted on. Using segments[1]
+    // mis-classifies nested routes like POST /api/organizations/:orgId/users
+    // as 'organization' when it is really creating a 'user'.
+    const bare = path.split('?')[0];
+    const segments = bare.split('/').filter(Boolean);
+    const isIdLike = (s: string) =>
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s) ||
+      /^[A-Za-z0-9]{20,}$/.test(s) || // opaque ids (Better Auth nanoids)
+      /^\d+$/.test(s); // numeric ids
+    let resourceSegment = 'unknown';
+    for (let i = segments.length - 1; i >= 0; i--) {
+      if (segments[i] !== 'api' && !isIdLike(segments[i])) {
+        resourceSegment = segments[i];
+        break;
+      }
+    }
     const resource = RESOURCE_MAP[resourceSegment] || resourceSegment;
 
     const ip = request.ip || request.headers?.['x-forwarded-for'];

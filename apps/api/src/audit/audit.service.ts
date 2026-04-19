@@ -93,6 +93,23 @@ export class AuditService {
       this.prisma.auditLog.count({ where }),
     ]);
 
-    return { items, totalCount };
+    // AuditLog has no FK relation to User (userId is a plain String), so we
+    // hand-hydrate the actor by batching distinct userIds and merging.
+    const userIds = Array.from(
+      new Set(items.map((i: any) => i.userId).filter(Boolean)),
+    ) as string[];
+    const users = userIds.length
+      ? await this.prisma.user.findMany({
+          where: { id: { in: userIds } },
+          select: { id: true, name: true, email: true },
+        })
+      : [];
+    const userById = new Map(users.map((u: any) => [u.id, u]));
+    const hydrated = items.map((item: any) => ({
+      ...item,
+      user: item.userId ? userById.get(item.userId) ?? null : null,
+    }));
+
+    return { items: hydrated, totalCount };
   }
 }

@@ -100,16 +100,21 @@ export class ApiKeysService {
 
   /**
    * Find an API key by its SHA-256 hash (for guard authentication).
+   * Runs BEFORE CLS tenancy context is set (ApiKeyGuard looks up the key to
+   * discover the owning orgId), so it must explicitly bypass RLS via a
+   * set_config('app.is_superuser','true') inside the transaction.
    */
   async findByHash(keyHash: string) {
-    return this.prisma.apiKey.findUnique({
-      where: { keyHash },
+    const result = await this.prisma.$transaction(async (tx: any) => {
+      await tx.$executeRaw`SELECT set_config('app.is_superuser', 'true', TRUE)`;
+      return tx.apiKey.findUnique({ where: { keyHash } });
     });
+    return result;
   }
 
   /**
-   * Hard-delete an API key and its usage records (cascade).
-   * ApiKey table has no RLS — use raw PrismaService directly.
+   * Hard-delete an API key and its usage records (cascade). Scoped to orgId
+   * via tenancy client — RLS tenant_isolation_apikey enforces the match.
    */
   async delete(id: string, orgId: string) {
     const key = await this.tenancy.apiKey.findFirst({
@@ -120,7 +125,7 @@ export class ApiKeysService {
     }
 
     try {
-      await this.prisma.apiKey.delete({ where: { id } });
+      await this.tenancy.apiKey.delete({ where: { id } });
     } catch (error) {
       console.error('[ApiKeysService.delete] Failed:', error);
       throw error;
@@ -130,11 +135,17 @@ export class ApiKeysService {
 
   /**
    * Update lastUsedAt timestamp (fire-and-forget from guard).
+   * Runs AFTER findByHash has already discovered the owning org but BEFORE
+   * the guard has a chance to set CLS on the downstream request, so bypass
+   * RLS inline via set_config for this single UPDATE.
    */
   async updateLastUsed(id: string) {
-    await this.prisma.apiKey.update({
-      where: { id },
-      data: { lastUsedAt: new Date() },
+    await this.prisma.$transaction(async (tx: any) => {
+      await tx.$executeRaw`SELECT set_config('app.is_superuser', 'true', TRUE)`;
+      await tx.apiKey.update({
+        where: { id },
+        data: { lastUsedAt: new Date() },
+      });
     });
   }
 

@@ -5,10 +5,13 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Request } from 'express';
+import { ClsService } from 'nestjs-cls';
 import { getAuth } from '../auth.config';
 
 @Injectable()
 export class SuperAdminGuard implements CanActivate {
+  constructor(private readonly cls: ClsService) {}
+
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
     const headers = new Headers();
@@ -31,6 +34,13 @@ export class SuperAdminGuard implements CanActivate {
     if (session.user.role !== 'admin') {
       throw new UnauthorizedException('Super admin access required');
     }
+
+    // Set IS_SUPERUSER so downstream Prisma queries through the tenancy
+    // extension bypass RLS and can read/write across every tenant — the
+    // admin portal is by definition cross-tenant.
+    this.cls.set('IS_SUPERUSER', 'true');
+    (request as any).user = session.user;
+    (request as any).session = session.session;
 
     return true;
   }

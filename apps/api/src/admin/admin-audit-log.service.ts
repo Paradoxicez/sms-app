@@ -1,12 +1,16 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
 import { AuditQueryDto } from '../audit/dto/audit-query.dto';
 
 @Injectable()
 export class AdminAuditLogService {
   private readonly logger = new Logger(AdminAuditLogService.name);
 
-  constructor(private readonly rawPrisma: PrismaService) {}
+  // Use TENANCY_CLIENT. SuperAdminGuard sets IS_SUPERUSER in CLS so the
+  // tenancy extension emits set_config('app.is_superuser','true',...) on
+  // every query; superuser_bypass_auditlog then matches and lets the admin
+  // portal read AuditLog across every tenant.
+  constructor(@Inject(TENANCY_CLIENT) private readonly rawPrisma: any) {}
 
   async findAll(
     query: AuditQueryDto,
