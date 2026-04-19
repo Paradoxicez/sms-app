@@ -2,6 +2,7 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  Inject,
   Param,
   Req,
   UseGuards,
@@ -9,7 +10,7 @@ import {
 import { ApiExcludeController } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { AuthGuard } from '../../auth/guards/auth.guard';
-import { PrismaService } from '../../prisma/prisma.service';
+import { TENANCY_CLIENT } from '../../tenancy/prisma-tenancy.extension';
 import { PlanUsageService, PlanUsageResponse } from './plan-usage.service';
 
 /**
@@ -25,7 +26,7 @@ import { PlanUsageService, PlanUsageResponse } from './plan-usage.service';
 export class PlanUsageController {
   constructor(
     private readonly planUsage: PlanUsageService,
-    private readonly prisma: PrismaService,
+    @Inject(TENANCY_CLIENT) private readonly prisma: any,
   ) {}
 
   @Get()

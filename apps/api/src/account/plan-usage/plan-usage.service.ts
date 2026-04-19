@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type Redis from 'ioredis';
-import { PrismaService } from '../../prisma/prisma.service';
+import { TENANCY_CLIENT } from '../../tenancy/prisma-tenancy.extension';
 import { StatusService } from '../../status/status.service';
 import { REDIS_CLIENT } from '../../api-keys/api-keys.service';
 
@@ -39,7 +39,7 @@ export interface PlanUsageResponse {
 @Injectable()
 export class PlanUsageService {
   constructor(
-    private readonly prisma: PrismaService,
+    @Inject(TENANCY_CLIENT) private readonly prisma: any,
     private readonly status: StatusService,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
