@@ -52,6 +52,7 @@ interface DataTableProps<TData, TValue> {
   onColumnFiltersChange?: (filters: ColumnFiltersState) => void
   loading?: boolean
   emptyState?: EmptyStateConfig
+  onRowClick?: (row: TData) => void
 }
 
 function DataTable<TData, TValue>({
@@ -68,6 +69,7 @@ function DataTable<TData, TValue>({
   onColumnFiltersChange: onColumnFiltersChangeProp,
   loading = false,
   emptyState,
+  onRowClick,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -183,6 +185,21 @@ function DataTable<TData, TValue>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() ? "selected" : undefined}
+                  className={onRowClick ? "cursor-pointer" : undefined}
+                  onClick={
+                    onRowClick ? () => onRowClick(row.original) : undefined
+                  }
+                  tabIndex={onRowClick ? 0 : undefined}
+                  onKeyDown={
+                    onRowClick
+                      ? (e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault()
+                            onRowClick(row.original)
+                          }
+                        }
+                      : undefined
+                  }
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
