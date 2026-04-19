@@ -278,9 +278,78 @@ describe("DataTable component system", () => {
 })
 
 describe("DataTable onRowClick (FOUND-01f — Phase 17)", () => {
-  it.todo("FOUND-01f onRowClick: invokes handler when a row body cell is clicked")
-  it.todo("FOUND-01f onRowClick: does NOT invoke handler when checkbox cell is clicked")
-  it.todo("FOUND-01f onRowClick: does NOT invoke handler when actions menu trigger is clicked")
-  it.todo("FOUND-01f onRowClick: row has cursor-pointer class when handler provided")
-  it.todo("FOUND-01f onRowClick: row has tabIndex=0 and Enter key fires handler")
+  it("FOUND-01f onRowClick: invokes handler when a row body cell is clicked", () => {
+    const handler = vi.fn()
+    const cols: ColumnDef<TestItem>[] = [
+      { accessorKey: "name", header: "Name" },
+    ]
+    render(
+      <DataTable columns={cols} data={testData.slice(0, 3)} onRowClick={handler} />
+    )
+    const rows = screen.getAllByRole("row")
+    fireEvent.click(within(rows[1]).getByText("Item 1"))
+    expect(handler).toHaveBeenCalledWith(testData[0])
+  })
+
+  it("FOUND-01f onRowClick: row has cursor-pointer class when handler provided", () => {
+    const cols: ColumnDef<TestItem>[] = [
+      { accessorKey: "name", header: "Name" },
+    ]
+    const { rerender } = render(
+      <DataTable columns={cols} data={testData.slice(0, 1)} onRowClick={vi.fn()} />
+    )
+    let dataRow = screen.getAllByRole("row")[1]
+    expect(dataRow.className).toContain("cursor-pointer")
+
+    rerender(<DataTable columns={cols} data={testData.slice(0, 1)} />)
+    dataRow = screen.getAllByRole("row")[1]
+    expect(dataRow.className).not.toContain("cursor-pointer")
+  })
+
+  it("FOUND-01f onRowClick: row has tabIndex=0 and Enter key fires handler", () => {
+    const handler = vi.fn()
+    const cols: ColumnDef<TestItem>[] = [
+      { accessorKey: "name", header: "Name" },
+    ]
+    render(
+      <DataTable columns={cols} data={testData.slice(0, 1)} onRowClick={handler} />
+    )
+    const dataRow = screen.getAllByRole("row")[1]
+    expect(dataRow.getAttribute("tabIndex")).toBe("0")
+    fireEvent.keyDown(dataRow, { key: "Enter" })
+    expect(handler).toHaveBeenCalledTimes(1)
+  })
+
+  it("FOUND-01f onRowClick: stopPropagation in cell prevents row handler", () => {
+    const handler = vi.fn()
+    const cols: ColumnDef<TestItem>[] = [
+      {
+        id: "interactive",
+        header: "Action",
+        cell: () => (
+          <button
+            onClick={(e) => e.stopPropagation()}
+            data-testid="cell-button"
+          >
+            Click
+          </button>
+        ),
+      },
+    ]
+    render(
+      <DataTable columns={cols} data={testData.slice(0, 1)} onRowClick={handler} />
+    )
+    fireEvent.click(screen.getByTestId("cell-button"))
+    expect(handler).not.toHaveBeenCalled()
+  })
+
+  it("FOUND-01f onRowClick: undefined handler leaves row non-interactive (no onClick)", () => {
+    const cols: ColumnDef<TestItem>[] = [
+      { accessorKey: "name", header: "Name" },
+    ]
+    render(<DataTable columns={cols} data={testData.slice(0, 1)} />)
+    const dataRow = screen.getAllByRole("row")[1]
+    expect(dataRow.getAttribute("tabIndex")).toBeNull()
+    expect(dataRow.className).not.toContain("cursor-pointer")
+  })
 })
