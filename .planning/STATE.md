@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Self-Service, Resilience & UI Polish
 status: executing
-stopped_at: Phase 17 UI-SPEC approved
-last_updated: "2026-04-19T05:23:35.911Z"
-last_activity: 2026-04-19
+stopped_at: Phase 18 context gathered
+last_updated: "2026-04-19T12:13:06.805Z"
+last_activity: 2026-04-19 -- Phase 16 execution started
 progress:
   total_phases: 6
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 15
-  completed_plans: 7
-  percent: 47
+  completed_plans: 10
+  percent: 67
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-18)
 
 **Core value:** Developers can get a secure HLS playback URL for any registered camera via a single API call, and embed it on their website immediately.
-**Current focus:** Phase 15 — ffmpeg-resilience-camera-maintenance
+**Current focus:** Phase 16 — user-self-service
 
 ## Current Position
 
-Phase: 15.1
-Plan: Not started
-Status: Executing Phase 15
-Last activity: 2026-04-19
+Phase: 16 (user-self-service) — EXECUTING
+Plan: 1 of 3
+Status: Executing Phase 16
+Last activity: 2026-04-19 -- Phase 16 execution started
 
 Progress: [░░░░░░░░░░] 0% (v1.2: 0/5 phases)
 
@@ -81,6 +81,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-18T14:22:34.403Z
-Stopped at: Phase 17 UI-SPEC approved
-Resume file: .planning/phases/17-recording-playback-timeline/17-UI-SPEC.md
+Last session: 2026-04-19T12:13:06.799Z
+Stopped at: Phase 18 context gathered
+Resume file: .planning/phases/18-dashboard-map-polish/18-CONTEXT.md
