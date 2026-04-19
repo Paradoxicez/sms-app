@@ -205,9 +205,7 @@ export function createCamerasColumns(
             onClick: callbacks.onRecordToggle,
           },
           {
-            label: camera.maintenanceMode
-              ? "Exit Maintenance"
-              : "Enter Maintenance",
+            label: "Maintenance",
             icon: Wrench,
             onClick: callbacks.onMaintenanceToggle,
           },
