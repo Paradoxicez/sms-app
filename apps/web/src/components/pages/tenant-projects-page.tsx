@@ -429,16 +429,16 @@ export default function TenantProjectsPage() {
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
       toast.success(
         entering
-          ? `กล้อง "${maintenanceTarget.name}" อยู่ในโหมดซ่อมบำรุงแล้ว`
-          : 'ออกจากโหมดซ่อมบำรุงแล้ว — คลิก Start Stream เพื่อเริ่มสตรีม',
+          ? `Camera "${maintenanceTarget.name}" is now in maintenance`
+          : 'Exited maintenance — click Start Stream to resume',
       )
       setMaintenanceTarget(null)
       refreshAll()
     } catch {
       toast.error(
         entering
-          ? 'ไม่สามารถเข้าโหมดซ่อมบำรุงได้ กรุณาลองใหม่'
-          : 'ไม่สามารถออกจากโหมดซ่อมบำรุงได้ กรุณาลองใหม่',
+          ? 'Failed to enter maintenance mode. Please try again.'
+          : 'Failed to exit maintenance mode. Please try again.',
       )
     } finally {
       setMaintenanceLoading(false)
@@ -1024,35 +1024,35 @@ export default function TenantProjectsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>
               {maintenanceTarget?.maintenanceMode
-                ? "ออกจากโหมดซ่อมบำรุง?"
-                : "เข้าโหมดซ่อมบำรุง?"}
+                ? "Exit maintenance mode?"
+                : "Enter maintenance mode?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {maintenanceTarget?.maintenanceMode ? (
                 <>
-                  กล้อง &quot;{maintenanceTarget?.name}&quot; จะกลับมารับการแจ้งเตือนและ webhook ตามปกติ{" "}
+                  Camera &quot;{maintenanceTarget?.name}&quot; will resume receiving notifications and webhooks.{" "}
                   <strong className="font-semibold">
-                    สตรีมจะยังไม่เริ่มใหม่โดยอัตโนมัติ
+                    The stream will not auto-restart
                   </strong>{" "}
-                  — คลิก &quot;Start Stream&quot; เพื่อเริ่มใหม่เมื่อพร้อม
+                  — click &quot;Start Stream&quot; to resume when ready.
                 </>
               ) : (
                 <>
-                  การเข้าโหมดซ่อมบำรุงจะ
-                  <strong className="font-semibold">หยุดสตรีม</strong>{" "}
-                  ของกล้อง &quot;{maintenanceTarget?.name}&quot; และระงับการแจ้งเตือน (notifications + webhooks) จนกว่าจะออกจากโหมดนี้ การบันทึก (recording) จะหยุดไปด้วย
+                  Entering maintenance will{" "}
+                  <strong className="font-semibold">stop the stream</strong>{" "}
+                  for camera &quot;{maintenanceTarget?.name}&quot; and suppress notifications (notifications + webhooks) until maintenance is exited. Recording will also stop.
                 </>
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={maintenanceLoading}>ยกเลิก</AlertDialogCancel>
+            <AlertDialogCancel disabled={maintenanceLoading}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               variant={maintenanceTarget?.maintenanceMode ? "default" : "destructive"}
               onClick={confirmMaintenanceToggle}
               disabled={maintenanceLoading}
             >
-              {maintenanceTarget?.maintenanceMode ? "ออกจากโหมด" : "เข้าโหมดซ่อมบำรุง"}
+              {maintenanceTarget?.maintenanceMode ? "Exit maintenance" : "Enter maintenance"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

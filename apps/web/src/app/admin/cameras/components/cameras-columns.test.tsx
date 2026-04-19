@@ -104,20 +104,20 @@ describe("Cameras Status column composite cell (CAM-02)", () => {
 })
 
 describe("Cameras row-actions maintenance entry (CAM-03)", () => {
-  it("shows 'เข้าโหมดซ่อมบำรุง' when maintenanceMode=false", async () => {
+  it("shows 'Enter Maintenance' when maintenanceMode=false", async () => {
     const user = userEvent.setup()
     renderActionsCell({ ...baseCamera, maintenanceMode: false })
     const trigger = screen.getByRole("button", { name: /open menu/i })
     await user.click(trigger)
-    expect(await screen.findByText("เข้าโหมดซ่อมบำรุง")).toBeInTheDocument()
+    expect(await screen.findByText("Enter Maintenance")).toBeInTheDocument()
   })
 
-  it("shows 'ออกจากโหมดซ่อมบำรุง' when maintenanceMode=true", async () => {
+  it("shows 'Exit Maintenance' when maintenanceMode=true", async () => {
     const user = userEvent.setup()
     renderActionsCell({ ...baseCamera, maintenanceMode: true })
     const trigger = screen.getByRole("button", { name: /open menu/i })
     await user.click(trigger)
-    expect(await screen.findByText("ออกจากโหมดซ่อมบำรุง")).toBeInTheDocument()
+    expect(await screen.findByText("Exit Maintenance")).toBeInTheDocument()
   })
 
   it("invokes onMaintenanceToggle with the camera when clicked", async () => {
@@ -127,7 +127,7 @@ describe("Cameras row-actions maintenance entry (CAM-03)", () => {
     renderActionsCell({ ...baseCamera, maintenanceMode: false }, cb)
     const trigger = screen.getByRole("button", { name: /open menu/i })
     await user.click(trigger)
-    const menuItem = await screen.findByText("เข้าโหมดซ่อมบำรุง")
+    const menuItem = await screen.findByText("Enter Maintenance")
     await user.click(menuItem)
     expect(spy).toHaveBeenCalledTimes(1)
     // DataTableRowActions passes `row.original` to action.onClick.

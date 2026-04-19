@@ -42,11 +42,11 @@ interface CamerasColumnCallbacks {
 }
 
 const statusTooltip: Record<CameraRow["status"], string> = {
-  online: "ออนไลน์",
-  offline: "ออฟไลน์",
-  degraded: "สัญญาณไม่เสถียร (Degraded)",
-  connecting: "กำลังเชื่อมต่อ…",
-  reconnecting: "กำลังเชื่อมต่อใหม่…",
+  online: "Online",
+  offline: "Offline",
+  degraded: "Degraded",
+  connecting: "Connecting…",
+  reconnecting: "Reconnecting…",
 }
 
 export function createCamerasColumns(
@@ -89,7 +89,7 @@ export function createCamerasColumns(
                   }
                 />
                 <TooltipContent>
-                  {camera.isRecording ? "กำลังบันทึก" : "ไม่ได้บันทึก"}
+                  {camera.isRecording ? "Recording" : "Not recording"}
                 </TooltipContent>
               </Tooltip>
 
@@ -110,7 +110,7 @@ export function createCamerasColumns(
                   }
                 />
                 {camera.maintenanceMode && (
-                  <TooltipContent>อยู่ในโหมดซ่อมบำรุง — ไม่แจ้งเตือน</TooltipContent>
+                  <TooltipContent>In maintenance — notifications suppressed</TooltipContent>
                 )}
               </Tooltip>
             </div>
@@ -206,8 +206,8 @@ export function createCamerasColumns(
           },
           {
             label: camera.maintenanceMode
-              ? "ออกจากโหมดซ่อมบำรุง"
-              : "เข้าโหมดซ่อมบำรุง",
+              ? "Exit Maintenance"
+              : "Enter Maintenance",
             icon: Wrench,
             onClick: callbacks.onMaintenanceToggle,
           },
