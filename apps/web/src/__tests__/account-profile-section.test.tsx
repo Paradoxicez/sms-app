@@ -1,6 +1,6 @@
 // Phase 16-02 Task 4 — AccountProfileSection.
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const updateUserMock = vi.fn(async () => ({ data: {}, error: null }));
@@ -99,7 +99,9 @@ describe("AccountProfileSection", () => {
     const { container } = render(<AccountProfileSection user={baseUser()} />);
     const input = container.querySelector('input[type="file"]') as HTMLInputElement;
     const gif = new File([new Uint8Array(100)], "evil.gif", { type: "image/gif" });
-    await userEvent.upload(input, gif);
+    // Bypass input[accept] filter via fireEvent.change — simulates a hostile
+    // MIME that slipped past the file picker (defence-in-depth coverage).
+    fireEvent.change(input, { target: { files: [gif] } });
     await waitFor(() => {
       expect(toastErrorMock).toHaveBeenCalledWith(
         "Unsupported format. Use JPEG, PNG, or WebP.",
