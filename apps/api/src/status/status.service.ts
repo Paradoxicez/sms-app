@@ -15,7 +15,7 @@ export class StatusService {
     offline: ['connecting'],
     connecting: ['online', 'offline'],
     online: ['reconnecting', 'degraded', 'offline'],
-    reconnecting: ['online', 'offline'],
+    reconnecting: ['online', 'offline', 'connecting'],
     degraded: ['online', 'offline'],
   };
 
