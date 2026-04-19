@@ -46,6 +46,7 @@ interface CamerasDataTableProps {
   onDelete: (camera: CameraRow) => void
   onRecordToggle: (camera: CameraRow) => void
   onStreamToggle: (camera: CameraRow) => void
+  onMaintenanceToggle: (camera: CameraRow) => void
   onEmbedCode: (camera: CameraRow) => void
   onCreateCamera: () => void
   onImportCameras?: () => void
@@ -61,6 +62,7 @@ export function CamerasDataTable({
   onDelete,
   onRecordToggle,
   onStreamToggle,
+  onMaintenanceToggle,
   onEmbedCode,
   onCreateCamera,
   onImportCameras,
@@ -75,9 +77,18 @@ export function CamerasDataTable({
         onDelete,
         onRecordToggle,
         onStreamToggle,
+        onMaintenanceToggle,
         onEmbedCode,
       }),
-    [onEdit, onViewStream, onDelete, onRecordToggle, onStreamToggle, onEmbedCode]
+    [
+      onEdit,
+      onViewStream,
+      onDelete,
+      onRecordToggle,
+      onStreamToggle,
+      onMaintenanceToggle,
+      onEmbedCode,
+    ]
   )
 
   const [sorting, setSorting] = useState<SortingState>([])
@@ -244,6 +255,7 @@ export function CamerasDataTable({
           <DataTablePagination table={table} />
         </>
       ) : (
+        // Card grid has no row-action menu entry for maintenance — maintenance is table-only per UI-SPEC (§Row Action Dropdown Entry).
         <CameraCardGrid
           cameras={table.getFilteredRowModel().rows.map((r) => r.original)}
           loading={loading}

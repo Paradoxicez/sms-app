@@ -41,6 +41,8 @@ export default function TenantCamerasPage() {
   const [embedCamera, setEmbedCamera] = useState<CameraRow | null>(null);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [selectedCameraId, setSelectedCameraId] = useState<string | null>(null);
+  const [maintenanceTarget, setMaintenanceTarget] = useState<CameraRow | null>(null);
+  const [maintenanceLoading, setMaintenanceLoading] = useState(false);
 
   const selectedCamera = cameras.find(c => c.id === selectedCameraId) ?? null;
 
@@ -144,6 +146,38 @@ export default function TenantCamerasPage() {
     }
   }
 
+  function handleMaintenanceToggle(camera: CameraRow) {
+    setMaintenanceTarget(camera);
+  }
+
+  async function confirmMaintenanceToggle() {
+    if (!maintenanceTarget) return;
+    const entering = !maintenanceTarget.maintenanceMode;
+    setMaintenanceLoading(true);
+    try {
+      const res = await fetch(`/api/cameras/${maintenanceTarget.id}/maintenance`, {
+        method: entering ? 'POST' : 'DELETE',
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      toast.success(
+        entering
+          ? `กล้อง "${maintenanceTarget.name}" อยู่ในโหมดซ่อมบำรุงแล้ว`
+          : 'ออกจากโหมดซ่อมบำรุงแล้ว — คลิก Start Stream เพื่อเริ่มสตรีม',
+      );
+      setMaintenanceTarget(null);
+      await fetchCameras();
+    } catch {
+      toast.error(
+        entering
+          ? 'ไม่สามารถเข้าโหมดซ่อมบำรุงได้ กรุณาลองใหม่'
+          : 'ไม่สามารถออกจากโหมดซ่อมบำรุงได้ กรุณาลองใหม่',
+      );
+    } finally {
+      setMaintenanceLoading(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between mb-4">
@@ -164,6 +198,7 @@ export default function TenantCamerasPage() {
         onDelete={handleDelete}
         onRecordToggle={handleRecordToggle}
         onStreamToggle={handleStreamToggle}
+        onMaintenanceToggle={handleMaintenanceToggle}
         onEmbedCode={handleEmbedCode}
         onCreateCamera={() => setCreateDialogOpen(true)}
         onImportCameras={() => setImportDialogOpen(true)}
@@ -219,6 +254,51 @@ export default function TenantCamerasPage() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction variant="destructive" onClick={confirmDelete}>
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Maintenance confirmation */}
+      <AlertDialog
+        open={!!maintenanceTarget}
+        onOpenChange={(open) => {
+          if (!open && !maintenanceLoading) setMaintenanceTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {maintenanceTarget?.maintenanceMode
+                ? 'ออกจากโหมดซ่อมบำรุง?'
+                : 'เข้าโหมดซ่อมบำรุง?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {maintenanceTarget?.maintenanceMode ? (
+                <>
+                  กล้อง &quot;{maintenanceTarget?.name}&quot; จะกลับมารับการแจ้งเตือนและ webhook ตามปกติ{' '}
+                  <strong className="font-semibold">
+                    สตรีมจะยังไม่เริ่มใหม่โดยอัตโนมัติ
+                  </strong>{' '}
+                  — คลิก &quot;Start Stream&quot; เพื่อเริ่มใหม่เมื่อพร้อม
+                </>
+              ) : (
+                <>
+                  การเข้าโหมดซ่อมบำรุงจะ
+                  <strong className="font-semibold">หยุดสตรีม</strong>{' '}
+                  ของกล้อง &quot;{maintenanceTarget?.name}&quot; และระงับการแจ้งเตือน (notifications + webhooks) จนกว่าจะออกจากโหมดนี้ การบันทึก (recording) จะหยุดไปด้วย
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={maintenanceLoading}>ยกเลิก</AlertDialogCancel>
+            <AlertDialogAction
+              variant={maintenanceTarget?.maintenanceMode ? 'default' : 'destructive'}
+              onClick={confirmMaintenanceToggle}
+              disabled={maintenanceLoading}
+            >
+              {maintenanceTarget?.maintenanceMode ? 'ออกจากโหมด' : 'เข้าโหมดซ่อมบำรุง'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
