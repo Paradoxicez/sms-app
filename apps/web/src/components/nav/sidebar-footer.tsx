@@ -1,11 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Building2, LogOut } from "lucide-react";
+import { Building2, LogOut, UserCog } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { authClient } from "@/lib/auth-client";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,6 +26,8 @@ interface SidebarFooterContentProps {
   userName?: string;
   userEmail?: string;
   orgName?: string;
+  accountHref?: string;
+  userImage?: string | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -50,6 +53,8 @@ export function SidebarFooterContent({
   userName,
   userEmail,
   orgName,
+  accountHref = "/app/account",
+  userImage,
 }: SidebarFooterContentProps) {
   const router = useRouter();
   const { state } = useSidebar();
@@ -69,6 +74,9 @@ export function SidebarFooterContent({
         )}
       >
         <Avatar className="h-8 w-8">
+          {userImage ? (
+            <AvatarImage src={userImage} alt={userName ?? "User"} />
+          ) : null}
           <AvatarFallback className="bg-primary/10 text-xs text-primary">
             {initials}
           </AvatarFallback>
@@ -110,6 +118,11 @@ export function SidebarFooterContent({
             </DropdownMenuGroup>
           </>
         )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem render={<Link href={accountHref} />}>
+          <UserCog className="mr-2 h-4 w-4" />
+          Account settings
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={handleSignOut}

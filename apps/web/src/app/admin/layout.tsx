@@ -15,7 +15,11 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const [user, setUser] = useState<{ name?: string; email?: string } | null>(null);
+  const [user, setUser] = useState<{
+    name?: string;
+    email?: string;
+    image?: string | null;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -48,6 +52,7 @@ export default function AdminLayout({
         setUser({
           name: session.data.user.name,
           email: session.data.user.email,
+          image: (session.data.user as { image?: string | null }).image ?? null,
         });
         setLoading(false);
       } catch {
@@ -75,6 +80,8 @@ export default function AdminLayout({
         portalBadge="Platform"
         userName={user?.name}
         userEmail={user?.email}
+        accountHref="/admin/account"
+        userImage={user?.image}
       />
       <SidebarInset>
         <header className="flex h-14 items-center gap-2 border-b px-4">

@@ -31,6 +31,8 @@ export interface AppSidebarProps {
   portalBadgeTitle?: string;
   userName?: string;
   userEmail?: string;
+  accountHref?: string;
+  userImage?: string | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -92,6 +94,8 @@ export function AppSidebar({
   portalBadgeTitle,
   userName,
   userEmail,
+  accountHref,
+  userImage,
 }: AppSidebarProps) {
   const pathname = usePathname();
 
@@ -124,7 +128,12 @@ export function AppSidebar({
         ))}
       </SidebarContent>
       <SidebarFooter>
-        <SidebarFooterContent userName={userName} userEmail={userEmail} />
+        <SidebarFooterContent
+          userName={userName}
+          userEmail={userEmail}
+          accountHref={accountHref}
+          userImage={userImage}
+        />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
