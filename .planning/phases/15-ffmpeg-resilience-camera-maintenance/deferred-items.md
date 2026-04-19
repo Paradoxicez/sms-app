@@ -37,3 +37,20 @@ status/ tests pass.
 
 Out of scope for 15-01. Surface to orchestrator / a future housekeeping
 plan for triage.
+
+## 15-02: Pre-existing test failures (NOT introduced by 15-02)
+
+After 15-02 (commits ce8ea19, 758770f, 06fe803, 54eb6c6, b5bfbaa) the full
+API suite shows 23 failing tests across 12 files — same baseline set as
+documented above for 15-01 (minus the 3 stream-lifecycle tests that were
+repaired by Task 1 when unifying the jobId).
+
+Resilience test coverage added in 15-02 (27 new tests, all passing):
+- tests/resilience/camera-health.test.ts (8 tests)
+- tests/resilience/srs-restart-detection.test.ts (5 tests)
+- tests/resilience/srs-restart-recovery.test.ts (4 tests)
+- tests/resilience/boot-recovery.test.ts (6 tests)
+- tests/resilience/shutdown.test.ts (4 tests)
+
+Remaining 23 failures remain out of scope per scope-boundary rule
+(pre-existing auth/crypto ESM, recording manifest, srs callback mocks).
