@@ -24,6 +24,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { ClusterModule } from './cluster/cluster.module';
 import { RecordingsModule } from './recordings/recordings.module';
+import { AccountModule } from './account/account.module';
 import { ResilienceModule } from './resilience/resilience.module';
 
 @Module({
@@ -56,6 +57,7 @@ import { ResilienceModule } from './resilience/resilience.module';
     DashboardModule,
     ClusterModule,
     RecordingsModule,
+    AccountModule,
     ResilienceModule,
     ThrottlerModule.forRoot({
       throttlers:
