@@ -224,6 +224,40 @@ export class CamerasController {
     return this.camerasService.deleteCamera(id);
   }
 
+  // ─── Maintenance Mode ───────────────────────────
+
+  @Post('cameras/:id/maintenance')
+  @ApiOperation({
+    summary:
+      'Put camera into maintenance mode (stops stream, suppresses notifications/webhooks per 15-01 gate)',
+  })
+  @ApiResponse({ status: 200, description: 'Camera placed in maintenance mode' })
+  @ApiResponse({ status: 404, description: 'Camera not found' })
+  @ApiParam({ name: 'id', description: 'Camera ID' })
+  async enterMaintenance(@Param('id') id: string, @Req() req: Request) {
+    // AuthGuard attaches the authenticated user to the request (see
+    // apps/api/src/auth/guards/auth.guard.ts). CLS carries ORG_ID but NOT
+    // USER_ID in the current codebase — sourcing userId from req.user
+    // matches the existing UsersController pattern.
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      throw new BadRequestException('No authenticated user in request context');
+    }
+    return this.camerasService.enterMaintenance(id, userId);
+  }
+
+  @Delete('cameras/:id/maintenance')
+  @ApiOperation({
+    summary:
+      'Exit camera maintenance mode (does NOT auto-restart stream — operator must call Start Stream per D-14)',
+  })
+  @ApiResponse({ status: 200, description: 'Camera exited maintenance mode' })
+  @ApiResponse({ status: 404, description: 'Camera not found' })
+  @ApiParam({ name: 'id', description: 'Camera ID' })
+  async exitMaintenance(@Param('id') id: string) {
+    return this.camerasService.exitMaintenance(id);
+  }
+
   // ─── Bulk Import ────────────────────────────────
 
   @Post('cameras/bulk-import')

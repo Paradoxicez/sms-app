@@ -1,11 +1,13 @@
 import {
   Injectable,
   Inject,
+  Logger,
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
+import { StreamsService } from '../streams/streams.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { CreateSiteDto } from './dto/create-site.dto';
 import { CreateCameraDto } from './dto/create-camera.dto';
@@ -14,9 +16,12 @@ import { BulkImportDto } from './dto/bulk-import.dto';
 
 @Injectable()
 export class CamerasService {
+  private readonly logger = new Logger(CamerasService.name);
+
   constructor(
     @Inject(TENANCY_CLIENT) private readonly tenancy: any,
     private readonly prisma: PrismaService,
+    private readonly streamsService: StreamsService,
   ) {}
 
   // ─── Projects ──────────────────────────────────
@@ -193,6 +198,100 @@ export class CamerasService {
         codecInfo: data.codecInfo,
       },
     });
+  }
+
+  // ─── Maintenance Mode ───────────────────────────
+
+  /**
+   * Put camera into maintenance mode.
+   *
+   * Order matters: flag is flipped FIRST so the subsequent stopStream
+   * transition (status → offline) flows through the 15-01 maintenance gate
+   * and gets notify/webhook-suppressed. Broadcast + DB update still happen
+   * (per D-04/D-15) — only outbound notify/webhook is gated.
+   *
+   * Mitigates T-15-01 by using the tenancy client (RLS-scoped) for reads/writes.
+   * Mitigates T-15-02 by ordering flag-flip BEFORE transition (tested).
+   */
+  async enterMaintenance(cameraId: string, userId: string): Promise<any> {
+    // Tenancy client scopes to caller's org via RLS — cross-org lookup returns null.
+    const camera = await this.tenancy.camera.findUnique({
+      where: { id: cameraId },
+    });
+    if (!camera) {
+      throw new NotFoundException(`Camera ${cameraId} not found`);
+    }
+    if (camera.maintenanceMode) {
+      this.logger.debug(
+        `enterMaintenance: ${cameraId} already in maintenance — no-op`,
+      );
+      return camera;
+    }
+
+    // (1) Flip flag FIRST so any subsequent status transition (from stopStream)
+    //     flows through the 15-01 maintenance gate and suppresses notify/webhook.
+    const updated = await this.tenancy.camera.update({
+      where: { id: cameraId },
+      data: {
+        maintenanceMode: true,
+        maintenanceEnteredAt: new Date(),
+        maintenanceEnteredBy: userId,
+      },
+    });
+
+    // (2) Best-effort stop stream. If no stream is running, stopStream still
+    //     transitions status → offline (harmless). If stream IS running, FFmpeg
+    //     is SIGTERM'd and the offline transition is notify-suppressed (15-01).
+    try {
+      await this.streamsService.stopStream(cameraId);
+    } catch (err) {
+      this.logger.warn(
+        `enterMaintenance: stopStream failed for ${cameraId} — continuing: ${(err as Error).message}`,
+      );
+    }
+
+    // (3) Defensive: ensure status=offline even if stopStream no-op'd (e.g.,
+    //     stream wasn't running, or stopStream threw before the StatusService
+    //     transition could execute).
+    const finalCamera = await this.tenancy.camera.update({
+      where: { id: cameraId },
+      data: { status: 'offline' },
+    });
+
+    this.logger.log(
+      `Camera ${cameraId} entered maintenance (user=${userId})`,
+    );
+    return finalCamera;
+  }
+
+  /**
+   * Exit maintenance mode.
+   *
+   * Per D-14:
+   *   - Do NOT clear maintenanceEnteredAt/By — they are historical record.
+   *   - Do NOT auto-restart the stream — operator must click Start Stream.
+   */
+  async exitMaintenance(cameraId: string): Promise<any> {
+    const camera = await this.tenancy.camera.findUnique({
+      where: { id: cameraId },
+    });
+    if (!camera) {
+      throw new NotFoundException(`Camera ${cameraId} not found`);
+    }
+    if (!camera.maintenanceMode) {
+      this.logger.debug(
+        `exitMaintenance: ${cameraId} not in maintenance — no-op`,
+      );
+      return camera;
+    }
+
+    const updated = await this.tenancy.camera.update({
+      where: { id: cameraId },
+      data: { maintenanceMode: false },
+    });
+
+    this.logger.log(`Camera ${cameraId} exited maintenance`);
+    return updated;
   }
 
   // ─── Bulk Import ────────────────────────────────

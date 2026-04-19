@@ -17,7 +17,11 @@ describe('Camera CRUD', () => {
     const org = await createTestOrganization(testPrisma, { packageId: pkg.id });
     orgId = org.id;
 
-    service = new CamerasService(testPrisma as any, testPrisma as any);
+    service = new CamerasService(
+      testPrisma as any,
+      testPrisma as any,
+      undefined as any,
+    );
 
     const project = await service.createProject(orgId, { name: 'Test Project' });
     const site = await service.createSite(orgId, project.id, { name: 'Test Site' });
