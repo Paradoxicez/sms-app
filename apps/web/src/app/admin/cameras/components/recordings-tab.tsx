@@ -35,8 +35,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { HlsPlayer } from './hls-player';
-import { TimelineBar } from './timeline-bar';
+import { HlsPlayer } from '@/components/recordings/hls-player';
+import { TimelineBar } from '@/components/recordings/timeline-bar';
 import { RecordingControls } from './recording-controls';
 import { ScheduleDialog } from './schedule-dialog';
 import { RetentionSettings } from './retention-settings';

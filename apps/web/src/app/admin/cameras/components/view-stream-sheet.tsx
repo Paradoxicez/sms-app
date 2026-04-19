@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 import { type CameraRow } from "./cameras-columns"
 import { CameraStatusBadge } from "./camera-status-badge"
-import { HlsPlayer } from "./hls-player"
+import { HlsPlayer } from "@/components/recordings/hls-player"
 import { ResolvedPolicyCard } from "@/app/admin/policies/components/resolved-policy-card"
 import { AuditLogDataTable } from "@/components/audit/audit-log-data-table"
 
