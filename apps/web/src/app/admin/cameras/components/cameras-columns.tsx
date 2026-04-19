@@ -2,17 +2,25 @@
 
 import type { ColumnDef } from "@tanstack/react-table"
 import { formatDistanceToNow } from "date-fns"
-import { Pencil, Play, Circle, Code, Trash2, Radio } from "lucide-react"
+import { Pencil, Play, Circle, Code, Trash2, Radio, Wrench } from "lucide-react"
 
 import { DataTableColumnHeader } from "@/components/ui/data-table"
 import { DataTableRowActions, type RowAction } from "@/components/ui/data-table"
 import { CameraStatusDot } from "@/app/admin/cameras/components/camera-status-badge"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { cn } from "@/lib/utils"
 
 export interface CameraRow {
   id: string
   name: string
   status: "online" | "offline" | "degraded" | "connecting" | "reconnecting"
   isRecording: boolean
+  maintenanceMode: boolean
   streamUrl: string
   codecInfo?: { video?: string; width?: number; height?: number } | null
   streamProfileId?: string | null
@@ -30,6 +38,15 @@ interface CamerasColumnCallbacks {
   onRecordToggle: (camera: CameraRow) => void
   onEmbedCode: (camera: CameraRow) => void
   onStreamToggle: (camera: CameraRow) => void
+  onMaintenanceToggle: (camera: CameraRow) => void
+}
+
+const statusTooltip: Record<CameraRow["status"], string> = {
+  online: "ออนไลน์",
+  offline: "ออฟไลน์",
+  degraded: "สัญญาณไม่เสถียร (Degraded)",
+  connecting: "กำลังเชื่อมต่อ…",
+  reconnecting: "กำลังเชื่อมต่อใหม่…",
 }
 
 export function createCamerasColumns(
@@ -41,10 +58,66 @@ export function createCamerasColumns(
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Status" />
       ),
-      cell: ({ row }) => (
-        <CameraStatusDot status={row.getValue("status")} />
-      ),
-      size: 48,
+      cell: ({ row }) => {
+        const camera = row.original
+        return (
+          <TooltipProvider>
+            <div className="flex items-center gap-1" aria-label="Camera status">
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <span>
+                      <CameraStatusDot status={camera.status} />
+                    </span>
+                  }
+                />
+                <TooltipContent>{statusTooltip[camera.status]}</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Circle
+                      className={cn(
+                        "size-3",
+                        camera.isRecording
+                          ? "fill-red-500 text-red-500"
+                          : "text-muted-foreground"
+                      )}
+                      aria-hidden="true"
+                    />
+                  }
+                />
+                <TooltipContent>
+                  {camera.isRecording ? "กำลังบันทึก" : "ไม่ได้บันทึก"}
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Wrench
+                      className={cn(
+                        "size-3.5",
+                        camera.maintenanceMode
+                          ? "text-amber-600 dark:text-amber-500"
+                          : "invisible"
+                      )}
+                      aria-hidden={!camera.maintenanceMode}
+                      aria-label={camera.maintenanceMode ? "maintenance" : undefined}
+                      role={camera.maintenanceMode ? "img" : undefined}
+                    />
+                  }
+                />
+                {camera.maintenanceMode && (
+                  <TooltipContent>อยู่ในโหมดซ่อมบำรุง — ไม่แจ้งเตือน</TooltipContent>
+                )}
+              </Tooltip>
+            </div>
+          </TooltipProvider>
+        )
+      },
+      size: 72,
       filterFn: (row, id, value: string[]) => value.includes(row.getValue(id)),
     },
     {
@@ -130,6 +203,13 @@ export function createCamerasColumns(
             label: camera.isRecording ? "Stop Recording" : "Start Recording",
             icon: Circle,
             onClick: callbacks.onRecordToggle,
+          },
+          {
+            label: camera.maintenanceMode
+              ? "ออกจากโหมดซ่อมบำรุง"
+              : "เข้าโหมดซ่อมบำรุง",
+            icon: Wrench,
+            onClick: callbacks.onMaintenanceToggle,
           },
           { label: "Embed Code", icon: Code, onClick: callbacks.onEmbedCode },
           {

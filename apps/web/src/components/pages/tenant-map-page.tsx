@@ -178,6 +178,7 @@ export default function TenantMapPage() {
         name: cam.name,
         status: cam.status as CameraRow['status'],
         isRecording: false,
+        maintenanceMode: false,
         streamUrl: '',
         createdAt: '',
       };
