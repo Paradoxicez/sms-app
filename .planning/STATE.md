@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Self-Service, Resilience & UI Polish
 status: executing
-stopped_at: Phase 18 context gathered
-last_updated: "2026-04-19T12:13:06.805Z"
-last_activity: 2026-04-19 -- Phase 16 execution started
+stopped_at: Phase 18 UI-SPEC approved
+last_updated: "2026-04-19T15:53:42.786Z"
+last_activity: 2026-04-19
 progress:
   total_phases: 6
   completed_phases: 3
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 
 ## Current Position
 
-Phase: 16 (user-self-service) — EXECUTING
-Plan: 1 of 3
+Phase: 17
+Plan: Not started
 Status: Executing Phase 16
-Last activity: 2026-04-19 -- Phase 16 execution started
+Last activity: 2026-04-19
 
 Progress: [░░░░░░░░░░] 0% (v1.2: 0/5 phases)
 
@@ -36,7 +36,7 @@ Progress: [░░░░░░░░░░] 0% (v1.2: 0/5 phases)
 
 **Velocity:**
 
-- Total plans completed: 75 (v1.0: 53, v1.1: 15)
+- Total plans completed: 78 (v1.0: 53, v1.1: 15)
 - Average duration: ~5 min/plan
 - Total execution time: ~3.2 hours
 
@@ -81,6 +81,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-19T12:13:06.799Z
-Stopped at: Phase 18 context gathered
-Resume file: .planning/phases/18-dashboard-map-polish/18-CONTEXT.md
+Last session: 2026-04-19T12:23:07.018Z
+Stopped at: Phase 18 UI-SPEC approved
+Resume file: .planning/phases/18-dashboard-map-polish/18-UI-SPEC.md

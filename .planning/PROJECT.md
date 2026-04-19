@@ -147,6 +147,9 @@ Developers can get a secure HLS playback URL for any registered camera via a sin
 - Recordings page with cross-camera DataTable, bulk delete, presigned download
 - Hierarchy tree viewer (Project > Site > Camera) + resizable split-panel + map drag-to-relocate markers
 
+**v1.2 progress (in flight):**
+- Phase 16 complete (2026-04-19) — User self-service: `/app/account` + `/admin/account` pages, avatar upload/remove via MinIO, password change with revokeOtherSessions, tenant Plan & Usage read-only view. Validated USER-01/02/03. Human UAT 9/9 passed.
+
 ## Evolution
 
 This document evolves at phase transitions and milestone boundaries.
@@ -165,4 +168,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-18 after v1.2 milestone start*
+*Last updated: 2026-04-19 after Phase 16 completion*
