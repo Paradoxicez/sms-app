@@ -114,9 +114,9 @@ Plans:
   3. Timeline displays an availability heatmap showing which hours have recorded footage and which do not
 **Plans**: 5 plans (1 Wave 0, 2 in Wave 1, 1 in Wave 2, 1 in Wave 3)
 Plans:
-- [ ] 17-00-PLAN.md — Wave 0 test scaffolds (it.todo stubs for REC-01/02/03 + FOUND-01f)
+- [x] 17-00-PLAN.md — Wave 0 test scaffolds (it.todo stubs for REC-01/02/03 + FOUND-01f)
 - [ ] 17-01-PLAN.md — DataTable onRowClick + cell stopPropagation + recordings-data-table row navigation (D-02)
-- [ ] 17-02-PLAN.md — API getRecording: camera include + cross-org 404 (T-17-V4); useRecording hook with 3-state error
+- [x] 17-02-PLAN.md — API getRecording: camera include + cross-org 404 (T-17-V4); useRecording hook with 3-state error
 - [ ] 17-03-PLAN.md — Move HlsPlayer + TimelineBar to @/components/recordings/ (D-13); REC-03 heatmap tests GREEN
 - [ ] 17-04-PLAN.md — /app/recordings/[id] playback page + header + bottom list; REC-01/02 tests GREEN
 **UI hint**: yes
@@ -157,5 +157,5 @@ Note: Phases 16, 17, 18 can execute in parallel after Phase 14 (independent of e
 | 14. Bug Fixes & DataTable Migrations | v1.2 | 3/3 | Complete    | 2026-04-18 |
 | 15. FFmpeg Resilience & Camera Maintenance | v1.2 | 4/4 | Complete    | 2026-04-19 |
 | 16. User Self-Service | v1.2 | 3/3 | Complete    | 2026-04-19 |
-| 17. Recording Playback & Timeline | v1.2 | 0/0 | Not started | - |
+| 17. Recording Playback & Timeline | v1.2 | 2/5 | In Progress|  |
 | 18. Dashboard & Map Polish | v1.2 | 0/0 | Not started | - |
