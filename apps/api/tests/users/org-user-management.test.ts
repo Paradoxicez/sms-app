@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { randomUUID } from 'crypto';
 import { testPrisma } from '../setup';
 import {
   cleanupTestData,
@@ -7,6 +8,32 @@ import {
 import { createTestUser } from '../helpers/auth';
 import { UsersService } from '../../src/users/users.service';
 import { InviteUserSchema } from '../../src/users/dto/invite-user.dto';
+
+// Mock Better Auth. The real signUpEmail path is tested end-to-end against a
+// running Nest process; this unit test only verifies UsersService wiring
+// (User update + Member creation + shape of the return value).
+vi.mock('../../src/auth/auth.config', () => ({
+  getAuth: () => ({
+    api: {
+      signUpEmail: async ({ body }: { body: { email: string; name: string; password: string } }) => {
+        const userId = randomUUID();
+        await testPrisma.user.create({
+          data: { id: userId, email: body.email, name: body.name, emailVerified: false, role: 'user' },
+        });
+        await testPrisma.account.create({
+          data: {
+            id: randomUUID(),
+            accountId: userId,
+            providerId: 'credential',
+            userId,
+            password: `mock-hash-of:${body.password}`,
+          },
+        });
+        return { user: { id: userId, email: body.email, name: body.name } };
+      },
+    },
+  }),
+}));
 
 describe('Organization User Management', () => {
   let service: UsersService;

@@ -14,7 +14,17 @@ export async function initAuth() {
   const { ac, adminRole, operatorRole, developerRole, viewerRole, superAdminRole } =
     await initAccessControl();
 
-  const prisma = new PrismaClient();
+  // Better Auth owns User/Account/Session/Organization/Member rows and must be
+  // able to read/write them regardless of RLS tenancy context. It runs outside
+  // any request's CLS context (e.g., during sign-in before a session exists),
+  // so it must use a BYPASSRLS role. The `DATABASE_URL_MIGRATE` connection is
+  // the sms superuser, which has rolbypassrls = true.
+  const prisma = new PrismaClient({
+    datasourceUrl:
+      process.env.BETTER_AUTH_DATABASE_URL ||
+      process.env.DATABASE_URL_MIGRATE ||
+      process.env.DATABASE_URL,
+  });
 
   _auth = betterAuth({
     database: prismaAdapter(prisma, { provider: 'postgresql' }),

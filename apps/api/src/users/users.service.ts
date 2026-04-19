@@ -2,9 +2,11 @@ import {
   Injectable,
   ForbiddenException,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { getAuth } from '../auth/auth.config';
 import { InviteUserDto } from './dto/invite-user.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 
@@ -27,35 +29,29 @@ export class UsersService {
   }
 
   async createUser(orgId: string, dto: CreateUserDto) {
-    const userId = randomUUID();
-
-    // Create user
-    const user = await this.prisma.user.create({
-      data: {
-        id: userId,
-        name: dto.name,
+    // Delegate User + Account creation to Better Auth so password hashing uses
+    // the exact same function used by sign-in verification. Doing it manually
+    // (e.g., calling `better-auth/crypto.hashPassword` ourselves) produced a
+    // hash that sign-in rejected as "Invalid password" — see Gap 15.2.
+    const auth = getAuth();
+    const signUpResult = await auth.api.signUpEmail({
+      body: {
         email: dto.email,
-        emailVerified: true, // Admin-created accounts are pre-verified
-        role: 'user', // Better Auth platform role (admin|user); Member.role carries tenant role
+        password: dto.password,
+        name: dto.name,
       },
     });
 
-    // Hash password with Better Auth scrypt so sign-in via better-auth verifies correctly.
-    // Use Function-indirect dynamic import so TS CommonJS transpile does NOT rewrite this
-    // to require() — better-auth/crypto is ESM-only and fails under require().
-    const dynImport = new Function('m', 'return import(m)') as (
-      m: string,
-    ) => Promise<{ hashPassword: (p: string) => Promise<string> }>;
-    const { hashPassword } = await dynImport('better-auth/crypto');
-    const hashedPassword = await hashPassword(dto.password);
-    await this.prisma.account.create({
-      data: {
-        id: randomUUID(),
-        accountId: userId,
-        providerId: 'credential',
-        userId,
-        password: hashedPassword,
-      },
+    if (!signUpResult?.user?.id) {
+      throw new BadRequestException('Failed to create user');
+    }
+
+    const userId = signUpResult.user.id;
+
+    // Mark as pre-verified and keep platform role as 'user' (Member.role carries tenant role).
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { emailVerified: true, role: 'user' },
     });
 
     // Add as org member — use $transaction with set_config to set RLS context
