@@ -14,7 +14,11 @@ export class AdminDashboardService {
   ) {}
 
   async getPlatformStats() {
-    const totalOrgs = await this.rawPrisma.organization.count();
+    // The "System" org is platform-internal (super admins are members of it
+    // per D-08); count only real tenant organisations.
+    const totalOrgs = await this.rawPrisma.organization.count({
+      where: { slug: { not: 'system' } },
+    });
 
     const cameras = await this.rawPrisma.camera.findMany({
       select: { id: true, status: true, orgId: true },
@@ -89,7 +93,10 @@ export class AdminDashboardService {
   }
 
   async getOrgSummary() {
+    // Exclude the platform-internal "System" org — it exists only so super
+    // admins have a membership row, never hosts real cameras.
     const orgs = await this.rawPrisma.organization.findMany({
+      where: { slug: { not: 'system' } },
       select: { id: true, name: true, slug: true },
     });
 
