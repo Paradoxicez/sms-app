@@ -147,24 +147,20 @@ export default function TenantMapPage() {
     }
   }, [mapEnabled, fetchCameras]);
 
-  // Real-time status updates via Socket.IO
-  useCameraStatus(
-    orgId,
-    (event) => {
-      setCameras((prev) =>
-        prev.map((c) =>
-          c.id === event.cameraId ? { ...c, status: event.status } : c,
-        ),
-      );
-    },
-    (event) => {
-      setCameras((prev) =>
-        prev.map((c) =>
-          c.id === event.cameraId ? { ...c, viewerCount: event.count } : c,
-        ),
-      );
-    },
-  );
+  // Real-time status updates via Socket.IO.
+  // NOTE: viewer-count events are intentionally not written into the cameras
+  // state here — doing so invalidates MarkerClusterGroup's children on every
+  // on_play/on_stop, which remounts the popup + its <video> element. Each
+  // remount is itself a fresh SRS play session, so the count climbs forever
+  // and the card visibly flickers. If viewer-count UI is needed on the map,
+  // surface it through a subscription local to the popup instead.
+  useCameraStatus(orgId, (event) => {
+    setCameras((prev) =>
+      prev.map((c) =>
+        c.id === event.cameraId ? { ...c, status: event.status } : c,
+      ),
+    );
+  });
 
   // Handle View Stream from map popup
   const handleViewStream = useCallback(
