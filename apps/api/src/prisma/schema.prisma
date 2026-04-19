@@ -256,10 +256,11 @@ model StreamProfile {
 model OrgSettings {
   id                   String   @id @default(uuid())
   orgId                String   @unique
-  defaultProfileId     String?
-  maxReconnectAttempts Int      @default(10)
-  autoStartOnBoot      Boolean  @default(false)
-  defaultRecordingMode String   @default("none")
+  // Only fields with an active enforcer remain. `defaultProfileId`,
+  // `maxReconnectAttempts`, `autoStartOnBoot`, and `defaultRecordingMode`
+  // were dead config (no reader in src/) and were dropped in migration
+  // `drop_org_settings_dead_fields` (2026-04-20). Retention is consumed
+  // by `retention.processor.ts`.
   defaultRetentionDays Int      @default(30)
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt

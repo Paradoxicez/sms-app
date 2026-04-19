@@ -11,13 +11,6 @@ import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   Card,
   CardContent,
   CardHeader,
@@ -37,23 +30,8 @@ interface SystemSettings {
 }
 
 interface OrgSettings {
-  defaultProfileId: string | null;
-  maxReconnectAttempts: number;
-  autoStartOnBoot: boolean;
-  defaultRecordingMode: string;
+  defaultRetentionDays: number;
 }
-
-interface StreamProfile {
-  id: string;
-  name: string;
-  isDefault: boolean;
-}
-
-const RECORDING_MODES = [
-  { label: 'Off', value: 'off' },
-  { label: 'Continuous', value: 'continuous' },
-  { label: 'Motion', value: 'motion' },
-];
 
 export default function StreamEnginePage() {
   // TODO: In production, derive role from session/auth context
@@ -293,28 +271,14 @@ function OrgSettingsTab() {
   const [isLoading, setIsLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [profiles, setProfiles] = useState<StreamProfile[]>([]);
-
-  // Form state
-  const [defaultProfileId, setDefaultProfileId] = useState<string>('');
-  const [maxReconnectAttempts, setMaxReconnectAttempts] = useState(10);
-  const [autoStartOnBoot, setAutoStartOnBoot] = useState(false);
-  const [defaultRecordingMode, setDefaultRecordingMode] = useState('off');
+  const [defaultRetentionDays, setDefaultRetentionDays] = useState(30);
 
   useEffect(() => {
     async function load() {
       setIsLoading(true);
       try {
-        const [orgData, profileData] = await Promise.all([
-          apiFetch<OrgSettings>('/api/settings/org'),
-          apiFetch<StreamProfile[]>('/api/stream-profiles'),
-        ]);
-
-        setDefaultProfileId(orgData.defaultProfileId || '');
-        setMaxReconnectAttempts(orgData.maxReconnectAttempts);
-        setAutoStartOnBoot(orgData.autoStartOnBoot);
-        setDefaultRecordingMode(orgData.defaultRecordingMode);
-        setProfiles(Array.isArray(profileData) ? profileData : []);
+        const orgData = await apiFetch<OrgSettings>('/api/settings/org');
+        setDefaultRetentionDays(orgData.defaultRetentionDays);
       } catch {
         setError('Could not load organization settings.');
       } finally {
@@ -329,12 +293,7 @@ function OrgSettingsTab() {
     try {
       await apiFetch('/api/settings/org', {
         method: 'PATCH',
-        body: JSON.stringify({
-          defaultProfileId: defaultProfileId || null,
-          maxReconnectAttempts,
-          autoStartOnBoot,
-          defaultRecordingMode,
-        }),
+        body: JSON.stringify({ defaultRetentionDays }),
       });
       toast.success('Organization defaults saved');
     } catch {
@@ -348,9 +307,7 @@ function OrgSettingsTab() {
     return (
       <Card className="mt-4">
         <CardContent className="space-y-4 pt-6">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-10 w-full" />
-          ))}
+          <Skeleton className="h-10 w-full" />
         </CardContent>
       </Card>
     );
@@ -369,75 +326,25 @@ function OrgSettingsTab() {
       <CardHeader>
         <CardTitle>Organization Defaults</CardTitle>
         <CardDescription>
-          Set default behavior for cameras in your organization.
+          Retention policy for recordings in your organization.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-1.5">
-          <Label>Default Stream Profile</Label>
-          <Select
-            value={defaultProfileId}
-            onValueChange={(v) => setDefaultProfileId(String(v ?? ''))}
-          >
-            <SelectTrigger className="w-full sm:w-80">
-              <SelectValue placeholder="Select a profile" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="">None</SelectItem>
-              {profiles.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.name}
-                  {p.isDefault ? ' (Default)' : ''}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-1.5">
-          <Label htmlFor="maxReconnect">Max Reconnect Attempts</Label>
+          <Label htmlFor="retentionDays">Default Retention Days</Label>
           <Input
-            id="maxReconnect"
+            id="retentionDays"
             type="number"
-            value={maxReconnectAttempts}
-            onChange={(e) => setMaxReconnectAttempts(Number(e.target.value))}
-            min={0}
-            max={100}
-            className="w-24"
+            value={defaultRetentionDays}
+            onChange={(e) => setDefaultRetentionDays(Number(e.target.value))}
+            min={1}
+            max={3650}
+            className="w-32"
           />
-        </div>
-
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <Label htmlFor="autoStart">Auto-start on Boot</Label>
-            <p className="text-xs text-muted-foreground">
-              Automatically start streaming when the server boots
-            </p>
-          </div>
-          <Switch
-            id="autoStart"
-            checked={autoStartOnBoot}
-            onCheckedChange={(checked) => setAutoStartOnBoot(!!checked)}
-          />
-        </div>
-
-        <div className="space-y-1.5">
-          <Label>Default Recording Mode</Label>
-          <Select
-            value={defaultRecordingMode}
-            onValueChange={(v) => setDefaultRecordingMode(String(v ?? ''))}
-          >
-            <SelectTrigger className="w-full sm:w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {RECORDING_MODES.map((m) => (
-                <SelectItem key={m.value} value={m.value}>
-                  {m.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <p className="text-xs text-muted-foreground">
+            Recordings older than this (in days) are deleted by the retention
+            job. Applies only when a camera has no explicit retention override.
+          </p>
         </div>
 
         <div className="flex justify-end">

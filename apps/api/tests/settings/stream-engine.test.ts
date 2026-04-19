@@ -55,30 +55,22 @@ describe('UpdateSystemSettingsSchema', () => {
 });
 
 describe('UpdateOrgSettingsSchema', () => {
-  it('should accept valid org settings update', () => {
-    const result = UpdateOrgSettingsSchema.safeParse({
-      maxReconnectAttempts: 5,
-      autoStartOnBoot: true,
-      defaultRecordingMode: 'continuous',
-    });
+  it('accepts valid defaultRetentionDays', () => {
+    const result = UpdateOrgSettingsSchema.safeParse({ defaultRetentionDays: 90 });
     expect(result.success).toBe(true);
   });
 
-  it('should accept nullable defaultProfileId', () => {
-    const result = UpdateOrgSettingsSchema.safeParse({
-      defaultProfileId: null,
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it('should reject invalid recording mode', () => {
-    const result = UpdateOrgSettingsSchema.safeParse({
-      defaultRecordingMode: 'invalid',
-    });
+  it('rejects retention below 1 day', () => {
+    const result = UpdateOrgSettingsSchema.safeParse({ defaultRetentionDays: 0 });
     expect(result.success).toBe(false);
   });
 
-  it('should accept empty object', () => {
+  it('rejects retention above 10 years', () => {
+    const result = UpdateOrgSettingsSchema.safeParse({ defaultRetentionDays: 3651 });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts empty object (partial update)', () => {
     const result = UpdateOrgSettingsSchema.safeParse({});
     expect(result.success).toBe(true);
   });
@@ -171,29 +163,24 @@ describe('SettingsService', () => {
     mockOrgSettings.create.mockResolvedValue({
       id: '1',
       orgId: 'org-1',
-      maxReconnectAttempts: 10,
-      autoStartOnBoot: false,
-      defaultRecordingMode: 'none',
+      defaultRetentionDays: 30,
     });
 
     const result = await service.getOrgSettings('org-1');
-    expect(result).toHaveProperty('maxReconnectAttempts', 10);
+    expect(result).toHaveProperty('defaultRetentionDays', 30);
     expect(mockOrgSettings.create).toHaveBeenCalled();
   });
 
   it('should update org settings via upsert', async () => {
     mockOrgSettings.upsert.mockResolvedValue({
       orgId: 'org-1',
-      maxReconnectAttempts: 5,
-      autoStartOnBoot: true,
+      defaultRetentionDays: 60,
     });
 
     const result = await service.updateOrgSettings('org-1', {
-      maxReconnectAttempts: 5,
-      autoStartOnBoot: true,
+      defaultRetentionDays: 60,
     });
 
-    expect(result.maxReconnectAttempts).toBe(5);
-    expect(result.autoStartOnBoot).toBe(true);
+    expect(result.defaultRetentionDays).toBe(60);
   });
 });
