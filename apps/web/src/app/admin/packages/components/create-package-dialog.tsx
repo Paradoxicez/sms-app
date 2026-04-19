@@ -40,7 +40,8 @@ const FEATURE_TOGGLES = [
   { key: "recordings", label: "Recordings" },
   { key: "webhooks", label: "Webhooks" },
   { key: "map", label: "Map View" },
-  { key: "audit_log", label: "Audit Log" },
+  { key: "auditLog", label: "Audit Log" },
+  { key: "apiKeys", label: "API Keys" },
 ];
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3003";
@@ -51,7 +52,8 @@ export function CreatePackageDialog({ open, onOpenChange, onSuccess }: CreatePac
     recordings: false,
     webhooks: false,
     map: false,
-    audit_log: false,
+    auditLog: false,
+    apiKeys: false,
   });
 
   const {
@@ -90,7 +92,13 @@ export function CreatePackageDialog({ open, onOpenChange, onSuccess }: CreatePac
       }
       toast.success("Package created successfully");
       reset();
-      setFeatures({ recordings: false, webhooks: false, map: false, audit_log: false });
+      setFeatures({
+        recordings: false,
+        webhooks: false,
+        map: false,
+        auditLog: false,
+        apiKeys: false,
+      });
       onOpenChange(false);
       onSuccess();
     } catch (err) {
