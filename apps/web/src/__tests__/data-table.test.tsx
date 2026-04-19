@@ -276,3 +276,11 @@ describe("DataTable component system", () => {
     expect(screen.getByText(/of 9/)).toBeInTheDocument()
   })
 })
+
+describe("DataTable onRowClick (FOUND-01f — Phase 17)", () => {
+  it.todo("FOUND-01f onRowClick: invokes handler when a row body cell is clicked")
+  it.todo("FOUND-01f onRowClick: does NOT invoke handler when checkbox cell is clicked")
+  it.todo("FOUND-01f onRowClick: does NOT invoke handler when actions menu trigger is clicked")
+  it.todo("FOUND-01f onRowClick: row has cursor-pointer class when handler provided")
+  it.todo("FOUND-01f onRowClick: row has tabIndex=0 and Enter key fires handler")
+})
