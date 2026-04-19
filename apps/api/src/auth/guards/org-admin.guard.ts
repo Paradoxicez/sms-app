@@ -6,6 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Request } from 'express';
+import { ClsService } from 'nestjs-cls';
 import { getAuth } from '../auth.config';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -23,7 +24,10 @@ import { PrismaService } from '../../prisma/prisma.service';
  */
 @Injectable()
 export class OrgAdminGuard implements CanActivate {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cls: ClsService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
@@ -44,15 +48,23 @@ export class OrgAdminGuard implements CanActivate {
       throw new UnauthorizedException('Not authenticated');
     }
 
-    // Super admin bypass — User.role='admin' has full platform access.
-    if (session.user.role === 'admin') {
-      return true;
-    }
-
     const rawOrgId = request.params?.orgId;
     const orgId = Array.isArray(rawOrgId) ? rawOrgId[0] : rawOrgId;
     if (!orgId || typeof orgId !== 'string') {
       throw new ForbiddenException('orgId route param required');
+    }
+
+    // Super admin bypass — User.role='admin' has full platform access. Set
+    // IS_SUPERUSER in CLS so downstream Prisma queries through the tenancy
+    // extension emit set_config('app.is_superuser','true',...) and the
+    // superuser_bypass_* RLS policies match, letting the query see rows in
+    // any tenant (the route's :orgId scopes writes via tenant_isolation).
+    if (session.user.role === 'admin') {
+      this.cls.set('IS_SUPERUSER', 'true');
+      this.cls.set('ORG_ID', orgId);
+      (request as any).user = session.user;
+      (request as any).session = session.session;
+      return true;
     }
 
     const member = await this.prisma.member.findFirst({
@@ -66,6 +78,13 @@ export class OrgAdminGuard implements CanActivate {
     if (!member) {
       throw new ForbiddenException('Org admin access required');
     }
+
+    // Org admin path — set ORG_ID so tenant_isolation policy scopes queries
+    // to this tenant. Guards elsewhere (AuthGuard) do the same for mounted
+    // AuthGuard routes; this controller uses OrgAdminGuard standalone.
+    this.cls.set('ORG_ID', orgId);
+    (request as any).user = session.user;
+    (request as any).session = session.session;
 
     return true;
   }

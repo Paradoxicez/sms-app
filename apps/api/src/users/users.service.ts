@@ -1,18 +1,24 @@
 import {
+  Inject,
   Injectable,
   ForbiddenException,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { PrismaService } from '../prisma/prisma.service';
+import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
 import { getAuth } from '../auth/auth.config';
 import { InviteUserDto } from './dto/invite-user.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  // TENANCY_CLIENT is the RLS-aware Prisma extension. Member and Invitation
+  // tables have RLS enforced, so queries without CLS signals (ORG_ID or
+  // IS_SUPERUSER) return empty. Super-admin callers set IS_SUPERUSER in
+  // OrgAdminGuard so bypass matches; org admins set ORG_ID in the same
+  // guard so tenant_isolation matches.
+  constructor(@Inject(TENANCY_CLIENT) private readonly prisma: any) {}
 
   async inviteUser(orgId: string, inviterId: string, dto: InviteUserDto) {
     return this.prisma.invitation.create({
@@ -54,19 +60,17 @@ export class UsersService {
       data: { emailVerified: true, role: 'user' },
     });
 
-    // Add as org member — use $transaction with set_config to set RLS context
-    // so the Member INSERT passes FORCE RLS policy for system org.
-    const [, member] = await this.prisma.$transaction([
-      this.prisma.$executeRaw`SELECT set_config('app.current_org_id', ${orgId}, TRUE)`,
-      this.prisma.member.create({
-        data: {
-          id: randomUUID(),
-          organizationId: orgId,
-          userId,
-          role: dto.role,
-        },
-      }),
-    ]);
+    // Add as org member. TENANCY_CLIENT wraps this call in a transaction that
+    // calls set_config('app.current_org_id', ...) from CLS — OrgAdminGuard
+    // already set ORG_ID to the route's :orgId, so tenant_isolation matches.
+    const member = await this.prisma.member.create({
+      data: {
+        id: randomUUID(),
+        organizationId: orgId,
+        userId,
+        role: dto.role,
+      },
+    });
 
     return { user, member };
   }

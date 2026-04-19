@@ -108,7 +108,8 @@ describe('OrgAdminGuard (T-999.1-03: cross-tenant write blocked)', () => {
   });
 
   it('allows super admin (User.role=admin) to access any org', async () => {
-    const guard = new OrgAdminGuard(testPrisma as any);
+    const cls = { set: vi.fn(), get: vi.fn() };
+    const guard = new OrgAdminGuard(testPrisma as any, cls as any);
     const ctx = mkContext({
       session: { user: { id: superAdminId, role: 'admin' } },
       params: { orgId: orgBId },
@@ -117,7 +118,8 @@ describe('OrgAdminGuard (T-999.1-03: cross-tenant write blocked)', () => {
   });
 
   it('allows org admin of :orgId to access own org', async () => {
-    const guard = new OrgAdminGuard(testPrisma as any);
+    const cls = { set: vi.fn(), get: vi.fn() };
+    const guard = new OrgAdminGuard(testPrisma as any, cls as any);
     const ctx = mkContext({
       session: { user: { id: orgAAdminId, role: 'user' } },
       params: { orgId: orgAId },
@@ -126,7 +128,8 @@ describe('OrgAdminGuard (T-999.1-03: cross-tenant write blocked)', () => {
   });
 
   it('rejects org admin from accessing a DIFFERENT org (cross-tenant write blocked)', async () => {
-    const guard = new OrgAdminGuard(testPrisma as any);
+    const cls = { set: vi.fn(), get: vi.fn() };
+    const guard = new OrgAdminGuard(testPrisma as any, cls as any);
     const ctx = mkContext({
       session: { user: { id: orgAAdminId, role: 'user' } },
       params: { orgId: orgBId },
@@ -135,7 +138,8 @@ describe('OrgAdminGuard (T-999.1-03: cross-tenant write blocked)', () => {
   });
 
   it('rejects operator/viewer member (not admin) from writes in own org', async () => {
-    const guard = new OrgAdminGuard(testPrisma as any);
+    const cls = { set: vi.fn(), get: vi.fn() };
+    const guard = new OrgAdminGuard(testPrisma as any, cls as any);
     const ctx = mkContext({
       session: { user: { id: orgAOperatorId, role: 'user' } },
       params: { orgId: orgAId },
@@ -144,7 +148,8 @@ describe('OrgAdminGuard (T-999.1-03: cross-tenant write blocked)', () => {
   });
 
   it('rejects unauthenticated with 401', async () => {
-    const guard = new OrgAdminGuard(testPrisma as any);
+    const cls = { set: vi.fn(), get: vi.fn() };
+    const guard = new OrgAdminGuard(testPrisma as any, cls as any);
     const ctx = mkContext({
       session: null,
       params: { orgId: orgAId },
