@@ -31,7 +31,7 @@ export function CameraPopup({ id, name, status, viewerCount, onViewStream, onSet
     // Only attempt HLS preview if camera is online
     if (status !== 'online' || !videoRef.current) return;
 
-    const hlsUrl = `/api/streams/${id}/hls/index.m3u8`;
+    const hlsUrl = `/api/cameras/${id}/preview/playlist.m3u8`;
 
     if (Hls.isSupported()) {
       const hls = new Hls({
