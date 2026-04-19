@@ -3,20 +3,26 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-const updateUserMock = vi.fn(async () => ({ data: {}, error: null }));
-const toastSuccessMock = vi.fn();
-const toastErrorMock = vi.fn();
+type UpdateUserResult = { data: unknown; error: null | { message?: string } };
+const updateUserMock = vi.fn(
+  async (_arg?: unknown): Promise<UpdateUserResult> => ({
+    data: {},
+    error: null,
+  }),
+);
+const toastSuccessMock = vi.fn<(msg: unknown) => void>();
+const toastErrorMock = vi.fn<(msg: unknown) => void>();
 
 vi.mock("@/lib/auth-client", () => ({
   authClient: {
-    updateUser: (...args: unknown[]) => updateUserMock(...args),
+    updateUser: (arg: unknown) => updateUserMock(arg),
   },
 }));
 
 vi.mock("sonner", () => ({
   toast: {
-    success: (...args: unknown[]) => toastSuccessMock(...args),
-    error: (...args: unknown[]) => toastErrorMock(...args),
+    success: (msg: unknown) => toastSuccessMock(msg),
+    error: (msg: unknown) => toastErrorMock(msg),
   },
 }));
 
