@@ -1,4 +1,6 @@
 import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
 import { StatusGateway } from './status.gateway';
 import { WebhooksService } from '../webhooks/webhooks.service';
@@ -23,6 +25,7 @@ export class StatusService {
     private readonly webhooksService: WebhooksService,
     @Inject(forwardRef(() => NotificationsService))
     private readonly notificationsService: NotificationsService,
+    @InjectQueue('camera-notify') private readonly notifyQueue: Queue,
   ) {}
 
   async transition(cameraId: string, orgId: string, newStatus: string): Promise<void> {
@@ -53,36 +56,49 @@ export class StatusService {
       },
     });
 
+    // UI state stays live during maintenance per D-04 + D-15
     this.statusGateway.broadcastStatus(orgId, cameraId, newStatus);
 
-    // Emit webhook event for camera status changes per D-09
-    const webhookStatuses = ['online', 'offline', 'degraded', 'reconnecting'];
-    if (webhookStatuses.includes(newStatus)) {
-      this.webhooksService
-        .emitEvent(orgId, `camera.${newStatus}`, {
-          cameraId,
-          status: newStatus,
-          previousStatus: currentStatus,
-          timestamp: new Date().toISOString(),
-        })
-        .catch((err) => {
-          this.logger.warn(
-            `Failed to emit webhook for camera ${cameraId}: ${err.message}`,
-          );
-        });
+    // Maintenance gate (D-15) — suppress ALL outbound notify/webhook.
+    if (camera.maintenanceMode) {
+      this.logger.debug(
+        `Camera ${cameraId} in maintenance — suppressing outbound notify/webhook for ${newStatus}`,
+      );
+      return;
     }
 
-    // Emit notification for camera status changes
+    // Debounce outbound dispatch (D-04) — 30s window, replaced on each new transition.
     const notifiableStatuses = ['online', 'offline', 'degraded', 'reconnecting'];
-    if (notifiableStatuses.includes(newStatus)) {
-      this.notificationsService
-        .createForCameraEvent(orgId, cameraId, newStatus, camera.name)
-        .catch((err) => {
-          this.logger.warn(`Failed to create notification: ${err.message}`);
-        });
+    if (!notifiableStatuses.includes(newStatus)) {
+      this.logger.log(`Camera ${cameraId}: ${currentStatus} -> ${newStatus}`);
+      return;
     }
 
-    this.logger.log(`Camera ${cameraId}: ${currentStatus} -> ${newStatus}`);
+    const jobId = `camera:${cameraId}:notify`;
+    const existing = await this.notifyQueue.getJob(jobId);
+    if (existing) {
+      await existing.remove().catch(() => {});
+    }
+    await this.notifyQueue.add(
+      'dispatch',
+      {
+        orgId,
+        cameraId,
+        cameraName: camera.name,
+        newStatus,
+        previousStatus: currentStatus,
+      },
+      {
+        jobId,
+        delay: 30_000,
+        removeOnComplete: true,
+        removeOnFail: 10,
+      },
+    );
+
+    this.logger.log(
+      `Camera ${cameraId}: ${currentStatus} -> ${newStatus} (notify scheduled T+30s, jobId=${jobId})`,
+    );
   }
 
   incrementViewers(cameraId: string): number {
