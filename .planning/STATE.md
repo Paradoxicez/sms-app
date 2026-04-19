@@ -73,6 +73,12 @@ None yet.
 
 None yet.
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260419-h84 | Fix tenancy RLS superuser_bypass + StreamProcessor reconnecting→connecting transition (15.1 gap closure) | 2026-04-19 | 5f0ffd9 | [260419-h84-fix-tenancy-rls-superuser-bypass-streamp](./quick/260419-h84-fix-tenancy-rls-superuser-bypass-streamp/) |
+
 ## Session Continuity
 
 Last session: 2026-04-18T14:22:34.403Z
