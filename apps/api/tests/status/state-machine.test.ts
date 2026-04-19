@@ -126,6 +126,27 @@ describe('Camera Status State Machine', () => {
     );
   });
 
+  // Gap 15.1 Task 2 — reconnecting -> connecting is now a valid retry re-enqueue
+  it('should allow transition reconnecting -> connecting (retry re-enqueue)', async () => {
+    mockPrisma.camera.findUnique.mockResolvedValue({ id: 'cam-1', status: 'reconnecting' });
+    await service.transition('cam-1', 'org-1', 'connecting');
+
+    expect(mockPrisma.camera.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'cam-1' },
+        data: expect.objectContaining({ status: 'connecting' }),
+      }),
+    );
+    expect(mockGateway.broadcastStatus).toHaveBeenCalledWith('org-1', 'cam-1', 'connecting');
+  });
+
+  it('should still reject transition offline -> reconnecting (sanity check)', async () => {
+    mockPrisma.camera.findUnique.mockResolvedValue({ id: 'cam-1', status: 'offline' });
+    await expect(service.transition('cam-1', 'org-1', 'reconnecting')).rejects.toThrow(
+      'Invalid transition: offline -> reconnecting',
+    );
+  });
+
   // Socket.IO broadcasting
   it('should broadcast status change via Socket.IO to org room', async () => {
     mockPrisma.camera.findUnique.mockResolvedValue({ id: 'cam-1', status: 'offline' });
