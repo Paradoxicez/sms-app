@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
+import { SystemPrismaService } from '../prisma/system-prisma.service';
 import { StatusGateway } from './status.gateway';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -20,7 +20,7 @@ export class StatusService {
   };
 
   constructor(
-    @Inject(TENANCY_CLIENT) private readonly prisma: any,
+    private readonly prisma: SystemPrismaService,
     private readonly statusGateway: StatusGateway,
     private readonly webhooksService: WebhooksService,
     @Inject(forwardRef(() => NotificationsService))
@@ -29,7 +29,7 @@ export class StatusService {
   ) {}
 
   async transition(cameraId: string, orgId: string, newStatus: string): Promise<void> {
-    const camera = await this.prisma.camera.findUnique({ where: { id: cameraId } });
+    const camera = await this.prisma.camera.findFirst({ where: { id: cameraId, orgId } });
     if (!camera) {
       throw new Error(`Camera ${cameraId} not found`);
     }
