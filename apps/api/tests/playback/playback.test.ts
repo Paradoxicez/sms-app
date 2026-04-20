@@ -343,7 +343,7 @@ describe('GET /playback/sessions (listSessionsByCamera)', () => {
       },
     });
 
-    const service = new PlaybackService(testPrisma as any, {} as any, {} as any, {} as any);
+    const service = new PlaybackService(testPrisma as any, testPrisma as any, {} as any, {} as any, {} as any);
     const result = await service.listSessionsByCamera(cameraA.id, org.id);
 
     expect(result).toHaveLength(3);
@@ -367,7 +367,7 @@ describe('GET /playback/sessions (listSessionsByCamera)', () => {
       });
     }
 
-    const service = new PlaybackService(testPrisma as any, {} as any, {} as any, {} as any);
+    const service = new PlaybackService(testPrisma as any, testPrisma as any, {} as any, {} as any, {} as any);
     const limited = await service.listSessionsByCamera(camera.id, org.id, 2);
     expect(limited).toHaveLength(2);
 
@@ -391,7 +391,7 @@ describe('GET /playback/sessions (listSessionsByCamera)', () => {
       },
     });
 
-    const service = new PlaybackService(testPrisma as any, {} as any, {} as any, {} as any);
+    const service = new PlaybackService(testPrisma as any, testPrisma as any, {} as any, {} as any, {} as any);
     const rows = await service.listSessionsByCamera(camera.id, org.id);
 
     expect(rows).toHaveLength(1);
@@ -415,7 +415,7 @@ describe('GET /playback/sessions (listSessionsByCamera)', () => {
       },
     });
 
-    const service = new PlaybackService(testPrisma as any, {} as any, {} as any, {} as any);
+    const service = new PlaybackService(testPrisma as any, testPrisma as any, {} as any, {} as any, {} as any);
     const rows = await service.listSessionsByCamera(camera.id, org.id);
     expect(rows).toHaveLength(1);
   });
@@ -427,7 +427,7 @@ describe('GET /playback/sessions (listSessionsByCamera)', () => {
     const orgB = await createTestOrganization(testPrisma);
     const { camera: cameraA } = await createCameraHierarchy(testPrisma, orgA.id);
 
-    const service = new PlaybackService(testPrisma as any, {} as any, {} as any, {} as any);
+    const service = new PlaybackService(testPrisma as any, testPrisma as any, {} as any, {} as any, {} as any);
     await expect(service.listSessionsByCamera(cameraA.id, orgB.id)).rejects.toThrow();
   });
 
@@ -435,7 +435,7 @@ describe('GET /playback/sessions (listSessionsByCamera)', () => {
     const { PlaybackService } = await import('../../src/playback/playback.service');
 
     const org = await createTestOrganization(testPrisma);
-    const service = new PlaybackService(testPrisma as any, {} as any, {} as any, {} as any);
+    const service = new PlaybackService(testPrisma as any, testPrisma as any, {} as any, {} as any, {} as any);
     await expect(service.listSessionsByCamera(randomUUID(), org.id)).rejects.toThrow();
   });
 });

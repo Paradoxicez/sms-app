@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
 import { PrismaService } from '../prisma/prisma.service';
+import { SystemPrismaService } from '../prisma/system-prisma.service';
 import { MinioService } from './minio.service';
 import { RecordingQueryDto } from './dto/recording-query.dto';
 import * as fs from 'fs/promises';
@@ -17,7 +18,8 @@ export class RecordingsService {
   private readonly logger = new Logger(RecordingsService.name);
 
   constructor(
-    @Inject(TENANCY_CLIENT) private readonly prisma: any,
+    @Inject(TENANCY_CLIENT) private readonly tenantPrisma: any,
+    private readonly systemPrisma: SystemPrismaService,
     private readonly rawPrisma: PrismaService,
     private readonly minioService: MinioService,
   ) {}
@@ -31,7 +33,8 @@ export class RecordingsService {
     const oneHourAgo = new Date();
     oneHourAgo.setHours(oneHourAgo.getHours() - 1);
 
-    const recentAlert = await this.rawPrisma.notification.findFirst({
+    // Notification is RLS-scoped (orgId). Worker context — use systemPrisma.
+    const recentAlert = await this.systemPrisma.notification.findFirst({
       where: {
         orgId,
         type: 'system.alert',
@@ -42,7 +45,7 @@ export class RecordingsService {
 
     if (recentAlert) return;
 
-    // Get org package for display
+    // Get org package for display — Organization has no RLS, keep on rawPrisma.
     const org = await this.rawPrisma.organization.findUnique({
       where: { id: orgId },
       include: { package: true },
@@ -50,14 +53,15 @@ export class RecordingsService {
     const maxGb = org?.package?.maxStorageGb ?? 0;
 
     if (quota.usagePercent >= 90) {
-      // Get org admin users for notification
-      const adminMembers = await this.rawPrisma.member.findMany({
+      // Get org admin users for notification — Member is RLS-scoped on
+      // organizationId; worker context, use systemPrisma.
+      const adminMembers = await this.systemPrisma.member.findMany({
         where: { organizationId: orgId, role: { in: ['owner', 'admin'] } },
         select: { userId: true },
       });
 
       for (const member of adminMembers) {
-        await this.rawPrisma.notification.create({
+        await this.systemPrisma.notification.create({
           data: {
             orgId,
             userId: member.userId,
@@ -69,13 +73,13 @@ export class RecordingsService {
         });
       }
     } else if (quota.usagePercent >= 80) {
-      const adminMembers = await this.rawPrisma.member.findMany({
+      const adminMembers = await this.systemPrisma.member.findMany({
         where: { organizationId: orgId, role: { in: ['owner', 'admin'] } },
         select: { userId: true },
       });
 
       for (const member of adminMembers) {
-        await this.rawPrisma.notification.create({
+        await this.systemPrisma.notification.create({
           data: {
             orgId,
             userId: member.userId,
@@ -90,9 +94,11 @@ export class RecordingsService {
   }
 
   async startRecording(cameraId: string, orgId: string) {
-    // Check camera exists and is online
-    const camera = await this.prisma.camera.findUnique({
-      where: { id: cameraId },
+    // Reachable from BOTH HTTP (RecordingsController) and ScheduleProcessor
+    // (BullMQ worker, no CLS). Use systemPrisma with explicit orgId scoping
+    // (defense in depth, mirrors 49adac6 StatusService.transition pattern).
+    const camera = await this.systemPrisma.camera.findFirst({
+      where: { id: cameraId, orgId },
     });
     if (!camera) {
       throw new NotFoundException(`Camera ${cameraId} not found`);
@@ -117,7 +123,7 @@ export class RecordingsService {
     }
 
     // Create recording
-    const recording = await this.prisma.recording.create({
+    const recording = await this.systemPrisma.recording.create({
       data: {
         orgId,
         cameraId,
@@ -125,8 +131,8 @@ export class RecordingsService {
       },
     });
 
-    // Set camera recording flag
-    await this.prisma.camera.update({
+    // Set camera recording flag (PK update OK after ownership check above)
+    await this.systemPrisma.camera.update({
       where: { id: cameraId },
       data: { isRecording: true },
     });
@@ -141,7 +147,8 @@ export class RecordingsService {
   }
 
   async stopRecording(cameraId: string, orgId: string) {
-    const recording = await this.prisma.recording.findFirst({
+    // Reachable from BOTH HTTP and ScheduleProcessor — use systemPrisma.
+    const recording = await this.systemPrisma.recording.findFirst({
       where: { cameraId, orgId, status: 'recording' },
     });
     if (!recording) {
@@ -150,7 +157,7 @@ export class RecordingsService {
       );
     }
 
-    const updated = await this.prisma.recording.update({
+    const updated = await this.systemPrisma.recording.update({
       where: { id: recording.id },
       data: {
         status: 'complete',
@@ -158,7 +165,7 @@ export class RecordingsService {
       },
     });
 
-    await this.prisma.camera.update({
+    await this.systemPrisma.camera.update({
       where: { id: cameraId },
       data: { isRecording: false },
     });
@@ -170,7 +177,8 @@ export class RecordingsService {
   }
 
   async getActiveRecording(cameraId: string, orgId: string) {
-    return this.rawPrisma.recording.findFirst({
+    // Worker context (SRS callback). orgId in where clause as defense in depth.
+    return this.systemPrisma.recording.findFirst({
       where: { cameraId, orgId, status: 'recording' },
     });
   }
@@ -204,9 +212,10 @@ export class RecordingsService {
     const buffer = await fs.readFile(data.filePath);
     const size = buffer.length;
 
-    // Check if this is the first segment - archive init segment if needed
-    const existingSegments = await this.rawPrisma.recordingSegment.count({
-      where: { recordingId },
+    // SRS callback context (no CLS) — use systemPrisma. orgId added to count
+    // where clause as defense in depth.
+    const existingSegments = await this.systemPrisma.recordingSegment.count({
+      where: { recordingId, orgId },
     });
 
     if (existingSegments === 0 && data.m3u8Path) {
@@ -223,7 +232,7 @@ export class RecordingsService {
     await this.minioService.uploadSegment(orgId, objectPath, buffer, size);
 
     // Create segment record
-    await this.rawPrisma.recordingSegment.create({
+    await this.systemPrisma.recordingSegment.create({
       data: {
         orgId,
         recordingId,
@@ -236,8 +245,9 @@ export class RecordingsService {
       },
     });
 
-    // Update recording totals
-    await this.rawPrisma.recording.update({
+    // Update recording totals (PK update — recordingId came from a row we just
+    // counted via orgId-scoped query above)
+    await this.systemPrisma.recording.update({
       where: { id: recordingId },
       data: {
         totalSize: { increment: BigInt(size) },
@@ -281,7 +291,10 @@ export class RecordingsService {
     const limitBytes =
       BigInt(org.package.maxStorageGb) * BigInt(1024 * 1024 * 1024);
 
-    const result = await this.rawPrisma.recordingSegment.aggregate({
+    // Reachable from worker context (archiveSegment via SRS callback) and
+    // HTTP context (startRecording quota check). RecordingSegment has RLS;
+    // use systemPrisma. orgId is already the primary filter.
+    const result = await this.systemPrisma.recordingSegment.aggregate({
       where: { orgId },
       _sum: { size: true },
     });
@@ -301,7 +314,7 @@ export class RecordingsService {
   }
 
   async getSegment(segmentId: string, orgId: string) {
-    const segment = await this.prisma.recordingSegment.findFirst({
+    const segment = await this.tenantPrisma.recordingSegment.findFirst({
       where: { id: segmentId, orgId },
     });
     if (!segment) {
@@ -311,14 +324,14 @@ export class RecordingsService {
   }
 
   async listSchedules(cameraId: string, orgId: string) {
-    return this.prisma.recordingSchedule.findMany({
+    return this.tenantPrisma.recordingSchedule.findMany({
       where: { cameraId, orgId },
       orderBy: { createdAt: 'desc' },
     });
   }
 
   async createSchedule(orgId: string, data: any) {
-    return this.prisma.recordingSchedule.create({
+    return this.tenantPrisma.recordingSchedule.create({
       data: {
         orgId,
         cameraId: data.cameraId,
@@ -330,13 +343,13 @@ export class RecordingsService {
   }
 
   async updateSchedule(id: string, orgId: string, data: any) {
-    const schedule = await this.prisma.recordingSchedule.findFirst({
+    const schedule = await this.tenantPrisma.recordingSchedule.findFirst({
       where: { id, orgId },
     });
     if (!schedule) {
       throw new NotFoundException(`Schedule ${id} not found`);
     }
-    return this.prisma.recordingSchedule.update({
+    return this.tenantPrisma.recordingSchedule.update({
       where: { id },
       data: {
         ...(data.scheduleType !== undefined && { scheduleType: data.scheduleType }),
@@ -347,23 +360,23 @@ export class RecordingsService {
   }
 
   async deleteSchedule(id: string, orgId: string) {
-    const schedule = await this.prisma.recordingSchedule.findFirst({
+    const schedule = await this.tenantPrisma.recordingSchedule.findFirst({
       where: { id, orgId },
     });
     if (!schedule) {
       throw new NotFoundException(`Schedule ${id} not found`);
     }
-    await this.prisma.recordingSchedule.delete({ where: { id } });
+    await this.tenantPrisma.recordingSchedule.delete({ where: { id } });
   }
 
   async updateRetention(cameraId: string, orgId: string, retentionDays: number | null) {
-    const camera = await this.prisma.camera.findFirst({
+    const camera = await this.tenantPrisma.camera.findFirst({
       where: { id: cameraId, orgId },
     });
     if (!camera) {
       throw new NotFoundException(`Camera ${cameraId} not found`);
     }
-    return this.prisma.camera.update({
+    return this.tenantPrisma.camera.update({
       where: { id: cameraId },
       data: { retentionDays },
     });
@@ -401,7 +414,7 @@ export class RecordingsService {
     const skip = (query.page - 1) * query.pageSize;
 
     const [data, total] = await Promise.all([
-      this.prisma.recording.findMany({
+      this.tenantPrisma.recording.findMany({
         where,
         include: {
           camera: {
@@ -415,7 +428,7 @@ export class RecordingsService {
         take: query.pageSize,
         skip,
       }),
-      this.prisma.recording.count({ where }),
+      this.tenantPrisma.recording.count({ where }),
     ]);
 
     return {
@@ -453,7 +466,7 @@ export class RecordingsService {
       const end = new Date(`${date}T23:59:59.999Z`);
       where.startedAt = { gte: start, lte: end };
     }
-    return this.prisma.recording.findMany({
+    return this.tenantPrisma.recording.findMany({
       where,
       orderBy: { startedAt: 'desc' },
       include: { _count: { select: { segments: true } } },
@@ -461,7 +474,11 @@ export class RecordingsService {
   }
 
   async getRecording(id: string, orgId: string) {
-    const recording = await this.prisma.recording.findFirst({
+    // T-17-V4 mitigation: explicit `findFirst({ where: { id, orgId } })` on
+    // tenantPrisma. MUST stay on tenantPrisma — HTTP-context (RecordingsController
+    // under AuthGuard sets CLS ORG_ID, so tenant_isolation policy enforces scope).
+    // DO NOT swap to systemPrisma — would regress IDOR mitigation.
+    const recording = await this.tenantPrisma.recording.findFirst({
       where: { id, orgId },
       include: {
         _count: { select: { segments: true } },
@@ -487,7 +504,7 @@ export class RecordingsService {
   }
 
   async getRecordingWithSegments(id: string, orgId: string) {
-    const recording = await this.prisma.recording.findFirst({
+    const recording = await this.tenantPrisma.recording.findFirst({
       where: { id },
       include: {
         segments: {
@@ -504,7 +521,7 @@ export class RecordingsService {
   }
 
   async deleteRecording(id: string, orgId: string) {
-    const recording = await this.prisma.recording.findUnique({
+    const recording = await this.tenantPrisma.recording.findUnique({
       where: { id },
       include: { segments: true },
     });
@@ -526,7 +543,7 @@ export class RecordingsService {
     }
 
     // Delete recording (cascade deletes segments from DB)
-    await this.prisma.recording.delete({ where: { id } });
+    await this.tenantPrisma.recording.delete({ where: { id } });
 
     this.logger.log(`Deleted recording: ${id}`);
   }
@@ -567,7 +584,9 @@ export class RecordingsService {
         initBuffer.length,
       );
 
-      await this.rawPrisma.recording.update({
+      // SRS callback context (no CLS) — use systemPrisma. PK update OK because
+      // recordingId came from a row counted via orgId-scoped query in archiveSegment.
+      await this.systemPrisma.recording.update({
         where: { id: recordingId },
         data: { initSegment: initObjectPath },
       });

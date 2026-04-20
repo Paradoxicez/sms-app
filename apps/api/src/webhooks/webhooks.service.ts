@@ -3,6 +3,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { randomBytes } from 'crypto';
 import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
+import { SystemPrismaService } from '../prisma/system-prisma.service';
 import { CreateWebhookDto, UpdateWebhookDto } from './dto/create-webhook.dto';
 import { validateWebhookUrl } from './webhook-url.validator';
 
@@ -11,14 +12,15 @@ export class WebhooksService {
   private readonly logger = new Logger(WebhooksService.name);
 
   constructor(
-    @Inject(TENANCY_CLIENT) private readonly prisma: any,
+    @Inject(TENANCY_CLIENT) private readonly tenantPrisma: any,
+    private readonly systemPrisma: SystemPrismaService,
     @InjectQueue('webhook-delivery') private readonly webhookQueue: Queue,
   ) {}
 
   async create(orgId: string, dto: CreateWebhookDto) {
     await validateWebhookUrl(dto.url);
     const secret = randomBytes(32).toString('hex');
-    const subscription = await this.prisma.webhookSubscription.create({
+    const subscription = await this.tenantPrisma.webhookSubscription.create({
       data: {
         orgId,
         name: dto.name,
@@ -32,7 +34,7 @@ export class WebhooksService {
   }
 
   async findAll(orgId: string) {
-    return this.prisma.webhookSubscription.findMany({
+    return this.tenantPrisma.webhookSubscription.findMany({
       where: { orgId },
       select: {
         id: true,
@@ -48,7 +50,7 @@ export class WebhooksService {
   }
 
   async findById(id: string, orgId: string) {
-    return this.prisma.webhookSubscription.findFirst({
+    return this.tenantPrisma.webhookSubscription.findFirst({
       where: { id, orgId },
     });
   }
@@ -56,11 +58,11 @@ export class WebhooksService {
   async update(id: string, orgId: string, dto: UpdateWebhookDto) {
     if (dto.url) await validateWebhookUrl(dto.url);
     // Verify ownership before update
-    const existing = await this.prisma.webhookSubscription.findFirst({
+    const existing = await this.tenantPrisma.webhookSubscription.findFirst({
       where: { id, orgId },
     });
     if (!existing) return null;
-    return this.prisma.webhookSubscription.update({
+    return this.tenantPrisma.webhookSubscription.update({
       where: { id },
       data: dto,
     });
@@ -68,20 +70,20 @@ export class WebhooksService {
 
   async delete(id: string, orgId: string) {
     // Verify ownership before delete
-    const existing = await this.prisma.webhookSubscription.findFirst({
+    const existing = await this.tenantPrisma.webhookSubscription.findFirst({
       where: { id, orgId },
     });
     if (!existing) return null;
-    return this.prisma.webhookSubscription.delete({ where: { id } });
+    return this.tenantPrisma.webhookSubscription.delete({ where: { id } });
   }
 
   async getDeliveries(subscriptionId: string, orgId: string, limit = 50) {
     // Verify subscription belongs to org first
-    const sub = await this.prisma.webhookSubscription.findFirst({
+    const sub = await this.tenantPrisma.webhookSubscription.findFirst({
       where: { id: subscriptionId, orgId },
     });
     if (!sub) return [];
-    return this.prisma.webhookDelivery.findMany({
+    return this.tenantPrisma.webhookDelivery.findMany({
       where: { subscriptionId },
       orderBy: { createdAt: 'desc' },
       take: limit,
@@ -89,15 +91,20 @@ export class WebhooksService {
   }
 
   /**
-   * Called by StatusService when camera status changes.
-   * Finds matching active subscriptions and queues BullMQ delivery jobs.
+   * Called by StatusService (via NotifyDispatchProcessor) when camera status
+   * changes. Finds matching active subscriptions and queues BullMQ delivery jobs.
+   *
+   * Runs from a BullMQ worker — no CLS ORG_ID, so the tenancy extension would
+   * skip set_config and RLS would deny rows. Use systemPrisma; orgId is already
+   * the primary filter on the subscription lookup so cross-tenant leakage is
+   * impossible.
    */
   async emitEvent(
     orgId: string,
     eventType: string,
     payload: Record<string, any>,
   ) {
-    const subscriptions = await this.prisma.webhookSubscription.findMany({
+    const subscriptions = await this.systemPrisma.webhookSubscription.findMany({
       where: {
         orgId,
         isActive: true,
@@ -106,8 +113,9 @@ export class WebhooksService {
     });
 
     for (const sub of subscriptions) {
-      // Create delivery record
-      const delivery = await this.prisma.webhookDelivery.create({
+      // Create delivery record. WebhookDelivery has no orgId column —
+      // RLS scopes via the subscriptionId FK chain.
+      const delivery = await this.systemPrisma.webhookDelivery.create({
         data: {
           subscriptionId: sub.id,
           eventType,

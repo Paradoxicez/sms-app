@@ -81,8 +81,12 @@ describe('RecordingsService - Cross-Camera List (REC-01, REC-02)', () => {
       },
     };
 
+    // After 260420-oid: dual-injection. findAllRecordings stays on tenantPrisma.
+    const systemPrisma: any = {};
+
     service = new RecordingsService(
       tenancyClient,
+      systemPrisma,
       rawPrisma,
       minioService as MinioService,
     );

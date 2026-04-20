@@ -105,7 +105,15 @@ describe('SettingsService', () => {
     const { SettingsService } = await import(
       '../../src/settings/settings.service'
     );
-    service = new SettingsService(mockPrisma as any, mockSrsApiService as any);
+    // After 260420-oid: dual-injection. systemPrisma reuses the same mock so
+    // both boot path (systemPrisma.systemSettings.findFirst/create) and HTTP
+    // path (tenantPrisma.systemSettings.findFirst/create) hit the same vi.fn().
+    service = new SettingsService(
+      mockPrisma as any,
+      mockPrisma as any,
+      mockSrsApiService as any,
+      { getOnlineEdges: vi.fn().mockResolvedValue([]), incrementConfigVersion: vi.fn() } as any,
+    );
   });
 
   it('should return defaults when no system settings row exists (auto-creates)', async () => {

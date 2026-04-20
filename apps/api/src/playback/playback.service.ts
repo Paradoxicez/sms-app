@@ -9,6 +9,7 @@ import {
 import * as jwt from 'jsonwebtoken';
 import { randomBytes } from 'crypto';
 import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
+import { SystemPrismaService } from '../prisma/system-prisma.service';
 import { PoliciesService } from '../policies/policies.service';
 import { StatusService } from '../status/status.service';
 import { ClusterService } from '../cluster/cluster.service';
@@ -19,7 +20,8 @@ export class PlaybackService {
   private readonly jwtSecret: string;
 
   constructor(
-    @Inject(TENANCY_CLIENT) private readonly prisma: any,
+    @Inject(TENANCY_CLIENT) private readonly tenantPrisma: any,
+    private readonly systemPrisma: SystemPrismaService,
     private readonly policiesService: PoliciesService,
     private readonly statusService: StatusService,
     @Inject(forwardRef(() => ClusterService)) private readonly clusterService: ClusterService,
@@ -47,7 +49,7 @@ export class PlaybackService {
    */
   async createSession(cameraId: string, orgId: string) {
     // 1. Verify camera exists and belongs to org
-    const camera = await this.prisma.camera.findUnique({
+    const camera = await this.tenantPrisma.camera.findUnique({
       where: { id: cameraId },
     });
 
@@ -68,7 +70,7 @@ export class PlaybackService {
 
     // 4. Create PlaybackSession record
     const expiresAt = new Date(Date.now() + resolved.ttlSeconds * 1000);
-    const session = await this.prisma.playbackSession.create({
+    const session = await this.tenantPrisma.playbackSession.create({
       data: {
         orgId,
         cameraId,
@@ -101,7 +103,7 @@ export class PlaybackService {
       : `http://${process.env.SRS_HOST || 'localhost'}:8080/live/${orgId}/${cameraId}.m3u8`;
     const hlsUrl = `${hlsBase}?token=${token}`;
 
-    const updated = await this.prisma.playbackSession.update({
+    const updated = await this.tenantPrisma.playbackSession.update({
       where: { id: session.id },
       data: { token, hlsUrl },
     });
@@ -157,9 +159,12 @@ export class PlaybackService {
         return null;
       }
 
-      // Look up session
-      const session = await this.prisma.playbackSession.findUnique({
-        where: { id: payload.sub },
+      // Look up session via systemPrisma — SRS callback runs without CLS ORG_ID,
+      // so the tenancy extension would skip set_config and RLS would deny the row.
+      // The orgId/cameraId from the JWT payload (already verified above) are added
+      // to the where clause as defense-in-depth (mirrors 49adac6 StatusService pattern).
+      const session = await this.systemPrisma.playbackSession.findFirst({
+        where: { id: payload.sub as string, orgId, cameraId },
       });
 
       if (!session) {
@@ -208,9 +213,14 @@ export class PlaybackService {
   /**
    * Get session by ID (for embed page).
    * Returns null if expired or not found.
+   *
+   * Public endpoint with no auth guard — runs without CLS ORG_ID, so we use
+   * systemPrisma to bypass RLS. Session id is an unguessable cuid; access
+   * control for HLS playback is enforced separately via JWT signature in
+   * verifyToken (SRS on_play callback).
    */
   async getSession(sessionId: string) {
-    const session = await this.prisma.playbackSession.findUnique({
+    const session = await this.systemPrisma.playbackSession.findUnique({
       where: { id: sessionId },
     });
 
@@ -246,7 +256,7 @@ export class PlaybackService {
     orgId: string,
     limit: number = 20,
   ) {
-    const camera = await this.prisma.camera.findUnique({
+    const camera = await this.tenantPrisma.camera.findUnique({
       where: { id: cameraId },
     });
 
@@ -255,7 +265,7 @@ export class PlaybackService {
     }
 
     const safeLimit = Math.min(Math.max(limit, 1), 100);
-    const sessions = await this.prisma.playbackSession.findMany({
+    const sessions = await this.tenantPrisma.playbackSession.findMany({
       where: { cameraId },
       orderBy: { createdAt: 'desc' },
       take: safeLimit,

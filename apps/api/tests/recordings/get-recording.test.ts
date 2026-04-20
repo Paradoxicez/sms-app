@@ -41,8 +41,13 @@ describe('RecordingsService.getRecording (Phase 17 — REC-01, T-17-V4)', () => 
       },
     };
 
+    // After 260420-oid: dual-injection. systemPrisma not used by getRecording
+    // (T-17-V4 mitigation kept on tenantPrisma) — empty mock is sufficient here.
+    const systemPrisma: any = {};
+
     service = new RecordingsService(
       tenancyClient,
+      systemPrisma,
       rawPrisma,
       minioService as MinioService,
     );

@@ -25,7 +25,14 @@ describe('SRS Config Generator', () => {
     const { SettingsService } = await import(
       '../../src/settings/settings.service'
     );
-    service = new SettingsService(mockPrisma as any, mockSrsApiService as any);
+    // After 260420-oid: dual-injection. generateSrsConfig doesn't touch DB,
+    // so systemPrisma/clusterService can be minimal stubs.
+    service = new SettingsService(
+      mockPrisma as any,
+      mockPrisma as any,
+      mockSrsApiService as any,
+      { getOnlineEdges: vi.fn().mockResolvedValue([]), incrementConfigVersion: vi.fn() } as any,
+    );
   });
 
   it('should generate valid srs.conf with default settings', () => {

@@ -5,7 +5,8 @@ import { MinioService } from '../../src/recordings/minio.service';
 describe('RecordingsService - Recording Lifecycle (REC-03)', () => {
   let service: RecordingsService;
   let minioService: Partial<MinioService>;
-  let tenancyClient: any;
+  let tenantPrisma: any;
+  let systemPrisma: any;
   let rawPrisma: any;
 
   beforeEach(() => {
@@ -16,9 +17,21 @@ describe('RecordingsService - Recording Lifecycle (REC-03)', () => {
       removeObjects: vi.fn().mockResolvedValue(undefined),
     };
 
-    tenancyClient = {
+    // tenantPrisma is now used only for HTTP-CRUD methods (getRecording etc.)
+    // Recording lifecycle methods (startRecording, stopRecording) route through
+    // systemPrisma after this plan (260420-oid).
+    tenantPrisma = {
+      recording: {
+        findFirst: vi.fn(),
+        findUnique: vi.fn(),
+        findMany: vi.fn(),
+        delete: vi.fn(),
+      },
+    };
+
+    systemPrisma = {
       camera: {
-        findUnique: vi.fn().mockResolvedValue({
+        findFirst: vi.fn().mockResolvedValue({
           id: 'cam-1',
           orgId: 'org-1',
           status: 'online',
@@ -36,9 +49,9 @@ describe('RecordingsService - Recording Lifecycle (REC-03)', () => {
         }),
         findFirst: vi.fn(),
         update: vi.fn(),
-        delete: vi.fn(),
-        findUnique: vi.fn(),
-        findMany: vi.fn(),
+      },
+      recordingSegment: {
+        aggregate: vi.fn().mockResolvedValue({ _sum: { size: 0n } }),
       },
     };
 
@@ -49,19 +62,11 @@ describe('RecordingsService - Recording Lifecycle (REC-03)', () => {
           package: { maxStorageGb: 100 },
         }),
       },
-      recording: {
-        findFirst: vi.fn(),
-        update: vi.fn(),
-      },
-      recordingSegment: {
-        count: vi.fn().mockResolvedValue(0),
-        create: vi.fn(),
-        aggregate: vi.fn().mockResolvedValue({ _sum: { size: 0n } }),
-      },
     };
 
     service = new RecordingsService(
-      tenancyClient,
+      tenantPrisma,
+      systemPrisma,
       rawPrisma,
       minioService as MinioService,
     );
@@ -70,7 +75,7 @@ describe('RecordingsService - Recording Lifecycle (REC-03)', () => {
   it('starts recording: creates Recording record with status=recording', async () => {
     const result = await service.startRecording('cam-1', 'org-1');
 
-    expect(tenancyClient.recording.create).toHaveBeenCalledWith({
+    expect(systemPrisma.recording.create).toHaveBeenCalledWith({
       data: {
         orgId: 'org-1',
         cameraId: 'cam-1',
@@ -83,18 +88,18 @@ describe('RecordingsService - Recording Lifecycle (REC-03)', () => {
   it('starts recording: sets camera isRecording flag to true', async () => {
     await service.startRecording('cam-1', 'org-1');
 
-    expect(tenancyClient.camera.update).toHaveBeenCalledWith({
+    expect(systemPrisma.camera.update).toHaveBeenCalledWith({
       where: { id: 'cam-1' },
       data: { isRecording: true },
     });
   });
 
   it('stops recording: sets Recording status to complete and stoppedAt timestamp', async () => {
-    tenancyClient.recording.findFirst.mockResolvedValue({
+    systemPrisma.recording.findFirst.mockResolvedValue({
       id: 'rec-1',
       status: 'recording',
     });
-    tenancyClient.recording.update.mockResolvedValue({
+    systemPrisma.recording.update.mockResolvedValue({
       id: 'rec-1',
       status: 'complete',
       stoppedAt: new Date(),
@@ -102,7 +107,7 @@ describe('RecordingsService - Recording Lifecycle (REC-03)', () => {
 
     const result = await service.stopRecording('cam-1', 'org-1');
 
-    expect(tenancyClient.recording.update).toHaveBeenCalledWith({
+    expect(systemPrisma.recording.update).toHaveBeenCalledWith({
       where: { id: 'rec-1' },
       data: {
         status: 'complete',
@@ -114,11 +119,11 @@ describe('RecordingsService - Recording Lifecycle (REC-03)', () => {
   });
 
   it('stops recording: clears camera isRecording flag', async () => {
-    tenancyClient.recording.findFirst.mockResolvedValue({
+    systemPrisma.recording.findFirst.mockResolvedValue({
       id: 'rec-1',
       status: 'recording',
     });
-    tenancyClient.recording.update.mockResolvedValue({
+    systemPrisma.recording.update.mockResolvedValue({
       id: 'rec-1',
       status: 'complete',
       stoppedAt: new Date(),
@@ -126,15 +131,16 @@ describe('RecordingsService - Recording Lifecycle (REC-03)', () => {
 
     await service.stopRecording('cam-1', 'org-1');
 
-    expect(tenancyClient.camera.update).toHaveBeenCalledWith({
+    expect(systemPrisma.camera.update).toHaveBeenCalledWith({
       where: { id: 'cam-1' },
       data: { isRecording: false },
     });
   });
 
   it('rejects start when camera is already recording', async () => {
-    tenancyClient.camera.findUnique.mockResolvedValue({
+    systemPrisma.camera.findFirst.mockResolvedValue({
       id: 'cam-1',
+      orgId: 'org-1',
       status: 'online',
       isRecording: true,
     });
@@ -145,8 +151,9 @@ describe('RecordingsService - Recording Lifecycle (REC-03)', () => {
   });
 
   it('rejects start when camera is offline', async () => {
-    tenancyClient.camera.findUnique.mockResolvedValue({
+    systemPrisma.camera.findFirst.mockResolvedValue({
       id: 'cam-1',
+      orgId: 'org-1',
       status: 'offline',
       isRecording: false,
     });
@@ -157,8 +164,8 @@ describe('RecordingsService - Recording Lifecycle (REC-03)', () => {
   });
 
   it('rejects start when storage quota is exceeded', async () => {
-    // Set up quota exceeded scenario
-    rawPrisma.recordingSegment.aggregate.mockResolvedValue({
+    // Set up quota exceeded scenario — checkStorageQuota uses systemPrisma now
+    systemPrisma.recordingSegment.aggregate.mockResolvedValue({
       _sum: { size: BigInt(100) * BigInt(1024 * 1024 * 1024) }, // 100 GB used
     });
 

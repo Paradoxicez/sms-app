@@ -12,7 +12,8 @@ import * as fsp from 'fs/promises';
 describe('RecordingsService - Segment Archival (REC-01)', () => {
   let service: RecordingsService;
   let minioService: Partial<MinioService>;
-  let tenancyClient: any;
+  let tenantPrisma: any;
+  let systemPrisma: any;
   let rawPrisma: any;
 
   beforeEach(() => {
@@ -26,17 +27,27 @@ describe('RecordingsService - Segment Archival (REC-01)', () => {
       removeObjects: vi.fn().mockResolvedValue(undefined),
     };
 
-    tenancyClient = {
-      camera: {
-        findUnique: vi.fn(),
-        update: vi.fn(),
-      },
+    // tenantPrisma — only used by HTTP CRUD methods, not archive flow
+    tenantPrisma = {};
+
+    // systemPrisma — used by archiveSegment / archiveInitSegment / getActiveRecording
+    // / checkStorageQuota aggregation after 260420-oid plan.
+    systemPrisma = {
       recording: {
-        create: vi.fn(),
         findFirst: vi.fn(),
-        update: vi.fn(),
-        delete: vi.fn(),
-        findMany: vi.fn(),
+        update: vi.fn().mockResolvedValue({}),
+      },
+      recordingSegment: {
+        count: vi.fn().mockResolvedValue(1), // not first segment by default
+        create: vi.fn().mockResolvedValue({}),
+        aggregate: vi.fn().mockResolvedValue({ _sum: { size: 0n } }),
+      },
+      notification: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue({}),
+      },
+      member: {
+        findMany: vi.fn().mockResolvedValue([]),
       },
     };
 
@@ -47,19 +58,11 @@ describe('RecordingsService - Segment Archival (REC-01)', () => {
           package: { maxStorageGb: 100 },
         }),
       },
-      recording: {
-        findFirst: vi.fn(),
-        update: vi.fn().mockResolvedValue({}),
-      },
-      recordingSegment: {
-        count: vi.fn().mockResolvedValue(1), // not first segment by default
-        create: vi.fn().mockResolvedValue({}),
-        aggregate: vi.fn().mockResolvedValue({ _sum: { size: 0n } }),
-      },
     };
 
     service = new RecordingsService(
-      tenancyClient,
+      tenantPrisma,
+      systemPrisma,
       rawPrisma,
       minioService as MinioService,
     );
@@ -86,7 +89,7 @@ describe('RecordingsService - Segment Archival (REC-01)', () => {
   });
 
   it('skips archive when recording is not active for camera', async () => {
-    rawPrisma.recording.findFirst.mockResolvedValue(null);
+    systemPrisma.recording.findFirst.mockResolvedValue(null);
 
     const result = await service.getActiveRecording('cam-1', 'org-1');
     expect(result).toBeNull();
@@ -99,7 +102,7 @@ describe('RecordingsService - Segment Archival (REC-01)', () => {
   });
 
   it('detects and archives fMP4 init segment on first callback', async () => {
-    rawPrisma.recordingSegment.count.mockResolvedValue(0);
+    systemPrisma.recordingSegment.count.mockResolvedValue(0);
 
     const m3u8Content = '#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-MAP:URI="init.mp4"\n#EXTINF:2.0,\nseg.m4s\n';
     const mockSegBuffer = Buffer.from('segment-data');
@@ -127,8 +130,8 @@ describe('RecordingsService - Segment Archival (REC-01)', () => {
       mockInitBuffer,
       mockInitBuffer.length,
     );
-    // Recording should be updated with init segment path
-    expect(rawPrisma.recording.update).toHaveBeenCalledWith(
+    // Recording should be updated with init segment path (via systemPrisma)
+    expect(systemPrisma.recording.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: 'rec-1' },
         data: expect.objectContaining({ initSegment: expect.stringContaining('init.mp4') }),
@@ -172,7 +175,7 @@ describe('RecordingsService - Segment Archival (REC-01)', () => {
       m3u8Path: '/srs-hls/live/stream.m3u8',
     });
 
-    expect(rawPrisma.recording.update).toHaveBeenCalledWith(
+    expect(systemPrisma.recording.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: 'rec-1' },
         data: {

@@ -49,8 +49,12 @@ describe('Recording Download (REC-04)', () => {
       },
     };
 
+    // After 260420-oid: dual-injection. systemPrisma not used by getRecording.
+    const systemPrisma: any = {};
+
     service = new RecordingsService(
       tenancyClient,
+      systemPrisma,
       rawPrisma,
       minioService as MinioService,
     );

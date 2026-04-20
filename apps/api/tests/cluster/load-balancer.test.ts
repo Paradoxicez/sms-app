@@ -39,6 +39,7 @@ describe('Playback routing to edges', () => {
     );
     playbackService = new PlaybackService(
       mockPrisma as any,
+      mockPrisma as any, // systemPrisma — same mock for createSession test path
       mockPoliciesService as any,
       mockStatusService as any,
       mockClusterService as any,
@@ -147,6 +148,7 @@ describe('Settings propagation', () => {
     );
     settingsService = new SettingsService(
       mockPrisma as any,
+      mockPrisma as any, // systemPrisma — same mock; HTTP regenerateAndReloadSrs path uses tenantPrisma
       mockSrsApiService as any,
       mockClusterService as any,
     );

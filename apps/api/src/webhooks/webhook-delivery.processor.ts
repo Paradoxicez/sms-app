@@ -1,8 +1,8 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { createHmac } from 'crypto';
-import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
+import { SystemPrismaService } from '../prisma/system-prisma.service';
 
 // Custom backoff delays per D-10: ~1m, 5m, 30m, 2h, 12h
 const WEBHOOK_DELAYS = [60000, 300000, 1800000, 7200000, 43200000];
@@ -16,7 +16,16 @@ const WEBHOOK_DELAYS = [60000, 300000, 1800000, 7200000, 43200000];
 export class WebhookDeliveryProcessor extends WorkerHost {
   private readonly logger = new Logger(WebhookDeliveryProcessor.name);
 
-  constructor(@Inject(TENANCY_CLIENT) private readonly prisma: any) {
+  /**
+   * BullMQ worker — runs without an HTTP request, so CLS has no ORG_ID.
+   * Uses SystemPrismaService (RLS-bypass via DB superuser role) for the
+   * webhookDelivery.update calls. WebhookDelivery has no orgId column —
+   * RLS scopes via the subscriptionId FK chain — so no explicit orgId
+   * scoping is possible at this layer. Lookups are by primary key
+   * (deliveryId from the BullMQ job, which was created by an org-scoped
+   * emitEvent call upstream), which is sufficient.
+   */
+  constructor(private readonly prisma: SystemPrismaService) {
     super();
   }
 

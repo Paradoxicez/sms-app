@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
-import { PrismaService } from '../prisma/prisma.service';
+import { SystemPrismaService } from '../prisma/system-prisma.service';
 import { NotificationsGateway } from './notifications.gateway';
 
 @Injectable()
@@ -8,8 +8,8 @@ export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
 
   constructor(
-    @Inject(TENANCY_CLIENT) private readonly prisma: any,
-    private readonly rawPrisma: PrismaService,
+    @Inject(TENANCY_CLIENT) private readonly tenantPrisma: any,
+    private readonly systemPrisma: SystemPrismaService,
     private readonly gateway: NotificationsGateway,
   ) {}
 
@@ -21,15 +21,17 @@ export class NotificationsService {
   ): Promise<void> {
     const eventType = `camera.${status}`;
 
-    // Find users who have this event enabled (or have no preference record, defaulting to enabled)
-    const preferences = await this.prisma.notificationPreference.findMany({
+    // Worker context (NotifyDispatchProcessor) — no CLS ORG_ID, must use
+    // systemPrisma. orgId is in the where clause / data payload as defense
+    // in depth.
+    const preferences = await this.systemPrisma.notificationPreference.findMany({
       where: { orgId, eventType, enabled: true },
     });
 
     let userIds = preferences.map((p: any) => p.userId);
 
     if (userIds.length === 0) {
-      const members = await this.rawPrisma.member.findMany({
+      const members = await this.systemPrisma.member.findMany({
         where: { organizationId: orgId },
         select: { userId: true },
       });
@@ -40,7 +42,7 @@ export class NotificationsService {
 
     for (const userId of userIds) {
       try {
-        const notification = await this.prisma.notification.create({
+        const notification = await this.systemPrisma.notification.create({
           data: {
             orgId,
             userId,
@@ -66,8 +68,10 @@ export class NotificationsService {
     body: string,
     data?: any,
   ): Promise<void> {
-    // Query org admin/owner members for alert delivery
-    const members = await this.rawPrisma.member.findMany({
+    // System alert path — also reachable from worker context (storage quota
+    // alerts via RecordingsService.checkAndAlertStorageQuota). Use systemPrisma;
+    // orgId is in the where clause / data payload as defense in depth.
+    const members = await this.systemPrisma.member.findMany({
       where: {
         organizationId: orgId,
         role: { in: ['owner', 'admin'] },
@@ -84,7 +88,7 @@ export class NotificationsService {
 
     for (const member of members) {
       try {
-        const notification = await this.rawPrisma.notification.create({
+        const notification = await this.systemPrisma.notification.create({
           data: {
             orgId,
             userId: member.userId,
@@ -114,7 +118,7 @@ export class NotificationsService {
       where.read = false;
     }
 
-    const items = await this.prisma.notification.findMany({
+    const items = await this.tenantPrisma.notification.findMany({
       where,
       orderBy: { createdAt: 'desc' },
       take: take + 1,
@@ -131,33 +135,33 @@ export class NotificationsService {
   }
 
   async markAsRead(userId: string, notificationId: string): Promise<void> {
-    await this.prisma.notification.updateMany({
+    await this.tenantPrisma.notification.updateMany({
       where: { id: notificationId, userId },
       data: { read: true },
     });
   }
 
   async markAllAsRead(userId: string): Promise<void> {
-    await this.prisma.notification.updateMany({
+    await this.tenantPrisma.notification.updateMany({
       where: { userId, read: false },
       data: { read: true },
     });
   }
 
   async clearAll(userId: string): Promise<void> {
-    await this.prisma.notification.deleteMany({
+    await this.tenantPrisma.notification.deleteMany({
       where: { userId },
     });
   }
 
   async getUnreadCount(userId: string): Promise<number> {
-    return this.prisma.notification.count({
+    return this.tenantPrisma.notification.count({
       where: { userId, read: false },
     });
   }
 
   async getPreferences(userId: string, orgId: string): Promise<any[]> {
-    return this.prisma.notificationPreference.findMany({
+    return this.tenantPrisma.notificationPreference.findMany({
       where: { userId, orgId },
     });
   }
@@ -168,7 +172,7 @@ export class NotificationsService {
     eventType: string,
     enabled: boolean,
   ): Promise<any> {
-    return this.prisma.notificationPreference.upsert({
+    return this.tenantPrisma.notificationPreference.upsert({
       where: {
         userId_orgId_eventType: { userId, orgId, eventType },
       },

@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { writeFileSync } from 'fs';
 import { join } from 'path';
 import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
+import { SystemPrismaService } from '../prisma/system-prisma.service';
 import { SrsApiService } from '../srs/srs-api.service';
 import { ClusterService } from '../cluster/cluster.service';
 import { UpdateSystemSettingsDto } from './dto/update-system-settings.dto';
@@ -21,14 +22,15 @@ export class SettingsService implements OnModuleInit {
   private readonly logger = new Logger(SettingsService.name);
 
   constructor(
-    @Inject(TENANCY_CLIENT) private readonly prisma: any,
+    @Inject(TENANCY_CLIENT) private readonly tenantPrisma: any,
+    private readonly systemPrisma: SystemPrismaService,
     private readonly srsApiService: SrsApiService,
     private readonly clusterService: ClusterService,
   ) {}
 
   async onModuleInit(): Promise<void> {
     try {
-      await this.regenerateAndReloadSrs();
+      await this.regenerateAndReloadSrsAtBoot();
       this.logger.log('SRS config regenerated from DB settings on boot');
     } catch (error) {
       this.logger.warn(
@@ -38,12 +40,59 @@ export class SettingsService implements OnModuleInit {
     }
   }
 
+  /**
+   * Boot-only path. SystemSettings has no orgId; OnModuleInit runs before any
+   * HTTP request, so CLS has no ORG_ID and tenancy extension would skip
+   * set_config — RLS would deny the read. Use systemPrisma to bypass RLS.
+   */
+  private async regenerateAndReloadSrsAtBoot(): Promise<void> {
+    let settings = await this.systemPrisma.systemSettings.findFirst();
+    if (!settings) {
+      settings = await this.systemPrisma.systemSettings.create({ data: {} });
+      this.logger.log('Created default system settings (boot)');
+    }
+    const config = this.generateSrsConfig({
+      hlsFragment: settings.hlsFragment,
+      hlsWindow: settings.hlsWindow,
+      hlsEncryption: settings.hlsEncryption,
+      rtmpPort: settings.rtmpPort,
+      httpPort: settings.httpPort,
+      apiPort: settings.apiPort,
+    });
+    const configPath =
+      process.env.SRS_CONFIG_PATH || join(process.cwd(), '..', '..', 'config', 'srs.conf');
+    writeFileSync(configPath, config, 'utf-8');
+    this.logger.log(`srs.conf regenerated at ${configPath} (boot)`);
+
+    try {
+      await this.srsApiService.reloadConfig();
+      this.logger.log('SRS origin configuration reloaded successfully (boot)');
+    } catch (error) {
+      this.logger.warn(
+        'Failed to reload SRS origin config on boot (SRS may not be running)',
+        error,
+      );
+    }
+
+    try {
+      const edges = await this.clusterService.getOnlineEdges();
+      for (const edge of edges) {
+        this.logger.log(
+          `Edge node ${edge.name} will pick up config changes via origin (boot)`,
+        );
+      }
+      await this.clusterService.incrementConfigVersion();
+    } catch (error) {
+      this.logger.warn('Failed to propagate config to edges on boot', error);
+    }
+  }
+
   // ─── System Settings ───────────────────────────
 
   async getSystemSettings() {
-    let settings = await this.prisma.systemSettings.findFirst();
+    let settings = await this.tenantPrisma.systemSettings.findFirst();
     if (!settings) {
-      settings = await this.prisma.systemSettings.create({ data: {} });
+      settings = await this.tenantPrisma.systemSettings.create({ data: {} });
       this.logger.log('Created default system settings');
     }
     return settings;
@@ -51,7 +100,7 @@ export class SettingsService implements OnModuleInit {
 
   async updateSystemSettings(dto: UpdateSystemSettingsDto) {
     const existing = await this.getSystemSettings();
-    const updated = await this.prisma.systemSettings.update({
+    const updated = await this.tenantPrisma.systemSettings.update({
       where: { id: existing.id },
       data: dto,
     });
@@ -64,11 +113,11 @@ export class SettingsService implements OnModuleInit {
   // ─── Org Settings ─────────────────────────────
 
   async getOrgSettings(orgId: string) {
-    let settings = await this.prisma.orgSettings.findUnique({
+    let settings = await this.tenantPrisma.orgSettings.findUnique({
       where: { orgId },
     });
     if (!settings) {
-      settings = await this.prisma.orgSettings.create({
+      settings = await this.tenantPrisma.orgSettings.create({
         data: { orgId },
       });
       this.logger.log(`Created default org settings for ${orgId}`);
@@ -77,7 +126,7 @@ export class SettingsService implements OnModuleInit {
   }
 
   async updateOrgSettings(orgId: string, dto: UpdateOrgSettingsDto) {
-    return this.prisma.orgSettings.upsert({
+    return this.tenantPrisma.orgSettings.upsert({
       where: { orgId },
       update: dto,
       create: { orgId, ...dto },

@@ -54,8 +54,12 @@ describe('RecordingsService - Bulk Delete (REC-03)', () => {
       },
     };
 
+    // After 260420-oid: dual-injection. deleteRecording stays on tenantPrisma.
+    const systemPrisma: any = {};
+
     service = new RecordingsService(
       tenancyClient,
+      systemPrisma,
       rawPrisma,
       minioService as MinioService,
     );
