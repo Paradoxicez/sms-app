@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 Phase: 17 (Recording Playback & Timeline) — EXECUTING
 Plan: 1 of 5
 Status: Executing Phase 17
-Last activity: 2026-04-20 -- Completed quick task 260420-nmu: Fix StatusService RLS regression
+Last activity: 2026-04-20 -- Completed quick task 260420-oid: Audit TENANCY_CLIENT misuse (6 services fixed)
 
 Progress: [░░░░░░░░░░] 0% (v1.2: 0/5 phases)
 
@@ -79,6 +79,7 @@ None yet.
 |---|-------------|------|--------|-----------|
 | 260419-h84 | Fix tenancy RLS superuser_bypass + StreamProcessor reconnecting→connecting transition (15.1 gap closure) | 2026-04-19 | 5f0ffd9 | [260419-h84-fix-tenancy-rls-superuser-bypass-streamp](./quick/260419-h84-fix-tenancy-rls-superuser-bypass-streamp/) |
 | 260420-nmu | Fix StatusService RLS regression — use SystemPrismaService instead of TENANCY_CLIENT (phase 15 commit 8ea20f7 missed this file) | 2026-04-20 | 49adac6 | [260420-nmu-fix-statusservice-rls-regression-use-sys](./quick/260420-nmu-fix-statusservice-rls-regression-use-sys/) |
+| 260420-oid | Audit TENANCY_CLIENT misuse — fix all 6 broken services (Playback, Webhooks, WebhookDeliveryProcessor, Notifications, Recordings, Settings) | 2026-04-20 | e87016c | [260420-oid-audit-tenancy-client-misuse-fix-all-serv](./quick/260420-oid-audit-tenancy-client-misuse-fix-all-serv/) |
 
 ## Session Continuity
 
