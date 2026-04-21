@@ -157,5 +157,5 @@ Note: Phases 16, 17, 18 can execute in parallel after Phase 14 (independent of e
 | 14. Bug Fixes & DataTable Migrations | v1.2 | 3/3 | Complete    | 2026-04-18 |
 | 15. FFmpeg Resilience & Camera Maintenance | v1.2 | 4/4 | Complete    | 2026-04-19 |
 | 16. User Self-Service | v1.2 | 3/3 | Complete    | 2026-04-19 |
-| 17. Recording Playback & Timeline | v1.2 | 5/5 | Complete   | 2026-04-19 |
+| 17. Recording Playback & Timeline | v1.2 | 5/5 | Complete    | 2026-04-21 |
 | 18. Dashboard & Map Polish | v1.2 | 0/0 | Not started | - |
