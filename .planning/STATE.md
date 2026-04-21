@@ -4,10 +4,10 @@ milestone: v1.2
 milestone_name: Self-Service, Resilience & UI Polish
 status: executing
 stopped_at: Phase 18 UI-SPEC approved
-last_updated: "2026-04-21T04:38:29.028Z"
-last_activity: 2026-04-21
+last_updated: "2026-04-21T05:40:06.989Z"
+last_activity: "2026-04-21 - Completed quick task 260421-g9o: fix StreamProcessor undefined cameraId bug - add defensive guard"
 progress:
-  total_phases: 6
+  total_phases: 5
   completed_phases: 4
   total_plans: 15
   completed_plans: 15

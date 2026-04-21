@@ -1116,27 +1116,31 @@ All other claims are `[VERIFIED]` against the codebase or `[CITED]` from SRS sou
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should the maintenance API be `PATCH /api/cameras/:id` with body `{ maintenanceMode }` or dedicated `POST/DELETE /api/cameras/:id/maintenance`?**
    - What we know: both integrate with existing audit interceptor. Semantics differ.
    - What's unclear: operator DX preference. SDK compatibility.
    - Recommendation: **POST/DELETE dedicated endpoint** — clearer intent in API docs (Swagger), audit log path is more specific, matches the "this stops a stream" weight of the action. PATCH feels too casual for a destructive side-effect.
+   - **RESOLVED:** Dedicated `POST /api/cameras/:id/maintenance` (enter) and `DELETE /api/cameras/:id/maintenance` (exit) — implemented in Plan 15-03 Task 3.
 
 2. **Does `apps/web` have Vitest + Testing Library configured for web-side unit tests (CAM-02, CAM-03)?**
    - What we know: `apps/api` has Vitest 2.x; web-side not verified.
    - What's unclear: existence of `vitest.config.ts` in web workspace.
    - Recommendation: planner reads `apps/web/package.json` as first step; if missing, add install to Wave 0.
+   - **RESOLVED:** Confirmed present (verified 2026-04-18). `apps/web/vitest.config.ts` exists with `environment: "jsdom"`, `setupFiles: ["./src/test-utils/setup.ts"]`, `include: ["src/**/*.test.{ts,tsx}"]`; `apps/web/package.json` ships `vitest@3`, `@testing-library/react@^16.3.2`, `@testing-library/jest-dom@^6.9.1`, `@testing-library/user-event@^14.6.1`. No Wave 0 install step required.
 
 3. **SRS `server` field vs `self.pid` — which is the stronger restart signal?**
    - What we know: both change on restart per SRS source. Server is at top-level of response; `pid` is at `data.self.pid`.
    - What's unclear: whether `server_id` ever changes during an SRS lifetime without a process restart (e.g., config reload).
    - Recommendation: use `self.pid` as primary per CONTEXT.md D-05; add `srs_uptime` going-backward as secondary sanity check. `server` field can be a tertiary tiebreaker if the planner wants belt-and-braces.
+   - **RESOLVED:** `self.pid` is primary; `srs_uptime` going-backward is secondary sanity check — implemented in Plan 15-02 Task 3 (SrsRestartDetector).
 
 4. **BullMQ `camera-health` + `stream-ffmpeg` + `camera-notify` — one new module or distributed across existing modules?**
    - What we know: `ResilienceModule` is the natural home for `camera-health` and its processor, `BootRecoveryService`, `ResilienceService` (shutdown). `camera-notify` logically belongs with StatusModule OR NotificationsModule.
    - What's unclear: where `notify-dispatch.processor.ts` lives.
    - Recommendation: put notify queue + processor in `StatusModule` (the enqueue happens in `StatusService.transition`, tight coupling). Keep `ResilienceModule` focused on lifecycle + health concerns.
+   - **RESOLVED:** `camera-notify` queue + `NotifyDispatchProcessor` live in `StatusModule` — implemented in Plan 15-01 Task 3. `ResilienceModule` owns `camera-health` + lifecycle services (Plan 15-02).
 
 ---
 

@@ -79,16 +79,6 @@ Plans:
 - [x] 15-04-PLAN.md — Camera table UI: composite 3-icon Status column + maintenance row-action + Thai confirmation dialogs (CAM-03)
 **UI hint**: yes
 
-### Phase 15.1: Tenancy RLS bypass + StreamProcessor transition fixes (INSERTED)
-
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
-**Depends on:** Phase 15
-**Plans:** 4/4 plans complete
-
-Plans:
-- [ ] TBD (run /gsd-plan-phase 15.1 to break down)
-
 ### Phase 16: User Self-Service
 **Goal**: Users can manage their own account and view their organization's plan and usage
 **Depends on**: Phase 14
