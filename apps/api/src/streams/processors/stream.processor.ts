@@ -43,6 +43,18 @@ export class StreamProcessor extends WorkerHost {
 
   async process(job: Job<StreamJobData>): Promise<void> {
     const { cameraId, orgId, rtspUrl, profile, needsTranscode } = job.data;
+
+    // Defensive guard: BullMQ has been observed enqueuing jobs with empty data
+    // (see memory note 260421 — race between BootRecoveryService/CameraHealthService
+    // + jobId dedup). Refuse such jobs at the choke point: log and return without
+    // throwing so the job is marked complete and does NOT retry into a storm.
+    if (!cameraId || !rtspUrl) {
+      this.logger.error(
+        `Refusing job with empty data: cameraId=${cameraId ?? '<undefined>'}, rtspUrl=${rtspUrl ? 'set' : 'empty'}, jobId=${job.id}`,
+      );
+      return;
+    }
+
     const streamKey = `live/${orgId}/${cameraId}`;
     const srsHost = process.env.SRS_HOST || 'localhost';
     const outputUrl = `rtmp://${srsHost}:1935/${streamKey}`;
