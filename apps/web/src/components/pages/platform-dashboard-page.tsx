@@ -1,20 +1,31 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Building2, Camera, Cpu, Clock, HardDrive, MemoryStick, MonitorOff, Wifi } from 'lucide-react';
+import {
+  Activity,
+  Building2,
+  Camera,
+  Circle,
+  Clock,
+  Cpu,
+  HardDrive,
+  MemoryStick,
+  MonitorOff,
+  Wifi,
+} from 'lucide-react';
 
 import { apiFetch } from '@/lib/api';
 import { StatCard } from '@/components/dashboard/stat-card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+  useActiveStreamsCount,
+  useRecordingsActive,
+} from '@/hooks/use-platform-dashboard';
+import { PlatformIssuesPanel } from '@/components/dashboard/platform-issues-panel';
+import { ClusterNodesPanel } from '@/components/dashboard/cluster-nodes-panel';
+import { StorageForecastCard } from '@/components/dashboard/storage-forecast-card';
+import { RecentAuditHighlights } from '@/components/dashboard/recent-audit-highlights';
+import { OrgHealthDataTable } from '@/app/admin/dashboard/components/org-health-data-table';
 
 interface PlatformStats {
   totalOrgs: number;
@@ -23,15 +34,6 @@ interface PlatformStats {
   camerasOffline: number;
   totalViewers: number;
   streamBandwidth: number;
-}
-
-interface OrgSummary {
-  orgId: string;
-  orgName: string;
-  orgSlug: string;
-  camerasOnline: number;
-  camerasOffline: number;
-  totalCameras: number;
 }
 
 function formatBandwidth(bytes: number): string {
@@ -64,17 +66,20 @@ function formatUptime(seconds: number): string {
 
 export default function PlatformDashboardPage() {
   const [stats, setStats] = useState<PlatformStats | null>(null);
-  const [orgs, setOrgs] = useState<OrgSummary[]>([]);
   const [metrics, setMetrics] = useState<SystemMetricsData | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
-  const [orgsLoading, setOrgsLoading] = useState(true);
   const [metricsLoading, setMetricsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const { count: activeStreamsCount } = useActiveStreamsCount();
+  const { count: recordingsActiveCount } = useRecordingsActive();
+
   const fetchMetrics = useCallback(async () => {
     try {
-      const data = await apiFetch<SystemMetricsData>('/api/admin/dashboard/system-metrics');
+      const data = await apiFetch<SystemMetricsData>(
+        '/api/admin/dashboard/system-metrics',
+      );
       setMetrics(data);
     } catch {
       // silent
@@ -97,21 +102,7 @@ export default function PlatformDashboardPage() {
       }
     }
 
-    async function loadOrgs() {
-      try {
-        const data = await apiFetch<OrgSummary[]>(
-          '/api/admin/dashboard/orgs',
-        );
-        setOrgs(data);
-      } catch {
-        // Stats error already shown
-      } finally {
-        setOrgsLoading(false);
-      }
-    }
-
     loadStats();
-    loadOrgs();
     fetchMetrics();
     intervalRef.current = setInterval(fetchMetrics, 30000);
     return () => {
@@ -123,10 +114,13 @@ export default function PlatformDashboardPage() {
     <div className="space-y-6">
       <h1 className="text-xl font-semibold">Platform Dashboard</h1>
 
-      {/* Stat cards */}
+      {/* Stat cards — D-05: 7 cards in priority order */}
       {statsLoading ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          {[1, 2, 3, 4, 5].map((i) => (
+        <div
+          data-testid="stat-grid"
+          className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7"
+        >
+          {[1, 2, 3, 4, 5, 6, 7].map((i) => (
             <Skeleton key={i} className="h-[108px] w-full rounded-xl" />
           ))}
         </div>
@@ -135,7 +129,10 @@ export default function PlatformDashboardPage() {
           {error}
         </div>
       ) : stats ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div
+          data-testid="stat-grid"
+          className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7"
+        >
           <StatCard
             label="Organizations"
             value={stats.totalOrgs}
@@ -174,10 +171,22 @@ export default function PlatformDashboardPage() {
             value={formatBandwidth(stats.streamBandwidth * 125)}
             icon={<Wifi className="h-4 w-4" />}
           />
+          <StatCard
+            label="Active Streams"
+            value={activeStreamsCount ?? 0}
+            icon={<Activity className="h-4 w-4" />}
+          />
+          <StatCard
+            label="Recordings Active"
+            value={recordingsActiveCount ?? 0}
+            icon={
+              <Circle className="h-4 w-4 fill-[hsl(0_84%_60%)] text-[hsl(0_84%_60%)]" />
+            }
+          />
         </div>
       ) : null}
 
-      {/* System metrics */}
+      {/* System metrics — D-06: unchanged */}
       {metricsLoading ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[1, 2, 3, 4].map((i) => (
@@ -190,13 +199,21 @@ export default function PlatformDashboardPage() {
             label="CPU Usage"
             value={`${metrics.cpuPercent.toFixed(1)}%`}
             icon={<Cpu className="h-4 w-4" />}
-            badge={metrics.cpuPercent > 80 ? { text: 'High', variant: 'destructive' } : undefined}
+            badge={
+              metrics.cpuPercent > 80
+                ? { text: 'High', variant: 'destructive' }
+                : undefined
+            }
           />
           <StatCard
             label="Memory Usage"
             value={`${metrics.memPercent.toFixed(1)}%`}
             icon={<MemoryStick className="h-4 w-4" />}
-            badge={metrics.memPercent > 80 ? { text: 'High', variant: 'destructive' } : undefined}
+            badge={
+              metrics.memPercent > 80
+                ? { text: 'High', variant: 'destructive' }
+                : undefined
+            }
           />
           <StatCard
             label="System Load (1m)"
@@ -211,57 +228,12 @@ export default function PlatformDashboardPage() {
         </div>
       ) : null}
 
-      {/* Org Summary table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Organization Summary</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {orgsLoading ? (
-            <div className="space-y-2">
-              {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-10 w-full" />
-              ))}
-            </div>
-          ) : orgs.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">
-              No organizations found.
-            </p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Organization</TableHead>
-                  <TableHead className="text-right">Online</TableHead>
-                  <TableHead className="text-right">Offline</TableHead>
-                  <TableHead className="text-right">Total Cameras</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {orgs.map((org) => (
-                  <TableRow key={org.orgId}>
-                    <TableCell className="font-medium">
-                      {org.orgName}
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        {org.orgSlug}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right text-emerald-600">
-                      {org.camerasOnline}
-                    </TableCell>
-                    <TableCell className="text-right text-red-500">
-                      {org.camerasOffline}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {org.totalCameras}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      {/* D-07 vertical priority stack */}
+      <PlatformIssuesPanel />
+      <ClusterNodesPanel />
+      <StorageForecastCard />
+      <OrgHealthDataTable />
+      <RecentAuditHighlights />
     </div>
   );
 }

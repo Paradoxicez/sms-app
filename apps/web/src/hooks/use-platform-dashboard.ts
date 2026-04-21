@@ -117,6 +117,122 @@ export function useStorageForecast(range: '7d' | '30d') {
   return { forecast, loading, error, refetch: fetchForecast };
 }
 
+// --- useActiveStreamsCount ------------------------------------------------
+
+export function useActiveStreamsCount() {
+  const [count, setCount] = useState<number>(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fetchCount = useCallback(async () => {
+    try {
+      const data = await apiFetch<{ count: number }>(
+        '/api/admin/dashboard/active-streams',
+      );
+      setCount(data?.count ?? 0);
+      setError(null);
+    } catch {
+      setError('Failed to load active streams count');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCount();
+    intervalRef.current = setInterval(fetchCount, POLL_INTERVAL_MS);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [fetchCount]);
+
+  return { count, loading, error, refetch: fetchCount };
+}
+
+// --- useRecordingsActive --------------------------------------------------
+
+export function useRecordingsActive() {
+  const [count, setCount] = useState<number>(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fetchCount = useCallback(async () => {
+    try {
+      const data = await apiFetch<{ count: number }>(
+        '/api/admin/dashboard/recordings-active',
+      );
+      setCount(data?.count ?? 0);
+      setError(null);
+    } catch {
+      setError('Failed to load active recordings count');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCount();
+    intervalRef.current = setInterval(fetchCount, POLL_INTERVAL_MS);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [fetchCount]);
+
+  return { count, loading, error, refetch: fetchCount };
+}
+
+// --- useOrgHealthOverview -------------------------------------------------
+
+export interface OrgHealth {
+  orgId: string;
+  orgName: string;
+  orgSlug: string;
+  packageName: string | null;
+  camerasUsed: number;
+  camerasLimit: number | null;
+  cameraUsagePct: number;
+  /** BigInt serialised as string to avoid JSON.stringify crashes. */
+  storageUsedBytes: string;
+  storageLimitGb: number | null;
+  storageUsagePct: number;
+  /** BigInt serialised as string. */
+  bandwidthTodayBytes: string;
+  issuesCount: number;
+}
+
+export function useOrgHealthOverview() {
+  const [orgs, setOrgs] = useState<OrgHealth[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fetchOrgs = useCallback(async () => {
+    try {
+      const data = await apiFetch<OrgHealth[]>(
+        '/api/admin/dashboard/org-health',
+      );
+      setOrgs(Array.isArray(data) ? data : []);
+      setError(null);
+    } catch {
+      setError('Failed to load organization health');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchOrgs();
+    intervalRef.current = setInterval(fetchOrgs, POLL_INTERVAL_MS);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [fetchOrgs]);
+
+  return { orgs, loading, error, refetch: fetchOrgs };
+}
+
 // --- useRecentAudit -------------------------------------------------------
 
 export function useRecentAudit(limit = 7) {
