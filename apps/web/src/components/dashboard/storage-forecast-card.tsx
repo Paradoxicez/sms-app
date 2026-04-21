@@ -98,7 +98,7 @@ export function StorageForecastCard() {
                   tickFormatter={(v) => `${v} GB`}
                 />
                 <Tooltip
-                  formatter={(value: number) => [`${value} GB`, 'Storage']}
+                  formatter={(value) => [`${Number(value)} GB`, 'Storage']}
                 />
                 <Line
                   type="monotone"
