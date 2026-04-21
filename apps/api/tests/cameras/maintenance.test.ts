@@ -26,7 +26,7 @@ describe('CamerasService maintenance mode', () => {
     // cameras/camera-crud.test.ts). Vitest's esbuild transform doesn't emit
     // `design:paramtypes`, so NestJS DI container can't resolve classes
     // implicitly.
-    service = new CamerasService(tenancy, prisma, streams);
+    service = new CamerasService(tenancy, prisma, streams, undefined as any);
   });
 
   it('enterMaintenance flips maintenanceMode=true, sets enteredAt + enteredBy, calls streamsService.stopStream', async () => {

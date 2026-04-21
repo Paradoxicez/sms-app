@@ -24,7 +24,13 @@ export function calculateBackoff(attempt: number): number {
   return Math.min(backoff, MAX_BACKOFF_MS);
 }
 
-@Processor('stream-ffmpeg')
+// Concurrency=50: FfmpegService.startStream returns a Promise that only resolves
+// when FFmpeg ENDS/ERRORS, so a live stream permanently occupies its worker slot.
+// The default concurrency=1 means only ONE camera could ever stream per API instance.
+// 50 parallel children are well within typical OS fd/process limits and FFmpeg is
+// I/O-bound (network → disk), so the slots are mostly idle CPU-wise. Increase if
+// a single instance must serve more than ~50 concurrent cameras.
+@Processor('stream-ffmpeg', { concurrency: 50 })
 export class StreamProcessor extends WorkerHost {
   private readonly logger = new Logger(StreamProcessor.name);
 

@@ -16,6 +16,7 @@ describe('Camera Hierarchy (Project > Site > Camera)', () => {
       testPrisma as any,
       testPrisma as any,
       undefined as any,
+      undefined as any,
     );
   });
 

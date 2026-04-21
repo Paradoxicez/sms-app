@@ -24,6 +24,7 @@ describe('Bulk Camera Import', () => {
       testPrisma as any,
       testPrisma as any,
       undefined as any,
+      undefined as any,
     );
 
     const project = await service.createProject(orgId, { name: 'Bulk Project' });
@@ -145,6 +146,7 @@ describe('Bulk Camera Import', () => {
     service = new CamerasService(
       testPrisma as any,
       testPrisma as any,
+      undefined as any,
       undefined as any,
     );
 

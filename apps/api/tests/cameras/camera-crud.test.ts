@@ -21,6 +21,7 @@ describe('Camera CRUD', () => {
       testPrisma as any,
       testPrisma as any,
       undefined as any,
+      undefined as any,
     );
 
     const project = await service.createProject(orgId, { name: 'Test Project' });

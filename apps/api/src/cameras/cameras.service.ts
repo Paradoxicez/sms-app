@@ -5,6 +5,8 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
 import { StreamsService } from '../streams/streams.service';
@@ -22,6 +24,9 @@ export class CamerasService {
     @Inject(TENANCY_CLIENT) private readonly tenancy: any,
     private readonly prisma: PrismaService,
     private readonly streamsService: StreamsService,
+    // Optional: @InjectQueue can resolve to undefined in test environments
+    // where BullModule isn't bootstrapped. bulkImport guards against that.
+    @InjectQueue('stream:probe') private readonly probeQueue?: Queue,
   ) {}
 
   // ─── Projects ──────────────────────────────────
@@ -331,25 +336,23 @@ export class CamerasService {
       ),
     );
 
-    // Enqueue BullMQ jobs for ffprobe per camera (best-effort, no-op if queue unavailable)
-    try {
-      const { Queue } = await import('bullmq');
-      const probeQueue = new Queue('stream:probe', {
-        connection: {
-          host: process.env.REDIS_HOST || 'localhost',
-          port: parseInt(process.env.REDIS_PORT || '6379', 10),
-        },
-      });
+    // Enqueue ffprobe jobs (best-effort — skipped silently when probeQueue is
+    // not bootstrapped, e.g. in unit tests). The StreamProbeProcessor in
+    // StreamsModule consumes these and populates Camera.codecInfo.
+    if (this.probeQueue) {
       for (const camera of cameras) {
-        await probeQueue.add('probe-camera', {
-          cameraId: camera.id,
-          streamUrl: camera.streamUrl,
-          orgId,
-        });
+        try {
+          await this.probeQueue.add('probe-camera', {
+            cameraId: camera.id,
+            streamUrl: camera.streamUrl,
+            orgId,
+          });
+        } catch (err) {
+          this.logger.warn(
+            `Failed to enqueue probe for camera ${camera.id}: ${(err as Error).message}`,
+          );
+        }
       }
-      await probeQueue.close();
-    } catch {
-      // BullMQ queue may not be available in test environment
     }
 
     return { imported: cameras.length, errors: [] };
