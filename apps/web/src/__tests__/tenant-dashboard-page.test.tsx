@@ -1,6 +1,6 @@
 /**
  * Phase 18 Plan 02 — TenantDashboardPage tests (UI-05 D-01..D-04).
- * Flipped from Plan 00 `it.todo` stubs to real assertions.
+ * Flipped from Plan 00 stub placeholders to real assertions.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
