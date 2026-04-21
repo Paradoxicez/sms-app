@@ -13,7 +13,7 @@ export class StatusService {
 
   private readonly validTransitions: Record<string, string[]> = {
     offline: ['connecting'],
-    connecting: ['online', 'offline'],
+    connecting: ['online', 'offline', 'reconnecting'],
     online: ['reconnecting', 'degraded', 'offline'],
     reconnecting: ['online', 'offline', 'connecting'],
     degraded: ['online', 'offline'],
