@@ -10,6 +10,9 @@ export interface DashboardStats {
   totalViewers: number;
   bandwidth: number;
   streamBandwidth: number;
+  // Phase 18 (Plan 01 backend): attention counters for the tenant dashboard
+  camerasRecording: number;
+  camerasInMaintenance: number;
 }
 
 export interface UsageDataPoint {
@@ -36,6 +39,12 @@ export interface DashboardCamera {
   lastOnlineAt: string | null;
   viewerCount: number;
   bandwidth: number;
+  // Phase 18 (Plan 01 backend): recording + maintenance flags for IssuesPanel
+  isRecording: boolean;
+  maintenanceMode: boolean;
+  maintenanceEnteredBy: string | null;
+  maintenanceEnteredAt: string | null;
+  retentionDays: number | null;
 }
 
 const POLL_INTERVAL = 30000;

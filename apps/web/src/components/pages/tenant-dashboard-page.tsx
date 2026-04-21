@@ -1,15 +1,14 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Camera, Eye, Wifi, MonitorOff } from 'lucide-react';
+import { Camera, Eye, Wifi, MonitorOff, Video, Wrench } from 'lucide-react';
 import { authClient } from '@/lib/auth-client';
 import { useDashboardStats, useCameraStatusList } from '@/hooks/use-dashboard-stats';
 import { useCameraStatus } from '@/hooks/use-camera-status';
 import { StatCard } from '@/components/dashboard/stat-card';
-import { SystemMetrics } from '@/components/dashboard/system-metrics';
 import { BandwidthChart } from '@/components/dashboard/bandwidth-chart';
 import { ApiUsageChart } from '@/components/dashboard/api-usage-chart';
-import { CameraStatusTable } from '@/components/dashboard/camera-status-table';
+import { IssuesPanel } from '@/components/dashboard/issues-panel';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { DashboardCamera } from '@/hooks/use-dashboard-stats';
 
@@ -25,18 +24,17 @@ function formatBandwidth(bytes: number): string {
 
 export default function TenantDashboardPage() {
   const { stats, loading: statsLoading } = useDashboardStats();
-  const { cameras, setCameras, loading: camerasLoading } = useCameraStatusList();
-  const [userRole, setUserRole] = useState<string | null>(null);
+  // useCameraStatusList is retained because the Socket.IO subscription
+  // (useCameraStatus below) pushes status/viewer updates through setCameras;
+  // IssuesPanel internally re-reads this same hook so the panel stays live.
+  const { setCameras } = useCameraStatusList();
   const [orgId, setOrgId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     async function loadSession() {
       try {
         const session = await authClient.getSession();
-        setUserRole(session.data?.user?.role ?? null);
-        setOrgId(
-          session.data?.session?.activeOrganizationId ?? undefined,
-        );
+        setOrgId(session.data?.session?.activeOrganizationId ?? undefined);
       } catch {
         // Session check handled by layout
       }
@@ -71,21 +69,25 @@ export default function TenantDashboardPage() {
 
   useCameraStatus(orgId, handleStatusChange, handleViewersChange);
 
-  const isSuperAdmin = userRole === 'admin';
-
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-semibold">Dashboard</h1>
 
-      {/* Stat cards */}
+      {/* Stat cards — 6 cards per Phase 18 D-02 */}
       {statsLoading ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
+        <div
+          data-testid="stat-cards-grid"
+          className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6"
+        >
+          {[1, 2, 3, 4, 5, 6].map((i) => (
             <Skeleton key={i} className="h-[108px] w-full rounded-xl" />
           ))}
         </div>
       ) : stats ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div
+          data-testid="stat-cards-grid"
+          className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6"
+        >
           <StatCard
             label="Cameras Online"
             value={stats.camerasOnline}
@@ -107,6 +109,21 @@ export default function TenantDashboardPage() {
             }
           />
           <StatCard
+            label="Recording"
+            value={stats.camerasRecording}
+            icon={<Video className="h-4 w-4" />}
+            badge={
+              stats.camerasRecording > 0
+                ? { text: `${stats.camerasRecording} active`, variant: 'default' }
+                : undefined
+            }
+          />
+          <StatCard
+            label="In Maintenance"
+            value={stats.camerasInMaintenance}
+            icon={<Wrench className="h-4 w-4" />}
+          />
+          <StatCard
             label="Total Viewers"
             value={stats.totalViewers}
             icon={<Eye className="h-4 w-4" />}
@@ -119,17 +136,14 @@ export default function TenantDashboardPage() {
         </div>
       ) : null}
 
-      {/* System metrics — super admin only */}
-      {isSuperAdmin && <SystemMetrics />}
-
-      {/* Charts */}
+      {/* Charts — kept per D-03 */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <BandwidthChart />
         <ApiUsageChart />
       </div>
 
-      {/* Camera status table */}
-      <CameraStatusTable cameras={cameras} loading={camerasLoading} />
+      {/* Issues panel — per D-04 (replaces the prior status table) */}
+      <IssuesPanel />
     </div>
   );
 }
