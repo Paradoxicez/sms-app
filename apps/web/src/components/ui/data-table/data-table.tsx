@@ -7,6 +7,7 @@ import {
   type PaginationState,
   type RowSelectionState,
   type SortingState,
+  type VisibilityState,
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
@@ -53,6 +54,10 @@ interface DataTableProps<TData, TValue> {
   loading?: boolean
   emptyState?: EmptyStateConfig
   onRowClick?: (row: TData) => void
+  initialState?: {
+    sorting?: SortingState
+    columnVisibility?: VisibilityState
+  }
 }
 
 function DataTable<TData, TValue>({
@@ -70,11 +75,16 @@ function DataTable<TData, TValue>({
   loading = false,
   emptyState,
   onRowClick,
+  initialState,
 }: DataTableProps<TData, TValue>) {
-  const [sorting, setSorting] = React.useState<SortingState>([])
+  const [sorting, setSorting] = React.useState<SortingState>(
+    initialState?.sorting ?? []
+  )
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   )
+  const [columnVisibility, setColumnVisibility] =
+    React.useState<VisibilityState>(initialState?.columnVisibility ?? {})
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
   const [pagination, setPagination] = React.useState<PaginationState>({
     pageIndex: 0,
@@ -89,12 +99,14 @@ function DataTable<TData, TValue>({
     state: {
       sorting,
       columnFilters,
+      columnVisibility,
       rowSelection,
       pagination,
     },
     enableRowSelection,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
+    onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
     onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
