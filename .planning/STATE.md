@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 Phase: 17 (Recording Playback & Timeline) — EXECUTING
 Plan: 1 of 5
 Status: Executing Phase 17
-Last activity: 2026-04-21 -- Completed quick task 260421-dlg: Isolate vitest from dev DB
+Last activity: 2026-04-21 -- Completed quick task 260421-f0c: StreamProcessor concurrency + stream-probe processor
 
 Progress: [░░░░░░░░░░] 0% (v1.2: 0/5 phases)
 
@@ -81,6 +81,7 @@ None yet.
 | 260420-nmu | Fix StatusService RLS regression — use SystemPrismaService instead of TENANCY_CLIENT (phase 15 commit 8ea20f7 missed this file) | 2026-04-20 | 49adac6 | [260420-nmu-fix-statusservice-rls-regression-use-sys](./quick/260420-nmu-fix-statusservice-rls-regression-use-sys/) |
 | 260420-oid | Audit TENANCY_CLIENT misuse — fix all 6 broken services (Playback, Webhooks, WebhookDeliveryProcessor, Notifications, Recordings, Settings) | 2026-04-20 | e87016c | [260420-oid-audit-tenancy-client-misuse-fix-all-serv](./quick/260420-oid-audit-tenancy-client-misuse-fix-all-serv/) |
 | 260421-dlg | Isolate vitest from dev DB — sms_platform_test database + triple safety guards prevent dev-DB wipe | 2026-04-21 | 35cf4fc | [260421-dlg-isolate-vitest-from-dev-db-use-test-data](./quick/260421-dlg-isolate-vitest-from-dev-db-use-test-data/) |
+| 260421-f0c | Fix StreamProcessor concurrency 1→50 + add stream-probe processor for bulk-import codec detection | 2026-04-21 | 1800a7d+ff1cdc1 | [260421-f0c-fix-streamprocessor-concurrency-1-add-st](./quick/260421-f0c-fix-streamprocessor-concurrency-1-add-st/) |
 
 ## Session Continuity
 
