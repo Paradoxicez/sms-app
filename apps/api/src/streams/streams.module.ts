@@ -12,7 +12,7 @@ import { FfprobeService } from '../cameras/ffprobe.service';
 @Module({
   imports: [
     BullModule.registerQueue({ name: 'stream-ffmpeg' }),
-    BullModule.registerQueue({ name: 'stream:probe' }),
+    BullModule.registerQueue({ name: 'stream-probe' }),
   ],
   controllers: [StreamsController, StreamProfileController],
   providers: [
@@ -30,7 +30,7 @@ import { FfprobeService } from '../cameras/ffprobe.service';
     FfmpegService,
     StreamProfileService,
     BullModule, // exports the registered queues so CamerasModule can
-                // @InjectQueue('stream:probe') from CamerasService.
+                // @InjectQueue('stream-probe') from CamerasService.
   ],
 })
 export class StreamsModule {}

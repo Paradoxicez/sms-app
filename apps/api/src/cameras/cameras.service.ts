@@ -26,7 +26,7 @@ export class CamerasService {
     private readonly streamsService: StreamsService,
     // Optional: @InjectQueue can resolve to undefined in test environments
     // where BullModule isn't bootstrapped. bulkImport guards against that.
-    @InjectQueue('stream:probe') private readonly probeQueue?: Queue,
+    @InjectQueue('stream-probe') private readonly probeQueue?: Queue,
   ) {}
 
   // ─── Projects ──────────────────────────────────

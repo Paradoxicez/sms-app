@@ -8,10 +8,10 @@ import { StreamsModule } from '../streams/streams.module';
 @Module({
   imports: [
     StreamsModule,
-    // Required so @InjectQueue('stream:probe') in CamerasService resolves.
+    // Required so @InjectQueue('stream-probe') in CamerasService resolves.
     // The actual queue is registered in StreamsModule; this re-registration
     // is the standard NestJS pattern for cross-module queue injection.
-    BullModule.registerQueue({ name: 'stream:probe' }),
+    BullModule.registerQueue({ name: 'stream-probe' }),
   ],
   controllers: [CamerasController],
   providers: [CamerasService, FfprobeService],

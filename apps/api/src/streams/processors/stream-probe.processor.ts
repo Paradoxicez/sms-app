@@ -27,7 +27,7 @@ export interface ProbeJobData {
  * error in codecInfo and do NOT throw — worker stays alive, BullMQ does
  * not retry needlessly.
  */
-@Processor('stream:probe', { concurrency: 5 })
+@Processor('stream-probe', { concurrency: 5 })
 export class StreamProbeProcessor extends WorkerHost {
   private readonly logger = new Logger(StreamProbeProcessor.name);
 
