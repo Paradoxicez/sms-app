@@ -11,8 +11,19 @@ interface CameraPopupProps {
   name: string;
   status: string;
   viewerCount?: number;
+  // Phase 18 fields — Plan 04 consumes these in the popup body redesign.
+  // Plan 03 passes them through so the type is stable ahead of the refactor.
+  isRecording?: boolean;
+  maintenanceMode?: boolean;
+  maintenanceEnteredBy?: string | null;
+  maintenanceEnteredAt?: string | null;
+  lastOnlineAt?: string | null;
+  retentionDays?: number | null;
   onViewStream?: (id: string) => void;
   onSetLocation?: (id: string, name: string) => void;
+  onViewRecordings?: (id: string) => void;
+  onToggleMaintenance?: (id: string, nextState: boolean) => void;
+  onOpenDetail?: (id: string) => void;
 }
 
 const STATUS_VARIANT: Record<string, 'default' | 'destructive' | 'secondary' | 'outline'> = {

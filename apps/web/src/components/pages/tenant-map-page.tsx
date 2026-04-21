@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { MapPin } from 'lucide-react';
 
 import { toast } from 'sonner';
@@ -35,6 +36,7 @@ function collectCameraIds(node: TreeNode): string[] {
 }
 
 export default function TenantMapPage() {
+  const router = useRouter();
   const { enabled: mapEnabled, loading: featureLoading } = useFeatureCheck('map');
   const [cameras, setCameras] = useState<MapCamera[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -132,6 +134,12 @@ export default function TenantMapPage() {
         latitude: (c.location as { lat?: number } | null)?.lat ?? null,
         longitude: (c.location as { lng?: number } | null)?.lng ?? null,
         viewerCount: (c.viewerCount as number) ?? 0,
+        isRecording: (c.isRecording as boolean) ?? false,
+        maintenanceMode: (c.maintenanceMode as boolean) ?? false,
+        maintenanceEnteredBy: (c.maintenanceEnteredBy as string | null) ?? null,
+        maintenanceEnteredAt: (c.maintenanceEnteredAt as string | null) ?? null,
+        lastOnlineAt: (c.lastOnlineAt as string | null) ?? null,
+        retentionDays: (c.retentionDays as number | null) ?? null,
       }));
       setCameras(mapped);
     } catch {
@@ -173,8 +181,8 @@ export default function TenantMapPage() {
         id: cam.id,
         name: cam.name,
         status: cam.status as CameraRow['status'],
-        isRecording: false,
-        maintenanceMode: false,
+        isRecording: cam.isRecording ?? false,
+        maintenanceMode: cam.maintenanceMode ?? false,
         streamUrl: '',
         createdAt: '',
       };
@@ -190,6 +198,40 @@ export default function TenantMapPage() {
       placement.startPlacing(cameraId, cameraName);
     },
     [placement],
+  );
+
+  // Phase 18 popup handlers (D-18..D-22 — Plan 04 consumes these in popup body).
+  const handleViewRecordings = useCallback(
+    (cameraId: string) => {
+      router.push(`/app/recordings?camera=${cameraId}`);
+    },
+    [router],
+  );
+
+  const handleToggleMaintenance = useCallback(
+    async (cameraId: string, nextState: boolean) => {
+      try {
+        await apiFetch(`/api/cameras/${cameraId}/maintenance`, {
+          method: nextState ? 'POST' : 'DELETE',
+        });
+        toast.success(
+          nextState
+            ? 'Camera is now in maintenance mode'
+            : 'Camera exited maintenance mode',
+        );
+        fetchCameras();
+      } catch {
+        toast.error('Failed to toggle maintenance');
+      }
+    },
+    [fetchCameras],
+  );
+
+  const handleOpenDetail = useCallback(
+    (cameraId: string) => {
+      router.push(`/app/cameras/${cameraId}`);
+    },
+    [router],
   );
 
   // Bridge placement confirming → drag confirm bar
@@ -302,6 +344,9 @@ export default function TenantMapPage() {
             onViewStream={handleViewStream}
             onSetLocation={handleSetLocation}
             onDragEnd={handleDragEnd}
+            onViewRecordings={handleViewRecordings}
+            onToggleMaintenance={handleToggleMaintenance}
+            onOpenDetail={handleOpenDetail}
           >
             {/* Placement marker renders inside MapContainer */}
             <PlacementMarker
