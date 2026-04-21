@@ -130,11 +130,19 @@ describe('AdminDashboardService Phase 18 additions', () => {
 
     it('getPlatformIssues returns edge-down rows for SrsNode role=EDGE status in (OFFLINE, DEGRADED)', async () => {
       mockSrs.getVersions.mockResolvedValue({ data: { version: '6.0.184' } });
-      mockPrisma.srsNode.findMany.mockResolvedValue([
-        { id: 'e1', name: 'Edge-1', role: 'EDGE', status: 'OFFLINE' },
-        { id: 'e2', name: 'Edge-2', role: 'EDGE', status: 'DEGRADED' },
-        { id: 'e3', name: 'Edge-3', role: 'EDGE', status: 'ONLINE' },
-      ]);
+      // Simulate DB filter — service passes where.status.in=['OFFLINE','DEGRADED'],
+      // so the real query would only return the 2 down nodes.
+      mockPrisma.srsNode.findMany.mockImplementation(async (args: any) => {
+        const all = [
+          { id: 'e1', name: 'Edge-1', role: 'EDGE', status: 'OFFLINE' },
+          { id: 'e2', name: 'Edge-2', role: 'EDGE', status: 'DEGRADED' },
+          { id: 'e3', name: 'Edge-3', role: 'EDGE', status: 'ONLINE' },
+        ];
+        const wanted: string[] = args?.where?.status?.in ?? [];
+        return wanted.length
+          ? all.filter((n) => wanted.includes(n.status))
+          : all;
+      });
       mockPrisma.camera.groupBy.mockResolvedValue([]);
       mockPrisma.organization.findMany.mockResolvedValue([]);
 
@@ -147,6 +155,17 @@ describe('AdminDashboardService Phase 18 additions', () => {
       expect(labels.some((l: string) => l.includes('Edge-2'))).toBe(true);
       // ONLINE edge is NOT reported.
       expect(labels.some((l: string) => l.includes('Edge-3'))).toBe(false);
+      // And the service must have asked for exactly role=EDGE + status in (...)
+      expect(mockPrisma.srsNode.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            role: 'EDGE',
+            status: expect.objectContaining({
+              in: expect.arrayContaining(['OFFLINE', 'DEGRADED']),
+            }),
+          }),
+        }),
+      );
     });
 
     it('getPlatformIssues returns org-offline-rate rows for orgs with >50% cameras offline', async () => {
