@@ -1,18 +1,41 @@
 'use client';
 
-import { memo, useEffect, useRef } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
-import { MapPin } from 'lucide-react';
+import { formatDistanceToNowStrict } from 'date-fns';
+import {
+  ExternalLink,
+  Film,
+  MapPin,
+  MoreVertical,
+  Play,
+  Wrench,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface CameraPopupProps {
   id: string;
   name: string;
   status: string;
   viewerCount?: number;
-  // Phase 18 fields — Plan 04 consumes these in the popup body redesign.
-  // Plan 03 passes them through so the type is stable ahead of the refactor.
+  // Phase 18 fields
   isRecording?: boolean;
   maintenanceMode?: boolean;
   maintenanceEnteredBy?: string | null;
@@ -88,52 +111,193 @@ const PreviewVideo = memo(function PreviewVideo({ id, status }: { id: string; st
   );
 });
 
-export function CameraPopup({ id, name, status, viewerCount, onViewStream, onSetLocation }: CameraPopupProps) {
+export function CameraPopup({
+  id,
+  name,
+  status,
+  viewerCount,
+  isRecording,
+  maintenanceMode,
+  maintenanceEnteredBy,
+  maintenanceEnteredAt,
+  lastOnlineAt,
+  retentionDays,
+  onViewStream,
+  onSetLocation,
+  onViewRecordings,
+  onToggleMaintenance,
+  onOpenDetail,
+}: CameraPopupProps) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const showRecOverlay = Boolean(isRecording) && status === 'online';
+  const showMaintOverlay = Boolean(maintenanceMode) && status === 'online';
 
   return (
     <div className="space-y-2 p-1">
-      {/* Camera name */}
-      <p className="text-sm font-semibold leading-tight">{name}</p>
-
-      {/* Status badge */}
-      <div className="flex items-center gap-2">
-        <Badge variant={STATUS_VARIANT[status] || 'secondary'}>
-          <span className="capitalize">{status}</span>
-        </Badge>
-        {viewerCount !== undefined && (
-          <span className="text-xs text-muted-foreground">
-            {viewerCount} viewer{viewerCount !== 1 ? 's' : ''}
-          </span>
+      {/* Preview container 240×135 (16:9). Status overlay is SIBLING to PreviewVideo.
+          CRITICAL: PreviewVideo is a direct child receiving only {id, status}. If it
+          ever accepts viewerCount or other parent-scope props, the memo() escape-hatch
+          is broken and Phase 13's remount loop will regress. */}
+      <div
+        data-testid="preview-container"
+        className="relative overflow-hidden rounded border bg-black"
+        style={{ width: 240, height: 135 }}
+      >
+        <PreviewVideo id={id} status={status} />
+        {(showRecOverlay || showMaintOverlay) && (
+          <div className="absolute top-2 left-2 flex flex-col gap-1">
+            {showRecOverlay && (
+              <span
+                data-testid="rec-overlay"
+                className="flex items-center gap-1 rounded-sm bg-red-500/85 px-1.5 py-0.5 text-[10px] font-semibold text-white motion-safe:animate-pulse"
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-white" />
+                REC
+              </span>
+            )}
+            {showMaintOverlay && (
+              <span
+                data-testid="maint-overlay"
+                className="flex items-center gap-1 rounded-sm bg-gray-700/85 px-1.5 py-0.5 text-[10px] font-semibold text-white"
+              >
+                <Wrench className="h-2.5 w-2.5" />
+                Maintenance
+              </span>
+            )}
+          </div>
         )}
       </div>
 
-      {/* Mini HLS preview — memoized so viewer-count broadcasts don't remount it */}
-      <div className="overflow-hidden rounded border bg-black" style={{ width: 200, height: 112 }}>
-        <PreviewVideo id={id} status={status} />
+      {/* Name + viewer count + ⋮ dropdown */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold leading-tight">{name}</p>
+          {typeof viewerCount === 'number' && (
+            <p className="text-xs text-muted-foreground">
+              {viewerCount} viewer{viewerCount !== 1 ? 's' : ''}
+            </p>
+          )}
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                aria-label={`More actions for ${name}`}
+              >
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            }
+          />
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => onSetLocation?.(id, name)}>
+              <MapPin className="mr-2 h-4 w-4" />
+              Set Location
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setConfirmOpen(true)}>
+              <Wrench className="mr-2 h-4 w-4" />
+              {maintenanceMode ? 'Exit Maintenance' : 'Toggle Maintenance'}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onOpenDetail?.(id)}>
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Open Camera Detail
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
-      {/* Action buttons */}
-      <div className="flex items-center justify-between gap-2">
+      {/* Status + recording + maintenance badges + offline timestamp */}
+      <div className="space-y-1">
+        <Badge variant={STATUS_VARIANT[status] || 'secondary'}>
+          <span className="capitalize">{status}</span>
+        </Badge>
+        {isRecording && (
+          <Badge
+            data-testid="recording-badge"
+            variant="outline"
+            className="ml-0 text-[hsl(0_84%_60%)]"
+          >
+            <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-[hsl(0_84%_60%)] motion-safe:animate-pulse" />
+            Recording
+            {typeof retentionDays === 'number' && ` · ${retentionDays} days retention`}
+          </Badge>
+        )}
+        {maintenanceMode && (
+          <Badge
+            data-testid="maint-badge"
+            variant="outline"
+            className="ml-0 text-muted-foreground"
+          >
+            <Wrench className="mr-1 h-3 w-3" />
+            Maintenance
+            {maintenanceEnteredBy && ` · by ${maintenanceEnteredBy}`}
+            {maintenanceEnteredAt &&
+              ` · ${formatDistanceToNowStrict(new Date(maintenanceEnteredAt), { addSuffix: true })}`}
+          </Badge>
+        )}
+        {status === 'offline' && lastOnlineAt && (
+          <p className="text-xs text-muted-foreground">
+            Offline {formatDistanceToNowStrict(new Date(lastOnlineAt), { addSuffix: true })}
+          </p>
+        )}
+      </div>
+
+      {/* Primary actions: View Stream + View Recordings */}
+      <div className="grid grid-cols-2 gap-2">
         <Button
-          variant="ghost"
+          variant="default"
           size="sm"
           onClick={() => onViewStream?.(id)}
           aria-label={`View stream for ${name}`}
           className="h-7 text-xs"
         >
+          <Play className="mr-1 h-3 w-3" />
           View Stream
         </Button>
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
-          onClick={() => onSetLocation?.(id, name)}
-          aria-label={`Set location for ${name}`}
+          onClick={() => onViewRecordings?.(id)}
+          aria-label={`View recordings for ${name}`}
           className="h-7 text-xs"
         >
-          <MapPin className="mr-1 h-3 w-3" />
-          Set Location
+          <Film className="mr-1 h-3 w-3" />
+          View Recordings
         </Button>
       </div>
+
+      {/* Maintenance confirmation dialog — reuses Phase 15-04 pattern, Thai + English copy. */}
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {maintenanceMode
+                ? 'ออกจากโหมดซ่อมบำรุง / Exit maintenance mode'
+                : 'เข้าสู่โหมดซ่อมบำรุง / Enter maintenance mode'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {maintenanceMode
+                ? `กล้อง ${name} จะกลับมา active และแจ้งเตือนได้ตามปกติ / Camera ${name} will return to active monitoring.`
+                : `กล้อง ${name} จะถูกตั้งเป็นโหมดซ่อมบำรุง และจะไม่ส่ง notification/webhook จนกว่าจะออกจากโหมดนี้ / Camera ${name} will be set to maintenance mode. Notifications and webhooks will be suppressed until you exit.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>ยกเลิก / Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant={maintenanceMode ? 'default' : 'destructive'}
+              onClick={() => {
+                onToggleMaintenance?.(id, !maintenanceMode);
+                setConfirmOpen(false);
+              }}
+            >
+              ยืนยัน / Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
