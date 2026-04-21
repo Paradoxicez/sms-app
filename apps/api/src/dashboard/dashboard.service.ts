@@ -19,7 +19,12 @@ export class DashboardService {
   async getStats(orgId: string) {
     const cameras = await this.prisma.camera.findMany({
       where: { orgId },
-      select: { id: true, status: true },
+      select: {
+        id: true,
+        status: true,
+        isRecording: true,
+        maintenanceMode: true,
+      },
     });
 
     const camerasOnline = cameras.filter(
@@ -29,6 +34,14 @@ export class DashboardService {
       (c: any) => c.status === 'offline',
     ).length;
     const totalCameras = cameras.length;
+    // Phase 18 D-02: expose recording + maintenance counters so the tenant
+    // dashboard can render the new stat cards without a second round-trip.
+    const camerasRecording = cameras.filter(
+      (c: any) => c.isRecording === true,
+    ).length;
+    const camerasInMaintenance = cameras.filter(
+      (c: any) => c.maintenanceMode === true,
+    ).length;
 
     let totalViewers = 0;
     for (const camera of cameras) {
@@ -77,6 +90,8 @@ export class DashboardService {
       camerasOnline,
       camerasOffline,
       totalCameras,
+      camerasRecording,
+      camerasInMaintenance,
       totalViewers,
       bandwidth: bandwidth.toString(),
       streamBandwidth,
@@ -222,6 +237,14 @@ export class DashboardService {
         name: true,
         status: true,
         lastOnlineAt: true,
+        // Phase 18 D-04/D-24: per-camera recording + maintenance surface so
+        // the IssuesPanel and status-icon column can compose on read without
+        // a second query.
+        isRecording: true,
+        maintenanceMode: true,
+        maintenanceEnteredBy: true,
+        maintenanceEnteredAt: true,
+        retentionDays: true,
       },
     });
 
@@ -257,6 +280,14 @@ export class DashboardService {
     return cameras
       .map((camera: any) => ({
         ...camera,
+        // Normalize DateTime fields to ISO strings so the JSON response is
+        // stable across Node Prisma versions.
+        lastOnlineAt: camera.lastOnlineAt
+          ? camera.lastOnlineAt.toISOString()
+          : null,
+        maintenanceEnteredAt: camera.maintenanceEnteredAt
+          ? camera.maintenanceEnteredAt.toISOString()
+          : null,
         viewerCount: this.statusService.getViewerCount(camera.id),
         bandwidth: Math.round(((srsStreamMap.get(camera.id)?.bandwidth || 0) * 1000) / 8),
       }))
