@@ -51,9 +51,11 @@ describe('IssuesPanel (Phase 18 — tenant dashboard)', () => {
   });
 
   it('UI-05: sorts issues severity offline → degraded → reconnecting → recording-failed → maintenance (D-04)', () => {
-    // recording-failed deferred per Phase 18 RESEARCH OQ-01
+    // Sort is the hook's job (see use-dashboard-issues.test.ts).
+    // recording-failed deferred per Phase 18 RESEARCH OQ-01.
+    // This test verifies the panel preserves the hook's sort order when rendering.
     useDashboardIssuesMock.mockReturnValue({
-      issues: [offlineCamera, maintenanceCamera, degradedCamera, reconnectingCamera],
+      issues: [offlineCamera, degradedCamera, reconnectingCamera, maintenanceCamera],
       loading: false,
       error: null,
       onlineCount: 1,
