@@ -19,6 +19,75 @@ delete (L.Icon.Default.prototype as any)._getIconUrl;
 const DEFAULT_CENTER: [number, number] = [13.7563, 100.5018];
 const DEFAULT_ZOOM = 12;
 
+/**
+ * Structural shape of a Leaflet MarkerCluster the iconCreateFunction receives.
+ * Using a narrow interface (instead of importing L.MarkerCluster) keeps the
+ * helper pure and unit-testable without the full Leaflet runtime.
+ */
+export interface ClusterLike {
+  getAllChildMarkers(): Array<{ options: { cameraStatus?: string } }>;
+  getChildCount(): number;
+}
+
+const OFFLINE_STATUSES = new Set(['offline']);
+const AMBER_STATUSES = new Set(['degraded', 'reconnecting']);
+
+/**
+ * Compute the worst child status among a cluster's markers (D-16).
+ * Priority: offline > degraded/reconnecting > online/connecting.
+ * Exported for direct unit testing + cluster icon generation.
+ */
+function computeWorstStatus(statuses: Array<string | undefined>): 'offline' | 'degraded' | 'online' {
+  let worst: 'offline' | 'degraded' | 'online' = 'online';
+  for (const s of statuses) {
+    if (!s) continue;
+    if (OFFLINE_STATUSES.has(s)) return 'offline';
+    if (AMBER_STATUSES.has(s)) worst = 'degraded';
+  }
+  return worst;
+}
+
+const CLUSTER_FILL: Record<'offline' | 'degraded' | 'online', string> = {
+  offline: '#ef4444',
+  degraded: '#f59e0b',
+  online: '#22c55e',
+};
+
+/**
+ * Build an L.DivIcon for a cluster bubble colored by worst child status.
+ * Pure function of child-marker options so it unit-tests without a live map.
+ *
+ * Spec: UI-SPEC §Cluster Bubble Colors — 90% opacity fill, 3px white ring
+ * at 70% opacity, white semibold count text centered.
+ *
+ * XSS note (T-18-XSS-CLUSTER-BUBBLE): worst status and count are
+ * enum/number values derived from server-known states — never user input —
+ * so no escaping is needed inside the aria-label.
+ */
+export function createClusterIcon(cluster: ClusterLike): L.DivIcon {
+  const statuses = cluster.getAllChildMarkers().map((m) => m.options.cameraStatus);
+  const worst = computeWorstStatus(statuses);
+  const fill = CLUSTER_FILL[worst];
+  const count = cluster.getChildCount();
+
+  const html =
+    `<div role="img" aria-label="${count} cameras in this area, worst status ${worst}" ` +
+    `style="width:36px;height:36px;border-radius:50%;` +
+    `background:${fill}e6;` +
+    `border:3px solid rgba(255,255,255,0.7);` +
+    `display:flex;align-items:center;justify-content:center;` +
+    `color:#fff;font-size:12px;font-weight:600;line-height:1;` +
+    `box-shadow:0 1px 3px rgba(0,0,0,0.3);">` +
+    `<span>${count}</span>` +
+    `</div>`;
+
+  return L.divIcon({
+    html,
+    className: 'camera-cluster-icon',
+    iconSize: [36, 36],
+  });
+}
+
 interface CameraMapInnerProps {
   cameras: MapCamera[];
   filteredCameraIds?: string[] | null;
@@ -27,6 +96,9 @@ interface CameraMapInnerProps {
   onViewStream?: (id: string) => void;
   onSetLocation?: (id: string, name: string) => void;
   onDragEnd?: (id: string, name: string, lat: number, lng: number) => void;
+  onViewRecordings?: (id: string) => void;
+  onToggleMaintenance?: (id: string, nextState: boolean) => void;
+  onOpenDetail?: (id: string) => void;
   children?: ReactNode;
 }
 
@@ -87,6 +159,9 @@ export default function CameraMapInner({
   onViewStream,
   onSetLocation,
   onDragEnd,
+  onViewRecordings,
+  onToggleMaintenance,
+  onOpenDetail,
   children,
 }: CameraMapInnerProps) {
   // Filter to cameras that have valid lat/lng, then apply filteredCameraIds
@@ -128,7 +203,7 @@ export default function CameraMapInner({
         <MapClickHandler onMapClick={onMapClick} />
       )}
 
-      <MarkerClusterGroup chunkedLoading>
+      <MarkerClusterGroup chunkedLoading iconCreateFunction={createClusterIcon}>
         {mappableCameras.map((camera) => (
           <CameraMarker
             key={camera.id}
@@ -138,9 +213,18 @@ export default function CameraMapInner({
             latitude={camera.latitude}
             longitude={camera.longitude}
             viewerCount={camera.viewerCount}
+            isRecording={camera.isRecording ?? false}
+            maintenanceMode={camera.maintenanceMode ?? false}
+            maintenanceEnteredBy={camera.maintenanceEnteredBy ?? null}
+            maintenanceEnteredAt={camera.maintenanceEnteredAt ?? null}
+            lastOnlineAt={camera.lastOnlineAt ?? null}
+            retentionDays={camera.retentionDays ?? null}
             onViewStream={onViewStream}
             onSetLocation={onSetLocation}
             onDragEnd={onDragEnd}
+            onViewRecordings={onViewRecordings}
+            onToggleMaintenance={onToggleMaintenance}
+            onOpenDetail={onOpenDetail}
           />
         ))}
       </MarkerClusterGroup>

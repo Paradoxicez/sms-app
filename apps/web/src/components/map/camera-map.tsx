@@ -18,6 +18,13 @@ export interface MapCamera {
   latitude: number | null;
   longitude: number | null;
   viewerCount?: number;
+  // Phase 18 — consumed by Plan 03 marker badges (D-14) + Plan 04 popup (D-18..D-22).
+  isRecording?: boolean;
+  maintenanceMode?: boolean;
+  maintenanceEnteredBy?: string | null;
+  maintenanceEnteredAt?: string | null;
+  lastOnlineAt?: string | null;
+  retentionDays?: number | null;
 }
 
 interface CameraMapProps {
@@ -28,6 +35,10 @@ interface CameraMapProps {
   onViewStream?: (id: string) => void;
   onSetLocation?: (id: string, name: string) => void;
   onDragEnd?: (id: string, name: string, lat: number, lng: number) => void;
+  // Phase 18 popup callbacks forwarded to CameraMarker → CameraPopup (Plan 04).
+  onViewRecordings?: (id: string) => void;
+  onToggleMaintenance?: (id: string, nextState: boolean) => void;
+  onOpenDetail?: (id: string) => void;
   children?: React.ReactNode;
 }
 
@@ -39,6 +50,9 @@ export function CameraMap({
   onViewStream,
   onSetLocation,
   onDragEnd,
+  onViewRecordings,
+  onToggleMaintenance,
+  onOpenDetail,
   children,
 }: CameraMapProps) {
   return (
@@ -50,6 +64,9 @@ export function CameraMap({
       onViewStream={onViewStream}
       onSetLocation={onSetLocation}
       onDragEnd={onDragEnd}
+      onViewRecordings={onViewRecordings}
+      onToggleMaintenance={onToggleMaintenance}
+      onOpenDetail={onOpenDetail}
     >
       {children}
     </CameraMapInner>
