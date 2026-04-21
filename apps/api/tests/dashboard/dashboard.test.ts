@@ -19,3 +19,16 @@ describe('DashboardService', () => {
     it.todo('returns single data point for 24h range');
   });
 });
+
+// Phase 18 enrichments — Plan 01 flips these to real `it` assertions.
+// Maps to 18-RESEARCH.md §Validation Architecture (lines 849-907).
+describe('DashboardService Phase 18 enrichments', () => {
+  describe('getCameraStatusList — Phase 18 fields', () => {
+    it.todo('getCameraStatusList includes isRecording, maintenanceMode, maintenanceEnteredBy, maintenanceEnteredAt, retentionDays');
+    it.todo('getCameraStatusList scopes to org (TENANCY_CLIENT no cross-tenant leak) — T-18-TENANCY-ISSUES');
+  });
+
+  describe('getStats — Phase 18 counters', () => {
+    it.todo('getStats adds camerasRecording (count where isRecording=true) and camerasInMaintenance (count where maintenanceMode=true)');
+  });
+});
