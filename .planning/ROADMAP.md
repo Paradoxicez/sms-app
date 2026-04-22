@@ -40,7 +40,7 @@
 - [x] **Phase 15: FFmpeg Resilience & Camera Maintenance** - Auto-reconnect, health checks, notifications, and maintenance mode (completed 2026-04-19)
 - [x] **Phase 16: User Self-Service** - Account management and plan/usage viewer (completed 2026-04-19)
 - [x] **Phase 17: Recording Playback & Timeline** - HLS playback page with timeline scrubber and availability heatmap (completed 2026-04-19)
-- [ ] **Phase 18: Dashboard & Map Polish** - Dashboard data improvements and map UI enhancements
+- [x] **Phase 18: Dashboard & Map Polish** - Dashboard data improvements and map UI enhancements (completed 2026-04-21)
 
 ## Phase Details
 
@@ -121,13 +121,13 @@ Plans:
   3. Map camera markers have improved pin design and thumbnail popups display correctly with camera preview
 **Plans**: 7 plans (Wave 0: test scaffolds · Wave 1: backend endpoints · Wave 2: tenant dashboard + map marker + super admin widgets parallel · Wave 3: map popup + super admin page composition)
 Plans:
-- [ ] 18-00-PLAN.md — Wave 0 test scaffolds: 14 test files + shared camera fixtures, 79 it.todo stubs for UI-05/UI-06 + all T-18-XX threats
-- [ ] 18-01-PLAN.md — Backend admin endpoints + DashboardService enrichment: 7 new /api/admin/dashboard/* methods + Phase 15 field enrichment on tenant stats/cameras (UI-05 backend)
-- [ ] 18-02-PLAN.md — Tenant dashboard refactor: remove SystemMetrics + CameraStatusTable, add 6 stat cards + IssuesPanel reward signal (UI-05 tenant D-01..D-04)
-- [ ] 18-03-PLAN.md — Map marker refactor: teardrop SVG pin + recording/maintenance badges + escapeHtml XSS mitigation + cluster worst-status bubble + MapCamera type extension (UI-06 marker D-13..D-16, T-18-XSS-MARKER)
-- [ ] 18-04-PLAN.md — Map popup refactor: 16:9 preview + status overlay + badges + restructured actions + Thai-EN maintenance dialog + PreviewVideo memoization regression guard (UI-06 popup D-17..D-22, T-18-MEMO-REGRESSION)
-- [ ] 18-05-PLAN.md — Super admin widgets + platform hook: PlatformIssuesPanel + ClusterNodesPanel + StorageForecastCard + RecentAuditHighlights + shadcn toggle-group install (UI-05 admin D-08, D-09, D-10, D-11)
-- [ ] 18-06-PLAN.md — Super admin page composition + OrgHealthDataTable: 7 stat cards + vertical priority stack + DataTable migration of Organization Summary (UI-05 admin D-05, D-06, D-07, D-12)
+- [x] 18-00-PLAN.md — Wave 0 test scaffolds: 14 test files + shared camera fixtures, 79 it.todo stubs for UI-05/UI-06 + all T-18-XX threats
+- [x] 18-01-PLAN.md — Backend admin endpoints + DashboardService enrichment: 7 new /api/admin/dashboard/* methods + Phase 15 field enrichment on tenant stats/cameras (UI-05 backend)
+- [x] 18-02-PLAN.md — Tenant dashboard refactor: remove SystemMetrics + CameraStatusTable, add 6 stat cards + IssuesPanel reward signal (UI-05 tenant D-01..D-04)
+- [x] 18-03-PLAN.md — Map marker refactor: teardrop SVG pin + recording/maintenance badges + escapeHtml XSS mitigation + cluster worst-status bubble + MapCamera type extension (UI-06 marker D-13..D-16, T-18-XSS-MARKER)
+- [x] 18-04-PLAN.md — Map popup refactor: 16:9 preview + status overlay + badges + restructured actions + Thai-EN maintenance dialog + PreviewVideo memoization regression guard (UI-06 popup D-17..D-22, T-18-MEMO-REGRESSION)
+- [x] 18-05-PLAN.md — Super admin widgets + platform hook: PlatformIssuesPanel + ClusterNodesPanel + StorageForecastCard + RecentAuditHighlights + shadcn toggle-group install (UI-05 admin D-08, D-09, D-10, D-11)
+- [x] 18-06-PLAN.md — Super admin page composition + OrgHealthDataTable: 7 stat cards + vertical priority stack + DataTable migration of Organization Summary (UI-05 admin D-05, D-06, D-07, D-12)
 **UI hint**: yes
 
 ## Progress
@@ -156,4 +156,4 @@ Note: Phases 16, 17, 18 can execute in parallel after Phase 14 (independent of e
 | 15. FFmpeg Resilience & Camera Maintenance | v1.2 | 4/4 | Complete    | 2026-04-19 |
 | 16. User Self-Service | v1.2 | 3/3 | Complete    | 2026-04-19 |
 | 17. Recording Playback & Timeline | v1.2 | 5/5 | Complete    | 2026-04-21 |
-| 18. Dashboard & Map Polish | v1.2 | 0/7 | Planned     | - |
+| 18. Dashboard & Map Polish | v1.2 | 7/7 | Complete    | 2026-04-22 |

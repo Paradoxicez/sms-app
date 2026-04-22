@@ -4,13 +4,13 @@ milestone: v1.2
 milestone_name: Self-Service, Resilience & UI Polish
 status: executing
 stopped_at: Phase 18 UI-SPEC approved
-last_updated: "2026-04-21T05:40:06.989Z"
-last_activity: "2026-04-21 - Completed quick task 260421-g9o: fix StreamProcessor undefined cameraId bug - add defensive guard"
+last_updated: "2026-04-22T00:11:56.635Z"
+last_activity: 2026-04-22
 progress:
   total_phases: 5
-  completed_phases: 4
-  total_plans: 15
-  completed_plans: 15
+  completed_phases: 5
+  total_plans: 22
+  completed_plans: 22
   percent: 100
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-18)
 
 **Core value:** Developers can get a secure HLS playback URL for any registered camera via a single API call, and embed it on their website immediately.
-**Current focus:** Phase 17 — Recording Playback & Timeline
+**Current focus:** Phase 18 — dashboard-map-polish
 
 ## Current Position
 
 Phase: 18
 Plan: Not started
-Status: Executing Phase 17
-Last activity: 2026-04-21 - Completed quick task 260421-g9o: fix StreamProcessor undefined cameraId bug - add defensive guard
+Status: Executing Phase 18
+Last activity: 2026-04-22
 
 Progress: [░░░░░░░░░░] 0% (v1.2: 0/5 phases)
 
@@ -36,7 +36,7 @@ Progress: [░░░░░░░░░░] 0% (v1.2: 0/5 phases)
 
 **Velocity:**
 
-- Total plans completed: 83 (v1.0: 53, v1.1: 15)
+- Total plans completed: 90 (v1.0: 53, v1.1: 15)
 - Average duration: ~5 min/plan
 - Total execution time: ~3.2 hours
 

@@ -1,8 +1,9 @@
 ---
 phase: 18-dashboard-map-polish
 verified: 2026-04-21T08:49:21Z
-status: human_needed
-score: 13/13 truths verified (programmatic); 3/3 roadmap SCs met (code level); 2 human verifications required
+resolved: 2026-04-22T01:15:00Z
+status: passed
+score: 13/13 truths verified (programmatic); 3/3 roadmap SCs met (code level); 3/3 human UAT items approved after UI refinements (see 18-HUMAN-UAT.md)
 ---
 
 # Phase 18: Dashboard & Map Polish Verification Report
