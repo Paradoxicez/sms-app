@@ -1,9 +1,20 @@
-import { describe, it } from 'vitest';
+import { describe, it, expect } from 'vitest';
+import { shouldAddRtspTransport } from '../../src/streams/ffmpeg/ffmpeg-command.builder';
 
 describe('buildFfmpegCommand protocol branching — Phase 19 (D-13)', () => {
-  // All entries are it.todo stubs — Wave 1-2 tasks convert them to real tests.
-  it.todo('rtsp:// URL emits -rtsp_transport tcp in args');
-  it.todo('rtmp:// URL does NOT emit -rtsp_transport');
-  it.todo('rtmps:// URL does NOT emit -rtsp_transport');
-  it.todo('srt:// URL does NOT emit -rtsp_transport');
+  it('rtsp:// URL → shouldAddRtspTransport returns true', () => {
+    expect(shouldAddRtspTransport('rtsp://host/s')).toBe(true);
+  });
+
+  it('rtmp:// URL → shouldAddRtspTransport returns false', () => {
+    expect(shouldAddRtspTransport('rtmp://host/s')).toBe(false);
+  });
+
+  it('rtmps:// URL → shouldAddRtspTransport returns false', () => {
+    expect(shouldAddRtspTransport('rtmps://host/s')).toBe(false);
+  });
+
+  it('srt:// URL → shouldAddRtspTransport returns false', () => {
+    expect(shouldAddRtspTransport('srt://host:9000')).toBe(false);
+  });
 });
