@@ -8,6 +8,7 @@ import {
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
+import { SystemPrismaService } from '../prisma/system-prisma.service';
 import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
 import { StreamsService } from '../streams/streams.service';
 import { CreateProjectDto } from './dto/create-project.dto';
@@ -15,6 +16,7 @@ import { CreateSiteDto } from './dto/create-site.dto';
 import { CreateCameraDto } from './dto/create-camera.dto';
 import { UpdateCameraDto } from './dto/update-camera.dto';
 import { BulkImportDto } from './dto/bulk-import.dto';
+import { ProbeJobData } from './types/codec-info';
 
 @Injectable()
 export class CamerasService {
@@ -27,6 +29,12 @@ export class CamerasService {
     // Optional: @InjectQueue can resolve to undefined in test environments
     // where BullModule isn't bootstrapped. bulkImport guards against that.
     @InjectQueue('stream-probe') private readonly probeQueue?: Queue,
+    // Phase 19 (D-02): SRS on-publish callback has no CLS context, so
+    // enqueueProbeFromSrs must use an RLS-bypass client to look up streamUrl.
+    // Optional so existing test harnesses constructing CamerasService with
+    // positional args remain compatible (bulk-import.test.ts, hierarchy.test.ts,
+    // maintenance.test.ts, camera-crud.test.ts).
+    private readonly systemPrisma?: SystemPrismaService,
   ) {}
 
   // ─── Projects ──────────────────────────────────
@@ -134,7 +142,7 @@ export class CamerasService {
     // Check maxCameras package limit
     await this.enforceMaxCamerasLimit(orgId);
 
-    return this.tenancy.camera.create({
+    const camera = await this.tenancy.camera.create({
       data: {
         orgId,
         siteId,
@@ -149,6 +157,33 @@ export class CamerasService {
         needsTranscode: false,
       },
     });
+
+    // Phase 19 (D-01, D-04): fire-and-forget async probe after DB commit.
+    // BullMQ `add` resolves as soon as the job is written to Redis, NOT when
+    // it runs — so this does not block the HTTP response. The `jobId` uses
+    // the probe:{cameraId} convention so a rapid retry from any other path
+    // (on-publish refresh, UI retry click, bulk import) merges into the same
+    // job (T-19-03 dedup mitigation). probeQueue may be undefined in unit
+    // test harnesses (see bulk-import.test.ts ctor pattern) — skip silently.
+    if (this.probeQueue) {
+      try {
+        await this.probeQueue.add(
+          'probe-camera',
+          {
+            cameraId: camera.id,
+            streamUrl: camera.streamUrl,
+            orgId,
+          } as ProbeJobData,
+          { jobId: `probe:${camera.id}` },
+        );
+      } catch (err) {
+        this.logger.warn(
+          `Failed to enqueue probe for camera ${camera.id}: ${(err as Error).message}`,
+        );
+      }
+    }
+
+    return camera;
   }
 
   async findAllCameras(siteId?: string) {
@@ -353,14 +388,22 @@ export class CamerasService {
     // Enqueue ffprobe jobs (best-effort — skipped silently when probeQueue is
     // not bootstrapped, e.g. in unit tests). The StreamProbeProcessor in
     // StreamsModule consumes these and populates Camera.codecInfo.
+    //
+    // Phase 19 (D-04): use jobId: probe:{cameraId} so rapid duplicate enqueues
+    // (e.g. bulk-import followed by on-publish refresh) merge at the BullMQ
+    // layer (T-19-03 mitigation).
     if (this.probeQueue) {
       for (const camera of cameras) {
         try {
-          await this.probeQueue.add('probe-camera', {
-            cameraId: camera.id,
-            streamUrl: camera.streamUrl,
-            orgId,
-          });
+          await this.probeQueue.add(
+            'probe-camera',
+            {
+              cameraId: camera.id,
+              streamUrl: camera.streamUrl,
+              orgId,
+            } as ProbeJobData,
+            { jobId: `probe:${camera.id}` },
+          );
         } catch (err) {
           this.logger.warn(
             `Failed to enqueue probe for camera ${camera.id}: ${(err as Error).message}`,
@@ -370,6 +413,82 @@ export class CamerasService {
     }
 
     return { imported: cameras.length, errors: [] };
+  }
+
+  // ─── Probe Enqueue Helpers (Phase 19) ──────────
+
+  /**
+   * D-02: enqueue a probe that pulls ground-truth codecInfo from SRS
+   * `/api/v1/streams`. Called by the SRS on-publish callback after
+   * StatusService.transition(online). The optional delay gives SRS time to
+   * populate its stream registry before the worker fetches (RESEARCH Pitfall 3).
+   *
+   * Uses jobId: probe:{cameraId} for idempotency — if the UI retry or a
+   * subsequent on-publish fires within the same window, BullMQ merges rather
+   * than spawning a second probe (T-19-03 dedup mitigation).
+   */
+  async enqueueProbeFromSrs(
+    cameraId: string,
+    orgId: string,
+    opts?: { delay?: number },
+  ): Promise<void> {
+    if (!this.probeQueue) return; // test-harness guard
+    // Use RLS-bypass client: SRS on-publish callback runs without CLS
+    // context, so `this.prisma` (app_user) would return zero rows. Fall
+    // back to `this.prisma` only in harness mode where systemPrisma is
+    // absent (unit tests against a pre-seeded DB).
+    const dbClient = this.systemPrisma ?? this.prisma;
+    const camera = await dbClient.camera.findUnique({
+      where: { id: cameraId },
+      select: { streamUrl: true },
+    });
+    if (!camera) {
+      this.logger.debug(
+        `enqueueProbeFromSrs: camera ${cameraId} not found, skipping`,
+      );
+      return;
+    }
+    try {
+      await this.probeQueue.add(
+        'probe-camera',
+        {
+          cameraId,
+          streamUrl: camera.streamUrl,
+          orgId,
+          source: 'srs-api',
+        } as ProbeJobData,
+        { jobId: `probe:${cameraId}`, delay: opts?.delay ?? 0 },
+      );
+    } catch (err) {
+      this.logger.warn(
+        `Failed to enqueue SRS refresh probe for camera ${cameraId}: ${(err as Error).message}`,
+      );
+    }
+  }
+
+  /**
+   * D-06: retry path called by POST /api/cameras/:id/probe when the user
+   * clicks the failed-probe retry icon in the UI. Enqueues the same
+   * ffprobe-source job as createCamera; dedup via jobId covers rapid
+   * double-clicks (T-19-03 mitigation).
+   */
+  async enqueueProbeRetry(
+    cameraId: string,
+    streamUrl: string,
+    orgId: string,
+  ): Promise<void> {
+    if (!this.probeQueue) return; // test-harness guard
+    try {
+      await this.probeQueue.add(
+        'probe-camera',
+        { cameraId, streamUrl, orgId } as ProbeJobData, // source defaults to 'ffprobe'
+        { jobId: `probe:${cameraId}` },
+      );
+    } catch (err) {
+      this.logger.warn(
+        `Failed to enqueue retry probe for camera ${cameraId}: ${(err as Error).message}`,
+      );
+    }
   }
 
   // ─── Helpers ────────────────────────────────────
