@@ -1,26 +1,22 @@
 /**
- * OrgAdminGuard — app_user + FORCE RLS integration test.
+ * OrgAdminGuard — app_user + FORCE RLS integration test (Variant 2).
  *
  * Motivating root-cause doc: .planning/debug/org-admin-cannot-add-team-members.md
  *
- * VARIANT 1 — RAW app_user PrismaClient in the `prisma:` slot.
- *
- * On HEAD (pre-Task-2 of quick 260422-ds9), this file reproduces the
- * production failure exactly: FORCE RLS returns zero rows because the guard
- * never emits set_config before its Member.findFirst, so the guard throws
- * `ForbiddenException('Org admin access required')`.
- *
- * Task 2 of 260422-ds9 will rewrite the guard constructor to accept only the
- * tenancy-wrapped client (@Inject(TENANCY_CLIENT)). At that point this file
- * will be rewritten to Variant 2 (instantiation via
- * createAppUserTenancyClient) — the same scenarios then pass GREEN and
- * become the durable regression signal for any future revert.
- *
- * RED→GREEN signal:
- *   - Task 1 (HEAD):        Variant 1 happy-path FAILS with ForbiddenException.
- *   - Task 2 (post-fix):    File rewritten to Variant 2; scenarios PASS.
- *
- * The RED output is captured to /tmp/ds9-task1-red.log during Task 1 verify.
+ * HISTORY:
+ *   - Task 1 of quick 260422-ds9 shipped this file in Variant 1 form (raw
+ *     app_user PrismaClient in the `prisma:` slot). The happy-path case
+ *     FAILED on HEAD with `ForbiddenException: Org admin access required`
+ *     — evidence captured in /tmp/ds9-task1-red.log. That RED signal proved
+ *     the bug was reproduced in-test.
+ *   - Task 2 of quick 260422-ds9 rewrote OrgAdminGuard's constructor to
+ *     inject TENANCY_CLIENT and moved `cls.set('ORG_ID', orgId)` ABOVE the
+ *     Member.findFirst. The guard's own membership query now flows through
+ *     the tenancy extension and emits set_config in the same transaction.
+ *   - This file (Variant 2) instantiates the guard with the tenancy-wrapped
+ *     app_user client and the same scenarios that RED'd in Task 1 now PASS
+ *     GREEN. It is the durable regression signal — any future revert of the
+ *     guard to raw PrismaService will surface here.
  */
 
 import {
@@ -44,6 +40,7 @@ import { cleanupTestData, createTestOrganization } from '../helpers/tenancy';
 import { createTestUser } from '../helpers/auth';
 import {
   createAppUserPrisma,
+  createAppUserTenancyClient,
   makeTestClsService,
 } from '../helpers/app-user-tenancy';
 
@@ -132,7 +129,7 @@ async function seedFixtures() {
   };
 }
 
-describe('OrgAdminGuard — FORCE RLS on app_user connection (Variant 1: raw client; will be rewritten in Task 2)', () => {
+describe('OrgAdminGuard — FORCE RLS on app_user connection (Variant 2: tenancy-wrapped client)', () => {
   let appUserPrisma: PrismaClient;
   let orgAId: string;
   let orgBId: string;
@@ -161,14 +158,14 @@ describe('OrgAdminGuard — FORCE RLS on app_user connection (Variant 1: raw cli
     await cleanupTestData(testPrisma);
   });
 
-  it('org admin of orgA can access own org (app_user + RLS) — EXPECTED RED ON HEAD', async () => {
+  it('org admin of orgA can access own org (app_user + RLS)', async () => {
     const cls = makeTestClsService();
-    // NOTE: on HEAD the constructor is (prisma: PrismaService, cls: ClsService).
-    // We pass the raw app_user client into the prisma slot — this reproduces
-    // production RLS behaviour because the raw client has no tenancy extension,
-    // so no set_config is emitted before member.findFirst. RLS returns zero
-    // rows and the guard throws ForbiddenException.
-    const guard = new OrgAdminGuard(appUserPrisma as any, cls);
+    // Variant 2: guard receives the tenancy-wrapped client. Its constructor
+    // now injects TENANCY_CLIENT (post-fix); the extension emits
+    // set_config('app.current_org_id', orgId, TRUE) once cls.set('ORG_ID')
+    // runs, which the guard does before findFirst.
+    const tenancy = createAppUserTenancyClient(appUserPrisma, cls);
+    const guard = new OrgAdminGuard(tenancy as any, cls);
     const ctx = mkContext({
       session: { user: { id: orgAAdminId, role: 'user' } },
       params: { orgId: orgAId },
@@ -180,7 +177,8 @@ describe('OrgAdminGuard — FORCE RLS on app_user connection (Variant 1: raw cli
 
   it('org admin of orgA is rejected from orgB (cross-tenant write blocked)', async () => {
     const cls = makeTestClsService();
-    const guard = new OrgAdminGuard(appUserPrisma as any, cls);
+    const tenancy = createAppUserTenancyClient(appUserPrisma, cls);
+    const guard = new OrgAdminGuard(tenancy as any, cls);
     const ctx = mkContext({
       session: { user: { id: orgAAdminId, role: 'user' } },
       params: { orgId: orgBId },
@@ -191,7 +189,8 @@ describe('OrgAdminGuard — FORCE RLS on app_user connection (Variant 1: raw cli
 
   it('non-admin member (operator) is rejected from own org', async () => {
     const cls = makeTestClsService();
-    const guard = new OrgAdminGuard(appUserPrisma as any, cls);
+    const tenancy = createAppUserTenancyClient(appUserPrisma, cls);
+    const guard = new OrgAdminGuard(tenancy as any, cls);
     const ctx = mkContext({
       session: { user: { id: orgAOperatorId, role: 'user' } },
       params: { orgId: orgAId },
@@ -202,9 +201,10 @@ describe('OrgAdminGuard — FORCE RLS on app_user connection (Variant 1: raw cli
 
   it('super admin bypass returns true without DB query (no RLS hit)', async () => {
     // session.user.role === 'admin' path — guard returns true before findFirst.
-    // This PASSES on HEAD because the super-admin branch never touches the DB.
+    // The super-admin branch never touches the DB, so RLS doesn't matter here.
     const cls = makeTestClsService();
-    const guard = new OrgAdminGuard(appUserPrisma as any, cls);
+    const tenancy = createAppUserTenancyClient(appUserPrisma, cls);
+    const guard = new OrgAdminGuard(tenancy as any, cls);
     const ctx = mkContext({
       session: { user: { id: superAdminId, role: 'admin' } },
       params: { orgId: orgBId },
@@ -217,7 +217,8 @@ describe('OrgAdminGuard — FORCE RLS on app_user connection (Variant 1: raw cli
 
   it('unauthenticated session throws UnauthorizedException', async () => {
     const cls = makeTestClsService();
-    const guard = new OrgAdminGuard(appUserPrisma as any, cls);
+    const tenancy = createAppUserTenancyClient(appUserPrisma, cls);
+    const guard = new OrgAdminGuard(tenancy as any, cls);
     const ctx = mkContext({
       session: null,
       params: { orgId: orgAId },

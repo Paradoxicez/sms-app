@@ -3,12 +3,12 @@ import { ClsModule } from 'nestjs-cls';
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
 import { MembersController } from './members.controller';
-import { AuthGuard } from '../auth/guards/auth.guard';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [ClsModule],
+  imports: [AuthModule, ClsModule],
   controllers: [UsersController, MembersController],
-  providers: [UsersService, AuthGuard],
+  providers: [UsersService],
   exports: [UsersService],
 })
 export class UsersModule {}
