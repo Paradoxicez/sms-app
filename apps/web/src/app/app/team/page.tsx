@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Lock, UsersRound } from "lucide-react";
+import { Lock, Plus, UsersRound } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -105,36 +105,24 @@ export default function TeamPage() {
   }
 
   const orgName = activeOrgName ?? "your organization";
-  const justYou = !fetching && members.length <= 1;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Team</h1>
-        <Button onClick={() => setDialogOpen(true)}>Add Team Member</Button>
+        <Button onClick={() => setDialogOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Add Team Member
+        </Button>
       </div>
 
-      {justYou ? (
-        <div className="mt-12 flex flex-col items-center justify-center text-center">
-          <UsersRound className="mb-4 h-12 w-12 text-muted-foreground" />
-          <h2 className="text-xl font-semibold">Just you so far</h2>
-          <p className="mt-2 max-w-md text-sm text-muted-foreground">
-            Add your first team member to delegate camera management,
-            recordings, or API access.
-          </p>
-          <Button className="mt-4" onClick={() => setDialogOpen(true)}>
-            Add Team Member
-          </Button>
-        </div>
-      ) : (
-        <TeamDataTable
-          members={members}
-          orgId={activeOrgId}
-          orgName={orgName}
-          currentUserId={currentUserId}
-          onRefresh={load}
-        />
-      )}
+      <TeamDataTable
+        members={members}
+        orgId={activeOrgId}
+        orgName={orgName}
+        currentUserId={currentUserId}
+        onRefresh={load}
+      />
 
       <AddTeamMemberDialog
         open={dialogOpen}
