@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Self-Service, Resilience & UI Polish
 status: executing
-stopped_at: Phase 19 UI-SPEC approved
-last_updated: "2026-04-22T05:52:43.159Z"
+stopped_at: Phase 19 supplementary discuss — RTMP scoped to pull; push split to 19.1
+last_updated: "2026-04-22T06:55:09.479Z"
 last_activity: 2026-04-22 -- Phase 19 planning complete
 progress:
   total_phases: 6
@@ -89,6 +89,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T04:42:28.768Z
-Stopped at: Phase 19 UI-SPEC approved
-Resume file: .planning/phases/19-camera-input-validation-and-multi-protocol-support-rtmp-rtmp/19-UI-SPEC.md
+Last session: 2026-04-22T06:55:09.470Z
+Stopped at: Phase 19 supplementary discuss — RTMP scoped to pull; push split to 19.1
+Resume file: .planning/phases/19-camera-input-validation-and-multi-protocol-support-rtmp-rtmp/19-CONTEXT.md
