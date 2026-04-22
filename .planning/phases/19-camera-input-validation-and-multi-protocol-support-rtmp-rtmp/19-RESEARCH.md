@@ -870,27 +870,27 @@ Key mapping for Phase 19's SRS-source probe:
 
 **If this table is empty:** N/A — 7 assumptions flagged. None are show-stoppers; all have mitigations or are Claude's-discretion items per CONTEXT.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should `status` be exposed in the API response for cameras, or stay internal inside `codecInfo` JSON?**
    - What we know: UI-SPEC consumes `codecInfo.status` directly. CONTEXT lists this as Claude's discretion.
    - What's unclear: whether to flatten `status` to a top-level field on the Camera response for easier client consumption (e.g., `GET /api/cameras` includes `probeStatus: 'pending'`).
-   - Recommendation: **Expose via `codecInfo.status` only** — keeps the API shape stable (adding a top-level field is a breaking change for any existing API consumer). UI just reads `camera.codecInfo?.status`.
+   - RESOLVED: **Expose via `codecInfo.status` only** — keeps the API shape stable (adding a top-level field is a breaking change for any existing API consumer). UI just reads `camera.codecInfo?.status`.
 
 2. **For the retry click endpoint: new `POST /cameras/:id/probe` or reuse `POST /cameras/:id/test-connection`?**
    - What we know: `test-connection` runs synchronously (blocks the request on ffprobe execution) per `cameras.controller.ts:282-302`. Retry click (D-06) wants async enqueue.
    - What's unclear: whether the planner prefers a new dedicated endpoint or a query flag on the existing one (`?async=true`).
-   - Recommendation: **New endpoint `POST /cameras/:id/probe`** — returns 202 Accepted immediately after enqueue. Keeps contracts explicit.
+   - RESOLVED: **New endpoint `POST /cameras/:id/probe`** — returns 202 Accepted immediately after enqueue. Keeps contracts explicit.
 
 3. **Should the SRS-source refresh (D-02) also trigger on `on_unpublish` or transition to `reconnecting`?**
    - What we know: D-02 says "first successful FFmpeg ingest" = `on_publish`. Makes sense: the stream is live and SRS knows the codec.
    - What's unclear: if a codec-change occurs mid-stream (e.g., camera firmware switch), would we want to re-trigger?
-   - Recommendation: **On-publish only for Phase 19.** Mid-stream codec changes are rare and a stream restart (which fires on_publish again) covers the case. Scheduled re-probe is explicitly deferred.
+   - RESOLVED: **On-publish only for Phase 19.** Mid-stream codec changes are rare and a stream restart (which fires on_publish again) covers the case. Scheduled re-probe is explicitly deferred.
 
 4. **Sample CSV — add an RTMP row for discoverability?**
    - What we know: `bulk-import-dialog.tsx:175-178` sample CSV has 3 RTSP rows. UI-SPEC §Copywriting keeps this unchanged.
    - What's unclear: whether to add one `rtmp://` row to telegraph the new capability.
-   - Recommendation: **Keep unchanged for baseline.** A planner-discretion polish item. RTSP is still the most common real-world case.
+   - RESOLVED: **Keep unchanged for baseline.** A planner-discretion polish item. RTSP is still the most common real-world case.
 
 ## Environment Availability
 
