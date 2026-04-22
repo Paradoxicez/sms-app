@@ -27,7 +27,7 @@ describe('StreamProcessor guard (defensive)', () => {
         makeJob({
           cameraId: undefined,
           orgId: 'org-1',
-          rtspUrl: 'rtsp://x/s',
+          inputUrl: 'rtsp://x/s',
           profile: {},
           needsTranscode: false,
         }),
@@ -42,7 +42,7 @@ describe('StreamProcessor guard (defensive)', () => {
       makeJob({
         cameraId: '',
         orgId: 'org-1',
-        rtspUrl: 'rtsp://x/s',
+        inputUrl: 'rtsp://x/s',
         profile: {},
         needsTranscode: false,
       }),
@@ -51,12 +51,12 @@ describe('StreamProcessor guard (defensive)', () => {
     expect(statusService.transition).not.toHaveBeenCalled();
   });
 
-  it('refuses job when rtspUrl is undefined', async () => {
+  it('refuses job when inputUrl is undefined', async () => {
     await processor.process(
       makeJob({
         cameraId: 'cam-1',
         orgId: 'org-1',
-        rtspUrl: undefined,
+        inputUrl: undefined,
         profile: {},
         needsTranscode: false,
       }),
@@ -65,12 +65,12 @@ describe('StreamProcessor guard (defensive)', () => {
     expect(statusService.transition).not.toHaveBeenCalled();
   });
 
-  it('refuses job when rtspUrl is empty string', async () => {
+  it('refuses job when inputUrl is empty string', async () => {
     await processor.process(
       makeJob({
         cameraId: 'cam-1',
         orgId: 'org-1',
-        rtspUrl: '',
+        inputUrl: '',
         profile: {},
         needsTranscode: false,
       }),
@@ -85,7 +85,7 @@ describe('StreamProcessor guard (defensive)', () => {
       makeJob({
         cameraId: 'cam-1',
         orgId: 'org-1',
-        rtspUrl: 'rtsp://1.2.3.4/stream',
+        inputUrl: 'rtsp://1.2.3.4/stream',
         profile,
         needsTranscode: false,
       }),
@@ -106,7 +106,7 @@ describe('StreamProcessor guard (defensive)', () => {
         makeJob({
           cameraId: undefined,
           orgId: 'org-1',
-          rtspUrl: undefined,
+          inputUrl: undefined,
           profile: {},
           needsTranscode: false,
         }),

@@ -25,7 +25,7 @@ export function buildStreamJobData(camera: any): StreamJobData {
   return {
     cameraId: camera.id,
     orgId: camera.orgId,
-    rtspUrl: camera.streamUrl,
+    inputUrl: camera.streamUrl,
     profile,
     needsTranscode: camera.needsTranscode,
   };

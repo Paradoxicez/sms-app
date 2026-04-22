@@ -78,7 +78,7 @@ describe('StreamProcessor', () => {
       data: {
         cameraId: 'cam-1',
         orgId: 'org-1',
-        rtspUrl: 'rtsp://192.168.1.100/stream',
+        inputUrl: 'rtsp://192.168.1.100/stream',
         profile: { codec: 'copy', audioCodec: 'aac' },
         needsTranscode: false,
       },

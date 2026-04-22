@@ -49,7 +49,7 @@ export class StreamsService {
     const jobData: StreamJobData = {
       cameraId: camera.id,
       orgId: camera.orgId,
-      rtspUrl: camera.streamUrl,
+      inputUrl: camera.streamUrl,
       profile,
       needsTranscode: camera.needsTranscode,
     };

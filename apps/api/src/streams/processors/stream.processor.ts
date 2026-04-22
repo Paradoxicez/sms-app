@@ -11,7 +11,7 @@ const BASE_BACKOFF_MS = 1_000; // 1 second
 export interface StreamJobData {
   cameraId: string;
   orgId: string;
-  rtspUrl: string;
+  inputUrl: string;
   profile: StreamProfile;
   needsTranscode: boolean;
 }
@@ -42,15 +42,15 @@ export class StreamProcessor extends WorkerHost {
   }
 
   async process(job: Job<StreamJobData>): Promise<void> {
-    const { cameraId, orgId, rtspUrl, profile, needsTranscode } = job.data;
+    const { cameraId, orgId, inputUrl, profile, needsTranscode } = job.data;
 
     // Defensive guard: BullMQ has been observed enqueuing jobs with empty data
     // (see memory note 260421 — race between BootRecoveryService/CameraHealthService
     // + jobId dedup). Refuse such jobs at the choke point: log and return without
     // throwing so the job is marked complete and does NOT retry into a storm.
-    if (!cameraId || !rtspUrl) {
+    if (!cameraId || !inputUrl) {
       this.logger.error(
-        `Refusing job with empty data: cameraId=${cameraId ?? '<undefined>'}, rtspUrl=${rtspUrl ? 'set' : 'empty'}, jobId=${job.id}`,
+        `Refusing job with empty data: cameraId=${cameraId ?? '<undefined>'}, inputUrl=${inputUrl ? 'set' : 'empty'}, jobId=${job.id}`,
       );
       return;
     }
@@ -62,6 +62,6 @@ export class StreamProcessor extends WorkerHost {
     this.logger.log(`Processing stream job for camera ${cameraId} (attempt ${job.attemptsMade + 1})`);
 
     await this.statusService.transition(cameraId, orgId, 'connecting');
-    await this.ffmpegService.startStream(cameraId, rtspUrl, outputUrl, profile, needsTranscode);
+    await this.ffmpegService.startStream(cameraId, inputUrl, outputUrl, profile, needsTranscode);
   }
 }

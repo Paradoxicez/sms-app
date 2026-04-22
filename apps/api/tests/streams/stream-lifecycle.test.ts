@@ -71,7 +71,7 @@ describe('StreamsService', () => {
       expect.objectContaining({
         cameraId: 'cam-1',
         orgId: 'org-1',
-        rtspUrl: 'rtsp://192.168.1.100/stream',
+        inputUrl: 'rtsp://192.168.1.100/stream',
       }),
       expect.objectContaining({
         jobId: 'camera:cam-1:ffmpeg',
