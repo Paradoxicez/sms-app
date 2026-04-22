@@ -12,6 +12,7 @@ import {
   UseGuards,
   BadRequestException,
   NotFoundException,
+  HttpCode,
   Logger,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiExcludeEndpoint } from '@nestjs/swagger';
@@ -273,6 +274,38 @@ export class CamerasController {
   }
 
   // ─── Test Connection ────────────────────────────
+
+  // ─── Probe Retry (D-06) ─────────────────────────
+
+  /**
+   * Phase 19 (D-06): async retry hit by the UI's failed-probe retry icon.
+   *
+   * NOT a pre-save URL test (D-18 forbids that — that's what
+   * POST cameras/:id/test-connection stays for, post-save). This endpoint
+   * re-enqueues a probe job for a camera that already exists in the DB.
+   *
+   * Returns 202 Accepted immediately — the worker runs async and the UI
+   * observes the transition via a camera list refetch. BullMQ
+   * jobId: probe:{cameraId} deduplicates rapid double-clicks (T-19-03).
+   */
+  @Post('cameras/:id/probe')
+  @HttpCode(202)
+  @ApiOperation({ summary: 'Async retry probe for an existing camera (D-06 UI retry)' })
+  @ApiResponse({ status: 202, description: 'Probe enqueued' })
+  @ApiResponse({ status: 404, description: 'Camera not found' })
+  @ApiParam({ name: 'id', description: 'Camera ID' })
+  async retryProbe(@Param('id') cameraId: string): Promise<{ accepted: true }> {
+    const orgId = this.getOrgId();
+    // findCameraById throws NotFoundException via tenancy client → cross-org
+    // lookups return null → 404. Matches the controller's existing auth
+    // pattern so we never leak camera existence across orgs.
+    const camera = await this.camerasService.findCameraById(cameraId);
+    if (!camera) {
+      throw new NotFoundException(`Camera ${cameraId} not found`);
+    }
+    await this.camerasService.enqueueProbeRetry(cameraId, camera.streamUrl, orgId);
+    return { accepted: true };
+  }
 
   @Post('cameras/:id/test-connection')
   @ApiOperation({ summary: 'Test camera RTSP/SRT connection and detect codecs' })
