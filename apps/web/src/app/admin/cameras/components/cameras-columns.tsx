@@ -7,12 +7,14 @@ import { Pencil, Play, Circle, Code, Trash2, Radio, Wrench } from "lucide-react"
 import { DataTableColumnHeader } from "@/components/ui/data-table"
 import { DataTableRowActions, type RowAction } from "@/components/ui/data-table"
 import { CameraStatusDot } from "@/app/admin/cameras/components/camera-status-badge"
+import { CodecStatusCell } from "@/app/admin/cameras/components/codec-status-cell"
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { normalizeCodecInfo } from "@/lib/codec-info"
 import { cn } from "@/lib/utils"
 
 export interface CameraRow {
@@ -22,7 +24,7 @@ export interface CameraRow {
   isRecording: boolean
   maintenanceMode: boolean
   streamUrl: string
-  codecInfo?: { video?: string; width?: number; height?: number } | null
+  codecInfo?: unknown
   streamProfileId?: string | null
   location?: { lat: number; lng: number } | null
   description?: string | null
@@ -147,27 +149,45 @@ export function createCamerasColumns(
     },
     {
       id: "codec",
-      accessorFn: (row) => row.codecInfo?.video ?? "",
+      accessorFn: (row) => {
+        const info = normalizeCodecInfo(row.codecInfo)
+        return info?.status === "success" ? info.video?.codec ?? "" : ""
+      },
       header: "Codec",
-      cell: ({ getValue }) => (
-        <span className="text-xs font-mono text-muted-foreground">
-          {(getValue() as string) || "\u2014"}
-        </span>
+      cell: ({ row }) => (
+        <CodecStatusCell
+          codecInfo={row.original.codecInfo}
+          cameraId={row.original.id}
+          cameraName={row.original.name}
+        />
       ),
       enableSorting: false,
     },
     {
       id: "resolution",
       accessorFn: (row) => {
-        const c = row.codecInfo
-        return c?.width && c?.height ? `${c.width}x${c.height}` : ""
+        const info = normalizeCodecInfo(row.codecInfo)
+        if (info?.status === "success" && info.video) {
+          return `${info.video.width}×${info.video.height}`
+        }
+        return ""
       },
       header: "Resolution",
-      cell: ({ getValue }) => (
-        <span className="text-xs font-mono text-muted-foreground">
-          {(getValue() as string) || "\u2014"}
-        </span>
-      ),
+      cell: ({ row }) => {
+        const info = normalizeCodecInfo(row.original.codecInfo)
+        if (info?.status === "success" && info.video) {
+          return (
+            <span className="text-xs font-mono text-muted-foreground">
+              {`${info.video.width}×${info.video.height}`}
+            </span>
+          )
+        }
+        return (
+          <span className="text-xs font-mono text-muted-foreground">
+            {"—"}
+          </span>
+        )
+      },
       enableSorting: false,
     },
     {
