@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { FfprobeService } from '../../src/cameras/ffprobe.service';
+import { FfprobeService, __test__ as ffprobeTest } from '../../src/cameras/ffprobe.service';
 
 // Mock child_process.exec
 vi.mock('child_process', () => ({
@@ -178,5 +178,33 @@ describe('FfprobeService', () => {
 
     expect(result.audioCodec).toBe('none');
     expect(result.fps).toBe(15);
+  });
+});
+
+describe('Phase 19 — ffprobe protocol branching (D-13)', () => {
+  const service = new FfprobeService();
+
+  it('rtsp:// URL includes -rtsp_transport tcp flag', () => {
+    expect(ffprobeTest.inputFlagsFor(service, 'rtsp://host/s')).toContain(
+      '-rtsp_transport tcp',
+    );
+  });
+
+  it('rtmp:// URL does NOT include -rtsp_transport', () => {
+    expect(ffprobeTest.inputFlagsFor(service, 'rtmp://host/s')).not.toContain(
+      'rtsp_transport',
+    );
+  });
+
+  it('rtmps:// URL does NOT include -rtsp_transport', () => {
+    expect(ffprobeTest.inputFlagsFor(service, 'rtmps://host/s')).not.toContain(
+      'rtsp_transport',
+    );
+  });
+
+  it('srt:// URL does NOT include -rtsp_transport', () => {
+    expect(ffprobeTest.inputFlagsFor(service, 'srt://host:9000')).not.toContain(
+      'rtsp_transport',
+    );
   });
 });
