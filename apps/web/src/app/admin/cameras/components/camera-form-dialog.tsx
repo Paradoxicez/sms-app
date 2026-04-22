@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { apiFetch } from '@/lib/api';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { apiFetch, ApiError } from '@/lib/api';
+import { cn } from '@/lib/utils';
+import { validateStreamUrl, HELPER_TEXT } from '@/lib/stream-url-validation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -73,6 +75,9 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
 
   const isEditMode = !!camera;
   const pendingSiteIdRef = useRef<string | undefined>(undefined);
+
+  // D-15: live prefix validation. Re-runs on every keystroke; O(1) regex cost.
+  const streamUrlError = useMemo(() => validateStreamUrl(streamUrl), [streamUrl]);
 
   useEffect(() => {
     if (open) {
@@ -176,12 +181,17 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
       resetForm();
       onOpenChange(false);
       onSuccess();
-    } catch {
-      setError(
-        isEditMode
-          ? 'Failed to update camera. Check the details and try again.'
-          : 'Failed to create camera. Check the details and try again.'
-      );
+    } catch (err) {
+      // D-11: server-layer DuplicateStreamUrlError translates to 409 + body.code.
+      if (err instanceof ApiError && err.status === 409 && err.code === 'DUPLICATE_STREAM_URL') {
+        setError('A camera with this stream URL already exists.');
+      } else {
+        setError(
+          isEditMode
+            ? 'Failed to update camera. Check the details and try again.'
+            : 'Failed to create camera. Check the details and try again.'
+        );
+      }
     } finally {
       setSaving(false);
     }
@@ -210,16 +220,30 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label htmlFor="cam-url">Stream URL *</Label>
             <Input
               id="cam-url"
               value={streamUrl}
               onChange={(e) => setStreamUrl(e.target.value)}
               placeholder="rtsp://192.168.1.100:554/stream"
-              className="font-mono text-xs"
+              className={cn(
+                'font-mono text-xs',
+                streamUrlError && 'border-destructive focus-visible:ring-destructive/50',
+              )}
+              aria-invalid={!!streamUrlError}
+              aria-describedby={streamUrlError ? 'cam-url-error' : 'cam-url-help'}
               required
             />
+            {streamUrlError ? (
+              <p id="cam-url-error" role="alert" className="text-xs text-destructive">
+                {streamUrlError}
+              </p>
+            ) : (
+              <p id="cam-url-help" className="text-xs text-muted-foreground">
+                {HELPER_TEXT}
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -328,7 +352,7 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
             <Button type="button" variant="outline" onClick={() => { onOpenChange(false); resetForm(); }}>
               Cancel
             </Button>
-            <Button type="submit" disabled={saving || !name.trim() || !streamUrl.trim() || (!isEditMode && !siteId)}>
+            <Button type="submit" disabled={saving || !name.trim() || !streamUrl.trim() || !!streamUrlError || (!isEditMode && !siteId)}>
               {saving ? 'Saving...' : isEditMode ? 'Save Changes' : 'Save Camera'}
             </Button>
           </DialogFooter>
