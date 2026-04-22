@@ -18,6 +18,7 @@ import { CameraStatusBadge } from "./camera-status-badge"
 import { HlsPlayer } from "@/components/recordings/hls-player"
 import { ResolvedPolicyCard } from "@/app/admin/policies/components/resolved-policy-card"
 import { AuditLogDataTable } from "@/components/audit/audit-log-data-table"
+import { normalizeCodecInfo } from "@/lib/codec-info"
 
 interface ViewStreamSheetProps {
   camera: CameraRow | null
@@ -104,18 +105,27 @@ function ViewStreamContent({
                     <span className="text-sm text-muted-foreground">Project</span>
                     <span className="text-sm font-medium">{camera.site?.project?.name ?? "-"}</span>
                   </div>
-                  <div className="flex items-center justify-between py-1.5 pl-3">
-                    <span className="text-sm text-muted-foreground">Codec</span>
-                    <span className="text-sm font-medium font-mono">{camera.codecInfo?.video ?? "-"}</span>
-                  </div>
-                  <div className="flex items-center justify-between py-1.5 pl-3">
-                    <span className="text-sm text-muted-foreground">Resolution</span>
-                    <span className="text-sm font-medium font-mono">
-                      {camera.codecInfo?.width && camera.codecInfo?.height
-                        ? `${camera.codecInfo.width}x${camera.codecInfo.height}`
-                        : "-"}
-                    </span>
-                  </div>
+                  {(() => {
+                    const info = normalizeCodecInfo(camera.codecInfo)
+                    const codec =
+                      info?.status === "success" ? info.video?.codec ?? "-" : "-"
+                    const resolution =
+                      info?.status === "success" && info.video
+                        ? `${info.video.width}x${info.video.height}`
+                        : "-"
+                    return (
+                      <>
+                        <div className="flex items-center justify-between py-1.5 pl-3">
+                          <span className="text-sm text-muted-foreground">Codec</span>
+                          <span className="text-sm font-medium font-mono">{codec}</span>
+                        </div>
+                        <div className="flex items-center justify-between py-1.5 pl-3">
+                          <span className="text-sm text-muted-foreground">Resolution</span>
+                          <span className="text-sm font-medium font-mono">{resolution}</span>
+                        </div>
+                      </>
+                    )
+                  })()}
                 </div>
               </CardContent>
             </Card>
