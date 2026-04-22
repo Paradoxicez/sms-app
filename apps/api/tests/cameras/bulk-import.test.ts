@@ -6,6 +6,7 @@ import {
   BulkImportCameraSchema,
   BulkImportSchema,
 } from '../../src/cameras/dto/bulk-import.dto';
+import { buildDuplicateCameras } from '../../src/test-utils/duplicate-fixtures';
 
 describe('Bulk Camera Import', () => {
   let service: CamerasService;
@@ -202,6 +203,173 @@ async function cleanupCameraData(prisma: any) {
   await prisma.site.deleteMany();
   await prisma.project.deleteMany();
 }
+
+describe('bulkImport server-side dedup — Phase 19 (D-10b)', () => {
+  let service: CamerasService;
+  let orgId: string;
+  let siteId: string;
+
+  beforeEach(async () => {
+    await cleanupCameraData(testPrisma);
+    await cleanupTestData(testPrisma);
+
+    const pkg = await createTestPackage(testPrisma, { maxCameras: 50 });
+    const org = await createTestOrganization(testPrisma, { packageId: pkg.id });
+    orgId = org.id;
+
+    service = new CamerasService(
+      testPrisma as any,
+      testPrisma as any,
+      undefined as any,
+      undefined as any,
+    );
+
+    const project = await service.createProject(orgId, { name: 'Dedup Project' });
+    const site = await service.createSite(orgId, project.id, { name: 'Dedup Site' });
+    siteId = site.id;
+  });
+
+  afterEach(async () => {
+    await cleanupCameraData(testPrisma);
+    await cleanupTestData(testPrisma);
+  });
+
+  it('skips rows whose streamUrl already exists in the same org (against-db pre-check)', async () => {
+    // Seed one pre-existing camera.
+    await service.createCamera(orgId, siteId, {
+      name: 'Existing',
+      streamUrl: 'rtsp://host/a',
+    });
+
+    const result = await service.bulkImport(orgId, {
+      cameras: [
+        { name: 'Retry', streamUrl: 'rtsp://host/a' },
+        { name: 'New', streamUrl: 'rtsp://host/new' },
+      ],
+      siteId,
+    });
+
+    expect(result.imported).toBe(1);
+    expect(result.skipped).toBe(1);
+
+    // Only the one truly-new row must exist, plus the pre-seeded 'Existing'.
+    const inSite = await testPrisma.camera.findMany({
+      where: { siteId },
+      orderBy: { name: 'asc' },
+    });
+    expect(inSite.map((c) => c.name).sort()).toEqual(['Existing', 'New']);
+  });
+
+  it('skips within-file duplicates (D-10a server-side mirror)', async () => {
+    // buildDuplicateCameras: [A, B=dup(A), C=unique, D=dup(A)]
+    const cameras = buildDuplicateCameras(orgId);
+    const result = await service.bulkImport(orgId, { cameras, siteId });
+
+    // A (first) + C (unique) import; B + D are within-file dupes of A.
+    expect(result.imported).toBe(2);
+    expect(result.skipped).toBe(2);
+
+    const inDb = await testPrisma.camera.findMany({
+      where: { siteId },
+      select: { name: true, streamUrl: true },
+      orderBy: { name: 'asc' },
+    });
+    expect(inDb).toEqual([
+      { name: 'A', streamUrl: 'rtsp://host/a' },
+      { name: 'C', streamUrl: 'rtmp://host/c' },
+    ]);
+  });
+
+  it('tenant isolation: same streamUrl in different orgs is NOT a duplicate', async () => {
+    // Seed the URL under a SECOND org first.
+    const pkgB = await createTestPackage(testPrisma, { maxCameras: 10, name: 'BasicB' });
+    const orgB = await createTestOrganization(testPrisma, {
+      packageId: pkgB.id,
+      name: 'Org B',
+      slug: 'org-b-dedup',
+    });
+    const projectB = await service.createProject(orgB.id, { name: 'Org B Project' });
+    const siteB = await service.createSite(orgB.id, projectB.id, { name: 'Org B Site' });
+    await service.createCamera(orgB.id, siteB.id, {
+      name: 'OrgB cam',
+      streamUrl: 'rtsp://shared/url',
+    });
+
+    // Now bulk-import the same URL into the original org — must succeed.
+    const result = await service.bulkImport(orgId, {
+      cameras: [{ name: 'OrgA same url', streamUrl: 'rtsp://shared/url' }],
+      siteId,
+    });
+
+    expect(result.imported).toBe(1);
+    expect(result.skipped).toBe(0);
+
+    const orgACam = await testPrisma.camera.findFirst({
+      where: { orgId, streamUrl: 'rtsp://shared/url' },
+    });
+    expect(orgACam).not.toBeNull();
+  });
+
+  it('response shape includes imported + skipped + errors', async () => {
+    const result = await service.bulkImport(orgId, {
+      cameras: [{ name: 'Unique1', streamUrl: 'rtsp://unique/1' }],
+      siteId,
+    });
+
+    // Exact shape the P07 UI + tests rely on.
+    expect(Object.keys(result).sort()).toEqual(['errors', 'imported', 'skipped']);
+    expect(result).toEqual({ imported: 1, skipped: 0, errors: [] });
+  });
+
+  it('P2002 race safety: concurrent duplicate insert translates to DuplicateStreamUrlError', async () => {
+    // Simulate the race by pre-seeding via a direct Prisma write AFTER the
+    // pre-check window would have run but BEFORE the transaction tries to
+    // insert. The cleanest way to exercise this in a unit test is to mock
+    // tenancy.$transaction — point it at a client whose camera.create
+    // unconditionally rejects with a P2002 on streamUrl.
+    const { Prisma } = await import('@prisma/client');
+    const mockTenancy: any = {
+      site: { findUnique: async () => ({ id: siteId }) },
+      camera: {
+        findMany: async () => [], // pretend nothing exists yet
+        count: async () => 0,
+      },
+      $transaction: async (_cb: any) => {
+        // Throw a Prisma P2002 as if the unique constraint fired between
+        // the pre-check (empty) and the insert.
+        throw new Prisma.PrismaClientKnownRequestError(
+          'Unique constraint failed',
+          {
+            code: 'P2002',
+            clientVersion: '6.0.0',
+            meta: { target: ['orgId', 'streamUrl'] },
+          } as any,
+        );
+      },
+    };
+    const mockPrisma: any = {
+      organization: {
+        findUnique: async () => ({ package: { maxCameras: 50 } }),
+      },
+    };
+
+    const raceService = new CamerasService(
+      mockTenancy,
+      mockPrisma,
+      undefined as any,
+      undefined as any,
+    );
+
+    await expect(
+      raceService.bulkImport(orgId, {
+        cameras: [{ name: 'Racey', streamUrl: 'rtsp://race/1' }],
+        siteId,
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'DUPLICATE_STREAM_URL' },
+    });
+  });
+});
 
 describe('Phase 19 — BulkImport 4-protocol allowlist (D-12, D-17)', () => {
   it('accepts rtmp:// URLs (D-12 RTMP unblock)', async () => {

@@ -359,15 +359,63 @@ export class CamerasService {
   async bulkImport(
     orgId: string,
     dto: BulkImportDto,
-  ): Promise<{ imported: number; errors: Array<{ row: number; message: string }> }> {
+  ): Promise<{
+    imported: number;
+    skipped: number;
+    errors: Array<{ row: number; message: string }>;
+  }> {
     // Verify site exists
     const site = await this.tenancy.site.findUnique({ where: { id: dto.siteId } });
     if (!site) {
       throw new NotFoundException(`Site ${dto.siteId} not found`);
     }
 
-    // Check maxCameras package limit for total (existing + new)
-    await this.enforceMaxCamerasLimitBulk(orgId, dto.cameras.length);
+    // Phase 19 (D-10b): server-side pre-check against existing cameras in
+    // this org — single round-trip findMany over the submitted streamUrls.
+    // Exact string match (D-09): no normalization, no lowercasing, no query-
+    // param stripping. The DB layer's @@unique([orgId, streamUrl]) (D-10c)
+    // enforces the same match shape so client + server + DB agree.
+    //
+    // NOTE: this pre-check is NOT atomic with the subsequent $transaction
+    // (T-19-02 TOCTOU). The @@unique constraint catches any race and the
+    // P2002 safety net below translates it to a DuplicateStreamUrlError.
+    const incomingUrls = dto.cameras.map((c) => c.streamUrl);
+    const existing = await this.tenancy.camera.findMany({
+      where: { orgId, streamUrl: { in: incomingUrls } },
+      select: { streamUrl: true },
+    });
+    const existingUrls = new Set(existing.map((e: any) => e.streamUrl));
+
+    // D-10a mirror: within-file dedup (server-side) — client (P07) also does
+    // this so the UI can mark duplicate rows, but we must not trust the
+    // client. Keep the first occurrence per streamUrl, skip later duplicates.
+    const seenInFile = new Set<string>();
+    const toInsert: typeof dto.cameras = [];
+    let skippedCount = 0;
+
+    for (const cam of dto.cameras) {
+      if (existingUrls.has(cam.streamUrl)) {
+        skippedCount++;
+        continue;
+      }
+      if (seenInFile.has(cam.streamUrl)) {
+        skippedCount++;
+        continue;
+      }
+      seenInFile.add(cam.streamUrl);
+      toInsert.push(cam);
+    }
+
+    // Enforce maxCameras only against rows we're actually going to insert.
+    // A bulk request where most rows are skipped as duplicates should not be
+    // rejected under the package limit just because the raw payload was big.
+    await this.enforceMaxCamerasLimitBulk(orgId, toInsert.length);
+
+    // Short-circuit: nothing to insert. Return early so the empty-array
+    // $transaction doesn't spin up a useless tenancy session.
+    if (toInsert.length === 0) {
+      return { imported: 0, skipped: skippedCount, errors: [] };
+    }
 
     // Create all cameras in a single tenancy-wrapped transaction. The
     // interactive form preserves all-or-nothing atomicity — if ANY create
@@ -381,29 +429,50 @@ export class CamerasService {
     // WITH CHECK, or the outer wrapper silently downgraded to sequential
     // execution — see .planning/debug/org-admin-cannot-add-team-members.md
     // (audit S1) for the full failure-mode analysis.
-    const cameras = await this.tenancy.$transaction(async (tx: any) => {
-      const created: any[] = [];
-      for (const cam of dto.cameras) {
-        const c = await tx.camera.create({
-          data: {
-            orgId,
-            siteId: dto.siteId,
-            name: cam.name,
-            streamUrl: cam.streamUrl,
-            description: cam.description,
-            location:
-              cam.lat != null && cam.lng != null
-                ? { lat: cam.lat, lng: cam.lng }
-                : undefined,
-            tags: cam.tags ? cam.tags.split(',').map((t: string) => t.trim()) : [],
-            status: 'offline',
-            needsTranscode: false,
-          },
-        });
-        created.push(c);
+    let cameras: any[];
+    try {
+      cameras = await this.tenancy.$transaction(async (tx: any) => {
+        const created: any[] = [];
+        for (const cam of toInsert) {
+          const c = await tx.camera.create({
+            data: {
+              orgId,
+              siteId: dto.siteId,
+              name: cam.name,
+              streamUrl: cam.streamUrl,
+              description: cam.description,
+              location:
+                cam.lat != null && cam.lng != null
+                  ? { lat: cam.lat, lng: cam.lng }
+                  : undefined,
+              tags: cam.tags ? cam.tags.split(',').map((t: string) => t.trim()) : [],
+              status: 'offline',
+              needsTranscode: false,
+            },
+          });
+          created.push(c);
+        }
+        return created;
+      });
+    } catch (error) {
+      // Phase 19 (D-11) race safety net: the pre-check above races with a
+      // concurrent import. If the other request wins the P2002 fires on the
+      // (orgId, streamUrl) unique constraint — translate to the shared
+      // DuplicateStreamUrlError so the UI can branch on error.code the same
+      // way it does for single-camera creates.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const target = (error.meta?.target as string[] | undefined) ?? [];
+        if (target.includes('streamUrl')) {
+          throw new DuplicateStreamUrlError(
+            'bulk-import race: a concurrent request inserted one of these stream URLs',
+          );
+        }
       }
-      return created;
-    });
+      throw error;
+    }
 
     // Enqueue ffprobe jobs (best-effort — skipped silently when probeQueue is
     // not bootstrapped, e.g. in unit tests). The StreamProbeProcessor in
@@ -432,7 +501,7 @@ export class CamerasService {
       }
     }
 
-    return { imported: cameras.length, errors: [] };
+    return { imported: cameras.length, skipped: skippedCount, errors: [] };
   }
 
   // ─── Probe Enqueue Helpers (Phase 19) ──────────
