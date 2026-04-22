@@ -1,30 +1,310 @@
-import { describe, it } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { toast } from 'sonner';
+
+import { BulkImportDialog } from '../bulk-import-dialog';
+import { validateRow, annotateDuplicates, type CameraRow } from '../bulk-import-dialog';
+
+vi.mock('sonner', () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+    warning: vi.fn(),
+  },
+}));
+
+vi.mock('@/lib/api', () => ({
+  apiFetch: vi.fn(),
+}));
+
+import { apiFetch } from '@/lib/api';
+
+const apiFetchMock = vi.mocked(apiFetch);
+
+function makeRow(overrides: Partial<CameraRow> = {}): CameraRow {
+  return {
+    name: '',
+    streamUrl: '',
+    tags: '',
+    description: '',
+    latitude: '',
+    longitude: '',
+    errors: {},
+    ...overrides,
+  };
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  apiFetchMock.mockReset();
+});
+
+// ---------------------------------------------------------------------------
+// Group 1: validateRow + protocol allowlist (D-12, D-16)
+// ---------------------------------------------------------------------------
 
 describe('BulkImportDialog validateRow + protocol allowlist — Phase 19 (D-12, D-16)', () => {
-  // All entries are it.todo stubs — Wave 1-2 tasks convert them to real tests.
-  it.todo('accepts rtsp:// URL as valid');
-  it.todo('accepts rtmp:// URL as valid');
-  it.todo('accepts rtmps:// URL as valid');
-  it.todo('accepts srt:// URL as valid');
-  it.todo('rejects http:// with error "Must be rtsp://, rtmps://, rtmp://, or srt://"');
-  it.todo('rejects empty streamUrl with error "Stream URL is required"');
-  it.todo('rejects URL with empty hostname via new URL() host check');
+  it('accepts rtsp:// URL as valid', () => {
+    const errors = validateRow(makeRow({ name: 'Cam', streamUrl: 'rtsp://host/s' }));
+    expect(errors.streamUrl).toBeUndefined();
+  });
+
+  it('accepts rtmp:// URL as valid', () => {
+    const errors = validateRow(makeRow({ name: 'Cam', streamUrl: 'rtmp://host/s' }));
+    expect(errors.streamUrl).toBeUndefined();
+  });
+
+  it('accepts rtmps:// URL as valid', () => {
+    const errors = validateRow(makeRow({ name: 'Cam', streamUrl: 'rtmps://host/s' }));
+    expect(errors.streamUrl).toBeUndefined();
+  });
+
+  it('accepts srt:// URL as valid', () => {
+    const errors = validateRow(makeRow({ name: 'Cam', streamUrl: 'srt://host:9000' }));
+    expect(errors.streamUrl).toBeUndefined();
+  });
+
+  it('rejects http:// with error "Must be rtsp://, rtmps://, rtmp://, or srt://"', () => {
+    const errors = validateRow(makeRow({ name: 'Cam', streamUrl: 'http://host/s' }));
+    expect(errors.streamUrl).toBe('Must be rtsp://, rtmps://, rtmp://, or srt://');
+  });
+
+  it('rejects empty streamUrl with error "Stream URL is required"', () => {
+    const errors = validateRow(makeRow({ name: 'Cam', streamUrl: '' }));
+    expect(errors.streamUrl).toBe('Stream URL is required');
+  });
+
+  it('rejects URL with empty hostname via new URL() host check', () => {
+    const errors = validateRow(makeRow({ name: 'Cam', streamUrl: 'rtsp:///' }));
+    expect(errors.streamUrl).toBe('Invalid URL — check host and path');
+  });
 });
+
+// ---------------------------------------------------------------------------
+// Group 2: annotateDuplicates (D-08, D-09, D-10a, D-16)
+// ---------------------------------------------------------------------------
 
 describe('BulkImportDialog duplicate detection — Phase 19 (D-08, D-09, D-10a)', () => {
-  // All entries are it.todo stubs — Wave 1-2 tasks convert them to real tests.
-  it.todo('annotateDuplicates flags within-file duplicates with duplicate: true, duplicateReason: "within-file"');
-  it.todo('first occurrence of a URL is NOT flagged (only subsequent rows)');
-  it.todo('URL comparison is exact string match — trailing slash treated as different');
-  it.todo('footer counter shows "N valid" + "M duplicate" + "K errors" when duplicates present');
-  it.todo('Import button stays enabled when validCount + duplicateCount > 0 && errorCount === 0');
-  it.todo('Import button disabled when errorCount > 0 regardless of duplicates');
-  it.todo('editing a duplicate row streamUrl to unique value removes duplicate flag');
+  it('annotateDuplicates flags within-file duplicates with duplicate: true, duplicateReason: "within-file"', () => {
+    const rows = [
+      makeRow({ name: 'A', streamUrl: 'rtsp://h/s' }),
+      makeRow({ name: 'B', streamUrl: 'rtsp://h/s' }),
+    ];
+    const annotated = annotateDuplicates(rows);
+    expect(annotated[0].duplicate).toBe(false);
+    expect(annotated[1].duplicate).toBe(true);
+    expect(annotated[1].duplicateReason).toBe('within-file');
+  });
+
+  it('first occurrence of a URL is NOT flagged (only subsequent rows)', () => {
+    const rows = [
+      makeRow({ name: 'A', streamUrl: 'rtsp://h/s' }),
+      makeRow({ name: 'B', streamUrl: 'rtsp://h/s' }),
+      makeRow({ name: 'C', streamUrl: 'rtsp://h/s' }),
+    ];
+    const annotated = annotateDuplicates(rows);
+    expect(annotated[0].duplicate).toBe(false);
+    expect(annotated[1].duplicate).toBe(true);
+    expect(annotated[2].duplicate).toBe(true);
+  });
+
+  it('URL comparison is exact string match — trailing slash treated as different', () => {
+    const rows = [
+      makeRow({ name: 'A', streamUrl: 'rtsp://h/s' }),
+      makeRow({ name: 'B', streamUrl: 'rtsp://h/s/' }),
+    ];
+    const annotated = annotateDuplicates(rows);
+    expect(annotated[0].duplicate).toBe(false);
+    expect(annotated[1].duplicate).toBe(false);
+  });
+
+  it('footer counter shows "N valid" + "M duplicate" + "K errors" when duplicates present', async () => {
+    render(
+      <BulkImportDialog
+        open
+        onOpenChange={() => {}}
+        onSuccess={() => {}}
+      />,
+    );
+
+    // Upload a CSV via file input with two rows sharing the same URL plus one invalid row
+    const csv = `name,streamUrl
+A,rtsp://h/s
+B,rtsp://h/s
+C,http://bad/url`;
+    const file = new File([csv], 'cameras.csv', { type: 'text/csv' });
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(screen.getByText(/valid/i)).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('1 valid')).toBeInTheDocument();
+    expect(screen.getByText('1 duplicate')).toBeInTheDocument();
+    expect(screen.getByText('1 errors')).toBeInTheDocument();
+  });
+
+  it('Import button stays enabled when validCount + duplicateCount > 0 && errorCount === 0', async () => {
+    const listSites = vi.fn().mockResolvedValue([]);
+    // Two rows, same URL — one valid, one duplicate, zero errors
+    apiFetchMock.mockImplementation(async (path: string) => {
+      if (path === '/api/projects') {
+        return [{ id: 'p1', name: 'Proj' }];
+      }
+      if (path.includes('/sites')) {
+        return [{ id: 's1', name: 'Site' }];
+      }
+      return listSites();
+    });
+
+    render(
+      <BulkImportDialog
+        open
+        onOpenChange={() => {}}
+        onSuccess={() => {}}
+      />,
+    );
+
+    const csv = `name,streamUrl
+A,rtsp://h/s
+B,rtsp://h/s`;
+    const file = new File([csv], 'cameras.csv', { type: 'text/csv' });
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(screen.getByText('1 valid')).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      const btn = screen.getByRole('button', { name: /Confirm Import/i });
+      expect(btn).not.toBeDisabled();
+    });
+  });
+
+  it('Import button disabled when errorCount > 0 regardless of duplicates', async () => {
+    render(
+      <BulkImportDialog
+        open
+        onOpenChange={() => {}}
+        onSuccess={() => {}}
+      />,
+    );
+
+    const csv = `name,streamUrl
+A,rtsp://h/s
+B,rtsp://h/s
+C,http://bad`;
+    const file = new File([csv], 'cameras.csv', { type: 'text/csv' });
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(screen.getByText('1 errors')).toBeInTheDocument();
+    });
+
+    const btn = screen.getByRole('button', { name: /Confirm Import/i });
+    expect(btn).toBeDisabled();
+  });
+
+  it('editing a duplicate row streamUrl to unique value removes duplicate flag', async () => {
+    // Unit-level check: annotateDuplicates recomputes to false when URL changes
+    const rows = [
+      makeRow({ name: 'A', streamUrl: 'rtsp://h/s' }),
+      makeRow({ name: 'B', streamUrl: 'rtsp://h/s' }),
+    ];
+    const annotatedBefore = annotateDuplicates(rows);
+    expect(annotatedBefore[1].duplicate).toBe(true);
+
+    const edited = annotatedBefore.map((r, i) => (i === 1 ? { ...r, streamUrl: 'rtsp://other/s' } : r));
+    const annotatedAfter = annotateDuplicates(edited);
+    expect(annotatedAfter[1].duplicate).toBe(false);
+    expect(annotatedAfter[1].duplicateReason).toBeUndefined();
+  });
 });
 
+// ---------------------------------------------------------------------------
+// Group 3: Post-import toast cascade (UI-SPEC)
+// ---------------------------------------------------------------------------
+
 describe('BulkImportDialog post-import toast cascade — Phase 19 (UI-SPEC)', () => {
-  // All entries are it.todo stubs — Wave 1-2 tasks convert them to real tests.
-  it.todo('imported>0 && skipped===0: toast "Imported N cameras successfully."');
-  it.todo('imported>0 && skipped>0: toast "Imported N cameras, skipped M duplicates."');
-  it.todo('imported===0 && skipped>0: sonner warning "No cameras imported — all M rows were duplicates."');
+  async function renderWithRows(csv: string) {
+    apiFetchMock.mockImplementation(async (path: string) => {
+      if (path === '/api/projects') {
+        return [{ id: 'p1', name: 'Proj' }];
+      }
+      if (path.includes('/sites')) {
+        return [{ id: 's1', name: 'Site' }];
+      }
+      return undefined as never;
+    });
+
+    render(
+      <BulkImportDialog
+        open
+        onOpenChange={() => {}}
+        onSuccess={() => {}}
+      />,
+    );
+
+    const file = new File([csv], 'cameras.csv', { type: 'text/csv' });
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Confirm Import/i })).toBeInTheDocument();
+    });
+  }
+
+  it('imported>0 && skipped===0: toast "Imported N cameras successfully."', async () => {
+    const csv = `name,streamUrl
+A,rtsp://h/a
+B,rtsp://h/b
+C,rtsp://h/c`;
+    await renderWithRows(csv);
+
+    apiFetchMock.mockImplementationOnce(async () => ({ imported: 3, skipped: 0, errors: [] }));
+
+    const btn = screen.getByRole('button', { name: /Confirm Import/i });
+    await waitFor(() => expect(btn).not.toBeDisabled());
+    fireEvent.click(btn);
+
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith('Imported 3 cameras successfully.'),
+    );
+  });
+
+  it('imported>0 && skipped>0: toast "Imported N cameras, skipped M duplicates."', async () => {
+    const csv = `name,streamUrl
+A,rtsp://h/a
+B,rtsp://h/b`;
+    await renderWithRows(csv);
+
+    apiFetchMock.mockImplementationOnce(async () => ({ imported: 2, skipped: 3, errors: [] }));
+
+    const btn = screen.getByRole('button', { name: /Confirm Import/i });
+    await waitFor(() => expect(btn).not.toBeDisabled());
+    fireEvent.click(btn);
+
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith('Imported 2 cameras, skipped 3 duplicates.'),
+    );
+  });
+
+  it('imported===0 && skipped>0: sonner warning "No cameras imported — all M rows were duplicates."', async () => {
+    const csv = `name,streamUrl
+A,rtsp://h/a
+B,rtsp://h/b`;
+    await renderWithRows(csv);
+
+    apiFetchMock.mockImplementationOnce(async () => ({ imported: 0, skipped: 5, errors: [] }));
+
+    const btn = screen.getByRole('button', { name: /Confirm Import/i });
+    await waitFor(() => expect(btn).not.toBeDisabled());
+    fireEvent.click(btn);
+
+    await waitFor(() =>
+      expect(toast.warning).toHaveBeenCalledWith('No cameras imported — all 5 rows were duplicates.'),
+    );
+  });
 });
