@@ -202,3 +202,56 @@ async function cleanupCameraData(prisma: any) {
   await prisma.site.deleteMany();
   await prisma.project.deleteMany();
 }
+
+describe('Phase 19 — BulkImport 4-protocol allowlist (D-12, D-17)', () => {
+  it('accepts rtmp:// URLs (D-12 RTMP unblock)', async () => {
+    const result = BulkImportCameraSchema.safeParse({
+      name: 'Cam',
+      streamUrl: 'rtmp://rtmp.example.com/live/stream',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts rtmps:// URLs', async () => {
+    const result = BulkImportCameraSchema.safeParse({
+      name: 'Cam',
+      streamUrl: 'rtmps://rtmp.example.com/live/stream',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects http:// URLs with allowlist message', async () => {
+    const result = BulkImportCameraSchema.safeParse({
+      name: 'Cam',
+      streamUrl: 'http://evil.example/stream',
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toContain('rtsp://, rtmps://, rtmp://, or srt://');
+    }
+  });
+
+  it('rejects javascript: URLs (T-19-01 SSRF/XSS surface)', async () => {
+    const result = BulkImportCameraSchema.safeParse({
+      name: 'Cam',
+      streamUrl: 'javascript:alert(1)',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects file:// URLs (T-19-01 local file read)', async () => {
+    const result = BulkImportCameraSchema.safeParse({
+      name: 'Cam',
+      streamUrl: 'file:///etc/passwd',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects malformed URLs via .url() floor (D-17)', async () => {
+    const result = BulkImportCameraSchema.safeParse({
+      name: 'Cam',
+      streamUrl: 'not-a-url',
+    });
+    expect(result.success).toBe(false);
+  });
+});
