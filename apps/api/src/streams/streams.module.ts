@@ -8,11 +8,15 @@ import { StreamProbeProcessor } from './processors/stream-probe.processor';
 import { StreamProfileService } from './stream-profile.service';
 import { StreamProfileController } from './stream-profile.controller';
 import { FfprobeService } from '../cameras/ffprobe.service';
+import { SrsModule } from '../srs/srs.module';
 
 @Module({
   imports: [
     BullModule.registerQueue({ name: 'stream-ffmpeg' }),
     BullModule.registerQueue({ name: 'stream-probe' }),
+    // Phase 19 (D-02): StreamProbeProcessor's srs-api branch injects
+    // SrsApiService to pull ground-truth codec info from /api/v1/streams.
+    SrsModule,
   ],
   controllers: [StreamsController, StreamProfileController],
   providers: [
