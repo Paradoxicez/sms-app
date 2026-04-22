@@ -83,11 +83,11 @@ export function TeamDataTable({ members, orgId, orgName, currentUserId, onRefres
         columns={columns}
         data={members}
         searchKey="name"
-        searchPlaceholder="Filter members..."
+        searchPlaceholder="Search team members..."
         facetedFilters={facetedFilters}
         emptyState={{
-          title: "No team members",
-          description: "Add your first team member to get started.",
+          title: "No team members yet",
+          description: "Get started by adding your first team member.",
         }}
       />
 
