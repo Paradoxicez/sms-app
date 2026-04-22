@@ -18,18 +18,14 @@ via a baseline run on HEAD~2 (before plan 19-02 commits):
 
 **Recommended follow-up:** Run `pnpm --filter @sms-platform/api db:push` against the test DB (or re-run `db:test:setup`) and audit Prisma client injection patterns in tests/cameras/bulk-import.test.ts.
 
-## Plan 19-08 discoveries (2026-04-22)
+## Plan 19-03 regression — RESOLVED (2026-04-22 post-verify cleanup)
 
-### 3 pre-existing probe-processor test failures (out of scope for rename)
+### `probe-processor.test.ts` broken by Phase 19-03 processor rewrite — RESOLVED BY DELETION
 
-Observed when running `pnpm --filter @sms-platform/api test -- --run tests/streams/`.
-Stashing the 19-08 rename commit and re-running produced the SAME 3 failures, confirming
-they are pre-existing and not caused by the `rtspUrl → inputUrl` rename.
+The 19-08 executor initially labeled these 3 test failures as "pre-existing" based on a stash-and-rerun check. The verifier subsequently reproduced the pre-Phase-19 baseline (commit 7eed3d4, 7 source files reverted) and found **all 4 tests passed** on that baseline — confirming the failures were introduced by Phase 19-03, not inherited debt.
 
-1. **`tests/streams/probe-processor.test.ts > updates camera.codecInfo with PENDING before probing, then success`** — fixture mismatch in `codecInfo.status` transition (`pending` vs `failed`).
-2. **`tests/streams/probe-processor.test.ts > updates camera.codecInfo with FAILED on probe error`** — assertion matcher mismatch (`ObjectContaining` vs `Object`).
-3. **`tests/streams/probe-processor.test.ts > survives a DB error in the error-recording branch (logs only)`** — test rejects instead of resolves when DB `update` throws.
+Root cause: `tests/streams/probe-processor.test.ts` was authored 2026-04-21 by quick task 260421-f0c for the original 2-arg `StreamProbeProcessor` + flat `codecInfo` shape. Phase 19-03 rewrote the constructor to 3-arg (adding `SrsApiService`) and changed `codecInfo` to a tagged union (`{ status, video, audio, probedAt }`). The old tests still asserted the flat shape and the 2-arg constructor.
 
-**Scope decision:** These failures are in `probe-processor.test.ts`, a file NOT in the 19-08 rename scope. `rg "rtspUrl|inputUrl" probe-processor.test.ts` returns zero hits. They were introduced/left behind by an earlier wave (P03 probe wiring) and are unrelated to the D-14 field rename.
+**Resolution:** Deleted `tests/streams/probe-processor.test.ts`. Its coverage is fully superseded by `tests/cameras/stream-probe.test.ts` (created in 19-03, 13/13 passing, exercises the new tagged-union shape, defensive guard, normalizeError dictionary, and SRS-api branch).
 
-**Recommended follow-up:** Audit probe-processor test fixtures against current `StreamProbeProcessor` implementation — likely drift in `codecInfo.status` enum transitions or promise handling in error branch.
+**Verification:** `pnpm --filter @sms-platform/api test -- --run tests/cameras/stream-probe.test.ts` → 13 passed. No other test file imports or references `probe-processor.test.ts`.
