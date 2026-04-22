@@ -10,16 +10,26 @@ export interface StreamProfile {
   audioBitrate?: string; // '128k'
 }
 
+/**
+ * D-13: -rtsp_transport is an RTSP-only demuxer flag. Emit it only for
+ * rtsp:// URLs. For rtmp/rtmps/srt/http(s) ffmpeg either ignores it with a
+ * warning (today) or rejects it (stricter future versions).
+ */
+export function shouldAddRtspTransport(inputUrl: string): boolean {
+  return inputUrl.startsWith('rtsp://');
+}
+
 export function buildFfmpegCommand(
   inputUrl: string,
   outputUrl: string,
   profile: StreamProfile,
   needsTranscode: boolean,
 ): ffmpeg.FfmpegCommand {
-  const cmd = ffmpeg(inputUrl)
-    .inputOptions(['-rtsp_transport', 'tcp'])
-    .output(outputUrl)
-    .outputFormat('flv');
+  const cmd = ffmpeg(inputUrl).output(outputUrl).outputFormat('flv');
+
+  if (shouldAddRtspTransport(inputUrl)) {
+    cmd.inputOptions(['-rtsp_transport', 'tcp']);
+  }
 
   const useCopy = profile.codec === 'copy' || (!needsTranscode && profile.codec === 'auto');
 
