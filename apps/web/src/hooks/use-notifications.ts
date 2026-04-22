@@ -65,8 +65,12 @@ export function useNotifications(userId: string | undefined, orgId: string | und
   useEffect(() => {
     if (!userId) return;
 
-    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
-    const socket = io(`${base}/notifications`, {
+    // Connect to the current web origin so the Better Auth session cookie
+    // (scoped to localhost:3000 in dev) accompanies the WS handshake. The
+    // Next.js /socket.io/* rewrite proxies the upgrade to the API port.
+    const origin =
+      typeof window !== 'undefined' ? window.location.origin : '';
+    const socket = io(`${origin}/notifications`, {
       path: '/socket.io',
       query: { userId, orgId },
       transports: ['websocket', 'polling'],

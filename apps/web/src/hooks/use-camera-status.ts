@@ -26,8 +26,12 @@ export function useCameraStatus(
 
     // Gateway is registered under the /camera-status namespace — the root
     // namespace has no listeners, so events never reached the UI.
-    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
-    const socket = io(`${base}/camera-status`, {
+    // Connect to the current web origin so the Better Auth session cookie
+    // (scoped to localhost:3000 in dev) accompanies the WS handshake. The
+    // Next.js /socket.io/* rewrite proxies the upgrade to the API port.
+    const origin =
+      typeof window !== 'undefined' ? window.location.origin : '';
+    const socket = io(`${origin}/camera-status`, {
       path: '/socket.io',
       query: { orgId },
       transports: ['websocket', 'polling'],

@@ -17,13 +17,17 @@ export function useSrsLogs(enabled: boolean, role: string) {
   useEffect(() => {
     if (!enabled || role !== 'admin') return;
 
-    const apiUrl =
-      process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
+    // Connect to the current web origin so the Better Auth session cookie
+    // (scoped to localhost:3000 in dev) accompanies the WS handshake. The
+    // Next.js /socket.io/* rewrite proxies the upgrade to the API port.
+    const origin =
+      typeof window !== 'undefined' ? window.location.origin : '';
 
-    const socket = io(`${apiUrl}/srs-logs`, {
+    const socket = io(`${origin}/srs-logs`, {
       path: '/socket.io',
       query: { role },
       transports: ['websocket', 'polling'],
+      withCredentials: true,
     });
 
     socket.on('srs:log', (entry: LogEntry) => {
