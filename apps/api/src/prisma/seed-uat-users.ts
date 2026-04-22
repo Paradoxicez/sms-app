@@ -1,6 +1,20 @@
+/**
+ * UAT user seed.
+ *
+ * RLS caveat: same as seed.ts — Member inserts run against a FORCE-RLS
+ * table outside any HTTP request / CLS context. Pin the PrismaClient to
+ * the sms superuser DSN (DATABASE_URL_MIGRATE, rolbypassrls=true) so
+ * Member.upsert always succeeds, regardless of whether the caller's shell
+ * has DATABASE_URL pointing at app_user or sms.
+ *
+ * History: datasourceUrl added on 2026-04-22 (quick 260422-ds9) —
+ * see .planning/debug/org-admin-cannot-add-team-members.md audit S2.
+ */
 import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  datasourceUrl: process.env.DATABASE_URL_MIGRATE ?? process.env.DATABASE_URL,
+});
 
 async function hashPassword(password: string): Promise<string> {
   const { hashPassword: hash } = await import('better-auth/crypto');

@@ -1,6 +1,24 @@
+/**
+ * Dev / test DB seed.
+ *
+ * RLS caveat: Member / Account / UserPermissionOverride are under FORCE
+ * ROW LEVEL SECURITY. Seeds run outside any HTTP request so no CLS context
+ * exists to drive the tenancy extension. We construct the PrismaClient
+ * with an explicit datasourceUrl pointing at the sms superuser DSN
+ * (DATABASE_URL_MIGRATE, rolbypassrls=true) so every write bypasses RLS
+ * naturally. Falls back to DATABASE_URL when only one URL is set.
+ *
+ * History: datasourceUrl added on 2026-04-22 (quick 260422-ds9) after
+ * .planning/debug/org-admin-cannot-add-team-members.md audit S2 flagged
+ * that calling `new PrismaClient()` inherits DATABASE_URL — which in dev
+ * points at the RLS-enforced app_user role — and Member inserts would
+ * silently fail.
+ */
 import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  datasourceUrl: process.env.DATABASE_URL_MIGRATE ?? process.env.DATABASE_URL,
+});
 
 async function hashPassword(password: string): Promise<string> {
   const { hashPassword: hash } = await import('better-auth/crypto');

@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { ROLE_PERMISSIONS } from './roles';
 
 /**
@@ -6,7 +6,22 @@ import { ROLE_PERMISSIONS } from './roles';
  * Implements D-02: role provides default permissions, then per-user overrides
  * (grant/deny) are applied on top.
  *
- * @param prisma - PrismaClient instance
+ * RLS caveat: `UserPermissionOverride` is under FORCE ROW LEVEL SECURITY.
+ * Callers MUST either:
+ *   (a) wrap the call in a transaction that first emits
+ *       `SELECT set_config('app.current_org_id', orgId, TRUE)` (or
+ *       `app.is_superuser`), passing the resulting `tx` in (this is how
+ *       tests/auth/rbac.test.ts exercises the function), OR
+ *   (b) pass a tenancy-extended client driven by CLS signals upstream.
+ * Passing a raw PrismaClient without either context will silently return
+ * zero rows from the override lookup and fall back to the role default.
+ *
+ * History: signature narrowed on 2026-04-22 (quick 260422-ds9) after
+ * .planning/debug/org-admin-cannot-add-team-members.md flagged that a raw
+ * PrismaService could be passed here and the UserPermissionOverride read
+ * would silently return zero rows.
+ *
+ * @param prisma - Full PrismaClient or Prisma.TransactionClient
  * @param userId - The user's ID
  * @param orgId - The organization ID
  * @param memberRole - The user's role in the organization (from Member table)
@@ -14,7 +29,7 @@ import { ROLE_PERMISSIONS } from './roles';
  * @returns boolean - Whether the user has the permission
  */
 export async function checkPermission(
-  prisma: PrismaClient,
+  prisma: PrismaClient | Prisma.TransactionClient,
   userId: string,
   orgId: string,
   memberRole: string,
