@@ -85,7 +85,7 @@ None yet.
 | 260421-f0c | Fix StreamProcessor concurrency 1→50 + add stream-probe processor for bulk-import codec detection | 2026-04-21 | 1800a7d+ff1cdc1 | | [260421-f0c-fix-streamprocessor-concurrency-1-add-st](./quick/260421-f0c-fix-streamprocessor-concurrency-1-add-st/) |
 | 260421-g9o | fix StreamProcessor undefined cameraId bug - add defensive guard | 2026-04-21 | 5cf6343 | | [260421-g9o-fix-streamprocessor-undefined-cameraid-b](./quick/260421-g9o-fix-streamprocessor-undefined-cameraid-b/) |
 | 260422-cnv | Align Team page empty state with API Keys table pattern | 2026-04-22 | a4f2eb0 | | [260422-cnv-align-team-page-empty-state-with-api-key](./quick/260422-cnv-align-team-page-empty-state-with-api-key/) |
-| 260422-ds9 | Fix RLS bug pattern across codebase (Option A) — OrgAdminGuard, AdminDashboardService, bulkImport, test harness, seeds | 2026-04-22 | a1e8348 | Needs Review | [260422-ds9-fix-rls-bug-pattern-across-codebase-opti](./quick/260422-ds9-fix-rls-bug-pattern-across-codebase-opti/) |
+| 260422-ds9 | Fix RLS bug pattern across codebase (Option A) — OrgAdminGuard, AdminDashboardService, bulkImport, test harness, seeds | 2026-04-22 | a1e8348 | Verified | [260422-ds9-fix-rls-bug-pattern-across-codebase-opti](./quick/260422-ds9-fix-rls-bug-pattern-across-codebase-opti/) |
 
 ## Session Continuity
 
