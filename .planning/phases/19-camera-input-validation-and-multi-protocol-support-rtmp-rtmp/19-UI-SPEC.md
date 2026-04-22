@@ -1,10 +1,11 @@
 ---
 phase: 19
 slug: camera-input-validation-and-multi-protocol-support-rtmp-rtmp
-status: draft
+status: approved
 shadcn_initialized: true
 preset: base-nova
 created: 2026-04-22
+reviewed_at: 2026-04-22
 ---
 
 # Phase 19 — UI Design Contract
