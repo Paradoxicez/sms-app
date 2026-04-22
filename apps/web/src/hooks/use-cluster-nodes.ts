@@ -84,7 +84,7 @@ export function useClusterNodes() {
 
     const socket = io(`${apiUrl}/cluster-status`, {
       path: '/socket.io',
-      transports: ['websocket'],
+      transports: ['websocket', 'polling'],
     });
 
     socket.on('node:health', (event: NodeHealthEvent) => {

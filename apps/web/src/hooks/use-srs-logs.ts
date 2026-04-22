@@ -23,7 +23,7 @@ export function useSrsLogs(enabled: boolean, role: string) {
     const socket = io(`${apiUrl}/srs-logs`, {
       path: '/socket.io',
       query: { role },
-      transports: ['websocket'],
+      transports: ['websocket', 'polling'],
     });
 
     socket.on('srs:log', (entry: LogEntry) => {

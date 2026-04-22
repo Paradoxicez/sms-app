@@ -30,7 +30,7 @@ export function useCameraStatus(
     const socket = io(`${base}/camera-status`, {
       path: '/socket.io',
       query: { orgId },
-      transports: ['websocket'],
+      transports: ['websocket', 'polling'],
       withCredentials: true,
     });
 

@@ -69,7 +69,7 @@ export function useNotifications(userId: string | undefined, orgId: string | und
     const socket = io(`${base}/notifications`, {
       path: '/socket.io',
       query: { userId, orgId },
-      transports: ['websocket'],
+      transports: ['websocket', 'polling'],
       withCredentials: true,
     });
 
