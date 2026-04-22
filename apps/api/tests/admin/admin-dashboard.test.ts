@@ -14,7 +14,7 @@ import { SuperAdminGuard } from '../../src/auth/guards/super-admin.guard';
 type AnyFn = (...args: any[]) => any;
 
 function makeMockPrisma() {
-  return {
+  const mock: any = {
     organization: {
       findMany: vi.fn() as AnyFn,
       count: vi.fn() as AnyFn,
@@ -47,7 +47,21 @@ function makeMockPrisma() {
       aggregate: vi.fn() as AnyFn,
     },
     $queryRaw: vi.fn() as AnyFn,
+    $executeRaw: vi.fn().mockResolvedValue(0) as AnyFn,
   };
+  // getStorageForecast now wraps $queryRaw in a $transaction so RLS
+  // `set_config('app.is_superuser', 'true', TRUE)` runs in the same tx
+  // (production swaps rawPrisma for TENANCY_CLIENT — see quick 260422-ds9).
+  // For unit-test purposes the $transaction callback just receives the mock
+  // itself as `tx` so `tx.$queryRaw` / `tx.$executeRaw` resolve via the
+  // vi.fn()s above.
+  mock.$transaction = vi.fn(async (fn: any) => {
+    if (typeof fn === 'function') {
+      return fn(mock);
+    }
+    return Promise.all(fn);
+  }) as AnyFn;
+  return mock;
 }
 
 describe('AdminDashboardService Phase 18 additions', () => {

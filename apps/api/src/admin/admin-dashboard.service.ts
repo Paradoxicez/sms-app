@@ -1,6 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
 import { SrsApiService } from '../srs/srs-api.service';
 import { StatusService } from '../status/status.service';
 import { ClusterService } from '../cluster/cluster.service';
@@ -38,8 +38,21 @@ export type OrgHealth = {
 export class AdminDashboardService {
   private readonly logger = new Logger(AdminDashboardService.name);
 
+  /**
+   * Migrated from raw PrismaService to `TENANCY_CLIENT` on
+   * 2026-04-22 (quick 260422-ds9). SuperAdminGuard sets CLS.IS_SUPERUSER
+   * upstream, so every model operation through the tenancy extension emits
+   * `set_config('app.is_superuser', 'true', TRUE)` and hits the
+   * `superuser_bypass_*` RLS policies. Without this the raw PrismaService
+   * connection (app_user, FORCE RLS) silently returned zero rows on every
+   * dashboard query. See .planning/debug/org-admin-cannot-add-team-members.md.
+   *
+   * NOTE: the extension only wraps `$allModels.$allOperations`. `$queryRaw`
+   * and `$executeRaw` are NOT intercepted — see `getStorageForecast` below
+   * for the manual `$transaction` + `set_config` prologue it needs.
+   */
   constructor(
-    private readonly rawPrisma: PrismaService,
+    @Inject(TENANCY_CLIENT) private readonly prisma: any,
     private readonly srsApiService: SrsApiService,
     private readonly statusService: StatusService,
     private readonly clusterService: ClusterService,
@@ -52,11 +65,11 @@ export class AdminDashboardService {
   async getPlatformStats() {
     // The "System" org is platform-internal (super admins are members of it
     // per D-08); count only real tenant organisations.
-    const totalOrgs = await this.rawPrisma.organization.count({
+    const totalOrgs = await this.prisma.organization.count({
       where: { slug: { not: 'system' } },
     });
 
-    const cameras = await this.rawPrisma.camera.findMany({
+    const cameras = await this.prisma.camera.findMany({
       select: { id: true, status: true, orgId: true },
     });
 
@@ -131,12 +144,12 @@ export class AdminDashboardService {
   async getOrgSummary() {
     // Exclude the platform-internal "System" org — it exists only so super
     // admins have a membership row, never hosts real cameras.
-    const orgs = await this.rawPrisma.organization.findMany({
+    const orgs = await this.prisma.organization.findMany({
       where: { slug: { not: 'system' } },
       select: { id: true, name: true, slug: true },
     });
 
-    const cameraGroups = await this.rawPrisma.camera.groupBy({
+    const cameraGroups = await this.prisma.camera.groupBy({
       by: ['orgId', 'status'],
       _count: true,
     });
@@ -203,11 +216,12 @@ export class AdminDashboardService {
   }
 
   /**
-   * Platform-wide count of cameras currently recording. Uses rawPrisma —
-   * the admin dashboard is cross-tenant by design.
+   * Platform-wide count of cameras currently recording. Uses the tenancy
+   * client — SuperAdminGuard set IS_SUPERUSER upstream so the extension's
+   * set_config prologue lets this query see rows across all orgs.
    */
   async getRecordingsActive(): Promise<{ count: number }> {
-    const count = await this.rawPrisma.camera.count({
+    const count = await this.prisma.camera.count({
       where: { isRecording: true },
     });
     return { count };
@@ -234,7 +248,7 @@ export class AdminDashboardService {
 
     // 2. Edge nodes OFFLINE or DEGRADED.
     try {
-      const nodes: any[] = await this.rawPrisma.srsNode.findMany({
+      const nodes: any[] = await this.prisma.srsNode.findMany({
         where: {
           role: 'EDGE',
           status: { in: ['OFFLINE', 'DEGRADED'] as any },
@@ -255,12 +269,12 @@ export class AdminDashboardService {
     // 3. Org offline-rate — any tenant org (slug != 'system') with >50% of
     // its cameras offline AND at least 3 cameras total.
     try {
-      const orgs: any[] = await this.rawPrisma.organization.findMany({
+      const orgs: any[] = await this.prisma.organization.findMany({
         where: { slug: { not: 'system' } },
         select: { id: true, name: true, slug: true },
       });
       const orgById = new Map(orgs.map((o) => [o.id, o]));
-      const groups: any[] = await this.rawPrisma.camera.groupBy({
+      const groups: any[] = await this.prisma.camera.groupBy({
         by: ['orgId', 'status'],
         _count: true,
       });
@@ -320,14 +334,22 @@ export class AdminDashboardService {
     since.setUTCHours(0, 0, 0, 0);
     since.setUTCDate(since.getUTCDate() - (days - 1));
 
-    const rows: Array<{ date: Date; bytes: bigint }> =
-      await this.rawPrisma.$queryRaw<Array<{ date: Date; bytes: bigint }>>(Prisma.sql`
-        SELECT DATE("createdAt") AS date, SUM(size) AS bytes
-        FROM "RecordingSegment"
-        WHERE "createdAt" >= ${since}
-        GROUP BY DATE("createdAt")
-        ORDER BY date ASC
-      `);
+    // The tenancy extension wraps $allModels.$allOperations only — $queryRaw
+    // is NOT intercepted. Wrap manually so `set_config('app.is_superuser',
+    // 'true', TRUE)` is emitted in the same transaction as the query;
+    // otherwise RecordingSegment (FORCE RLS) returns zero rows on app_user.
+    const rows: Array<{ date: Date; bytes: bigint }> = await this.prisma.$transaction(
+      async (tx: any) => {
+        await tx.$executeRaw`SELECT set_config('app.is_superuser', 'true', TRUE)`;
+        return tx.$queryRaw(Prisma.sql`
+          SELECT DATE("createdAt") AS date, SUM(size) AS bytes
+          FROM "RecordingSegment"
+          WHERE "createdAt" >= ${since}
+          GROUP BY DATE("createdAt")
+          ORDER BY date ASC
+        `) as Promise<Array<{ date: Date; bytes: bigint }>>;
+      },
+    );
 
     const points = rows.map((r) => ({
       date: (r.date instanceof Date ? r.date : new Date(r.date as any))
@@ -340,7 +362,7 @@ export class AdminDashboardService {
     // We use the Package table aggregate; orgs without packages don't consume.
     let totalQuotaBytes = BigInt(0);
     try {
-      const agg = await this.rawPrisma.package.aggregate({
+      const agg = await this.prisma.package.aggregate({
         _sum: { maxStorageGb: true },
       });
       const gb = agg._sum?.maxStorageGb ?? 0;
@@ -410,7 +432,7 @@ export class AdminDashboardService {
       ],
     };
 
-    const items: any[] = await this.rawPrisma.auditLog.findMany({
+    const items: any[] = await this.prisma.auditLog.findMany({
       where,
       orderBy: { createdAt: 'desc' },
       take: limit,
@@ -426,13 +448,13 @@ export class AdminDashboardService {
 
     const [users, orgs] = await Promise.all([
       userIds.length
-        ? this.rawPrisma.user.findMany({
+        ? this.prisma.user.findMany({
             where: { id: { in: userIds } },
             select: { id: true, name: true, email: true },
           })
         : Promise.resolve([]),
       orgIds.length
-        ? this.rawPrisma.organization.findMany({
+        ? this.prisma.organization.findMany({
             where: { id: { in: orgIds } },
             select: { id: true, name: true },
           })
@@ -456,7 +478,7 @@ export class AdminDashboardService {
    * orgs float to the top.
    */
   async getOrgHealthOverview(): Promise<OrgHealth[]> {
-    const orgs: any[] = await this.rawPrisma.organization.findMany({
+    const orgs: any[] = await this.prisma.organization.findMany({
       where: { slug: { not: 'system' } },
       include: { package: true },
     });
@@ -468,7 +490,7 @@ export class AdminDashboardService {
     startOfDay.setHours(0, 0, 0, 0);
 
     // 1. Camera counts grouped by (org, status).
-    const cameraGroups: any[] = await this.rawPrisma.camera.groupBy({
+    const cameraGroups: any[] = await this.prisma.camera.groupBy({
       by: ['orgId', 'status'],
       _count: true,
       where: { orgId: { in: orgIds } },
@@ -487,7 +509,7 @@ export class AdminDashboardService {
     }
 
     // 2. Storage usage per org (sum over RecordingSegment).
-    const storageGroups: any[] = await this.rawPrisma.recordingSegment.groupBy({
+    const storageGroups: any[] = await this.prisma.recordingSegment.groupBy({
       by: ['orgId'],
       _sum: { size: true },
       where: { orgId: { in: orgIds } },
@@ -499,12 +521,12 @@ export class AdminDashboardService {
 
     // 3. Today's bandwidth — API key usage since startOfDay, mapped back to
     // the owning org via ApiKey.
-    const apiKeys: any[] = await this.rawPrisma.apiKey.findMany({
+    const apiKeys: any[] = await this.prisma.apiKey.findMany({
       where: { orgId: { in: orgIds } },
       select: { id: true, orgId: true },
     });
     const keyToOrg = new Map(apiKeys.map((k) => [k.id, k.orgId as string]));
-    const usages: any[] = await this.rawPrisma.apiKeyUsage.findMany({
+    const usages: any[] = await this.prisma.apiKeyUsage.findMany({
       where: {
         date: { gte: startOfDay },
         apiKeyId: { in: apiKeys.map((k) => k.id) },
