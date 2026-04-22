@@ -47,7 +47,31 @@ psql "$ADMIN_URL" -tAc "SELECT 1 FROM pg_database WHERE datname='$TEST_DB_NAME'"
 echo "[setup-test-db] Resetting public schema in '$TEST_DB_NAME'..."
 psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -c "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;"
 
+# Phase 19 / D-10c: Pre-push Camera dedup (camera_stream_url_unique).
+#
+# The dedup SQL must land BEFORE `prisma db push` creates the new
+# @@unique([orgId, streamUrl]) index — otherwise constraint creation fails on
+# any existing duplicate rows. On a freshly dropped schema there is no
+# "Camera" table yet, so we guard with an information_schema check via a
+# DO-block. This keeps the step robust to both fresh-drop and
+# operator-seeded-snapshot flows (and stays idempotent on re-runs).
+echo "[setup-test-db] Pre-push dedup (camera_stream_url_unique)..."
+psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'Camera') THEN
+    DELETE FROM "Camera" c
+    USING "Camera" c2
+    WHERE c."orgId" = c2."orgId"
+      AND c."streamUrl" = c2."streamUrl"
+      AND c."createdAt" > c2."createdAt";
+  END IF;
+END $$;
+SQL
+
 echo "[setup-test-db] Pushing Prisma schema to '$TEST_DB_NAME'..."
+# (dedup SQL for camera_stream_url_unique has already run above — see the
+# "Pre-push dedup" step directly before this echo.)
 DATABASE_URL="$TEST_DATABASE_URL" pnpm --dir "$API_DIR" exec prisma db push --skip-generate --accept-data-loss
 
 # Apply RLS the same way the dev DB receives it. We need three things:
