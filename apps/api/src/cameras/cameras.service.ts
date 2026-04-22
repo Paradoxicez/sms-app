@@ -314,10 +314,22 @@ export class CamerasService {
     // Check maxCameras package limit for total (existing + new)
     await this.enforceMaxCamerasLimitBulk(orgId, dto.cameras.length);
 
-    // Create all cameras in a transaction
-    const cameras = await this.prisma.$transaction(
-      dto.cameras.map((cam) =>
-        this.tenancy.camera.create({
+    // Create all cameras in a single tenancy-wrapped transaction. The
+    // interactive form preserves all-or-nothing atomicity — if ANY create
+    // throws, the transaction rolls back; rows 1..N-1 disappear with the
+    // failure of row N.
+    //
+    // Why not `this.prisma.$transaction([...promises])`: that older form
+    // mixed raw PrismaService's $transaction (app_user, FORCE RLS, no
+    // set_config prologue) with tenancy-extended camera.create promises.
+    // Either the writes happened in rawPrisma's session and failed RLS
+    // WITH CHECK, or the outer wrapper silently downgraded to sequential
+    // execution — see .planning/debug/org-admin-cannot-add-team-members.md
+    // (audit S1) for the full failure-mode analysis.
+    const cameras = await this.tenancy.$transaction(async (tx: any) => {
+      const created: any[] = [];
+      for (const cam of dto.cameras) {
+        const c = await tx.camera.create({
           data: {
             orgId,
             siteId: dto.siteId,
@@ -332,9 +344,11 @@ export class CamerasService {
             status: 'offline',
             needsTranscode: false,
           },
-        }),
-      ),
-    );
+        });
+        created.push(c);
+      }
+      return created;
+    });
 
     // Enqueue ffprobe jobs (best-effort — skipped silently when probeQueue is
     // not bootstrapped, e.g. in unit tests). The StreamProbeProcessor in
