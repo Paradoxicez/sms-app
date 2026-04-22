@@ -36,7 +36,7 @@ export function OrgHealthDataTable() {
           data={orgs}
           loading={loading}
           onRowClick={(row) =>
-            router.push(`/admin/organizations/${row.orgId}`)
+            router.push(`/admin/organizations?highlight=${row.orgId}`)
           }
           emptyState={{
             title: 'No organizations yet',

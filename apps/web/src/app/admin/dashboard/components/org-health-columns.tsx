@@ -11,7 +11,7 @@
 
 import type { ColumnDef } from '@tanstack/react-table';
 import type { useRouter } from 'next/navigation';
-import { Eye, MoreHorizontal, Settings } from 'lucide-react';
+import { Eye, MoreHorizontal } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -189,22 +189,13 @@ export function makeOrgHealthColumns(
               <DropdownMenuItem
                 className="py-1 text-sm"
                 onClick={() =>
-                  router.push(`/admin/organizations/${row.original.orgId}`)
+                  router.push(
+                    `/admin/organizations?highlight=${row.original.orgId}`,
+                  )
                 }
               >
                 <Eye className="mr-2 size-4" />
                 View
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="py-1 text-sm"
-                onClick={() =>
-                  router.push(
-                    `/admin/organizations/${row.original.orgId}/settings`,
-                  )
-                }
-              >
-                <Settings className="mr-2 size-4" />
-                Manage
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

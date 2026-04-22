@@ -74,7 +74,7 @@ describe('OrgHealthDataTable (Phase 18 — platform dashboard)', () => {
     expect(within(rows[2]).getByText('Beta')).toBeInTheDocument();
   });
 
-  it('UI-05: row click navigates to /admin/organizations/{id}', async () => {
+  it('UI-05: row click navigates to /admin/organizations?highlight={id}', async () => {
     const user = userEvent.setup();
     render(<OrgHealthDataTable />);
 
@@ -83,7 +83,7 @@ describe('OrgHealthDataTable (Phase 18 — platform dashboard)', () => {
     expect(row).not.toBeNull();
     await user.click(row as HTMLElement);
 
-    expect(pushMock).toHaveBeenCalledWith('/admin/organizations/alpha');
+    expect(pushMock).toHaveBeenCalledWith('/admin/organizations?highlight=alpha');
   });
 
   it('UI-05: cameras cell shows "{used} / {limit}" with Progress bar', () => {
@@ -99,27 +99,20 @@ describe('OrgHealthDataTable (Phase 18 — platform dashboard)', () => {
     expect(progressBars.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('UI-05: View action navigates to /admin/organizations/{id}, Manage to /settings', async () => {
+  it('UI-05: View action navigates to /admin/organizations?highlight={id}; Manage menu removed (no detail route yet)', async () => {
     const user = userEvent.setup();
     render(<OrgHealthDataTable />);
 
-    // There are 2 "Open menu" triggers (one per row). First row is Alpha (sorted first).
     const triggers = screen.getAllByRole('button', { name: /open menu/i });
     expect(triggers.length).toBeGreaterThanOrEqual(2);
     await user.click(triggers[0]);
 
     const view = await screen.findByRole('menuitem', { name: /^view$/i });
     await user.click(view);
-    expect(pushMock).toHaveBeenCalledWith('/admin/organizations/alpha');
+    expect(pushMock).toHaveBeenCalledWith('/admin/organizations?highlight=alpha');
 
-    pushMock.mockReset();
-
-    // Re-open the menu for Alpha and click Manage.
-    const triggers2 = screen.getAllByRole('button', { name: /open menu/i });
-    await user.click(triggers2[0]);
-    const manage = await screen.findByRole('menuitem', { name: /manage/i });
-    await user.click(manage);
-    expect(pushMock).toHaveBeenCalledWith('/admin/organizations/alpha/settings');
+    // Manage menu item should not be present — /admin/organizations/{id}/settings does not exist.
+    expect(screen.queryByRole('menuitem', { name: /manage/i })).toBeNull();
   });
 
   it('UI-05: status cell renders destructive badge when issues > 0, Healthy outline badge when 0', () => {
