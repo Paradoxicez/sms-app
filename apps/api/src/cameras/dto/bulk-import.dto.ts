@@ -1,11 +1,15 @@
 import { z } from 'zod';
 
+const STREAM_URL_ALLOWED_PREFIXES = ['rtsp://', 'rtmps://', 'rtmp://', 'srt://'] as const;
+
 export const BulkImportCameraSchema = z.object({
   name: z.string().min(1).max(100),
-  streamUrl: z.string().refine(
-    (url) => url.startsWith('rtsp://') || url.startsWith('srt://'),
-    { message: 'Stream URL must be rtsp:// or srt://' },
-  ),
+  streamUrl: z
+    .string()
+    .url()
+    .refine((url) => STREAM_URL_ALLOWED_PREFIXES.some((p) => url.startsWith(p)), {
+      message: 'Stream URL must be rtsp://, rtmps://, rtmp://, or srt://',
+    }),
   projectName: z.string().optional(),
   siteName: z.string().optional(),
   lat: z.number().optional(),
