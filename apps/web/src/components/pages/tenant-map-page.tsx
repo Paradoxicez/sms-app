@@ -200,14 +200,6 @@ export default function TenantMapPage() {
     [placement],
   );
 
-  // Phase 18 popup handlers (D-18..D-22 — Plan 04 consumes these in popup body).
-  const handleViewRecordings = useCallback(
-    (cameraId: string) => {
-      router.push(`/app/recordings?camera=${cameraId}`);
-    },
-    [router],
-  );
-
   const handleToggleMaintenance = useCallback(
     async (cameraId: string, nextState: boolean) => {
       try {
@@ -225,13 +217,6 @@ export default function TenantMapPage() {
       }
     },
     [fetchCameras],
-  );
-
-  const handleOpenDetail = useCallback(
-    (cameraId: string) => {
-      router.push(`/app/cameras/${cameraId}`);
-    },
-    [router],
   );
 
   // Bridge placement confirming → drag confirm bar
@@ -344,9 +329,7 @@ export default function TenantMapPage() {
             onViewStream={handleViewStream}
             onSetLocation={handleSetLocation}
             onDragEnd={handleDragEnd}
-            onViewRecordings={handleViewRecordings}
             onToggleMaintenance={handleToggleMaintenance}
-            onOpenDetail={handleOpenDetail}
           >
             {/* Placement marker renders inside MapContainer */}
             <PlacementMarker

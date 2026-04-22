@@ -3,16 +3,7 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
 import { formatDistanceToNowStrict } from 'date-fns';
-import {
-  ExternalLink,
-  Film,
-  MapPin,
-  MoreVertical,
-  Play,
-  Wrench,
-} from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { MapPin, MoreVertical, Wrench } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,7 +26,6 @@ interface CameraPopupProps {
   name: string;
   status: string;
   viewerCount?: number;
-  // Phase 18 fields
   isRecording?: boolean;
   maintenanceMode?: boolean;
   maintenanceEnteredBy?: string | null;
@@ -44,17 +34,23 @@ interface CameraPopupProps {
   retentionDays?: number | null;
   onViewStream?: (id: string) => void;
   onSetLocation?: (id: string, name: string) => void;
-  onViewRecordings?: (id: string) => void;
   onToggleMaintenance?: (id: string, nextState: boolean) => void;
-  onOpenDetail?: (id: string) => void;
 }
 
-const STATUS_VARIANT: Record<string, 'default' | 'destructive' | 'secondary' | 'outline'> = {
-  online: 'default',
-  offline: 'destructive',
-  degraded: 'outline',
-  connecting: 'secondary',
-  reconnecting: 'outline',
+const STATUS_LABEL: Record<string, string> = {
+  online: 'Online',
+  offline: 'Offline',
+  degraded: 'Degraded',
+  connecting: 'Connecting',
+  reconnecting: 'Reconnecting',
+};
+
+const STATUS_DOT: Record<string, string> = {
+  online: 'bg-green-500',
+  offline: 'bg-red-500',
+  degraded: 'bg-amber-500',
+  connecting: 'bg-blue-500',
+  reconnecting: 'bg-amber-500',
 };
 
 // Memoized so viewerCount broadcasts do not tear down + re-attach HLS.
@@ -95,7 +91,7 @@ const PreviewVideo = memo(function PreviewVideo({ id, status }: { id: string; st
   if (status !== 'online') {
     return (
       <div className="flex h-full w-full items-center justify-center">
-        <span className="text-xs text-gray-400">Stream offline</span>
+        <span className="text-xs text-gray-400">Stream unavailable</span>
       </div>
     );
   }
@@ -124,168 +120,150 @@ export function CameraPopup({
   retentionDays,
   onViewStream,
   onSetLocation,
-  onViewRecordings,
   onToggleMaintenance,
-  onOpenDetail,
 }: CameraPopupProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const showRecOverlay = Boolean(isRecording) && status === 'online';
-  const showMaintOverlay = Boolean(maintenanceMode) && status === 'online';
+  const isOnline = status === 'online';
+  const showRecOverlay = Boolean(isRecording) && isOnline;
+  const showMaintOverlay = Boolean(maintenanceMode);
+  const statusLabel = maintenanceMode ? 'Maintenance' : STATUS_LABEL[status] || status;
+  const statusDotClass = maintenanceMode ? 'bg-amber-500' : STATUS_DOT[status] || 'bg-gray-400';
+  const canViewStream = isOnline && !maintenanceMode;
+
+  // Subtitle: dot tooltip shows status; right side shows terse context
+  const subtitleParts: string[] = [];
+  if (typeof viewerCount === 'number') {
+    subtitleParts.push(`${viewerCount} viewer${viewerCount === 1 ? '' : 's'}`);
+  }
+  if (maintenanceMode && maintenanceEnteredBy) {
+    subtitleParts.push(`by ${maintenanceEnteredBy}`);
+  }
+  if (maintenanceMode && maintenanceEnteredAt) {
+    subtitleParts.push(
+      formatDistanceToNowStrict(new Date(maintenanceEnteredAt), { addSuffix: true }),
+    );
+  }
+  if (!maintenanceMode && status === 'offline' && lastOnlineAt) {
+    subtitleParts.push(
+      `last seen ${formatDistanceToNowStrict(new Date(lastOnlineAt), { addSuffix: true })}`,
+    );
+  }
+  if (isOnline && isRecording && typeof retentionDays === 'number') {
+    subtitleParts.push(`${retentionDays}d retention`);
+  }
+  const subtitleText = subtitleParts.join(' · ');
+  const dotTooltip = subtitleText ? `${statusLabel} · ${subtitleText}` : statusLabel;
 
   return (
-    <div className="space-y-2 p-1">
-      {/* Preview container 240×135 (16:9). Status overlay is SIBLING to PreviewVideo.
-          CRITICAL: PreviewVideo is a direct child receiving only {id, status}. If it
-          ever accepts viewerCount or other parent-scope props, the memo() escape-hatch
-          is broken and Phase 13's remount loop will regress. */}
-      <div
-        data-testid="preview-container"
-        className="relative overflow-hidden rounded border bg-black"
-        style={{ width: 240, height: 135 }}
-      >
-        <PreviewVideo id={id} status={status} />
-        {(showRecOverlay || showMaintOverlay) && (
-          <div className="absolute top-2 left-2 flex flex-col gap-1">
-            {showRecOverlay && (
-              <span
-                data-testid="rec-overlay"
-                className="flex items-center gap-1 rounded-sm bg-red-500/85 px-1.5 py-0.5 text-[10px] font-semibold text-white motion-safe:animate-pulse"
-              >
-                <span className="h-1.5 w-1.5 rounded-full bg-white" />
-                REC
-              </span>
-            )}
-            {showMaintOverlay && (
-              <span
-                data-testid="maint-overlay"
-                className="flex items-center gap-1 rounded-sm bg-gray-700/85 px-1.5 py-0.5 text-[10px] font-semibold text-white"
-              >
-                <Wrench className="h-2.5 w-2.5" />
-                Maintenance
-              </span>
-            )}
-          </div>
+    <div className="space-y-1.5 p-0.5">
+      {/* Top row: camera name + status dot + viewers */}
+      <div className="flex min-w-0 items-center gap-1.5">
+        <p className="truncate text-sm font-semibold leading-tight">{name}</p>
+        <span
+          data-testid="status-dot"
+          title={dotTooltip}
+          aria-label={dotTooltip}
+          role="img"
+          className={`h-2 w-2 shrink-0 rounded-full ${statusDotClass}`}
+        />
+        {subtitleText && (
+          <span
+            data-testid="subtitle"
+            className="truncate text-[11px] text-muted-foreground"
+          >
+            {subtitleText}
+          </span>
         )}
       </div>
 
-      {/* Name + viewer count + ⋮ dropdown */}
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold leading-tight">{name}</p>
-          {typeof viewerCount === 'number' && (
-            <p className="text-xs text-muted-foreground">
-              {viewerCount} viewer{viewerCount !== 1 ? 's' : ''}
-            </p>
+      {/* Preview container 240×135 (16:9) with thin border. Status overlays are
+          SIBLINGS to PreviewVideo. CRITICAL: PreviewVideo receives only {id, status}
+          — do NOT add viewerCount or other parent-scope props, or memo() breaks and
+          Phase 13's runaway viewer count bug regresses. */}
+      <div
+        data-testid="preview-container"
+        className="relative aspect-[16/9] w-full overflow-hidden rounded-md border border-border bg-black"
+      >
+        <PreviewVideo id={id} status={status} />
+        <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-1 p-1.5">
+          {showMaintOverlay ? (
+            <span
+              data-testid="maint-overlay"
+              className="flex items-center gap-1 rounded bg-amber-500/95 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm"
+            >
+              <Wrench className="h-2.5 w-2.5" />
+              Maintenance
+            </span>
+          ) : isOnline ? (
+            <span
+              data-testid="live-overlay"
+              className="flex items-center gap-1 rounded bg-red-500/95 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm motion-safe:animate-pulse"
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-white" />
+              Live
+            </span>
+          ) : (
+            <span />
+          )}
+          {showRecOverlay && (
+            <span
+              data-testid="rec-overlay"
+              className="flex items-center gap-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm backdrop-blur-sm"
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-red-500 motion-safe:animate-pulse" />
+              Rec
+            </span>
           )}
         </div>
+      </div>
+
+      {/* Bottom row: details (left) + ⋮ (right) */}
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => onViewStream?.(id)}
+          disabled={!canViewStream}
+          aria-label={`View details for ${name}`}
+          className="rounded px-1.5 py-0.5 text-[12px] font-medium text-primary transition hover:bg-primary/5 disabled:cursor-not-allowed disabled:text-muted-foreground disabled:hover:bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          details
+        </button>
         <DropdownMenu>
           <DropdownMenuTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                aria-label={`More actions for ${name}`}
-              >
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            }
-          />
-          <DropdownMenuContent align="end">
+            aria-label={`More actions for ${name}`}
+            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-expanded:bg-muted"
+          >
+            <MoreVertical className="h-4 w-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52">
             <DropdownMenuItem onClick={() => onSetLocation?.(id, name)}>
               <MapPin className="mr-2 h-4 w-4" />
               Set Location
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setConfirmOpen(true)}>
               <Wrench className="mr-2 h-4 w-4" />
-              {maintenanceMode ? 'Exit Maintenance' : 'Toggle Maintenance'}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onOpenDetail?.(id)}>
-              <ExternalLink className="mr-2 h-4 w-4" />
-              Open Camera Detail
+              {maintenanceMode ? 'Exit Maintenance' : 'Enter Maintenance'}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
 
-      {/* Status + recording + maintenance badges + offline timestamp */}
-      <div className="space-y-1">
-        <Badge variant={STATUS_VARIANT[status] || 'secondary'}>
-          <span className="capitalize">{status}</span>
-        </Badge>
-        {isRecording && (
-          <Badge
-            data-testid="recording-badge"
-            variant="outline"
-            className="ml-0 text-[hsl(0_84%_60%)]"
-          >
-            <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-[hsl(0_84%_60%)] motion-safe:animate-pulse" />
-            Recording
-            {typeof retentionDays === 'number' && ` · ${retentionDays} days retention`}
-          </Badge>
-        )}
-        {maintenanceMode && (
-          <Badge
-            data-testid="maint-badge"
-            variant="outline"
-            className="ml-0 text-muted-foreground"
-          >
-            <Wrench className="mr-1 h-3 w-3" />
-            Maintenance
-            {maintenanceEnteredBy && ` · by ${maintenanceEnteredBy}`}
-            {maintenanceEnteredAt &&
-              ` · ${formatDistanceToNowStrict(new Date(maintenanceEnteredAt), { addSuffix: true })}`}
-          </Badge>
-        )}
-        {status === 'offline' && lastOnlineAt && (
-          <p className="text-xs text-muted-foreground">
-            Offline {formatDistanceToNowStrict(new Date(lastOnlineAt), { addSuffix: true })}
-          </p>
-        )}
-      </div>
-
-      {/* Primary actions: View Stream + View Recordings */}
-      <div className="grid grid-cols-2 gap-2">
-        <Button
-          variant="default"
-          size="sm"
-          onClick={() => onViewStream?.(id)}
-          aria-label={`View stream for ${name}`}
-          className="h-7 text-xs"
-        >
-          <Play className="mr-1 h-3 w-3" />
-          View Stream
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onViewRecordings?.(id)}
-          aria-label={`View recordings for ${name}`}
-          className="h-7 text-xs"
-        >
-          <Film className="mr-1 h-3 w-3" />
-          View Recordings
-        </Button>
-      </div>
-
-      {/* Maintenance confirmation dialog — reuses Phase 15-04 pattern, Thai + English copy. */}
+      {/* Maintenance confirmation dialog (English only) */}
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {maintenanceMode
-                ? 'ออกจากโหมดซ่อมบำรุง / Exit maintenance mode'
-                : 'เข้าสู่โหมดซ่อมบำรุง / Enter maintenance mode'}
+              {maintenanceMode ? 'Exit maintenance mode' : 'Enter maintenance mode'}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {maintenanceMode
-                ? `กล้อง ${name} จะกลับมา active และแจ้งเตือนได้ตามปกติ / Camera ${name} will return to active monitoring.`
-                : `กล้อง ${name} จะถูกตั้งเป็นโหมดซ่อมบำรุง และจะไม่ส่ง notification/webhook จนกว่าจะออกจากโหมดนี้ / Camera ${name} will be set to maintenance mode. Notifications and webhooks will be suppressed until you exit.`}
+                ? `Camera "${name}" will return to active monitoring and resume notifications.`
+                : `Camera "${name}" will be set to maintenance mode. Notifications and webhooks will be suppressed until you exit.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>ยกเลิก / Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               variant={maintenanceMode ? 'default' : 'destructive'}
               onClick={() => {
@@ -293,7 +271,7 @@ export function CameraPopup({
                 setConfirmOpen(false);
               }}
             >
-              ยืนยัน / Confirm
+              Confirm
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

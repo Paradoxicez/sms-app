@@ -129,3 +129,36 @@
     @apply font-sans;
     }
 }
+
+/* Leaflet popup — Apple-inspired Liquid Glass (translucent + heavy backdrop blur).
+   !important is needed because leaflet.css imports later in the cascade. */
+.leaflet-popup-content-wrapper {
+  padding: 4px !important;
+  border-radius: 16px !important;
+  background: rgba(255, 255, 255, 0.72) !important;
+  backdrop-filter: blur(56px) saturate(200%) !important;
+  -webkit-backdrop-filter: blur(56px) saturate(200%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.18),
+    0 4px 12px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+}
+.leaflet-popup-tip {
+  background: rgba(255, 255, 255, 0.72) !important;
+  backdrop-filter: blur(56px) saturate(200%) !important;
+  -webkit-backdrop-filter: blur(56px) saturate(200%) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+}
+.leaflet-popup-content {
+  margin: 8px 10px !important;
+  line-height: 1.35 !important;
+}
+.leaflet-popup-content p {
+  margin: 0 !important;
+}
+/* Hide Leaflet's built-in × close button — popup closes via map click or
+   camera-popup's own controls. Cleaner visual. */
+.leaflet-popup-close-button {
+  display: none !important;
+}

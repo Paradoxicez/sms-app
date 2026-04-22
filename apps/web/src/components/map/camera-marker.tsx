@@ -23,10 +23,7 @@ interface CameraMarkerProps {
   onViewStream?: (id: string) => void;
   onSetLocation?: (id: string, name: string) => void;
   onDragEnd?: (id: string, name: string, lat: number, lng: number) => void;
-  // Phase 18 popup callbacks forwarded to CameraPopup by Plan 04
-  onViewRecordings?: (id: string) => void;
   onToggleMaintenance?: (id: string, nextState: boolean) => void;
-  onOpenDetail?: (id: string) => void;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -134,9 +131,7 @@ export function CameraMarker({
   onViewStream,
   onSetLocation,
   onDragEnd,
-  onViewRecordings,
   onToggleMaintenance,
-  onOpenDetail,
 }: CameraMarkerProps) {
   const markerRef = useRef<L.Marker>(null);
   const icon = useMemo(
@@ -158,11 +153,6 @@ export function CameraMarker({
     onSetLocation?.(cameraId, cameraName);
   }, [closePopup, onSetLocation]);
 
-  const handleViewRecordings = useCallback((cameraId: string) => {
-    closePopup();
-    onViewRecordings?.(cameraId);
-  }, [closePopup, onViewRecordings]);
-
   const handleToggleMaintenance = useCallback(
     (cameraId: string, nextState: boolean) => {
       closePopup();
@@ -170,11 +160,6 @@ export function CameraMarker({
     },
     [closePopup, onToggleMaintenance],
   );
-
-  const handleOpenDetail = useCallback((cameraId: string) => {
-    closePopup();
-    onOpenDetail?.(cameraId);
-  }, [closePopup, onOpenDetail]);
 
   const eventHandlers = useMemo(
     () => ({
@@ -202,7 +187,7 @@ export function CameraMarker({
       draggable={!!onDragEnd}
       eventHandlers={eventHandlers}
     >
-      <Popup maxWidth={320} minWidth={280}>
+      <Popup maxWidth={260} minWidth={244}>
         <CameraPopup
           id={id}
           name={name}
@@ -216,9 +201,7 @@ export function CameraMarker({
           retentionDays={retentionDays}
           onViewStream={handleViewStream}
           onSetLocation={handleSetLocation}
-          onViewRecordings={handleViewRecordings}
           onToggleMaintenance={handleToggleMaintenance}
-          onOpenDetail={handleOpenDetail}
         />
       </Popup>
     </Marker>

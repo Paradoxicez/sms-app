@@ -96,9 +96,7 @@ interface CameraMapInnerProps {
   onViewStream?: (id: string) => void;
   onSetLocation?: (id: string, name: string) => void;
   onDragEnd?: (id: string, name: string, lat: number, lng: number) => void;
-  onViewRecordings?: (id: string) => void;
   onToggleMaintenance?: (id: string, nextState: boolean) => void;
-  onOpenDetail?: (id: string) => void;
   children?: ReactNode;
 }
 
@@ -159,9 +157,7 @@ export default function CameraMapInner({
   onViewStream,
   onSetLocation,
   onDragEnd,
-  onViewRecordings,
   onToggleMaintenance,
-  onOpenDetail,
   children,
 }: CameraMapInnerProps) {
   // Filter to cameras that have valid lat/lng, then apply filteredCameraIds
@@ -222,9 +218,7 @@ export default function CameraMapInner({
             onViewStream={onViewStream}
             onSetLocation={onSetLocation}
             onDragEnd={onDragEnd}
-            onViewRecordings={onViewRecordings}
             onToggleMaintenance={onToggleMaintenance}
-            onOpenDetail={onOpenDetail}
           />
         ))}
       </MarkerClusterGroup>
