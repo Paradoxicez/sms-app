@@ -1,0 +1,152 @@
+"use client"
+
+import { AlertTriangle, Loader2, RotateCw } from "lucide-react"
+
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { useProbeRetry } from "@/hooks/use-probe-retry"
+import { normalizeCodecInfo } from "@/lib/codec-info"
+import { cn } from "@/lib/utils"
+
+interface CodecStatusCellProps {
+  codecInfo: unknown
+  cameraName: string
+  cameraId: string
+}
+
+/**
+ * D-05: 4-state codec cell.
+ *   - null / malformed / never-probed  → em-dash
+ *   - status="pending"                 → spinner + "Probing…" tooltip
+ *   - status="failed"                  → amber warning + inline retry
+ *   - status="success"                 → codec text (e.g. "H.264")
+ *
+ * D-07: All shape normalization happens at the prop boundary via
+ * normalizeCodecInfo, so legacy rows self-heal on read.
+ */
+export function CodecStatusCell({
+  codecInfo,
+  cameraName,
+  cameraId,
+}: CodecStatusCellProps) {
+  const info = normalizeCodecInfo(codecInfo)
+
+  if (!info) {
+    return <span className="text-xs font-mono text-muted-foreground">—</span>
+  }
+
+  if (info.status === "pending") {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <span
+                role="status"
+                aria-label={`Probing codec for camera ${cameraName}`}
+                aria-live="polite"
+                className="inline-flex items-center"
+              >
+                <Loader2
+                  className="size-3.5 text-muted-foreground motion-safe:animate-spin motion-reduce:opacity-60"
+                  aria-hidden="true"
+                />
+              </span>
+            }
+          />
+          <TooltipContent>Probing…</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    )
+  }
+
+  if (info.status === "failed") {
+    return (
+      <FailedCell
+        cameraId={cameraId}
+        cameraName={cameraName}
+        error={info.error}
+      />
+    )
+  }
+
+  // status === 'success'
+  const codec = info.video?.codec ?? "—"
+  return (
+    <span className="text-xs font-mono text-muted-foreground">{codec}</span>
+  )
+}
+
+function FailedCell({
+  cameraId,
+  cameraName,
+  error,
+}: {
+  cameraId: string
+  cameraName: string
+  error?: string
+}) {
+  const { retry, isRetrying } = useProbeRetry(cameraId)
+  const tooltipText = error ? `Probe failed: ${error}` : "Probe failed"
+  const ariaLabel = error
+    ? `Probe failed for ${cameraName}: ${error}`
+    : `Probe failed for ${cameraName}`
+
+  return (
+    <TooltipProvider>
+      <span
+        role="status"
+        aria-label={ariaLabel}
+        className="inline-flex items-center gap-1.5"
+      >
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <AlertTriangle
+                className="size-3.5 text-amber-600 dark:text-amber-500"
+                aria-hidden="true"
+              />
+            }
+          />
+          <TooltipContent>{tooltipText}</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button
+                type="button"
+                onClick={retry}
+                disabled={isRetrying}
+                aria-label={`Retry probe for ${cameraName}`}
+                className={cn(
+                  "inline-flex items-center justify-center rounded p-0.5",
+                  "hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                  "disabled:opacity-60"
+                )}
+              >
+                {isRetrying ? (
+                  <Loader2
+                    className="size-3.5 text-amber-600 dark:text-amber-500 motion-safe:animate-spin"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <RotateCw
+                    className="size-3.5 text-amber-600 dark:text-amber-500"
+                    aria-hidden="true"
+                  />
+                )}
+              </button>
+            }
+          />
+          <TooltipContent>
+            {isRetrying ? "Queuing retry…" : "Retry probe"}
+          </TooltipContent>
+        </Tooltip>
+      </span>
+    </TooltipProvider>
+  )
+}
