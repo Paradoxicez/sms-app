@@ -1,4 +1,4 @@
-import { Body, Controller, Logger, Post } from '@nestjs/common';
+import { Body, Controller, Inject, Logger, Post, forwardRef } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { StatusService } from '../status/status.service';
@@ -6,6 +6,7 @@ import { StatusGateway } from '../status/status.gateway';
 import { PlaybackService } from '../playback/playback.service';
 import { RecordingsService } from '../recordings/recordings.service';
 import { onHlsCallbackSchema } from '../recordings/dto/on-hls-callback.dto';
+import { CamerasService } from '../cameras/cameras.service';
 
 @ApiExcludeController()
 @SkipThrottle()
@@ -18,6 +19,11 @@ export class SrsCallbackController {
     private readonly statusGateway: StatusGateway,
     private readonly playbackService: PlaybackService,
     private readonly recordingsService: RecordingsService,
+    // Phase 19 (D-02): on-publish enqueues a refresh probe with
+    // source: 'srs-api'. forwardRef breaks the CamerasModule ↔ SrsModule
+    // import cycle at DI resolution time.
+    @Inject(forwardRef(() => CamerasService))
+    private readonly camerasService: CamerasService,
   ) {}
 
   @Post('on-publish')
@@ -26,6 +32,20 @@ export class SrsCallbackController {
     if (orgId && cameraId) {
       this.logger.log(`Stream published: camera=${cameraId}, org=${orgId}`);
       await this.statusService.transition(cameraId, orgId, 'online');
+
+      // D-02: refresh codecInfo from SRS /api/v1/streams as ground truth.
+      // Delay 1s so SRS registry populates before the worker fetches
+      // (RESEARCH Pitfall 3). Enqueue is best-effort — if it throws, swallow
+      // so SRS still receives { code: 0 } (required to allow the publish).
+      try {
+        await this.camerasService.enqueueProbeFromSrs(cameraId, orgId, {
+          delay: 1000,
+        });
+      } catch (err) {
+        this.logger.warn(
+          `Failed to enqueue SRS refresh probe for ${cameraId}: ${(err as Error).message}`,
+        );
+      }
     }
     return { code: 0 };
   }

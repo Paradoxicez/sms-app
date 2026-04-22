@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { CamerasController } from './cameras.controller';
 import { CamerasService } from './cameras.service';
@@ -7,7 +7,10 @@ import { StreamsModule } from '../streams/streams.module';
 
 @Module({
   imports: [
-    StreamsModule,
+    // Phase 19 (D-02): forwardRef because CamerasModule → StreamsModule →
+    // SrsModule → CamerasModule forms a cycle (SrsCallbackController now
+    // injects CamerasService.enqueueProbeFromSrs).
+    forwardRef(() => StreamsModule),
     // Required so @InjectQueue('stream-probe') in CamerasService resolves.
     // The actual queue is registered in StreamsModule; this re-registration
     // is the standard NestJS pattern for cross-module queue injection.

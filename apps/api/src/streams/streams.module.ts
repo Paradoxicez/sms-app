@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { StreamsController } from './streams.controller';
 import { StreamsService } from './streams.service';
@@ -16,7 +16,10 @@ import { SrsModule } from '../srs/srs.module';
     BullModule.registerQueue({ name: 'stream-probe' }),
     // Phase 19 (D-02): StreamProbeProcessor's srs-api branch injects
     // SrsApiService to pull ground-truth codec info from /api/v1/streams.
-    SrsModule,
+    // forwardRef because CamerasModule → StreamsModule → SrsModule →
+    // CamerasModule forms a cycle (SrsCallbackController injects
+    // CamerasService.enqueueProbeFromSrs).
+    forwardRef(() => SrsModule),
   ],
   controllers: [StreamsController, StreamProfileController],
   providers: [
