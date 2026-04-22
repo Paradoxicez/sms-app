@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
-import { Upload, Check, X, AlertCircle, Download } from 'lucide-react';
+import { Upload, Check, X, AlertCircle, Download, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 
 import { apiFetch } from '@/lib/api';
+import { validateStreamUrl } from '@/lib/stream-url-validation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
@@ -45,7 +46,7 @@ interface BulkImportDialogProps {
   onSuccess: () => void;
 }
 
-interface CameraRow {
+export interface CameraRow {
   name: string;
   streamUrl: string;
   tags: string;
@@ -53,6 +54,9 @@ interface CameraRow {
   latitude: string;
   longitude: string;
   errors: Record<string, string>;
+  // D-16 (Phase 19): within-file duplicate tracking
+  duplicate?: boolean;
+  duplicateReason?: 'within-file' | 'against-db';
 }
 
 interface SiteOption {
@@ -149,18 +153,25 @@ function parseExcel(data: ArrayBuffer): CameraRow[] {
   });
 }
 
-function validateRow(row: CameraRow): Record<string, string> {
+export function validateRow(row: CameraRow): Record<string, string> {
   const errors: Record<string, string> = {};
   if (!row.name.trim()) {
     errors.name = 'Name is required';
   }
-  if (!row.streamUrl.trim()) {
+  const url = row.streamUrl.trim();
+  if (!url) {
     errors.streamUrl = 'Stream URL is required';
-  } else if (
-    !row.streamUrl.startsWith('rtsp://') &&
-    !row.streamUrl.startsWith('srt://')
-  ) {
-    errors.streamUrl = 'Must be rtsp:// or srt://';
+  } else {
+    // D-12 + D-16: delegate to shared helper (matches backend zod refine + Add Camera live validation)
+    const urlError = validateStreamUrl(url);
+    if (urlError) {
+      if (urlError === 'URL must start with rtsp://, rtmps://, rtmp://, or srt://') {
+        // Row-level brevity vs the form-dialog copy
+        errors.streamUrl = 'Must be rtsp://, rtmps://, rtmp://, or srt://';
+      } else {
+        errors.streamUrl = urlError; // 'Invalid URL — check host and path'
+      }
+    }
   }
   if (row.latitude && isNaN(Number(row.latitude))) {
     errors.latitude = 'Must be a number';
@@ -169,6 +180,24 @@ function validateRow(row: CameraRow): Record<string, string> {
     errors.longitude = 'Must be a number';
   }
   return errors;
+}
+
+/**
+ * D-16 / D-10a: within-file dedup. Exact string match per D-09 (no normalization).
+ * First occurrence is always valid; subsequent rows with the same trimmed streamUrl are flagged.
+ */
+export function annotateDuplicates(rows: CameraRow[]): CameraRow[] {
+  const seen = new Map<string, number>(); // trimmed streamUrl → first row index
+  return rows.map((row, idx) => {
+    const url = row.streamUrl.trim();
+    if (!url) return { ...row, duplicate: false, duplicateReason: undefined };
+    const firstIdx = seen.get(url);
+    if (firstIdx !== undefined && firstIdx !== idx) {
+      return { ...row, duplicate: true, duplicateReason: 'within-file' as const };
+    }
+    seen.set(url, idx);
+    return { ...row, duplicate: false, duplicateReason: undefined };
+  });
 }
 
 function downloadSample() {
@@ -286,29 +315,31 @@ export function BulkImportDialog({
       errors: validateRow(row),
     }));
 
-    setRows(validated);
+    setRows(annotateDuplicates(validated));
     setStep('preview');
     loadSites();
   }
 
   function handleCellEdit(index: number, field: keyof CameraRow, value: string) {
-    setRows((prev) =>
-      prev.map((row, i) => {
+    setRows((prev) => {
+      const updated = prev.map((row, i) => {
         if (i !== index) return row;
-        const updated = { ...row, [field]: value };
-        updated.errors = validateRow(updated);
-        return updated;
-      }),
-    );
+        const next = { ...row, [field]: value };
+        next.errors = validateRow(next);
+        return next;
+      });
+      return annotateDuplicates(updated);
+    });
   }
 
   function handleRemoveRow(index: number) {
-    setRows((prev) => prev.filter((_, i) => i !== index));
+    setRows((prev) => annotateDuplicates(prev.filter((_, i) => i !== index)));
   }
 
-  const validCount = rows.filter((r) => Object.keys(r.errors).length === 0).length;
+  const validCount = rows.filter((r) => Object.keys(r.errors).length === 0 && !r.duplicate).length;
+  const duplicateCount = rows.filter((r) => Object.keys(r.errors).length === 0 && r.duplicate).length;
   const errorCount = rows.filter((r) => Object.keys(r.errors).length > 0).length;
-  const canImport = validCount > 0 && errorCount === 0 && !!selectedSiteId;
+  const canImport = (validCount + duplicateCount) > 0 && errorCount === 0 && !!selectedSiteId;
 
   async function handleImport() {
     if (!canImport) return;
@@ -317,7 +348,11 @@ export function BulkImportDialog({
     setProgress(0);
 
     try {
-      const cameras = rows.map((r) => ({
+      // Client-side skip duplicates to reduce payload; server (P04 Task 5) also dedupes authoritatively
+      const payloadRows = rows.filter(
+        (r) => Object.keys(r.errors).length === 0 && !r.duplicate,
+      );
+      const cameras = payloadRows.map((r) => ({
         name: r.name,
         streamUrl: r.streamUrl,
         tags: r.tags || undefined,
@@ -329,16 +364,30 @@ export function BulkImportDialog({
 
       setProgress(50);
 
-      const result = await apiFetch<{ imported: number; errors: Array<{ row: number; message: string }> }>(
-        '/api/cameras/bulk-import',
-        {
-          method: 'POST',
-          body: JSON.stringify({ cameras, siteId: selectedSiteId }),
-        },
-      );
+      const result = await apiFetch<{
+        imported: number;
+        skipped?: number;
+        errors: Array<{ row: number; message: string }>;
+      }>('/api/cameras/bulk-import', {
+        method: 'POST',
+        body: JSON.stringify({ cameras, siteId: selectedSiteId }),
+      });
 
       setProgress(100);
-      toast.success(`Imported ${result.imported} cameras successfully`);
+
+      const imported = result?.imported ?? 0;
+      const skipped = result?.skipped ?? 0;
+
+      if (imported > 0 && skipped === 0) {
+        toast.success(`Imported ${imported} cameras successfully.`);
+      } else if (imported > 0 && skipped > 0) {
+        toast.success(`Imported ${imported} cameras, skipped ${skipped} duplicates.`);
+      } else if (imported === 0 && skipped > 0) {
+        toast.warning(`No cameras imported — all ${skipped} rows were duplicates.`);
+      } else {
+        toast.error('Import failed. Check camera limits and try again.');
+      }
+
       onOpenChange(false);
       onSuccess();
 
@@ -535,14 +584,28 @@ export function BulkImportDialog({
                             {hasErrors ? (
                               <Tooltip>
                                 <TooltipTrigger>
-                                  <X className="mx-auto h-4 w-4 text-destructive" />
+                                  <X className="mx-auto h-4 w-4 text-destructive" aria-hidden="true" />
                                 </TooltipTrigger>
                                 <TooltipContent>
                                   {Object.values(row.errors).join(', ')}
                                 </TooltipContent>
                               </Tooltip>
+                            ) : row.duplicate ? (
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <Copy
+                                    className="mx-auto h-4 w-4 text-amber-600 dark:text-amber-500"
+                                    aria-hidden="true"
+                                  />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  {row.duplicateReason === 'against-db'
+                                    ? 'Already imported in this organization'
+                                    : 'Duplicate of existing camera'}
+                                </TooltipContent>
+                              </Tooltip>
                             ) : (
-                              <Check className="mx-auto h-4 w-4 text-primary" />
+                              <Check className="mx-auto h-4 w-4 text-primary" aria-hidden="true" />
                             )}
                           </TableCell>
                           <TableCell>
@@ -564,12 +627,19 @@ export function BulkImportDialog({
 
             {/* Summary */}
             <div className="flex items-center gap-4 text-sm">
-              <span className="text-primary font-medium">
+              <span className="text-primary font-medium inline-flex items-center gap-1">
+                <Check className="h-3.5 w-3.5" aria-hidden="true" />
                 {validCount} valid
               </span>
+              {duplicateCount > 0 && (
+                <span className="text-amber-600 dark:text-amber-500 font-medium inline-flex items-center gap-1">
+                  <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                  {duplicateCount} duplicate
+                </span>
+              )}
               {errorCount > 0 && (
                 <span className="flex items-center gap-1 text-destructive font-medium">
-                  <AlertCircle className="h-3.5 w-3.5" />
+                  <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
                   {errorCount} errors
                 </span>
               )}
