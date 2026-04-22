@@ -12,25 +12,25 @@ generator client {
 // ─────────────────────────────────────────────
 
 model User {
-  id            String    @id
+  id            String   @id
   name          String
-  email         String    @unique
-  emailVerified Boolean   @default(false)
+  email         String   @unique
+  emailVerified Boolean  @default(false)
   image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   // Custom fields
-  role      String?  @default("viewer")
-  banned    Boolean? @default(false)
-  banReason String?
+  role       String?   @default("viewer")
+  banned     Boolean?  @default(false)
+  banReason  String?
   banExpires DateTime?
 
   // Relations
-  sessions             Session[]
-  accounts             Account[]
-  members              Member[]
-  permissionOverrides  UserPermissionOverride[]
+  sessions            Session[]
+  accounts            Account[]
+  members             Member[]
+  permissionOverrides UserPermissionOverride[]
 }
 
 model Session {
@@ -40,10 +40,10 @@ model Session {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  ipAddress  String?
-  userAgent  String?
-  userId     String
-  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Better Auth organization + admin fields
   activeOrganizationId String?
@@ -95,9 +95,9 @@ model Organization {
   isActive  Boolean  @default(true)
 
   // Relations
-  members              Member[]
-  invitations          Invitation[]
-  permissionOverrides  UserPermissionOverride[]
+  members             Member[]
+  invitations         Invitation[]
+  permissionOverrides UserPermissionOverride[]
 }
 
 model Member {
@@ -147,15 +147,15 @@ model Package {
 /// Per-user permission overrides within an organization (D-02).
 /// Allows Org Admin to grant or deny specific permissions beyond the role defaults.
 model UserPermissionOverride {
-  id         String       @id @default(uuid())
-  userId     String
-  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  orgId      String
+  id           String       @id @default(uuid())
+  userId       String
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orgId        String
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  permission String       // e.g. "camera:create", "stream:view"
-  action     String       @default("grant") // "grant" or "deny"
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
+  permission   String // e.g. "camera:create", "stream:view"
+  action       String       @default("grant") // "grant" or "deny"
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
   @@unique([userId, orgId, permission])
 }
@@ -172,8 +172,8 @@ model Project {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  sites       Site[]
-  policy      Policy?
+  sites  Site[]
+  policy Policy?
 
   @@index([orgId])
 }
@@ -189,8 +189,8 @@ model Site {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  cameras     Camera[]
-  policy      Policy?
+  cameras Camera[]
+  policy  Policy?
 
   @@index([orgId])
   @@index([projectId])
@@ -216,17 +216,18 @@ model Camera {
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
-  retentionDays    Int?     // null = use org default (per D-10)
-  isRecording      Boolean  @default(false)
+  retentionDays Int? // null = use org default (per D-10)
+  isRecording   Boolean @default(false)
 
-  maintenanceMode       Boolean   @default(false)
-  maintenanceEnteredAt  DateTime?
-  maintenanceEnteredBy  String?
+  maintenanceMode      Boolean   @default(false)
+  maintenanceEnteredAt DateTime?
+  maintenanceEnteredBy String?
 
-  policy            Policy?
-  playbackSessions  PlaybackSession[]
-  recordings        Recording[]
+  policy           Policy?
+  playbackSessions PlaybackSession[]
+  recordings       Recording[]
 
+  @@unique([orgId, streamUrl])
   @@index([orgId])
   @@index([siteId])
   @@index([status])
@@ -248,7 +249,7 @@ model StreamProfile {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  cameras      Camera[]
+  cameras Camera[]
 
   @@index([orgId])
 }
@@ -295,47 +296,47 @@ enum PolicyLevel {
 }
 
 model Policy {
-  id              String       @id @default(uuid())
-  orgId           String?      // null for SYSTEM level
-  level           PolicyLevel
-  name            String
-  description     String?
+  id          String      @id @default(uuid())
+  orgId       String? // null for SYSTEM level
+  level       PolicyLevel
+  name        String
+  description String?
 
-  ttlSeconds      Int?         // Session TTL in seconds (null = inherit)
-  maxViewers      Int?         // Max concurrent viewers, 0 = unlimited (null = inherit)
-  domains         String[]     @default([])  // Domain allowlist, empty = allow all
-  allowNoReferer  Boolean?     // Allow requests without Referer (null = inherit)
-  rateLimit       Int?         // Per-API-key requests per minute (null = inherit)
+  ttlSeconds     Int? // Session TTL in seconds (null = inherit)
+  maxViewers     Int? // Max concurrent viewers, 0 = unlimited (null = inherit)
+  domains        String[] @default([]) // Domain allowlist, empty = allow all
+  allowNoReferer Boolean? // Allow requests without Referer (null = inherit)
+  rateLimit      Int? // Per-API-key requests per minute (null = inherit)
 
-  cameraId        String?      @unique
-  camera          Camera?      @relation(fields: [cameraId], references: [id], onDelete: Cascade)
-  siteId          String?      @unique
-  site            Site?        @relation(fields: [siteId], references: [id], onDelete: Cascade)
-  projectId       String?      @unique
-  project         Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  cameraId  String?  @unique
+  camera    Camera?  @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+  siteId    String?  @unique
+  site      Site?    @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  projectId String?  @unique
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([orgId])
   @@index([level])
 }
 
 model PlaybackSession {
-  id              String       @id @default(uuid())
-  orgId           String
-  cameraId        String
-  camera          Camera       @relation(fields: [cameraId], references: [id], onDelete: Cascade)
-  token           String       @unique
-  hlsUrl          String
+  id       String @id @default(uuid())
+  orgId    String
+  cameraId String
+  camera   Camera @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+  token    String @unique
+  hlsUrl   String
 
-  ttlSeconds      Int
-  maxViewers      Int
-  domains         String[]     @default([])
-  allowNoReferer  Boolean      @default(true)
+  ttlSeconds     Int
+  maxViewers     Int
+  domains        String[] @default([])
+  allowNoReferer Boolean  @default(true)
 
-  expiresAt       DateTime
-  createdAt       DateTime     @default(now())
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 
   @@index([orgId])
   @@index([cameraId])
@@ -348,18 +349,18 @@ model PlaybackSession {
 // ─────────────────────────────────────────────
 
 model ApiKey {
-  id          String    @id @default(uuid())
-  orgId       String
-  name        String
-  keyHash     String    @unique
-  prefix      String    // "sk_live_"
-  lastFour    String    // Last 4 chars of raw key for display
-  scope       String    // "PROJECT" or "SITE"
-  scopeId     String    // projectId or siteId
-  revokedAt   DateTime?
-  lastUsedAt  DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id         String    @id @default(uuid())
+  orgId      String
+  name       String
+  keyHash    String    @unique
+  prefix     String // "sk_live_"
+  lastFour   String // Last 4 chars of raw key for display
+  scope      String // "PROJECT" or "SITE"
+  scopeId    String // projectId or siteId
+  revokedAt  DateTime?
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   usageRecords ApiKeyUsage[]
 
@@ -369,13 +370,13 @@ model ApiKey {
 }
 
 model ApiKeyUsage {
-  id          String   @id @default(uuid())
-  apiKeyId    String
-  apiKey      ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
-  date        DateTime @db.Date
-  requests    Int      @default(0)
-  bandwidth   BigInt   @default(0)
-  createdAt   DateTime @default(now())
+  id        String   @id @default(uuid())
+  apiKeyId  String
+  apiKey    ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  date      DateTime @db.Date
+  requests  Int      @default(0)
+  bandwidth BigInt   @default(0)
+  createdAt DateTime @default(now())
 
   @@unique([apiKeyId, date])
   @@index([apiKeyId])
@@ -383,35 +384,35 @@ model ApiKeyUsage {
 }
 
 model WebhookSubscription {
-  id          String    @id @default(uuid())
-  orgId       String
-  name        String
-  url         String
-  secret      String
-  events      String[]  @default([])
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id        String   @id @default(uuid())
+  orgId     String
+  name      String
+  url       String
+  secret    String
+  events    String[] @default([])
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  deliveries  WebhookDelivery[]
+  deliveries WebhookDelivery[]
 
   @@index([orgId])
   @@index([isActive])
 }
 
 model WebhookDelivery {
-  id               String              @id @default(uuid())
-  subscriptionId   String
-  subscription     WebhookSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
-  eventType        String
-  payload          Json
-  responseStatus   Int?
-  responseBody     String?
-  attempts         Int                 @default(0)
-  lastAttemptAt    DateTime?
-  completedAt      DateTime?
-  failedAt         DateTime?
-  createdAt        DateTime            @default(now())
+  id             String              @id @default(uuid())
+  subscriptionId String
+  subscription   WebhookSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  eventType      String
+  payload        Json
+  responseStatus Int?
+  responseBody   String?
+  attempts       Int                 @default(0)
+  lastAttemptAt  DateTime?
+  completedAt    DateTime?
+  failedAt       DateTime?
+  createdAt      DateTime            @default(now())
 
   @@index([subscriptionId])
   @@index([eventType])
@@ -426,13 +427,13 @@ model AuditLog {
   id         String   @id @default(uuid())
   orgId      String
   userId     String?
-  action     String   // "create" | "update" | "delete"
-  resource   String   // "camera" | "project" | "site" | "policy" | "streamProfile" | "apiKey" | "webhook" | "user" | "organization" | "settings"
+  action     String // "create" | "update" | "delete"
+  resource   String // "camera" | "project" | "site" | "policy" | "streamProfile" | "apiKey" | "webhook" | "user" | "organization" | "settings"
   resourceId String?
-  method     String   // HTTP method: POST, PUT, PATCH, DELETE
-  path       String   // Request path
+  method     String // HTTP method: POST, PUT, PATCH, DELETE
+  path       String // Request path
   ip         String?
-  details    Json?    // Sanitized request body
+  details    Json? // Sanitized request body
   createdAt  DateTime @default(now())
 
   @@index([orgId, createdAt])
@@ -445,10 +446,10 @@ model Notification {
   id        String   @id @default(uuid())
   orgId     String
   userId    String
-  type      String   // "camera.online" | "camera.offline" | "camera.degraded" | "camera.reconnecting" | "system.alert"
+  type      String // "camera.online" | "camera.offline" | "camera.degraded" | "camera.reconnecting" | "system.alert"
   title     String
   body      String?
-  data      Json?    // { cameraId, previousStatus, etc. }
+  data      Json? // { cameraId, previousStatus, etc. }
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
 
@@ -460,7 +461,7 @@ model NotificationPreference {
   id        String   @id @default(uuid())
   userId    String
   orgId     String
-  eventType String   // "camera.online" | "camera.offline" | "camera.degraded" | "camera.reconnecting" | "system.alert"
+  eventType String // "camera.online" | "camera.offline" | "camera.degraded" | "camera.reconnecting" | "system.alert"
   enabled   Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -485,32 +486,32 @@ enum NodeStatus {
 }
 
 model SrsNode {
-  id            String     @id @default(uuid())
-  name          String
-  role          NodeRole
-  status        NodeStatus @default(CONNECTING)
-  apiUrl        String     // SRS API URL for origin (http://srs:1985), nginx status URL for edge
-  hlsUrl        String     // HLS endpoint URL (http://srs:8080 for origin, nginx port for edge)
-  hlsPort       Int        @default(8080)
+  id      String     @id @default(uuid())
+  name    String
+  role    NodeRole
+  status  NodeStatus @default(CONNECTING)
+  apiUrl  String // SRS API URL for origin (http://srs:1985), nginx status URL for edge
+  hlsUrl  String // HLS endpoint URL (http://srs:8080 for origin, nginx port for edge)
+  hlsPort Int        @default(8080)
 
   // Health metrics (updated by health check job)
-  cpu           Float?
-  memory        Float?
-  bandwidth     BigInt?    @default(0)
-  viewers       Int        @default(0)
-  srsVersion    String?
-  uptime        Int?       // seconds
+  cpu        Float?
+  memory     Float?
+  bandwidth  BigInt? @default(0)
+  viewers    Int     @default(0)
+  srsVersion String?
+  uptime     Int? // seconds
 
   // Health check tracking
-  missedChecks  Int        @default(0)
+  missedChecks  Int       @default(0)
   lastHealthAt  DateTime?
-  configVersion Int        @default(0)
+  configVersion Int       @default(0)
 
-  isLocal       Boolean    @default(true)  // Docker container vs remote
-  metadata      Json?
+  isLocal  Boolean @default(true) // Docker container vs remote
+  metadata Json?
 
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([role])
   @@index([status])
@@ -528,13 +529,13 @@ model Recording {
   status        String    @default("recording") // "recording" | "complete" | "error"
   startedAt     DateTime  @default(now())
   stoppedAt     DateTime?
-  totalSize     BigInt    @default(0)       // bytes
-  totalDuration Float     @default(0)       // seconds
-  initSegment   String?                     // MinIO object path to fMP4 init segment
+  totalSize     BigInt    @default(0) // bytes
+  totalDuration Float     @default(0) // seconds
+  initSegment   String? // MinIO object path to fMP4 init segment
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  segments      RecordingSegment[]
+  segments RecordingSegment[]
 
   @@index([orgId])
   @@index([cameraId])
@@ -543,17 +544,17 @@ model Recording {
 }
 
 model RecordingSegment {
-  id           String    @id @default(uuid())
-  orgId        String
-  recordingId  String
-  recording    Recording @relation(fields: [recordingId], references: [id], onDelete: Cascade)
-  cameraId     String
-  objectPath   String    // MinIO path: {cameraId}/{YYYY-MM-DD}/{HH-MM-SS}_{seq_no}.m4s
-  duration     Float     // seconds
-  size         BigInt    // bytes
-  seqNo        Int
-  timestamp    DateTime  // actual time of segment
-  createdAt    DateTime  @default(now())
+  id          String    @id @default(uuid())
+  orgId       String
+  recordingId String
+  recording   Recording @relation(fields: [recordingId], references: [id], onDelete: Cascade)
+  cameraId    String
+  objectPath  String // MinIO path: {cameraId}/{YYYY-MM-DD}/{HH-MM-SS}_{seq_no}.m4s
+  duration    Float // seconds
+  size        BigInt // bytes
+  seqNo       Int
+  timestamp   DateTime // actual time of segment
+  createdAt   DateTime  @default(now())
 
   @@index([orgId])
   @@index([recordingId])
@@ -562,14 +563,14 @@ model RecordingSegment {
 }
 
 model RecordingSchedule {
-  id           String    @id @default(uuid())
+  id           String   @id @default(uuid())
   orgId        String
   cameraId     String
-  scheduleType String    // "daily" | "weekly" | "custom"
-  config       Json      // { startTime: "08:00", endTime: "18:00", days?: number[] }
-  enabled      Boolean   @default(true)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  scheduleType String // "daily" | "weekly" | "custom"
+  config       Json // { startTime: "08:00", endTime: "18:00", days?: number[] }
+  enabled      Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@index([orgId])
   @@index([cameraId])

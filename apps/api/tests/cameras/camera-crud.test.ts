@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { Prisma } from '@prisma/client';
 import { testPrisma } from '../setup';
 import { cleanupTestData, createTestOrganization, createTestPackage } from '../helpers/tenancy';
 import { CamerasService } from '../../src/cameras/cameras.service';
@@ -167,8 +168,106 @@ describe('createCamera probe enqueue — Phase 19 (D-01, D-04)', () => {
 });
 
 describe('createCamera duplicate detection — Phase 19 (D-11)', () => {
-  // All entries are it.todo stubs — Wave 1-2 tasks convert them to real tests.
-  it.todo('throws DuplicateStreamUrlError (409) when P2002 fires on streamUrl target');
-  it.todo('does NOT translate P2002 when target is a different unique (e.g., future slug)');
-  it.todo('error body contains code: "DUPLICATE_STREAM_URL"');
+  let service: CamerasService;
+  let orgId: string;
+  let siteId: string;
+
+  beforeEach(async () => {
+    await cleanupCameraData(testPrisma);
+    await cleanupTestData(testPrisma);
+
+    const pkg = await createTestPackage(testPrisma, { maxCameras: 10 });
+    const org = await createTestOrganization(testPrisma, { packageId: pkg.id });
+    orgId = org.id;
+
+    service = new CamerasService(
+      testPrisma as any,
+      testPrisma as any,
+      undefined as any,
+      undefined as any,
+    );
+
+    const project = await service.createProject(orgId, { name: 'Dup Project' });
+    const site = await service.createSite(orgId, project.id, { name: 'Dup Site' });
+    siteId = site.id;
+  });
+
+  afterEach(async () => {
+    await cleanupCameraData(testPrisma);
+    await cleanupTestData(testPrisma);
+  });
+
+  it('throws DuplicateStreamUrlError (409) when P2002 fires on streamUrl target', async () => {
+    await service.createCamera(orgId, siteId, {
+      name: 'First',
+      streamUrl: 'rtsp://dup/a',
+    });
+
+    await expect(
+      service.createCamera(orgId, siteId, {
+        name: 'Second',
+        streamUrl: 'rtsp://dup/a',
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'DUPLICATE_STREAM_URL' },
+    });
+  });
+
+  it('does NOT translate P2002 when target is a different unique (e.g., future slug)', async () => {
+    // Fabricate a P2002 whose meta.target is NOT 'streamUrl' so the service
+    // should re-throw the original Prisma error rather than wrap it in
+    // DuplicateStreamUrlError. We stub the tenancy client's camera.create
+    // for this one test; all other calls (site.findUnique) still hit the
+    // real testPrisma.
+    const siteRow = await testPrisma.site.findUnique({ where: { id: siteId } });
+    const p2002 = new Prisma.PrismaClientKnownRequestError('Unique violation', {
+      code: 'P2002',
+      clientVersion: '6.0.0',
+      meta: { target: ['slug'] },
+    });
+    const mockTenancy = {
+      site: { findUnique: vi.fn().mockResolvedValue(siteRow) },
+      camera: {
+        count: vi.fn().mockResolvedValue(0),
+        create: vi.fn().mockRejectedValue(p2002),
+      },
+    };
+    const rawLikePrisma = {
+      organization: {
+        findUnique: vi.fn().mockResolvedValue(null), // no package → no limit
+      },
+    };
+    const mockedService = new CamerasService(
+      mockTenancy as any,
+      rawLikePrisma as any,
+      undefined as any,
+      undefined as any,
+    );
+
+    await expect(
+      mockedService.createCamera(orgId, siteId, {
+        name: 'X',
+        streamUrl: 'rtsp://x/1',
+      }),
+    ).rejects.toThrow(Prisma.PrismaClientKnownRequestError);
+  });
+
+  it('error body contains code: "DUPLICATE_STREAM_URL" and HTTP 409', async () => {
+    await service.createCamera(orgId, siteId, {
+      name: 'A',
+      streamUrl: 'rtsp://dup/b',
+    });
+
+    try {
+      await service.createCamera(orgId, siteId, {
+        name: 'B',
+        streamUrl: 'rtsp://dup/b',
+      });
+      expect.fail('Expected DuplicateStreamUrlError');
+    } catch (err: any) {
+      expect(err.response?.code).toBe('DUPLICATE_STREAM_URL');
+      expect(err.response?.streamUrl).toBe('rtsp://dup/b');
+      expect(err.getStatus()).toBe(409);
+    }
+  });
 });

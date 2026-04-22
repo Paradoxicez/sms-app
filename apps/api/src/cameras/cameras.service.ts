@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SystemPrismaService } from '../prisma/system-prisma.service';
 import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
@@ -17,6 +18,7 @@ import { CreateCameraDto } from './dto/create-camera.dto';
 import { UpdateCameraDto } from './dto/update-camera.dto';
 import { BulkImportDto } from './dto/bulk-import.dto';
 import { ProbeJobData } from './types/codec-info';
+import { DuplicateStreamUrlError } from './errors/duplicate-stream-url.error';
 
 @Injectable()
 export class CamerasService {
@@ -142,21 +144,39 @@ export class CamerasService {
     // Check maxCameras package limit
     await this.enforceMaxCamerasLimit(orgId);
 
-    const camera = await this.tenancy.camera.create({
-      data: {
-        orgId,
-        siteId,
-        name: dto.name,
-        streamUrl: dto.streamUrl,
-        description: dto.description,
-        location: dto.location ?? undefined,
-        tags: dto.tags ?? [],
-        thumbnail: dto.thumbnail,
-        streamProfileId: dto.streamProfileId,
-        status: 'offline',
-        needsTranscode: false,
-      },
-    });
+    let camera: any;
+    try {
+      camera = await this.tenancy.camera.create({
+        data: {
+          orgId,
+          siteId,
+          name: dto.name,
+          streamUrl: dto.streamUrl,
+          description: dto.description,
+          location: dto.location ?? undefined,
+          tags: dto.tags ?? [],
+          thumbnail: dto.thumbnail,
+          streamProfileId: dto.streamProfileId,
+          status: 'offline',
+          needsTranscode: false,
+        },
+      });
+    } catch (error) {
+      // Phase 19 (D-11): translate P2002 on the (orgId, streamUrl) unique
+      // constraint to DuplicateStreamUrlError (HTTP 409). Only translate when
+      // meta.target includes 'streamUrl' — future unique constraints on other
+      // fields must surface their own errors rather than being swallowed here.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const target = (error.meta?.target as string[] | undefined) ?? [];
+        if (target.includes('streamUrl')) {
+          throw new DuplicateStreamUrlError(dto.streamUrl);
+        }
+      }
+      throw error;
+    }
 
     // Phase 19 (D-01, D-04): fire-and-forget async probe after DB commit.
     // BullMQ `add` resolves as soon as the job is written to Redis, NOT when
