@@ -17,11 +17,19 @@ export interface ProbeResult {
 export class FfprobeService {
   private readonly logger = new Logger(FfprobeService.name);
 
+  /** Returns the input-specific flags string for ffprobe. D-13 — only RTSP needs -rtsp_transport. */
+  private inputFlagsFor(streamUrl: string): string {
+    if (streamUrl.startsWith('rtsp://')) return '-rtsp_transport tcp ';
+    // rtmp, rtmps, srt, http(s): no input flags needed
+    return '';
+  }
+
   async probeCamera(streamUrl: string): Promise<ProbeResult> {
     const redactedUrl = this.redactUrl(streamUrl);
     this.logger.log(`Probing camera: ${redactedUrl}`);
 
-    const cmd = `ffprobe -v quiet -print_format json -show_streams -rtsp_transport tcp "${streamUrl}"`;
+    const transportFlag = this.inputFlagsFor(streamUrl);
+    const cmd = `ffprobe -v quiet -print_format json -show_streams ${transportFlag}"${streamUrl}"`;
     const { stdout } = await execAsync(cmd, { timeout: 15000 });
     const data = JSON.parse(stdout);
 
@@ -66,3 +74,9 @@ export class FfprobeService {
     }
   }
 }
+
+// test-only export — do not use in production code
+export const __test__ = {
+  inputFlagsFor: (service: FfprobeService, url: string): string =>
+    (service as any).inputFlagsFor(url),
+};
