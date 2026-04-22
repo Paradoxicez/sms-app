@@ -149,6 +149,7 @@ Developers can get a secure HLS playback URL for any registered camera via a sin
 
 **v1.2 progress (in flight):**
 - Phase 16 complete (2026-04-19) — User self-service: `/app/account` + `/admin/account` pages, avatar upload/remove via MinIO, password change with revokeOtherSessions, tenant Plan & Usage read-only view. Validated USER-01/02/03. Human UAT 9/9 passed.
+- Phase 19 complete (2026-04-22) — Camera input validation + RTMP/RTMPS pull-model support: 4-protocol DTO allowlist (T-19-01 HIGH mitigated), protocol-branch `-rtsp_transport` flag, async probe pipeline (BullMQ `probe:{cameraId}` dedup, 3 triggers: create / on-publish / retry), `CodecInfo` tagged-union (pending/success/failed/no-data) with sanitized error reasons, 4-state `CodecStatusCell` + inline retry icon, 3-layer duplicate prevention (client validateRow + service pre-check + Prisma `@@unique([orgId, streamUrl])`), live form validation mirroring backend, bulk-import within-file dedup + 3rd duplicate icon + toast cascade. 9 plans / 5 waves / 43 commits. RTMP **push** model (platform-generated stream keys) split to Phase 19.1 per supplementary discuss.
 
 ## Evolution
 
@@ -168,4 +169,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-19 after Phase 16 completion*
+*Last updated: 2026-04-22 after Phase 19 completion (camera input validation + RTMP/RTMPS pull)*
