@@ -56,7 +56,7 @@ export function NotificationDropdown({
       </div>
 
       {/* List */}
-      <ScrollArea className="max-h-96">
+      <ScrollArea className="h-96">
         {loading && notifications.length === 0 ? (
           <div className="space-y-2 px-3">
             {[1, 2, 3].map((i) => (
