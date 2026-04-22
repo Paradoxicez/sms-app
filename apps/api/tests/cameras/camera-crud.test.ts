@@ -158,3 +158,17 @@ async function cleanupCameraData(prisma: any) {
   await prisma.site.deleteMany();
   await prisma.project.deleteMany();
 }
+
+describe('createCamera probe enqueue — Phase 19 (D-01, D-04)', () => {
+  // All entries are it.todo stubs — Wave 1-2 tasks convert them to real tests.
+  it.todo('enqueues probe:{cameraId} job after successful commit');
+  it.todo('skips enqueue silently when probeQueue is undefined (test env)');
+  it.todo('does not block the response on probe completion (returns immediately)');
+});
+
+describe('createCamera duplicate detection — Phase 19 (D-11)', () => {
+  // All entries are it.todo stubs — Wave 1-2 tasks convert them to real tests.
+  it.todo('throws DuplicateStreamUrlError (409) when P2002 fires on streamUrl target');
+  it.todo('does NOT translate P2002 when target is a different unique (e.g., future slug)');
+  it.todo('error body contains code: "DUPLICATE_STREAM_URL"');
+});
