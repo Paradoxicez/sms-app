@@ -194,7 +194,7 @@ export class CamerasService {
             streamUrl: camera.streamUrl,
             orgId,
           } as ProbeJobData,
-          { jobId: `probe:${camera.id}` },
+          { jobId: `probe-${camera.id}` },
         );
       } catch (err) {
         this.logger.warn(
@@ -478,9 +478,13 @@ export class CamerasService {
     // not bootstrapped, e.g. in unit tests). The StreamProbeProcessor in
     // StreamsModule consumes these and populates Camera.codecInfo.
     //
-    // Phase 19 (D-04): use jobId: probe:{cameraId} so rapid duplicate enqueues
+    // Phase 19 (D-04): use jobId: probe-{cameraId} so rapid duplicate enqueues
     // (e.g. bulk-import followed by on-publish refresh) merge at the BullMQ
-    // layer (T-19-03 mitigation).
+    // layer (T-19-03 mitigation). Note: BullMQ rejects custom jobIds that
+    // contain ":" unless the jobId has exactly 3 colon-separated segments
+    // (e.g. Phase 15's `camera:{id}:ffmpeg`). The original D-04 spec used
+    // `probe:{id}` (2 segments) which silently failed enqueue — fixed to
+    // hyphen separator so the constraint doesn't apply.
     if (this.probeQueue) {
       for (const camera of cameras) {
         try {
@@ -491,7 +495,7 @@ export class CamerasService {
               streamUrl: camera.streamUrl,
               orgId,
             } as ProbeJobData,
-            { jobId: `probe:${camera.id}` },
+            { jobId: `probe-${camera.id}` },
           );
         } catch (err) {
           this.logger.warn(
@@ -512,7 +516,7 @@ export class CamerasService {
    * StatusService.transition(online). The optional delay gives SRS time to
    * populate its stream registry before the worker fetches (RESEARCH Pitfall 3).
    *
-   * Uses jobId: probe:{cameraId} for idempotency — if the UI retry or a
+   * Uses jobId: probe-{cameraId} for idempotency — if the UI retry or a
    * subsequent on-publish fires within the same window, BullMQ merges rather
    * than spawning a second probe (T-19-03 dedup mitigation).
    */
@@ -546,7 +550,7 @@ export class CamerasService {
           orgId,
           source: 'srs-api',
         } as ProbeJobData,
-        { jobId: `probe:${cameraId}`, delay: opts?.delay ?? 0 },
+        { jobId: `probe-${cameraId}`, delay: opts?.delay ?? 0 },
       );
     } catch (err) {
       this.logger.warn(
@@ -571,7 +575,7 @@ export class CamerasService {
       await this.probeQueue.add(
         'probe-camera',
         { cameraId, streamUrl, orgId } as ProbeJobData, // source defaults to 'ffprobe'
-        { jobId: `probe:${cameraId}` },
+        { jobId: `probe-${cameraId}` },
       );
     } catch (err) {
       this.logger.warn(

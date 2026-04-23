@@ -286,7 +286,7 @@ export class CamerasController {
    *
    * Returns 202 Accepted immediately — the worker runs async and the UI
    * observes the transition via a camera list refetch. BullMQ
-   * jobId: probe:{cameraId} deduplicates rapid double-clicks (T-19-03).
+   * jobId: probe-{cameraId} deduplicates rapid double-clicks (T-19-03).
    */
   @Post('cameras/:id/probe')
   @HttpCode(202)
