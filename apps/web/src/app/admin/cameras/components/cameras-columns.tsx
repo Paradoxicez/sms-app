@@ -31,6 +31,14 @@ export interface CameraRow {
   tags?: string[]
   site?: { id: string; name: string; project?: { id: string; name: string } }
   createdAt: string
+  /** Phase 19.1 D-01 — 'pull' (default, RTSP/RTMP external) or 'push' (platform-generated key). */
+  ingestMode?: "pull" | "push"
+  /** Phase 19.1 D-07 — nanoid for push cameras; null for pull. Owner-only surface. */
+  streamKey?: string | null
+  /** Phase 19.1 D-26 — ISO timestamp of the first successful publish, or null if never. */
+  firstPublishAt?: string | null
+  /** Phase 19.1 D-16 — needsTranscode toggle consumed by accept-auto-transcode flow. */
+  needsTranscode?: boolean
 }
 
 interface CamerasColumnCallbacks {
