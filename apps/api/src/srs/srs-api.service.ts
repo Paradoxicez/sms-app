@@ -95,4 +95,52 @@ export class SrsApiService {
     await fetch(`${url}/api/v1/raw?rpc=reload`);
     this.logger.log(`SRS configuration reloaded on ${url}`);
   }
+
+  /**
+   * Phase 19.1 D-22 + D-20: find the SRS client_id publishing to a given
+   * stream path. `streamPath` is `push/<key>` or `live/<orgId>/<cameraId>`.
+   * Returns null when no matching publisher is present or when the SRS API
+   * is unreachable (caller decides how to react).
+   */
+  async findPublisherClientId(streamPath: string): Promise<string | null> {
+    try {
+      const res = await fetch(`${this.baseUrl}/api/v1/clients`);
+      if (!res.ok) return null;
+      const result = (await res.json()) as {
+        clients?: Array<{ id: string; url?: string; type?: string }>;
+      };
+      const clients = result.clients ?? [];
+      // SRS v6 client.url includes the full /app/stream path.
+      // Match on endsWith to tolerate leading scheme/host variations.
+      const match = clients.find(
+        (c) =>
+          typeof c.url === 'string' &&
+          c.url.endsWith(`/${streamPath}`) &&
+          (c.type === 'fmle-publish' ||
+            c.type === 'publish' ||
+            c.type === 'rtmp-publish'),
+      );
+      return match?.id ?? null;
+    } catch (err) {
+      this.logger.warn(
+        `findPublisherClientId failed: ${(err as Error).message}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Phase 19.1 D-20 + D-22: kick an SRS publisher by client_id via
+   * DELETE /api/v1/clients/{id}. Throws on non-2xx so callers can decide
+   * whether to swallow.
+   */
+  async kickPublisher(clientId: string): Promise<void> {
+    const res = await fetch(`${this.baseUrl}/api/v1/clients/${clientId}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) {
+      throw new Error(`SRS kick failed: ${res.status} ${res.statusText}`);
+    }
+    this.logger.log(`Kicked SRS client ${clientId}`);
+  }
 }
