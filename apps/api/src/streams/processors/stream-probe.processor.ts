@@ -178,34 +178,75 @@ export class StreamProbeProcessor extends WorkerHost {
   }
 
   /**
-   * normalizeError — replaces raw FFmpeg / SRS stderr with one of 9 canonical
-   * short phrases, or truncates unmatched text at 80 chars.
+   * normalizeError — maps raw FFmpeg / SRS / system errno strings to a fixed
+   * set of user-friendly phrases.
    *
-   * T-19-04 mitigation: raw internal host / network / file-path detail never
-   * reaches the UI tooltip. Patterns come from 19-UI-SPEC.md §"Error Reason
-   * Copy Dictionary".
+   * T-19-04 mitigation: raw internal command lines, ffprobe flags, internal
+   * IP/port pairs, file-system paths, and stack traces NEVER reach the UI
+   * tooltip. Anything that doesn't match a known pattern returns a generic
+   * safe message rather than truncating raw stderr (which used to leak the
+   * "ffprobe -v quiet ..." command line into the UI).
+   *
+   * Patterns are anchored on the underlying error keyword/errno (which can
+   * appear anywhere in the stderr blob), not on a wrapper prefix, so the
+   * "Command failed: ffprobe ... [error here]" wrapper doesn't defeat the
+   * regex match.
    */
   private normalizeError(raw: string): string {
     const patterns: Array<[RegExp, string]> = [
-      [/Connection refused|ECONNREFUSED/i, 'Connection refused'],
-      [/Network is unreachable|ENETUNREACH/i, 'Network unreachable'],
+      // — connection refused: server reachable, port closed —
+      [/Connection refused|ECONNREFUSED/i, "Camera refused the connection — check the port and that the camera is on"],
+      // — host route problems —
       [
-        /401 Unauthorized|authorization required|Authentication failed/i,
-        'Auth failed — check credentials',
+        /Network is unreachable|ENETUNREACH|EHOSTUNREACH|No route to host/i,
+        "Can't reach the camera on the network — check the IP address and that the camera is online",
       ],
-      [/404 Not Found|Stream not found/i, 'Stream path not found'],
-      [/timed out|ETIMEDOUT|Timeout/i, 'Timeout — camera not responding'],
-      [/Invalid data found when processing input/i, 'Invalid stream format'],
-      [/Unsupported codec|No decoder for codec/i, 'Unsupported codec'],
-      [/SSL handshake|TLS error/i, 'TLS handshake failed'],
+      [/Host is down|EHOSTDOWN/i, 'Camera appears to be offline'],
+      // — DNS —
       [
-        /unable to resolve host|ENOTFOUND|getaddrinfo/i,
-        'Hostname not resolvable',
+        /unable to resolve host|ENOTFOUND|getaddrinfo|Name or service not known/i,
+        "Can't find the camera by that hostname — check the URL",
+      ],
+      // — auth —
+      [
+        /401 Unauthorized|authorization required|Authentication failed|403 Forbidden/i,
+        'Wrong username or password',
+      ],
+      // — timeouts —
+      [
+        /timed out|ETIMEDOUT|Timeout|Operation timed out/i,
+        "Camera didn't respond in time — try again or check the network",
+      ],
+      // — stream path —
+      [
+        /404 Not Found|Stream not found|Server returned 404/i,
+        'No stream at that URL path',
+      ],
+      // — codec / format —
+      [
+        /Invalid data found when processing input|moov atom not found/i,
+        "Stream format isn't recognized",
+      ],
+      [/Unsupported codec|No decoder for codec/i, 'This camera uses a video codec we don\'t support'],
+      // — TLS / RTMPS —
+      [/SSL handshake|TLS error|certificate verify failed|SSL_ERROR/i, 'Secure connection (TLS) failed'],
+      // — protocol-level —
+      [/Protocol not found|Unknown protocol/i, "URL protocol isn't supported"],
+      [
+        /Server returned 5\d\d|Internal Server Error/i,
+        'Camera reported an internal error',
+      ],
+      // — connection reset mid-stream —
+      [
+        /Connection reset by peer|ECONNRESET|Broken pipe|EPIPE/i,
+        'Connection to the camera was interrupted',
       ],
     ];
     for (const [rx, msg] of patterns) {
       if (rx.test(raw)) return msg;
     }
-    return raw.slice(0, 80);
+    // Generic fallback — never leak raw stderr (T-19-04). Used to be
+    // raw.slice(0, 80) which exposed the ffprobe command line.
+    return "Couldn't reach the camera — check the URL and that the camera is online";
   }
 }
