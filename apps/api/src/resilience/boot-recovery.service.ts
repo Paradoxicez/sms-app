@@ -38,24 +38,30 @@ export class BootRecoveryService implements OnApplicationBootstrap {
    * them, then the normal re-enqueue loop below starts fresh FFmpegs.
    */
   private killOrphanFfmpegs(cameraIds: Set<string>): void {
+    // `pgrep -a` is Linux-only; on macOS it outputs bare PIDs. Use `ps` with
+    // an explicit column format so the parser works on both OSes.
     let output: string;
     try {
-      output = execSync("pgrep -af 'ffmpeg.*/live/'", { encoding: 'utf8' });
+      output = execSync('ps -eo pid=,command=', { encoding: 'utf8' });
     } catch {
-      return; // pgrep exits non-zero when no match — nothing to clean
+      return;
     }
-    const lines = output.trim().split('\n').filter(Boolean);
+    const lines = output.split('\n').filter(Boolean);
+    let killed = 0;
     for (const line of lines) {
-      const spaceIdx = line.indexOf(' ');
+      const trimmed = line.trim();
+      if (!trimmed.includes('ffmpeg') || !trimmed.includes('/live/')) continue;
+      const spaceIdx = trimmed.indexOf(' ');
       if (spaceIdx < 1) continue;
-      const pid = parseInt(line.slice(0, spaceIdx), 10);
-      const cmd = line.slice(spaceIdx + 1);
+      const pid = parseInt(trimmed.slice(0, spaceIdx), 10);
+      const cmd = trimmed.slice(spaceIdx + 1);
       const match = cmd.match(/\/live\/[0-9a-f-]+\/([0-9a-f-]+)/i);
       if (!match) continue;
       const cameraId = match[1];
       if (!cameraIds.has(cameraId)) continue;
       try {
         process.kill(pid, 'SIGTERM');
+        killed++;
         this.logger.warn(
           `Boot recovery: killed orphan FFmpeg PID=${pid} camera=${cameraId}`,
         );
@@ -64,6 +70,9 @@ export class BootRecoveryService implements OnApplicationBootstrap {
           `Boot recovery: failed to kill orphan PID=${pid}: ${(err as Error).message}`,
         );
       }
+    }
+    if (killed > 0) {
+      this.logger.log(`Boot recovery: killed ${killed} orphan FFmpeg process(es)`);
     }
   }
 
