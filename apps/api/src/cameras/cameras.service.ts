@@ -858,6 +858,54 @@ export class CamerasService {
     }
   }
 
+  // ─── Phase 19.1 Push-ingest stubs (Plan 19.1-03 implements) ────
+
+  /**
+   * D-15: look up a camera by its push streamKey (bypasses tenancy per
+   * RLS exemption documented in RESEARCH §"on_publish"). Plan 19.1-03
+   * implements the real findUnique over SystemPrismaService.
+   */
+  // TODO(Plan 19.1-03): implement
+  async findByStreamKey(
+    _streamKey: string,
+  ): Promise<{
+    id: string;
+    orgId: string;
+    maintenanceMode: boolean;
+    firstPublishAt: Date | null;
+  } | null> {
+    return null;
+  }
+
+  /**
+   * D-21: flip firstPublishAt on first successful push publish. Idempotent
+   * via `WHERE firstPublishAt IS NULL`. Returns true if this was the first
+   * time (caller emits the `camera.push.first_publish` audit).
+   */
+  // TODO(Plan 19.1-03): implement
+  async markFirstPublishIfNeeded(
+    _cameraId: string,
+    _orgId: string,
+    _meta: { clientIp?: string },
+  ): Promise<boolean> {
+    return false;
+  }
+
+  /**
+   * D-18: resolve the routing target for SRS on_forward. Returns the camera
+   * orgId/cameraId + needsTranscode flag. Null if the key is unknown.
+   */
+  // TODO(Plan 19.1-03): implement
+  async resolveForwardTarget(
+    _streamKey: string,
+  ): Promise<{
+    orgId: string;
+    cameraId: string;
+    needsTranscode: boolean;
+  } | null> {
+    return null;
+  }
+
   /**
    * D-06: retry path called by POST /api/cameras/:id/probe when the user
    * clicks the failed-probe retry icon in the UI. Enqueues the same
