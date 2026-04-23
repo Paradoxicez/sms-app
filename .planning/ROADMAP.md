@@ -182,7 +182,7 @@ Plans:
 **Goal:** Cameras / NVRs / encoders publish RTMP directly to SRS on port 1935 using a platform-generated stream key. Developer registers a push camera, copies the generated `rtmp://{host}:1935/push/<key>` URL, pastes it into their encoder, and playback works end-to-end without FFmpeg pulling from an external source. SRS `forward` backend hook remaps `push/<key>` → `live/{orgId}/{cameraId}` so the playback URL contract is preserved. Stream Profile still drives the transcode vs passthrough decision (Phase 19 model), and a per-camera codec-mismatch consent flow handles Passthrough + non-H.264/AAC cases. Stream-key generation, rotation, masking, audit, delete-while-publishing, and maintenance-mode semantics all covered.
 **Depends on:** Phase 19
 **Requirements**: (no new REQ-IDs — extends Phase 19 camera-ingest pipeline via 26 locked decisions D-01..D-26)
-**Plans:** 6/8 plans executed
+**Plans:** 8/8 plans complete
 
 Plans:
 - [x] 19.1-00-PLAN.md — Wave 0 test scaffolds: nanoid@3.3.11 install + idempotent migration SQL + shared push-camera fixture stub + 14 test files with it.todo stubs covering all 26 decisions
@@ -191,6 +191,6 @@ Plans:
 - [x] 19.1-03-PLAN.md — CamerasService push (createCamera/bulkImport/deleteCamera) + rotateStreamKey + rotate-key controller endpoint + serializeCamera util + push fixture impl (D-01, D-05, D-07, D-12, D-14, D-19, D-20, D-21, D-22)
 - [x] 19.1-04-PLAN.md — StreamsService push routing (loopback for transcode, no-op for passthrough) + StreamProbeProcessor codec-mismatch detection + kick + audit (D-16, D-17, D-21)
 - [x] 19.1-05-PLAN.md — Frontend foundation: codec-info mismatch extension + CodecStatusCell 5th state + stream-key-mask util + IngestModeToggle + CreatedUrlReveal composites (D-05, D-07, D-08, D-09, D-16, D-20)
-- [ ] 19.1-06-PLAN.md — camera-form-dialog push mode (IngestModeToggle + hint + CreatedUrlReveal post-save) + bulk-import-dialog (ingestMode column + per-row validation + PushUrlsDownloadButton) (D-08, D-09, D-10, D-11, D-12, D-13, D-14)
-- [ ] 19.1-07-PLAN.md — view-stream-sheet push composites: PushUrlSection + CodecMismatchBanner + WaitingForFirstPublish + RotateKeyDialog (D-07, D-11, D-16, D-19, D-20, D-26)
+- [x] 19.1-06-PLAN.md — camera-form-dialog push mode (IngestModeToggle + hint + CreatedUrlReveal post-save) + bulk-import-dialog (ingestMode column + per-row validation + PushUrlsDownloadButton) (D-08, D-09, D-10, D-11, D-12, D-13, D-14)
+- [x] 19.1-07-PLAN.md — view-stream-sheet push composites: PushUrlSection + CodecMismatchBanner + WaitingForFirstPublish + RotateKeyDialog (D-07, D-11, D-16, D-19, D-20, D-26)
 **UI hint**: yes
