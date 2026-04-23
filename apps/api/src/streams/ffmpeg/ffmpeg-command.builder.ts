@@ -31,7 +31,14 @@ export function buildFfmpegCommand(
     cmd.inputOptions(['-rtsp_transport', 'tcp']);
   }
 
-  const useCopy = profile.codec === 'copy' || (!needsTranscode && profile.codec === 'auto');
+  // Phase 19.1 D-16/D-17: needsTranscode forces transcoding even when the
+  // user-selected profile says passthrough ("copy"). The codec-mismatch
+  // banner's "Enable auto-transcode" flips needsTranscode=true on a
+  // Passthrough profile so we MUST override here — otherwise FFmpeg tries
+  // to copy the non-H.264 source into the H.264 output pipeline and exits
+  // with code 234 ("Error opening output file").
+  const useCopy =
+    !needsTranscode && (profile.codec === 'copy' || profile.codec === 'auto');
 
   if (useCopy) {
     cmd.videoCodec('copy');
@@ -48,7 +55,13 @@ export function buildFfmpegCommand(
     if (profile.fps) cmd.fps(profile.fps);
   }
 
-  const audioCodec = profile.audioCodec || 'aac';
+  // When forcing transcode on a Passthrough profile (audioCodec='copy'),
+  // the source audio may not be AAC — we need to transcode it to AAC for
+  // HLS/browser compatibility. Override 'copy' → 'aac' when transcoding.
+  let audioCodec = profile.audioCodec || 'aac';
+  if (needsTranscode && audioCodec === 'copy') {
+    audioCodec = 'aac';
+  }
   if (audioCodec === 'mute') {
     cmd.noAudio();
   } else {
