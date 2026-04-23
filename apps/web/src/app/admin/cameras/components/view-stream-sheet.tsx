@@ -1,6 +1,8 @@
 "use client"
 
+import { useState } from "react"
 import { Radio, Circle } from "lucide-react"
+import { toast } from "sonner"
 
 import {
   Sheet,
@@ -19,6 +21,9 @@ import { HlsPlayer } from "@/components/recordings/hls-player"
 import { ResolvedPolicyCard } from "@/app/admin/policies/components/resolved-policy-card"
 import { AuditLogDataTable } from "@/components/audit/audit-log-data-table"
 import { normalizeCodecInfo } from "@/lib/codec-info"
+import { CodecMismatchBanner } from "./codec-mismatch-banner"
+import { PushUrlSection } from "./push-url-section"
+import { WaitingForFirstPublish } from "./waiting-for-first-publish"
 
 interface ViewStreamSheetProps {
   camera: CameraRow | null
@@ -26,18 +31,47 @@ interface ViewStreamSheetProps {
   onOpenChange: (open: boolean) => void
   onStreamToggle?: (camera: CameraRow) => void
   onRecordToggle?: (camera: CameraRow) => void
+  onRefresh?: () => void
 }
 
-function ViewStreamContent({
+export function ViewStreamContent({
   camera,
   onStreamToggle,
   onRecordToggle,
+  onRefresh,
 }: {
   camera: CameraRow
   onStreamToggle?: (camera: CameraRow) => void
   onRecordToggle?: (camera: CameraRow) => void
+  onRefresh?: () => void
 }) {
   const streamUrl = `/api/cameras/${camera.id}/preview/playlist.m3u8`
+  const isPush = camera.ingestMode === "push"
+
+  // Phase 19.1 D-16 — component-local dismiss flag so clicking Dismiss hides
+  // the banner for the current sheet session without persisting. The banner
+  // re-renders on next mismatch-triggering publish (server writes codecInfo).
+  const [mismatchDismissed, setMismatchDismissed] = useState(false)
+  const showMismatch =
+    !mismatchDismissed &&
+    normalizeCodecInfo(camera.codecInfo)?.status === "mismatch"
+
+  async function handleAcceptAutoTranscode() {
+    try {
+      const res = await fetch(`/api/cameras/${camera.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ needsTranscode: true }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      setMismatchDismissed(true)
+      toast.success("Auto-transcode enabled. Retry publish from your camera.")
+      onRefresh?.()
+    } catch {
+      toast.error("Failed to enable auto-transcode. Try again.")
+    }
+  }
 
   return (
     <>
@@ -80,7 +114,35 @@ function ViewStreamContent({
         </div>
 
         <TabsContent value="preview" className="flex-1 overflow-y-auto p-4 space-y-4">
+          {showMismatch && (
+            <CodecMismatchBanner
+              camera={camera}
+              onAccept={handleAcceptAutoTranscode}
+              onDismiss={() => setMismatchDismissed(true)}
+            />
+          )}
+
           <HlsPlayer src={streamUrl} autoPlay mode="live" />
+
+          {isPush && (
+            <PushUrlSection
+              camera={{
+                id: camera.id,
+                streamUrl: camera.streamUrl,
+                ingestMode: camera.ingestMode ?? "push",
+              }}
+              onRotated={() => onRefresh?.()}
+            />
+          )}
+
+          {isPush && (
+            <WaitingForFirstPublish
+              camera={{
+                firstPublishAt: camera.firstPublishAt ?? null,
+                status: camera.status,
+              }}
+            />
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
@@ -150,6 +212,7 @@ export function ViewStreamSheet({
   onOpenChange,
   onStreamToggle,
   onRecordToggle,
+  onRefresh,
 }: ViewStreamSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -162,6 +225,7 @@ export function ViewStreamSheet({
             camera={camera}
             onStreamToggle={onStreamToggle}
             onRecordToggle={onRecordToggle}
+            onRefresh={onRefresh}
           />
         )}
       </SheetContent>
