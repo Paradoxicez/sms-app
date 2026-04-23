@@ -16,13 +16,30 @@ describe('StreamProbeProcessor — Phase 19 (D-01, D-02, D-04, D-07)', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockPrisma = { camera: { update: vi.fn().mockResolvedValue({}) } };
+    mockPrisma = {
+      camera: {
+        update: vi.fn().mockResolvedValue({}),
+        // Phase 19.1 — processor now reads camera.ingestMode/streamKey to
+        // decide on codec-mismatch behavior; default to pull-mode camera so
+        // the Phase 19 tests stay in the non-mismatch branch.
+        findUnique: vi.fn().mockResolvedValue({
+          ingestMode: 'pull',
+          streamKey: null,
+          needsTranscode: false,
+          orgId: 'orgA',
+        }),
+      },
+    };
     mockFfprobe = { probeCamera: vi.fn() };
     mockSrsApi = { getStream: vi.fn() };
+    // statusGateway + auditService are @Optional — omit so the processor
+    // treats them as undefined and no-ops broadcast + audit.
+    const mockStatusGateway = { broadcastCodecInfo: vi.fn() };
     processor = new StreamProbeProcessor(
       mockFfprobe,
       mockPrisma,
       mockSrsApi,
+      mockStatusGateway as any,
     );
   });
 
@@ -88,7 +105,11 @@ describe('StreamProbeProcessor — Phase 19 (D-01, D-02, D-04, D-07)', () => {
     await runJob({ cameraId: 'c', streamUrl: 'rtsp://x', orgId: 'o' });
     const finalCall = mockPrisma.camera.update.mock.calls[1][0];
     expect(finalCall.data.codecInfo.status).toBe('failed');
-    expect(finalCall.data.codecInfo.error).toBe('Connection refused');
+    // Current normalizeError dictionary (post-Phase 19 UX pass) produces
+    // user-friendly copy instead of the short "Connection refused" literal.
+    expect(finalCall.data.codecInfo.error).toBe(
+      'Camera refused the connection — check the port and that the camera is on',
+    );
     expect(finalCall.data.codecInfo.source).toBe('ffprobe');
   });
 
@@ -139,54 +160,63 @@ describe('StreamProbeProcessor — Phase 19 (D-01, D-02, D-04, D-07)', () => {
     });
     const finalCall = mockPrisma.camera.update.mock.calls[1][0];
     expect(finalCall.data.codecInfo.status).toBe('failed');
-    expect(finalCall.data.codecInfo.error).toBe('Stream path not found');
+    // "Stream not found" raw message matches the /Stream not found/ pattern
+    // in the normalizeError dictionary → "No stream at that URL path".
+    expect(finalCall.data.codecInfo.error).toBe('No stream at that URL path');
     expect(finalCall.data.codecInfo.source).toBe('srs-api');
   });
 
   // ─── normalizeError Dictionary ──────────────────
 
-  it('normalizeError maps "Connection refused" / ECONNREFUSED to "Connection refused"', async () => {
+  it('normalizeError maps ECONNREFUSED to the user-friendly refused-connection phrase', async () => {
     mockFfprobe.probeCamera.mockRejectedValue(new Error('ECONNREFUSED 10.0.0.1:554'));
     await runJob({ cameraId: 'c', streamUrl: 'rtsp://x', orgId: 'o' });
     expect(
       mockPrisma.camera.update.mock.calls[1][0].data.codecInfo.error,
-    ).toBe('Connection refused');
+    ).toBe(
+      'Camera refused the connection — check the port and that the camera is on',
+    );
   });
 
-  it('normalizeError maps 401/authorization to "Auth failed — check credentials"', async () => {
+  it('normalizeError maps 401/authorization to the wrong-credentials phrase', async () => {
     mockFfprobe.probeCamera.mockRejectedValue(new Error('401 Unauthorized'));
     await runJob({ cameraId: 'c', streamUrl: 'rtsp://x', orgId: 'o' });
     expect(
       mockPrisma.camera.update.mock.calls[1][0].data.codecInfo.error,
-    ).toBe('Auth failed — check credentials');
+    ).toBe('Wrong username or password');
   });
 
-  it('normalizeError maps "timed out" / ETIMEDOUT to "Timeout — camera not responding"', async () => {
+  it('normalizeError maps ETIMEDOUT to the no-response phrase', async () => {
     mockFfprobe.probeCamera.mockRejectedValue(new Error('ETIMEDOUT after 15s'));
     await runJob({ cameraId: 'c', streamUrl: 'rtsp://x', orgId: 'o' });
     expect(
       mockPrisma.camera.update.mock.calls[1][0].data.codecInfo.error,
-    ).toBe('Timeout — camera not responding');
+    ).toBe("Camera didn't respond in time — try again or check the network");
   });
 
-  it('normalizeError maps unable-to-resolve-host to "Hostname not resolvable"', async () => {
+  it('normalizeError maps unable-to-resolve-host to the hostname-not-found phrase', async () => {
     mockFfprobe.probeCamera.mockRejectedValue(
       new Error('getaddrinfo ENOTFOUND camera.local'),
     );
     await runJob({ cameraId: 'c', streamUrl: 'rtsp://x', orgId: 'o' });
     expect(
       mockPrisma.camera.update.mock.calls[1][0].data.codecInfo.error,
-    ).toBe('Hostname not resolvable');
+    ).toBe("Can't find the camera by that hostname — check the URL");
   });
 
-  it('normalizeError truncates unmatched stderr at 80 chars', async () => {
+  it('normalizeError uses a generic fallback for unmatched stderr (T-19-04 — never leaks raw)', async () => {
     const longMsg =
       'Some obscure vendor-specific error string that will not match any pattern and is definitely longer than eighty characters, really.';
     mockFfprobe.probeCamera.mockRejectedValue(new Error(longMsg));
     await runJob({ cameraId: 'c', streamUrl: 'rtsp://x', orgId: 'o' });
     const err = mockPrisma.camera.update.mock.calls[1][0].data.codecInfo.error;
-    expect(err.length).toBeLessThanOrEqual(80);
-    expect(err).toBe(longMsg.slice(0, 80));
+    // T-19-04: never echo raw stderr. Current dictionary returns a fixed
+    // generic phrase rather than slice(0, 80) to avoid leaking internal
+    // command lines, hosts, or errno codes.
+    expect(err).toBe(
+      "Couldn't reach the camera — check the URL and that the camera is online",
+    );
+    expect(err).not.toContain(longMsg.slice(0, 20));
   });
 
   // Note on dedup: `jobId: probe:{cameraId}` idempotency is a BullMQ

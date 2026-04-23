@@ -1,17 +1,18 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Logger } from '@nestjs/common';
+import { Logger, Optional } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { FfprobeService } from '../../cameras/ffprobe.service';
 import { SystemPrismaService } from '../../prisma/system-prisma.service';
 import { SrsApiService } from '../../srs/srs-api.service';
 import { StatusGateway } from '../../status/status.gateway';
+import { AuditService } from '../../audit/audit.service';
 import { ProbeJobData, CodecInfo } from '../../cameras/types/codec-info';
 
 /**
  * StreamProbeProcessor — runs ffprobe (or pulls SRS /api/v1/streams) against
  * newly-imported cameras to populate `Camera.codecInfo` for transcode/
  * passthrough decisions AND to drive the UI's 4-state codec cell
- * (pending → success | failed, see Phase 19 UI-SPEC).
+ * (pending → success | failed | mismatch, see Phase 19 / 19.1 UI-SPEC).
  *
  * Background worker, no CLS context → uses SystemPrismaService (RLS-bypass).
  * Lookup by primary key (cameraId from job, originally produced by an
@@ -27,6 +28,16 @@ import { ProbeJobData, CodecInfo } from '../../cameras/types/codec-info';
  *     or network detail reaches the UI).
  *   - Defensive guard refuses jobs with empty cameraId or streamUrl (mirror of
  *     stream.processor.ts:47-56, MEMORY.md 260421-g9o precedent).
+ *
+ * Phase 19.1 (D-16, D-21):
+ *   - When source='srs-api' AND camera is push+passthrough (ingestMode='push'
+ *     && !needsTranscode), checks the reported codec against H.264 video +
+ *     AAC audio. On mismatch: writes `codecInfo.status='mismatch'` with
+ *     `mismatchCodec`, kicks the active publisher via SRS DELETE
+ *     /api/v1/clients/{id}, and emits a `camera.push.publish_rejected` audit
+ *     event with a PREFIX-ONLY streamKey (T-19.1-SK-LEAK mitigation).
+ *   - Transcode profiles bypass the mismatch check (FFmpeg transcodes
+ *     whatever codec comes in).
  *
  * Concurrency=5: probe is short (15s timeout in FfprobeService); 5 parallel
  * ffprobe children are cheap and let bulk imports of ~50 cameras finish
@@ -48,7 +59,13 @@ export class StreamProbeProcessor extends WorkerHost {
     // 4-state codec cell auto-transitions without a page refresh.
     // StatusModule is @Global() and exports StatusGateway, so direct inject
     // works without adding StatusModule to imports.
-    private readonly statusGateway: StatusGateway,
+    // Optional so unit tests can construct the processor with mocks that
+    // omit the gateway; the broadcast is fire-and-forget anyway.
+    @Optional() private readonly statusGateway?: StatusGateway,
+    // Phase 19.1 (D-21): emit camera.push.publish_rejected on codec mismatch.
+    // AuditModule is @Global() so no module import needed. Optional for unit
+    // tests and to keep pull-mode cameras audit-free.
+    @Optional() private readonly auditService?: AuditService,
   ) {
     super();
   }
@@ -70,7 +87,7 @@ export class StreamProbeProcessor extends WorkerHost {
         codecInfo: codecInfo as any, // Prisma Json column
       },
     });
-    this.statusGateway.broadcastCodecInfo(orgId, cameraId, codecInfo);
+    this.statusGateway?.broadcastCodecInfo(orgId, cameraId, codecInfo);
   }
 
   async process(job: Job<ProbeJobData>): Promise<void> {
@@ -102,6 +119,105 @@ export class StreamProbeProcessor extends WorkerHost {
           // SRS didn't know about the stream — normalize to "Stream path not found".
           throw new Error('Stream not found');
         }
+
+        // Phase 19.1 (D-16, D-21): codec-mismatch check for push+passthrough
+        // cameras only. Transcode handles whatever codec arrives; pull-mode
+        // ffprobe path runs pre-publish so is irrelevant here.
+        const camera = await this.prisma.camera.findUnique({
+          where: { id: cameraId },
+          select: {
+            ingestMode: true,
+            streamKey: true,
+            needsTranscode: true,
+            orgId: true,
+          },
+        });
+        const isPushPassthrough =
+          camera?.ingestMode === 'push' && camera?.needsTranscode === false;
+        const videoCodec = info.video?.codec ?? '';
+        const audioCodec = info.audio?.codec ?? '';
+        // H.264 has many display forms: "H.264", "H264", "AVC", "avc1".
+        const videoOk = /^(h\.?264|avc(?:1)?)$/i.test(videoCodec);
+        const audioOk = /^aac$/i.test(audioCodec);
+
+        if (isPushPassthrough && (!videoOk || !audioOk)) {
+          // Which codec failed? If video mismatched, use video; else audio.
+          const mismatchCodec = !videoOk ? videoCodec : audioCodec;
+          const codecInfoPayload: CodecInfo = {
+            status: 'mismatch',
+            video: info.video
+              ? {
+                  codec: info.video.codec,
+                  width: info.video.width,
+                  height: info.video.height,
+                  profile: info.video.profile,
+                  level: info.video.level,
+                }
+              : undefined,
+            audio: info.audio
+              ? {
+                  codec: info.audio.codec,
+                  sampleRate: info.audio.sample_rate,
+                  channels: info.audio.channel,
+                }
+              : undefined,
+            mismatchCodec,
+            probedAt: new Date().toISOString(),
+            source: 'srs-api',
+          };
+          await this.writeCodecInfo(cameraId, orgId, codecInfoPayload);
+
+          // D-16: kick the offending publisher so the encoder sees the
+          // failure and the user is forced to act (either change codec or
+          // flip to transcode profile). Without the kick, a non-H.264 camera
+          // would happily keep publishing and the platform would silently
+          // skip its stream forever.
+          if (camera?.streamKey) {
+            try {
+              const clientId = await this.srsApi.findPublisherClientId(
+                `push/${camera.streamKey}`,
+              );
+              if (clientId) {
+                await this.srsApi.kickPublisher(clientId);
+              }
+            } catch (err) {
+              this.logger.warn(
+                `Kick-on-mismatch failed for ${cameraId}: ${(err as Error).message}`,
+              );
+            }
+          }
+
+          // D-21: audit the rejection with prefix-only stream key. Full key
+          // must never appear in the audit payload (T-19.1-SK-LEAK).
+          if (this.auditService && camera?.streamKey) {
+            try {
+              await this.auditService.log({
+                orgId,
+                action: 'camera.push.publish_rejected',
+                resource: 'camera',
+                resourceId: cameraId,
+                method: 'POST',
+                path: '/api/srs/callbacks/on-publish (probe mismatch)',
+                details: {
+                  streamKeyPrefix: camera.streamKey.slice(0, 4),
+                  reason: 'codec_mismatch',
+                  detectedVideo: videoCodec,
+                  detectedAudio: audioCodec,
+                },
+              });
+            } catch (err) {
+              this.logger.warn(
+                `Audit mismatch failed for ${cameraId}: ${(err as Error).message}`,
+              );
+            }
+          }
+
+          this.logger.warn(
+            `Codec mismatch for ${cameraId}: video=${videoCodec}, audio=${audioCodec} — publisher kicked`,
+          );
+          return; // Do NOT fall through to the success write.
+        }
+
         await this.writeCodecInfo(cameraId, orgId, {
           status: 'success',
           video: info.video
