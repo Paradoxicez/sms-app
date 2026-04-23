@@ -203,6 +203,9 @@ model Camera {
   site            Site           @relation(fields: [siteId], references: [id], onDelete: Cascade)
   name            String
   streamUrl       String
+  ingestMode      String         @default("pull")
+  streamKey       String?
+  firstPublishAt  DateTime?
   description     String?
   location        Json?
   tags            String[]       @default([])
@@ -228,10 +231,12 @@ model Camera {
   recordings       Recording[]
 
   @@unique([orgId, streamUrl])
+  @@unique([streamKey])
   @@index([orgId])
   @@index([siteId])
   @@index([status])
   @@index([maintenanceMode])
+  @@index([ingestMode])
 }
 
 model StreamProfile {
