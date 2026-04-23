@@ -248,9 +248,7 @@ push-cam,,push`;
     // Stub createObjectURL / revokeObjectURL (jsdom does not implement them for Blob)
     const createObjectURL = vi.fn(() => 'blob:mock');
     const revokeObjectURL = vi.fn();
-    // @ts-expect-error overriding jsdom URL for test scope
     URL.createObjectURL = createObjectURL;
-    // @ts-expect-error overriding jsdom URL for test scope
     URL.revokeObjectURL = revokeObjectURL;
 
     const confirm = screen.getByRole('button', { name: /Confirm Import/i });

@@ -301,12 +301,14 @@ function PushUrlsDownloadButton({
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <Button variant="outline" onClick={handleDownload} disabled={downloaded}>
-          <Download className="mr-2 h-4 w-4" />
-          {downloaded ? 'Downloaded' : 'Download push URLs (CSV)'}
-        </Button>
-      </TooltipTrigger>
+      <TooltipTrigger
+        render={
+          <Button variant="outline" onClick={handleDownload} disabled={downloaded}>
+            <Download className="mr-2 h-4 w-4" />
+            {downloaded ? 'Downloaded' : 'Download push URLs (CSV)'}
+          </Button>
+        }
+      />
       <TooltipContent>
         One-time download — view individual URLs later from each camera.
       </TooltipContent>
