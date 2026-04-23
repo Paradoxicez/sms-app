@@ -1,7 +1,8 @@
-import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
+import { SystemPrismaService } from '../prisma/system-prisma.service';
 import { FfmpegService } from './ffmpeg/ffmpeg.service';
 import { StatusService } from '../status/status.service';
 import { StreamJobData, calculateBackoff, MAX_BACKOFF_MS } from './processors/stream.processor';
@@ -15,15 +16,32 @@ export class StreamsService {
     @InjectQueue('stream-ffmpeg') private readonly streamQueue: Queue,
     private readonly ffmpegService: FfmpegService,
     private readonly statusService: StatusService,
+    // Phase 19.1 (D-17): SRS on_publish callback has no CLS context,
+    // so TENANCY_CLIENT returns zero rows. Fall back to systemPrisma
+    // when the tenancy lookup fails. Optional so existing unit tests
+    // that only inject the tenancy client still construct.
+    @Optional() private readonly systemPrisma?: SystemPrismaService,
   ) {}
 
   async startStream(cameraId: string): Promise<void> {
     this.logger.log(`Starting stream for camera ${cameraId}`);
 
-    const camera = await this.prisma.camera.findUnique({
+    let camera = await this.prisma.camera.findUnique({
       where: { id: cameraId },
       include: { streamProfile: true },
     });
+
+    // SRS-callback fallback: tenancy-bound lookup returns null when called
+    // without CLS context (on_publish runs outside request lifecycle). Retry
+    // via systemPrisma which bypasses RLS — safe because the only way to
+    // reach this code path from SRS is via a validated stream key lookup
+    // upstream in findByStreamKey.
+    if (!camera && this.systemPrisma) {
+      camera = await this.systemPrisma.camera.findUnique({
+        where: { id: cameraId },
+        include: { streamProfile: true },
+      });
+    }
 
     if (!camera) {
       throw new NotFoundException('Camera not found');
