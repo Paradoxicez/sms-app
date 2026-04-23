@@ -310,15 +310,29 @@ describe('bulkImport server-side dedup — Phase 19 (D-10b)', () => {
     expect(orgACam).not.toBeNull();
   });
 
-  it('response shape includes imported + skipped + errors', async () => {
+  it('response shape includes imported + skipped + errors + cameras', async () => {
     const result = await service.bulkImport(orgId, {
       cameras: [{ name: 'Unique1', streamUrl: 'rtsp://unique/1' }],
       siteId,
     });
 
-    // Exact shape the P07 UI + tests rely on.
-    expect(Object.keys(result).sort()).toEqual(['errors', 'imported', 'skipped']);
-    expect(result).toEqual({ imported: 1, skipped: 0, errors: [] });
+    // D-14 (phase 19.1): response now includes `cameras[]` so the bulk-import
+    // dialog can render a client-side CSV download of generated push URLs.
+    // Pull rows also appear in the array (with their existing streamUrl);
+    // the frontend filters to push-mode rows.
+    expect(Object.keys(result).sort()).toEqual([
+      'cameras',
+      'errors',
+      'imported',
+      'skipped',
+    ]);
+    expect(result).toMatchObject({ imported: 1, skipped: 0, errors: [] });
+    expect(result.cameras).toHaveLength(1);
+    expect(result.cameras[0]).toMatchObject({
+      name: 'Unique1',
+      ingestMode: 'pull',
+      streamUrl: 'rtsp://unique/1',
+    });
   });
 
   it('P2002 race safety: concurrent duplicate insert translates to DuplicateStreamUrlError', async () => {
