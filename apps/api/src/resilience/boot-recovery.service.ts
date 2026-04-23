@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { execSync } from 'child_process';
 import { SystemPrismaService } from '../prisma/system-prisma.service';
 import { buildStreamJobData } from './job-data.helper';
 
@@ -14,6 +15,10 @@ import { buildStreamJobData } from './job-data.helper';
  * Jitter 0-30s mirrors SrsRestartDetector to prevent thundering herd
  * against SRS when multiple API instances boot simultaneously
  * (T-15-04 mitigation).
+ *
+ * Phase 19.1: also kills orphan FFmpeg processes (from a previous API
+ * instance) before enqueuing — otherwise the new FFmpeg clashes with the
+ * orphan on the RTMP output URL and loops on exit code 251.
  */
 @Injectable()
 export class BootRecoveryService implements OnApplicationBootstrap {
@@ -24,6 +29,44 @@ export class BootRecoveryService implements OnApplicationBootstrap {
     @InjectQueue('stream-ffmpeg') private readonly streamQueue: Queue,
   ) {}
 
+  /**
+   * Phase 19.1: FfmpegService tracks running processes in an in-memory Map
+   * that does NOT survive API restart. FFmpegs spawned by the previous
+   * instance keep publishing to `rtmp://.../live/<orgId>/<cameraId>` and
+   * block the new instance from starting its own. Detect such orphans by
+   * matching the output URL pattern against current camera IDs, SIGTERM
+   * them, then the normal re-enqueue loop below starts fresh FFmpegs.
+   */
+  private killOrphanFfmpegs(cameraIds: Set<string>): void {
+    let output: string;
+    try {
+      output = execSync("pgrep -af 'ffmpeg.*/live/'", { encoding: 'utf8' });
+    } catch {
+      return; // pgrep exits non-zero when no match — nothing to clean
+    }
+    const lines = output.trim().split('\n').filter(Boolean);
+    for (const line of lines) {
+      const spaceIdx = line.indexOf(' ');
+      if (spaceIdx < 1) continue;
+      const pid = parseInt(line.slice(0, spaceIdx), 10);
+      const cmd = line.slice(spaceIdx + 1);
+      const match = cmd.match(/\/live\/[0-9a-f-]+\/([0-9a-f-]+)/i);
+      if (!match) continue;
+      const cameraId = match[1];
+      if (!cameraIds.has(cameraId)) continue;
+      try {
+        process.kill(pid, 'SIGTERM');
+        this.logger.warn(
+          `Boot recovery: killed orphan FFmpeg PID=${pid} camera=${cameraId}`,
+        );
+      } catch (err) {
+        this.logger.warn(
+          `Boot recovery: failed to kill orphan PID=${pid}: ${(err as Error).message}`,
+        );
+      }
+    }
+  }
+
   async onApplicationBootstrap(): Promise<void> {
     const desiredRunning = await this.prisma.camera.findMany({
       where: {
@@ -32,6 +75,13 @@ export class BootRecoveryService implements OnApplicationBootstrap {
       },
       include: { streamProfile: true },
     });
+
+    // Phase 19.1: clean orphan FFmpegs before re-enqueuing so the new
+    // processes don't collide on the output RTMP URL.
+    const allCameraIds = await this.prisma.camera.findMany({
+      select: { id: true },
+    });
+    this.killOrphanFfmpegs(new Set(allCameraIds.map((c: { id: string }) => c.id)));
 
     this.logger.log(
       `Boot recovery: re-enqueuing ${desiredRunning.length} streams`,

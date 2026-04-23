@@ -19,7 +19,11 @@ export class StatusService {
   private readonly validTransitions: Record<string, string[]> = {
     offline: ['connecting', 'online'],
     connecting: ['online', 'offline', 'reconnecting'],
-    online: ['reconnecting', 'degraded', 'offline'],
+    // `connecting` added in Phase 19.1: StreamProcessor runs a FFmpeg job
+    // for an already-online camera (BootRecovery re-enqueue, push+transcode
+    // orphan cleanup, mid-stream profile change) — it needs to mark the
+    // camera as transitional while FFmpeg warms up again.
+    online: ['reconnecting', 'degraded', 'offline', 'connecting'],
     reconnecting: ['online', 'offline', 'connecting'],
     degraded: ['online', 'offline'],
   };
