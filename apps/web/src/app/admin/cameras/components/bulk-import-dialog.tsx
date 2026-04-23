@@ -57,6 +57,18 @@ export interface CameraRow {
   // D-16 (Phase 19): within-file duplicate tracking
   duplicate?: boolean;
   duplicateReason?: 'within-file' | 'against-db';
+  // D-12 (Phase 19.1): per-row push/pull discriminator. Optional — absent column
+  // in the CSV defaults every row to 'pull' for backward compatibility.
+  ingestMode?: 'pull' | 'push';
+}
+
+// Phase 19.1 D-14: extra row shape returned by the bulk-import server response
+// for the post-import push-URL CSV download.
+interface ImportedCamera {
+  id?: string;
+  name: string;
+  ingestMode?: 'pull' | 'push';
+  streamUrl: string;
 }
 
 interface SiteOption {
@@ -95,10 +107,21 @@ function mapHeaders(headers: string[]) {
     descIdx: findFirst('description'),
     latIdx: findLast('latitude', 'lat'),
     lngIdx: findLast('longitude', 'lng', 'lon'),
+    // Phase 19.1 D-12: ingestMode column — accepts `ingestMode`, `ingest_mode`,
+    // `mode` (normalizeHeader strips separators + case).
+    ingestModeIdx: findFirst('ingestmode', 'mode'),
   };
 }
 
 function rowFromValues(values: string[], map: ReturnType<typeof mapHeaders>): CameraRow {
+  // Phase 19.1 D-12: normalize ingestMode case-insensitively.
+  // Absent column or unknown values fall back to 'pull' so existing Phase 19
+  // CSVs continue to work without modification.
+  const rawMode = map.ingestModeIdx >= 0
+    ? (values[map.ingestModeIdx] ?? '').trim().toLowerCase()
+    : '';
+  const ingestMode: 'pull' | 'push' = rawMode === 'push' ? 'push' : 'pull';
+
   return {
     name: map.nameIdx >= 0 ? values[map.nameIdx]?.trim() || '' : '',
     streamUrl: map.urlIdx >= 0 ? values[map.urlIdx]?.trim() || '' : '',
@@ -107,6 +130,7 @@ function rowFromValues(values: string[], map: ReturnType<typeof mapHeaders>): Ca
     latitude: map.latIdx >= 0 ? values[map.latIdx]?.trim() || '' : '',
     longitude: map.lngIdx >= 0 ? values[map.lngIdx]?.trim() || '' : '',
     errors: {},
+    ingestMode,
   };
 }
 
@@ -126,15 +150,22 @@ function parseCSV(text: string): CameraRow[] {
 function parseJSON(text: string): CameraRow[] {
   const data = JSON.parse(text);
   const arr = Array.isArray(data) ? data : [];
-  return arr.map((item: Record<string, unknown>) => ({
-    name: String(item['Camera Name'] || item['camera_name'] || item.name || ''),
-    streamUrl: String(item['Stream URL'] || item.streamUrl || item.stream_url || ''),
-    tags: String(item.tags || ''),
-    description: String(item.description || ''),
-    latitude: String(item.latitude || item.lat || ''),
-    longitude: String(item.longitude || item.lng || item.lon || ''),
-    errors: {},
-  }));
+  return arr.map((item: Record<string, unknown>) => {
+    const rawMode = String(
+      item['ingestMode'] ?? item['ingest_mode'] ?? item['mode'] ?? '',
+    ).trim().toLowerCase();
+    const ingestMode: 'pull' | 'push' = rawMode === 'push' ? 'push' : 'pull';
+    return {
+      name: String(item['Camera Name'] || item['camera_name'] || item.name || ''),
+      streamUrl: String(item['Stream URL'] || item.streamUrl || item.stream_url || ''),
+      tags: String(item.tags || ''),
+      description: String(item.description || ''),
+      latitude: String(item.latitude || item.lat || ''),
+      longitude: String(item.longitude || item.lng || item.lon || ''),
+      errors: {},
+      ingestMode,
+    };
+  });
 }
 
 function parseExcel(data: ArrayBuffer): CameraRow[] {
@@ -159,7 +190,15 @@ export function validateRow(row: CameraRow): Record<string, string> {
     errors.name = 'Name is required';
   }
   const url = row.streamUrl.trim();
-  if (!url) {
+
+  if (row.ingestMode === 'push') {
+    // Phase 19.1 D-13: push rows must leave streamUrl empty — server generates.
+    // UI-SPEC copy invariant: matches the message in the UI-SPEC Copywriting table verbatim.
+    if (url) {
+      errors.streamUrl =
+        'Push rows must leave streamUrl empty — a URL will be generated.';
+    }
+  } else if (!url) {
     errors.streamUrl = 'Stream URL is required';
   } else {
     // D-12 + D-16: delegate to shared helper (matches backend zod refine + Add Camera live validation)
@@ -185,10 +224,17 @@ export function validateRow(row: CameraRow): Record<string, string> {
 /**
  * D-16 / D-10a: within-file dedup. Exact string match per D-09 (no normalization).
  * First occurrence is always valid; subsequent rows with the same trimmed streamUrl are flagged.
+ *
+ * Phase 19.1 D-12: push rows are never flagged as duplicates — server generates
+ * the URL after save, so no client-side URL exists to compare. Dedup applies
+ * only to pull rows (whose streamUrl is user-supplied).
  */
 export function annotateDuplicates(rows: CameraRow[]): CameraRow[] {
   const seen = new Map<string, number>(); // trimmed streamUrl → first row index
   return rows.map((row, idx) => {
+    if (row.ingestMode === 'push') {
+      return { ...row, duplicate: false, duplicateReason: undefined };
+    }
     const url = row.streamUrl.trim();
     if (!url) return { ...row, duplicate: false, duplicateReason: undefined };
     const firstIdx = seen.get(url);
@@ -201,10 +247,12 @@ export function annotateDuplicates(rows: CameraRow[]): CameraRow[] {
 }
 
 function downloadSample() {
-  const csv = `name,streamUrl,description,tags,latitude,longitude
-Camera 1,rtsp://192.168.1.10:554/stream1,Front door,outdoor;entrance,13.7563,100.5018
-Camera 2,rtsp://192.168.1.11:554/stream1,Back yard,outdoor,13.7564,100.5019
-Camera 3,rtsp://192.168.1.12:554/stream1,Lobby,indoor,,`;
+  // Phase 19.1 D-12: sample includes the ingestMode column with one push row
+  // example to document the mixed-batch workflow.
+  const csv = `name,streamUrl,ingestMode,description,tags,latitude,longitude
+Camera 1,rtsp://192.168.1.10:554/stream1,pull,Front door,outdoor;entrance,13.7563,100.5018
+Camera 2,rtsp://192.168.1.11:554/stream1,pull,Back yard,outdoor,13.7564,100.5019
+push-cam-1,,push,Encoder feed (URL generated on save),indoor,,`;
   const blob = new Blob([csv], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -212,6 +260,58 @@ Camera 3,rtsp://192.168.1.12:554/stream1,Lobby,indoor,,`;
   a.download = 'cameras-sample.csv';
   a.click();
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Phase 19.1 D-14: client-side CSV download of imported push URLs.
+ * Renders only when the bulk-import response contains push cameras.
+ * Button is one-time — after click, label flips to "Downloaded" for 3s
+ * (cosmetic; user can re-enable by closing + reopening the dialog flow).
+ */
+function PushUrlsDownloadButton({
+  cameras,
+}: {
+  cameras: Array<{ name: string; streamUrl: string }>;
+}) {
+  const [downloaded, setDownloaded] = useState(false);
+
+  function handleDownload() {
+    // CSV escape: double-quote every cell, escape internal quotes by doubling.
+    // T-19.1-CSV-INJECT mitigation — safe under CSV RFC 4180.
+    const csv =
+      'name,streamUrl\n' +
+      cameras
+        .map(
+          (c) =>
+            `"${c.name.replace(/"/g, '""')}","${c.streamUrl.replace(/"/g, '""')}"`,
+        )
+        .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `push-urls-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setDownloaded(true);
+    setTimeout(() => setDownloaded(false), 3000);
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button variant="outline" onClick={handleDownload} disabled={downloaded}>
+          <Download className="mr-2 h-4 w-4" />
+          {downloaded ? 'Downloaded' : 'Download push URLs (CSV)'}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>
+        One-time download — view individual URLs later from each camera.
+      </TooltipContent>
+    </Tooltip>
+  );
 }
 
 export function BulkImportDialog({
@@ -224,7 +324,10 @@ export function BulkImportDialog({
   const [selectedSiteId, setSelectedSiteId] = useState('');
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
-  const [step, setStep] = useState<'upload' | 'preview'>('upload');
+  const [step, setStep] = useState<'upload' | 'preview' | 'result'>('upload');
+  // Phase 19.1 D-14: retain the server response post-import so the result panel
+  // can render the PushUrlsDownloadButton. Cleared on dialog close.
+  const [importedCameras, setImportedCameras] = useState<ImportedCamera[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadSites = useCallback(async () => {
@@ -354,7 +457,10 @@ export function BulkImportDialog({
       );
       const cameras = payloadRows.map((r) => ({
         name: r.name,
-        streamUrl: r.streamUrl,
+        // Phase 19.1 D-12: pull rows send streamUrl; push rows omit it so the
+        // server generates the key + URL.
+        ...(r.ingestMode === 'push' ? {} : { streamUrl: r.streamUrl }),
+        ingestMode: r.ingestMode ?? 'pull',
         tags: r.tags || undefined,
         description: r.description || undefined,
         ...(r.latitude && r.longitude
@@ -368,6 +474,7 @@ export function BulkImportDialog({
         imported: number;
         skipped?: number;
         errors: Array<{ row: number; message: string }>;
+        cameras?: ImportedCamera[];
       }>('/api/cameras/bulk-import', {
         method: 'POST',
         body: JSON.stringify({ cameras, siteId: selectedSiteId }),
@@ -377,8 +484,23 @@ export function BulkImportDialog({
 
       const imported = result?.imported ?? 0;
       const skipped = result?.skipped ?? 0;
+      const importedList = result?.cameras ?? [];
 
-      if (imported > 0 && skipped === 0) {
+      // Phase 19.1 D-14: split response by mode for the toast copy + download button.
+      const pushImported = importedList.filter((c) => c.ingestMode === 'push');
+      const pullImported = importedList.filter((c) => c.ingestMode !== 'push');
+      const pushCount = pushImported.length;
+      const pullCount = pullImported.length;
+
+      if (imported > 0 && pushCount > 0 && pullCount === 0) {
+        toast.success(
+          `Imported ${pushCount} push cameras. Download URLs to configure your encoders.`,
+        );
+      } else if (imported > 0 && pushCount > 0 && pullCount > 0) {
+        toast.success(
+          `Imported ${imported} cameras (${pushCount} push, ${pullCount} pull). ${skipped} skipped as duplicates.`,
+        );
+      } else if (imported > 0 && skipped === 0) {
         toast.success(`Imported ${imported} cameras successfully.`);
       } else if (imported > 0 && skipped > 0) {
         toast.success(`Imported ${imported} cameras, skipped ${skipped} duplicates.`);
@@ -388,12 +510,23 @@ export function BulkImportDialog({
         toast.error('Import failed. Check camera limits and try again.');
       }
 
-      onOpenChange(false);
+      // Notify parent (refresh table) without closing the dialog so the result
+      // panel + download button stay visible until the user explicitly dismisses.
       onSuccess();
 
-      setRows([]);
-      setStep('upload');
-      setProgress(null);
+      if (pushCount > 0) {
+        // Phase 19.1 D-14: stay on result step so the user can click
+        // Download push URLs (CSV) before closing.
+        setImportedCameras(importedList);
+        setStep('result');
+      } else {
+        // Pull-only flow: existing UX — close immediately after import.
+        onOpenChange(false);
+        setRows([]);
+        setStep('upload');
+        setProgress(null);
+        setImportedCameras([]);
+      }
     } catch {
       toast.error('Import failed. Check camera limits and try again.');
     } finally {
@@ -407,6 +540,9 @@ export function BulkImportDialog({
       setStep('upload');
       setProgress(null);
       setImporting(false);
+      // Phase 19.1 D-14: discard imported-camera snapshot when the dialog closes
+      // so the next open session starts fresh.
+      setImportedCameras([]);
     }
     onOpenChange(isOpen);
   }
@@ -437,7 +573,7 @@ export function BulkImportDialog({
                   CSV, JSON, or Excel (.xlsx) — max 500 cameras
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  Columns: name, streamUrl, description, tags, latitude, longitude
+                  Columns: name, streamUrl, ingestMode, description, tags, latitude, longitude
                 </p>
               </div>
             </button>
@@ -671,6 +807,49 @@ export function BulkImportDialog({
               {importing ? 'Importing...' : 'Confirm Import'}
             </Button>
           </DialogFooter>
+        )}
+
+        {step === 'result' && (
+          <>
+            <div className="space-y-4">
+              <div className="rounded-md border bg-muted/30 p-4 space-y-3">
+                <div className="flex items-center gap-2 text-sm">
+                  <Check className="h-4 w-4 text-primary" aria-hidden="true" />
+                  <span className="font-medium">
+                    Imported {importedCameras.length} cameras
+                    {(() => {
+                      const p = importedCameras.filter((c) => c.ingestMode === 'push').length;
+                      const q = importedCameras.length - p;
+                      if (p > 0 && q > 0) return ` (${p} push, ${q} pull)`;
+                      if (p > 0) return ` (${p} push)`;
+                      return '';
+                    })()}
+                    .
+                  </span>
+                </div>
+
+                {importedCameras.some((c) => c.ingestMode === 'push') && (
+                  <div className="mt-3">
+                    <TooltipProvider>
+                      <PushUrlsDownloadButton
+                        cameras={importedCameras
+                          .filter((c) => c.ingestMode === 'push')
+                          .map((c) => ({ name: c.name, streamUrl: c.streamUrl }))}
+                      />
+                    </TooltipProvider>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                onClick={() => handleClose(false)}
+              >
+                Done
+              </Button>
+            </DialogFooter>
+          </>
         )}
       </DialogContent>
     </Dialog>
