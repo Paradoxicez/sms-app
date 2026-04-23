@@ -32,6 +32,7 @@ import { CreateSiteSchema } from './dto/create-site.dto';
 import { CreateCameraSchema } from './dto/create-camera.dto';
 import { UpdateCameraSchema } from './dto/update-camera.dto';
 import { BulkImportSchema } from './dto/bulk-import.dto';
+import { serializeCamera } from './serialize-camera.util';
 
 @ApiTags('Cameras')
 @Controller('api')
@@ -192,7 +193,11 @@ export class CamerasController {
   @ApiResponse({ status: 200, description: 'List of cameras' })
   @ApiQuery({ name: 'siteId', required: false, description: 'Filter by site ID' })
   async findAllCameras(@Query('siteId') siteId?: string) {
-    return this.camerasService.findAllCameras(siteId);
+    // Phase 19.1 D-07: route every outbound camera through serializeCamera
+    // so future non-owner surfaces only need to flip the perspective flag.
+    // Tenancy already scoped to the caller's org, so 'owner' is correct.
+    const cameras = await this.camerasService.findAllCameras(siteId);
+    return cameras.map((c: any) => serializeCamera(c, { perspective: 'owner' }));
   }
 
   @Get('cameras/:id')
@@ -200,7 +205,10 @@ export class CamerasController {
   @ApiResponse({ status: 200, description: 'Camera details' })
   @ApiParam({ name: 'id', description: 'Camera ID' })
   async findCameraById(@Param('id') id: string) {
-    return this.camerasService.findCameraById(id);
+    // Phase 19.1 D-07: same chokepoint as findAllCameras — owner perspective
+    // because the tenancy client has already proven cross-org calls return 404.
+    const camera = await this.camerasService.findCameraById(id);
+    return serializeCamera(camera, { perspective: 'owner' });
   }
 
   @Patch('cameras/:id')
@@ -257,6 +265,34 @@ export class CamerasController {
   @ApiParam({ name: 'id', description: 'Camera ID' })
   async exitMaintenance(@Param('id') id: string) {
     return this.camerasService.exitMaintenance(id);
+  }
+
+  // ─── Push Stream Key Rotation (Phase 19.1 D-19, D-20) ───
+
+  @Post('cameras/:id/rotate-key')
+  @ApiOperation({
+    summary:
+      'Rotate the push stream key — force-disconnects active publisher and reveals new URL',
+  })
+  @ApiResponse({ status: 200, description: 'New streamUrl' })
+  @ApiResponse({ status: 400, description: 'Camera is not push mode' })
+  @ApiResponse({ status: 404, description: 'Camera not found' })
+  @ApiParam({ name: 'id', description: 'Camera ID' })
+  async rotateKey(
+    @Param('id') id: string,
+    @Req() req: Request,
+  ): Promise<{ streamUrl: string }> {
+    // AuthGuard attaches req.user. Source userId here (not CLS) to match
+    // the enterMaintenance + retryProbe patterns in this controller.
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      throw new BadRequestException('No authenticated user in request context');
+    }
+    // findCameraById uses tenancy — cross-org lookups throw 404.
+    // This is the T-19.1-KICK-UNAUTH mitigation: rotateStreamKey is only
+    // reachable once tenancy has confirmed the camera belongs to the caller.
+    await this.camerasService.findCameraById(id);
+    return this.camerasService.rotateStreamKey(id, userId);
   }
 
   // ─── Bulk Import ────────────────────────────────
