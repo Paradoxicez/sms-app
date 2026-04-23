@@ -7,6 +7,7 @@ import { PlaybackService } from '../playback/playback.service';
 import { RecordingsService } from '../recordings/recordings.service';
 import { onHlsCallbackSchema } from '../recordings/dto/on-hls-callback.dto';
 import { CamerasService } from '../cameras/cameras.service';
+import { StreamsService } from '../streams/streams.service';
 import { OnForwardSchema } from './dto/on-forward.dto';
 import { AuditService } from '../audit/audit.service';
 import { streamKeyPrefix } from '../cameras/stream-key.util';
@@ -27,6 +28,14 @@ export class SrsCallbackController {
     // import cycle at DI resolution time.
     @Inject(forwardRef(() => CamerasService))
     private readonly camerasService: CamerasService,
+    // Phase 19.1 (D-17): push+transcode needs FFmpeg to read the SRS
+    // loopback stream (rtmp://127.0.0.1:1935/push/<key>) and republish the
+    // transcoded output to live/<orgId>/<cameraId>. The push on_publish
+    // handler triggers streamsService.startStream; pull cameras keep their
+    // existing start flow (user-initiated or BootRecovery).
+    // forwardRef because StreamsModule imports SrsModule.
+    @Inject(forwardRef(() => StreamsService))
+    private readonly streamsService: StreamsService,
     // Phase 19.1 (D-21): push-rejected + first-publish audit events.
     // Optional in type (via `?`) so pre-19.1 unit tests that construct the
     // controller with 5 positional args still compile. Push-branch code
@@ -80,6 +89,20 @@ export class SrsCallbackController {
       // D-23: maintenance does not block publish — StatusService gate handles
       // notification/webhook suppression downstream.
       await this.statusService.transition(camera.id, camera.orgId, 'online');
+
+      // D-17: push+transcode needs FFmpeg to read the push loopback and
+      // republish transcoded output to live/<orgId>/<cameraId>. Passthrough
+      // is handled by SRS `forward` directive — skip FFmpeg enqueue there
+      // (streamsService.startStream has its own guard but calling it is
+      // pointless noise). Best-effort: a failed enqueue shouldn't block the
+      // on_publish ACK to SRS.
+      try {
+        await this.streamsService.startStream(camera.id);
+      } catch (err) {
+        this.logger.warn(
+          `Failed to enqueue FFmpeg job for ${camera.id}: ${(err as Error).message}`,
+        );
+      }
 
       // D-02 pitfall: delay 1000ms so SRS /api/v1/streams reflects the new publisher.
       try {

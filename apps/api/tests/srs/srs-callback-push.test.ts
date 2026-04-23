@@ -29,15 +29,20 @@ function makeController(
     };
   const auditService =
     overrides.auditService ?? { log: vi.fn().mockResolvedValue(undefined) };
+  const streamsService =
+    (overrides as any).streamsService ?? {
+      startStream: vi.fn().mockResolvedValue(undefined),
+    };
   const ctrl = new SrsCallbackController(
     statusService as any,
     statusGateway as any,
     playbackService as any,
     recordingsService as any,
     camerasService as any,
+    streamsService as any,
     auditService as any,
   );
-  return { ctrl, statusService, camerasService, auditService };
+  return { ctrl, statusService, camerasService, auditService, streamsService };
 }
 
 describe('SrsCallbackController on_publish app=push (D-15)', () => {
