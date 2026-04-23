@@ -2,8 +2,9 @@
 phase: 19-camera-input-validation-and-multi-protocol-support-rtmp-rtmp
 verified: 2026-04-22T09:32:10Z
 re_verified: 2026-04-22T16:50:00Z
+uat_completed: 2026-04-23T09:40:00Z
 status: passed
-score: 8/8 observable truths verified, test-infra regression closed
+score: 8/8 observable truths verified, test-infra regression closed, 6 UAT-discovered defects fixed
 re_verification:
   previous_status: gaps_found
   previous_score: 8/8 truths verified + 1 regression outside must_haves
@@ -11,6 +12,12 @@ re_verification:
     - "Existing test suite preserved — pre-Phase-19 StreamProbeProcessor tests still pass (resolved by deleting stale file superseded by tests/cameras/stream-probe.test.ts)"
   gaps_remaining: []
   regressions: []
+uat:
+  result: passed
+  tests_passed: 8/8
+  defects_found_and_fixed: 6
+  critical_regressions_fixed: 2
+  see: 19-HUMAN-UAT.md
 deferred:
   - truth: "Full API test suite green"
     addressed_in: "Phase 20 / quick-task — test-infrastructure repair"
@@ -221,6 +228,55 @@ All 5 threats mitigated. No HIGH residual risk.
 
 ---
 
+## Post-UAT Findings & Fixes (2026-04-23)
+
+Human UAT surfaced 6 defects that the automated verifier missed. All were fixed inline during the UAT session. Two were CRITICAL Phase 19 regressions — features that never worked since the phase shipped. Detailed steps and results live in `19-HUMAN-UAT.md`; commits here are the audit trail.
+
+| Severity | Defect | Root cause | Fix commit |
+|----------|--------|------------|------------|
+| **CRITICAL** | BullMQ rejected every probe enqueue with `Custom Id cannot contain :` — `createCamera`, `bulkImport`, on-publish refresh, and UI retry ALL silently failed. No camera was ever probed since Phase 19 shipped. Every `codecInfo` stayed `null` → UI showed `—` forever. | Planner copied "Phase 15 D-11 jobId pattern" as `probe:{cameraId}` (2 colon-segments). BullMQ only accepts colons when jobId has exactly 3 segments (Phase 15's actual pattern is `camera:{id}:ffmpeg`). Tests mocked the queue and never validated jobId strings. | `e1bd458` |
+| **CRITICAL** | D-02 on-publish refresh never ran. Even after the first fix made ffprobe probes work, the srs-api refresh probe was silently merged into the existing completed ffprobe job because both used the same jobId. `codecInfo.source` stayed `ffprobe` after every stream-start — ground-truth from SRS never landed. | `probe-{cameraId}` dedupped across sources. BullMQ `.add()` with an existing jobId returns the existing job handle, scheduling no new execution. Needed per-source jobIds. | `484e2b2` |
+| HIGH | WebSocket cookie auth: NotificationsGateway and SrsLogGateway silently rejected every browser connection in dev — real-time notifications and SRS log viewer completely broken. | Next.js app on `:3000`, API on `:3003`. Better Auth session cookies scoped to `:3000` never reached WS handshake direct to `:3003`. | `809aa6c` + `67905e6` (trailing-slash fix) |
+| HIGH | T-19-04 mitigation violated: failed-probe tooltip leaked raw ffprobe command line (`ffprobe -v quiet -print_format json -show_streams -rtsp_transpor...`) instead of a sanitized phrase. | `normalizeError()` dictionary missed `No route to host` / `EHOSTUNREACH` (TEST-NET-1 error), and fallback was `raw.slice(0, 80)` which leaked the wrapper "Command failed: ffprobe ...". | `2ed39b0` (expanded dictionary 9→13 patterns + safe generic fallback + user-friendly copy) |
+| MEDIUM | D-05 design gap: 4-state codec cell relied on client refetch, but no refetch mechanism existed. UI showed stale cell until manual page refresh even though backend wrote the probe result. | StreamProbeProcessor wrote DB silently. StatusGateway emitted only `camera:status`, not codec info. No polling on the page. | `9043975` (added `StatusGateway.broadcastCodecInfo` + extended `useCameraStatus` hook with `onCodecInfoChange` + wired tenant-cameras-page to patch row state) |
+| LOW | Socket.IO hooks hardcoded `transports: ['websocket']` without polling fallback → console spam on every transient blip (API HMR restart, network stall). Triggered false-positive bug report during UAT. | 4 web hooks disabled Socket.IO's default polling fallback. | `0080b2b` (added `'polling'` as secondary transport in all 4 hooks) |
+
+### Process gaps uncovered
+
+1. **Mocked queues don't validate.** Both CRITICAL regressions stem from BullMQ jobId rules the unit tests never exercised. Future phases using custom jobIds need at least one integration test against real BullMQ (or a validator mock) before ship.
+2. **"Copy Phase N pattern" without verification is dangerous.** The planner's D-04 instruction cited Phase 15 as precedent but truncated the pattern incorrectly. Planner and verifier need to inspect the actual cited code, not just the decision text.
+3. **Design gaps only surface under manual UAT.** The realtime-refresh + cookie-scope issues both passed all automated checks because no automated test exercised the full cross-process flow (browser ↔ proxy ↔ API ↔ queue ↔ DB ↔ broadcast). Phase verifier was goal-backward against must_haves but the must_haves themselves assumed "codecInfo gets written" without checking "UI reflects it without refresh".
+4. **Error-message sanitization needs a dedicated test.** The canonical-phrase dictionary passed unit tests, but the fallback path (raw.slice) was never exercised against realistic error strings.
+
+### Post-UAT commit trail
+
+```
+484e2b2  fix(probe): split BullMQ jobId by source so on-publish refresh actually runs
+2ed39b0  fix(probe): user-friendly error messages + safe fallback (T-19-04)
+9043975  feat(probe): broadcast codecInfo updates over WebSocket — realtime UI
+e1bd458  fix(probe): use hyphen separator in BullMQ jobId — colon form silently failed
+d4e8c90  docs(debug): archive notifications-srs-log cookie-auth session as resolved
+67905e6  fix(socket): split /socket.io rewrite to preserve trailing slash
+809aa6c  fix(socket): proxy WebSocket through web origin so session cookies reach gateways
+0080b2b  fix(socket): add polling fallback to prevent dev console spam on transient blips
+2908250  docs(debug): archive websocket-socketio session + split latent bugs
+```
+
+### Goal achievement (post-UAT)
+
+All must_haves from phase goal now verified end-to-end in a live browser:
+
+- ✅ `Camera.streamUrl` validated at input for rtsp/srt/rtmp/rtmps (zod allowlist + inline UI feedback)
+- ✅ `codecInfo` reliably populated via async probe pipeline (verified by triggering from createCamera, bulkImport, on-publish, UI retry, and direct API)
+- ✅ 4-state codec cell with inline retry (pending/failed/success/none) updates in realtime without page refresh
+- ✅ Duplicate prevention at both Add Camera (409 with friendly message) and Bulk Import (within-file `annotateDuplicates` + 3rd icon + skip-with-warning)
+- ✅ RTMP/RTMPS pull-model ingest accepted (FFmpeg branches correctly on `rtsp_transport` flag)
+- ✅ Error tooltips sanitized and user-friendly (T-19-04 compliant)
+
+---
+
 _Verified: 2026-04-22T09:32:10Z_
 _Re-verified: 2026-04-22T16:50:00Z_
+_UAT completed: 2026-04-23T09:40:00Z_
 _Verifier: Claude (gsd-verifier)_
+_UAT conductor: User + Claude (live browser + psql + Redis inspection)_

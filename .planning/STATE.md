@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Self-Service, Resilience & UI Polish
 status: executing
-stopped_at: Phase 19 supplementary discuss — RTMP scoped to pull; push split to 19.1
-last_updated: "2026-04-22T09:52:17.487Z"
+stopped_at: "Phase 19 UAT complete (8/8 passed) — 6 defects fixed during UAT (2 CRITICAL: jobId colon + jobId-per-source; 2 HIGH: WS cookie auth + T-19-04 leak; 1 MED: realtime broadcast; 1 LOW: polling fallback)"
+last_updated: "2026-04-23T09:43:40.170Z"
 last_activity: 2026-04-22
 progress:
   total_phases: 6
@@ -89,6 +89,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T06:55:09.470Z
-Stopped at: Phase 19 supplementary discuss — RTMP scoped to pull; push split to 19.1
-Resume file: .planning/phases/19-camera-input-validation-and-multi-protocol-support-rtmp-rtmp/19-CONTEXT.md
+Last session: 2026-04-23T09:43:40.165Z
+Stopped at: Phase 19 UAT complete (8/8 passed) — 6 defects fixed during UAT (2 CRITICAL: jobId colon + jobId-per-source; 2 HIGH: WS cookie auth + T-19-04 leak; 1 MED: realtime broadcast; 1 LOW: polling fallback)
+Resume file: .planning/phases/19-camera-input-validation-and-multi-protocol-support-rtmp-rtmp/19-HUMAN-UAT.md
