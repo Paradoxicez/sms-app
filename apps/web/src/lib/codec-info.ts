@@ -1,8 +1,12 @@
 /**
  * D-07: CodecInfo tagged-union type (duplicated from apps/api/src/cameras/types/codec-info.ts
  * to avoid zod 3/4 shared-package risk per RESEARCH Pitfall 4).
+ *
+ * D-16: 'mismatch' state added in Phase 19.1 — SRS publish callback detected
+ * the camera is pushing a non-H.264/AAC codec in passthrough mode. The actual
+ * codec (as reported by SRS) is captured in `mismatchCodec` for display.
  */
-export type CodecInfoStatus = "pending" | "failed" | "success"
+export type CodecInfoStatus = "pending" | "failed" | "success" | "mismatch"
 export type ProbeSource = "ffprobe" | "srs-api"
 
 export interface CodecInfoVideo {
@@ -25,6 +29,8 @@ export interface CodecInfo {
   video?: CodecInfoVideo
   audio?: CodecInfoAudio
   error?: string
+  /** D-16 — codec the camera actually sent (e.g. "H.265") when status='mismatch'. */
+  mismatchCodec?: string
   probedAt: string
   source: ProbeSource
 }
@@ -46,13 +52,16 @@ export function normalizeCodecInfo(raw: unknown): CodecInfo | null {
 
   // New shape — has explicit status
   if (typeof obj.status === "string") {
-    if (!["pending", "failed", "success"].includes(obj.status)) return null
+    if (!["pending", "failed", "success", "mismatch"].includes(obj.status))
+      return null
     if (typeof obj.probedAt !== "string") return null
     return {
       status: obj.status as CodecInfoStatus,
       video: obj.video as CodecInfoVideo | undefined,
       audio: obj.audio as CodecInfoAudio | undefined,
       error: typeof obj.error === "string" ? obj.error : undefined,
+      mismatchCodec:
+        typeof obj.mismatchCodec === "string" ? obj.mismatchCodec : undefined,
       probedAt: obj.probedAt,
       source: (obj.source as ProbeSource) ?? "ffprobe",
     }

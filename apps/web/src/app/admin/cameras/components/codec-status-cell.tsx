@@ -19,10 +19,11 @@ interface CodecStatusCellProps {
 }
 
 /**
- * D-05: 4-state codec cell.
+ * D-05: 5-state codec cell (D-16 added 'mismatch' in Phase 19.1).
  *   - null / malformed / never-probed  → em-dash
  *   - status="pending"                 → spinner + "Probing…" tooltip
  *   - status="failed"                  → amber warning + inline retry
+ *   - status="mismatch"                → amber warning (no retry) + codec-mismatch tooltip
  *   - status="success"                 → codec text (e.g. "H.264")
  *
  * D-07: All shape normalization happens at the prop boundary via
@@ -71,6 +72,39 @@ export function CodecStatusCell({
         cameraName={cameraName}
         error={info.error}
       />
+    )
+  }
+
+  // D-16: codec mismatch (passthrough mode received non-H.264/AAC). No inline
+  // retry — user must open the camera detail sheet to switch to Transcode or
+  // update the camera. Amber AlertTriangle matches the visual tier of 'failed'
+  // so operators immediately see something is wrong.
+  if (info.status === "mismatch") {
+    const codec = info.mismatchCodec ?? info.video?.codec ?? ""
+    const tooltip = "Codec mismatch — open camera to resolve"
+    const ariaLabel = codec
+      ? `Codec mismatch for ${cameraName}: camera sending ${codec}`
+      : `Codec mismatch for ${cameraName}`
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <span
+                role="status"
+                aria-label={ariaLabel}
+                className="inline-flex items-center"
+              >
+                <AlertTriangle
+                  className="size-3.5 text-amber-600 dark:text-amber-500"
+                  aria-hidden="true"
+                />
+              </span>
+            }
+          />
+          <TooltipContent>{tooltip}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     )
   }
 
