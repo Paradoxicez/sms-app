@@ -6,7 +6,7 @@
 // type into the stream-probe processor and the web normalizer. Wave 0 only
 // declares it.
 
-export type CodecInfoStatus = 'pending' | 'failed' | 'success';
+export type CodecInfoStatus = 'pending' | 'failed' | 'success' | 'mismatch';
 export type ProbeSource = 'ffprobe' | 'srs-api';
 
 export interface CodecInfoVideo {
@@ -29,6 +29,8 @@ export interface CodecInfo {
   video?: CodecInfoVideo;
   audio?: CodecInfoAudio;
   error?: string; // normalized, short English
+  /** Phase 19.1 D-16: when status='mismatch', which codec did the camera send? */
+  mismatchCodec?: string;
   probedAt: string; // ISO-8601
   source: ProbeSource;
 }
