@@ -345,7 +345,6 @@ export class CamerasService {
     orgId: string;
     maintenanceMode: boolean;
     firstPublishAt: Date | null;
-    status: string;
   } | null> {
     const client: any = this.systemPrisma ?? this.prisma;
     return client.camera.findFirst({
@@ -355,7 +354,6 @@ export class CamerasService {
         orgId: true,
         maintenanceMode: true,
         firstPublishAt: true,
-        status: true,
       },
     });
   }

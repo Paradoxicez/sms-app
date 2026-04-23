@@ -79,16 +79,6 @@ export class SrsCallbackController {
 
       // D-23: maintenance does not block publish — StatusService gate handles
       // notification/webhook suppression downstream.
-      //
-      // State machine invariant: offline cameras must pass through `connecting`
-      // before reaching `online` (see StatusService.validTransitions). Pull
-      // cameras hit `connecting` when FFmpeg starts the pull; push cameras have
-      // no equivalent pre-publish phase, so we bridge offline→connecting here
-      // before the real transition to online. notify dispatch is debounced by
-      // jobId, so the pair collapses to a single `online` notification.
-      if (camera.status === 'offline') {
-        await this.statusService.transition(camera.id, camera.orgId, 'connecting');
-      }
       await this.statusService.transition(camera.id, camera.orgId, 'online');
 
       // D-02 pitfall: delay 1000ms so SRS /api/v1/streams reflects the new publisher.

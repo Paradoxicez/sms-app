@@ -140,7 +140,14 @@ export class StreamProbeProcessor extends WorkerHost {
         const videoOk = /^(h\.?264|avc(?:1)?)$/i.test(videoCodec);
         const audioOk = /^aac$/i.test(audioCodec);
 
-        if (isPushPassthrough && (!videoOk || !audioOk)) {
+        // Phase 19.1 — avoid false-positive mismatch during stream flap. SRS
+        // registers the forwarded stream before its codec parser has populated
+        // video/audio — if we fire mismatch on empty codec strings the UI
+        // shows "Camera is sending ." and kicks the publisher spuriously.
+        // Treat empty codec as "not yet known" and let the next probe confirm.
+        const codecKnown = videoCodec !== '' || audioCodec !== '';
+
+        if (isPushPassthrough && codecKnown && (!videoOk || !audioOk)) {
           // Which codec failed? If video mismatched, use video; else audio.
           const mismatchCodec = !videoOk ? videoCodec : audioCodec;
           const codecInfoPayload: CodecInfo = {

@@ -11,8 +11,13 @@ export class StatusService {
   private readonly logger = new Logger(StatusService.name);
   private viewerCounts = new Map<string, number>();
 
+  // Phase 19.1: `offline -> online` is now allowed to support push+passthrough
+  // cameras whose SRS-forward callback fires on_publish directly (no FFmpeg
+  // connecting phase). Pull cameras still typically pass through `connecting`
+  // because FFmpegService.start() sets that state before the SRS callback
+  // fires — the new direct edge is additive, not destructive.
   private readonly validTransitions: Record<string, string[]> = {
-    offline: ['connecting'],
+    offline: ['connecting', 'online'],
     connecting: ['online', 'offline', 'reconnecting'],
     online: ['reconnecting', 'degraded', 'offline'],
     reconnecting: ['online', 'offline', 'connecting'],

@@ -38,8 +38,14 @@ export function CodecMismatchBanner({
   const info = normalizeCodecInfo(camera.codecInfo)
   if (!info || info.status !== "mismatch") return null
 
+  // ?? only falls back on null/undefined — empty strings (which we've seen
+   // from transient SRS states during stream flap) leak through and render
+   // "Camera is sending ." with nothing. Use a truthy check so empty strings
+   // take the fallback too.
   const codec =
-    info.mismatchCodec ?? info.video?.codec ?? "an unsupported codec"
+    (info.mismatchCodec && info.mismatchCodec.length > 0 && info.mismatchCodec) ||
+    (info.video?.codec && info.video.codec.length > 0 && info.video.codec) ||
+    "an unsupported codec"
 
   return (
     <div

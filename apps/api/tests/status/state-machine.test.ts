@@ -118,11 +118,19 @@ describe('Camera Status State Machine', () => {
     expect(mockPrisma.camera.update).toHaveBeenCalled();
   });
 
-  // Invalid transitions
-  it('should reject transition offline -> online (must go through connecting)', async () => {
+  // Phase 19.1: `offline -> online` is now allowed because push+passthrough
+  // cameras reach online via SRS forward's on_publish callback without an
+  // FFmpeg `connecting` phase. Pull cameras still typically go through
+  // connecting because FFmpegService sets that state before SRS fires
+  // on_publish — the direct edge is additive.
+  it('should allow transition offline -> online (Phase 19.1 push+passthrough path)', async () => {
     mockPrisma.camera.findUnique.mockResolvedValue({ id: 'cam-1', status: 'offline' });
-    await expect(service.transition('cam-1', 'org-1', 'online')).rejects.toThrow(
-      'Invalid transition: offline -> online',
+    await service.transition('cam-1', 'org-1', 'online');
+    expect(mockPrisma.camera.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'cam-1' },
+        data: expect.objectContaining({ status: 'online' }),
+      }),
     );
   });
 

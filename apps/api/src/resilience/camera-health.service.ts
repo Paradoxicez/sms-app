@@ -80,11 +80,33 @@ export class CameraHealthService implements OnModuleInit {
 
     // Step 4 — detect dead streams + recover.
     for (const camera of cameras) {
+      // Phase 19.1 (D-17): push+passthrough cameras have NO FFmpeg process
+      // by design — SRS `forward` directive remaps push/<key> → live/<orgId>/<cameraId>
+      // natively. Treating ffmpegAlive=false as "dead" would loop: enqueue ffmpeg job
+      // → FFmpeg starts a second publisher on push/<key> → conflicts with OBS → exit
+      // → CameraHealthService detects "dead" again → repeat. Liveness for push+
+      // passthrough is purely based on SRS stream presence.
+      const isPushPassthrough =
+        (camera as any).ingestMode === 'push' && !camera.needsTranscode;
+
       const ffmpegAlive = this.ffmpeg.isRunning(camera.id);
       const srsAlive = srsStreamIds.has(camera.id);
-      const dead = !ffmpegAlive || !srsAlive;
+      const dead = isPushPassthrough ? !srsAlive : !ffmpegAlive || !srsAlive;
 
       if (!dead) continue;
+
+      // Push+passthrough recovery path: no FFmpeg to stop, no FFmpeg to (re)start.
+      // The encoder (OBS / camera) reconnects on its own. We only mark status
+      // reconnecting so the UI reflects the gap; we do NOT enqueueStart.
+      if (isPushPassthrough) {
+        this.logger.warn(
+          `CameraHealthService: push+passthrough camera ${camera.id} missing from SRS — waiting for encoder to reconnect`,
+        );
+        await this.statusService
+          .transition(camera.id, camera.orgId, 'reconnecting')
+          .catch(() => {});
+        continue;
+      }
 
       this.logger.warn(
         `CameraHealthService: dead stream detected for camera ${camera.id} (ffmpeg=${ffmpegAlive}, srs=${srsAlive})`,

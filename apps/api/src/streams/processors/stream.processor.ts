@@ -55,6 +55,24 @@ export class StreamProcessor extends WorkerHost {
       return;
     }
 
+    // Phase 19.1 (D-17): defensive guard — push+passthrough cameras must
+    // never run FFmpeg. StreamsService.startStream short-circuits, but stray
+    // jobs from BootRecoveryService or CameraHealthService could still land
+    // here. Discriminator: push+passthrough jobs have needsTranscode=false
+    // AND a loopback inputUrl (buildStreamJobData only writes that URL for
+    // push cameras); pull+passthrough uses external URL, push+transcode has
+    // needsTranscode=true.
+    const isPushPassthrough =
+      !needsTranscode &&
+      typeof inputUrl === 'string' &&
+      inputUrl.startsWith('rtmp://127.0.0.1:1935/push/');
+    if (isPushPassthrough) {
+      this.logger.warn(
+        `Refusing FFmpeg job for push+passthrough camera ${cameraId} — SRS forward handles it`,
+      );
+      return;
+    }
+
     const streamKey = `live/${orgId}/${cameraId}`;
     const srsHost = process.env.SRS_HOST || 'localhost';
     const outputUrl = `rtmp://${srsHost}:1935/${streamKey}`;
