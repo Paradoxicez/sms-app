@@ -23,6 +23,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { IngestModeToggle, type IngestMode } from './ingest-mode-toggle';
+import { CreatedUrlReveal } from './created-url-reveal';
 
 interface Project {
   id: string;
@@ -73,10 +75,20 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Phase 19.1 D-08/09/10/11: push-mode additions.
+  // ingestMode defaults to 'pull' for create mode. Edit mode omits the toggle
+  // entirely (ingestMode is immutable post-create per UI-SPEC / D-01 backend).
+  const [ingestMode, setIngestMode] = useState<IngestMode>('pull');
+  // Two-phase dialog: 'form' → fill + submit; 'reveal' → CreatedUrlReveal body
+  // with the server-generated push URL. Only create-push flips to 'reveal'.
+  const [phase, setPhase] = useState<'form' | 'reveal'>('form');
+  const [createdUrl, setCreatedUrl] = useState('');
+
   const isEditMode = !!camera;
   const pendingSiteIdRef = useRef<string | undefined>(undefined);
 
   // D-15: live prefix validation. Re-runs on every keystroke; O(1) regex cost.
+  // Pull mode only — push mode does not carry a client-supplied streamUrl.
   const streamUrlError = useMemo(() => validateStreamUrl(streamUrl), [streamUrl]);
 
   useEffect(() => {
@@ -141,11 +153,31 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
     setDescription('');
     setStreamProfileId('');
     setError(null);
+    // Phase 19.1 D-08/09: reset push-mode state too so reopening the dialog
+    // starts in the default pull/form phase.
+    setIngestMode('pull');
+    setPhase('form');
+    setCreatedUrl('');
+  }
+
+  // Phase 19.1 D-08: switching mode clears any streamUrl state so the
+  // form doesn't submit stale input under a new mode, and matches UI-SPEC:
+  // "Switching from Push → Pull: restores empty streamUrl input."
+  function handleIngestModeChange(next: IngestMode) {
+    setIngestMode(next);
+    if (next === 'push') {
+      setStreamUrl('');
+      setError(null);
+    } else {
+      setStreamUrl('');
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !streamUrl.trim()) return;
+    if (!name.trim()) return;
+    // Push mode: no client-supplied URL; server generates. Pull mode requires URL.
+    if (ingestMode === 'pull' && !streamUrl.trim()) return;
     if (!isEditMode && !siteId) return;
 
     setSaving(true);
@@ -154,7 +186,6 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
     try {
       const body: Record<string, unknown> = {
         name: name.trim(),
-        streamUrl: streamUrl.trim(),
       };
       if (description.trim()) body.description = description.trim();
       if (lat && lng) {
@@ -166,12 +197,40 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
       body.streamProfileId = streamProfileId || null;
 
       if (isEditMode) {
+        // D-01 (Phase 19.1): ingestMode is immutable post-create — do NOT send
+        // it in the PATCH payload. streamUrl is pull-only (push URL is managed
+        // server-side via rotate-key).
+        body.streamUrl = streamUrl.trim();
         if (siteId) body.siteId = siteId;
         await apiFetch(`/api/cameras/${camera.id}`, {
           method: 'PATCH',
           body: JSON.stringify(body),
         });
+      } else if (ingestMode === 'push') {
+        // Create-push: server generates streamKey + streamUrl. No streamUrl in payload.
+        body.ingestMode = 'push';
+        const response = await apiFetch<{
+          id: string;
+          ingestMode: string;
+          streamUrl: string;
+        }>(`/api/sites/${siteId}/cameras`, {
+          method: 'POST',
+          body: JSON.stringify(body),
+        });
+
+        if (response?.streamUrl) {
+          // Flip to reveal phase — user must click Done to close.
+          // Intentionally do NOT call onSuccess/onOpenChange here.
+          setCreatedUrl(response.streamUrl);
+          setPhase('reveal');
+          return;
+        }
+        // Defensive fallback: if server somehow omits streamUrl, fall through to
+        // the legacy success path so the dialog still closes rather than trap.
       } else {
+        // Create-pull: unchanged from Phase 19.
+        body.streamUrl = streamUrl.trim();
+        body.ingestMode = 'pull';
         await apiFetch(`/api/sites/${siteId}/cameras`, {
           method: 'POST',
           body: JSON.stringify(body),
@@ -183,8 +242,20 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
       onSuccess();
     } catch (err) {
       // D-11: server-layer DuplicateStreamUrlError translates to 409 + body.code.
-      if (err instanceof ApiError && err.status === 409 && err.code === 'DUPLICATE_STREAM_URL') {
-        setError('A camera with this stream URL already exists.');
+      // Phase 19.1: DuplicateStreamKey (push) also surfaces as 409 + code
+      // DUPLICATE_STREAM_KEY — rare nanoid collision; same class of error.
+      if (err instanceof ApiError && err.status === 409) {
+        if (err.code === 'DUPLICATE_STREAM_URL') {
+          setError('A camera with this stream URL already exists.');
+        } else if (err.code === 'DUPLICATE_STREAM_KEY') {
+          setError('A camera with this push key already exists. Please try saving again.');
+        } else {
+          setError(
+            isEditMode
+              ? 'Failed to update camera. Check the details and try again.'
+              : 'Failed to create camera. Check the details and try again.',
+          );
+        }
       } else {
         setError(
           isEditMode
@@ -197,166 +268,225 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
     }
   }
 
+  // Phase 19.1 D-09: Done on reveal closes the dialog and notifies the parent
+  // to refresh. Order matters: call onSuccess BEFORE onOpenChange so any
+  // refresh queued in the parent runs before the unmount sequence.
+  function handleRevealDone() {
+    onSuccess();
+    onOpenChange(false);
+    resetForm();
+  }
+
+  // Submit button enablement: pull mode requires valid streamUrl; push mode
+  // requires only name (+ siteId for create).
+  const canSubmit = (() => {
+    if (!name.trim()) return false;
+    if (!isEditMode && !siteId) return false;
+    if (ingestMode === 'pull') {
+      if (!streamUrl.trim()) return false;
+      if (streamUrlError) return false;
+    }
+    return !saving;
+  })();
+
   return (
     <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetForm(); }}>
       <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>{isEditMode ? 'Edit Camera' : 'Add Camera'}</DialogTitle>
-          <DialogDescription>
-            {isEditMode
-              ? 'Update camera configuration.'
-              : 'Register a new camera to start streaming.'}
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="cam-name">Name *</Label>
-            <Input
-              id="cam-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Camera name"
-              required
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="cam-url">Stream URL *</Label>
-            <Input
-              id="cam-url"
-              value={streamUrl}
-              onChange={(e) => setStreamUrl(e.target.value)}
-              placeholder="rtsp://192.168.1.100:554/stream"
-              className={cn(
-                'font-mono text-xs',
-                streamUrlError && 'border-destructive focus-visible:ring-destructive/50',
+        {phase === 'reveal' ? (
+          <CreatedUrlReveal
+            url={createdUrl}
+            title="Camera created"
+            onClose={handleRevealDone}
+          />
+        ) : (
+          <>
+            <DialogHeader>
+              <DialogTitle>{isEditMode ? 'Edit Camera' : 'Add Camera'}</DialogTitle>
+              <DialogDescription>
+                {isEditMode
+                  ? 'Update camera configuration.'
+                  : 'Register a new camera to start streaming.'}
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Phase 19.1 D-08: segmented Pull/Push toggle (create mode only). */}
+              {!isEditMode && (
+                <IngestModeToggle value={ingestMode} onChange={handleIngestModeChange} />
               )}
-              aria-invalid={!!streamUrlError}
-              aria-describedby={streamUrlError ? 'cam-url-error' : 'cam-url-help'}
-              required
-            />
-            {streamUrlError ? (
-              <p id="cam-url-error" role="alert" className="text-xs text-destructive">
-                {streamUrlError}
-              </p>
-            ) : (
-              <p id="cam-url-help" className="text-xs text-muted-foreground">
-                {HELPER_TEXT}
-              </p>
-            )}
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Project *</Label>
-              <Select value={projectId} onValueChange={(v) => setProjectId(String(v ?? ''))}>
-                <SelectTrigger className="w-full truncate">
-                  <SelectValue placeholder="Select project">
-                    {projects.find((p) => p.id === projectId)?.name}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Site *</Label>
-              <Select value={siteId} onValueChange={(v) => setSiteId(String(v ?? ''))} disabled={!projectId}>
-                <SelectTrigger className="w-full truncate">
-                  <SelectValue placeholder={projectId ? 'Select site' : 'Select project first'}>
-                    {sites.find((s) => s.id === siteId)?.name}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {sites.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="cam-name">Name *</Label>
+                <Input
+                  id="cam-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Camera name"
+                  required
+                />
+              </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="cam-lat">Latitude</Label>
-              <Input
-                id="cam-lat"
-                type="number"
-                step="any"
-                value={lat}
-                onChange={(e) => setLat(e.target.value)}
-                placeholder="13.7563"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="cam-lng">Longitude</Label>
-              <Input
-                id="cam-lng"
-                type="number"
-                step="any"
-                value={lng}
-                onChange={(e) => setLng(e.target.value)}
-                placeholder="100.5018"
-              />
-            </div>
-          </div>
+              {ingestMode === 'pull' || isEditMode ? (
+                <div className="space-y-1.5">
+                  <Label htmlFor="cam-url">Stream URL *</Label>
+                  <Input
+                    id="cam-url"
+                    value={streamUrl}
+                    onChange={(e) => setStreamUrl(e.target.value)}
+                    placeholder="rtsp://192.168.1.100:554/stream"
+                    className={cn(
+                      'font-mono text-xs',
+                      streamUrlError && 'border-destructive focus-visible:ring-destructive/50',
+                    )}
+                    aria-invalid={!!streamUrlError}
+                    aria-describedby={streamUrlError ? 'cam-url-error' : 'cam-url-help'}
+                    required
+                  />
+                  {streamUrlError ? (
+                    <p id="cam-url-error" role="alert" className="text-xs text-destructive">
+                      {streamUrlError}
+                    </p>
+                  ) : (
+                    <p id="cam-url-help" className="text-xs text-muted-foreground">
+                      {HELPER_TEXT}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                // Phase 19.1 D-10: push-mode hint block (UI-SPEC verbatim copy).
+                <div className="space-y-2 rounded-md border bg-muted/30 p-4">
+                  <h3 className="text-sm font-medium">
+                    We&apos;ll generate a push URL after you save.
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Configure your camera or encoder to publish to the generated URL.
+                    H.264 video + AAC audio are recommended for zero-transcode delivery.
+                  </p>
+                  <div className="flex justify-end">
+                    <a
+                      href="/docs/push-setup"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+                    >
+                      Setup guide →
+                    </a>
+                  </div>
+                </div>
+              )}
 
-          <div className="space-y-2">
-            <Label htmlFor="cam-tags">Tags</Label>
-            <Input
-              id="cam-tags"
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-              placeholder="outdoor, entrance, parking"
-            />
-          </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Project *</Label>
+                  <Select value={projectId} onValueChange={(v) => setProjectId(String(v ?? ''))}>
+                    <SelectTrigger className="w-full truncate">
+                      <SelectValue placeholder="Select project">
+                        {projects.find((p) => p.id === projectId)?.name}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projects.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Site *</Label>
+                  <Select value={siteId} onValueChange={(v) => setSiteId(String(v ?? ''))} disabled={!projectId}>
+                    <SelectTrigger className="w-full truncate">
+                      <SelectValue placeholder={projectId ? 'Select site' : 'Select project first'}>
+                        {sites.find((s) => s.id === siteId)?.name}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sites.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="cam-desc">Description</Label>
-            <Textarea
-              id="cam-desc"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Optional description..."
-              rows={2}
-            />
-          </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="cam-lat">Latitude</Label>
+                  <Input
+                    id="cam-lat"
+                    type="number"
+                    step="any"
+                    value={lat}
+                    onChange={(e) => setLat(e.target.value)}
+                    placeholder="13.7563"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cam-lng">Longitude</Label>
+                  <Input
+                    id="cam-lng"
+                    type="number"
+                    step="any"
+                    value={lng}
+                    onChange={(e) => setLng(e.target.value)}
+                    placeholder="100.5018"
+                  />
+                </div>
+              </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Stream Profile</Label>
-              <Select value={streamProfileId} onValueChange={(v) => setStreamProfileId(String(v ?? ''))}>
-                <SelectTrigger className="w-full truncate">
-                  <SelectValue placeholder="Default">
-                    {streamProfiles.find((p) => p.id === streamProfileId)?.name || 'Default'}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Default</SelectItem>
-                  {streamProfiles.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="cam-tags">Tags</Label>
+                <Input
+                  id="cam-tags"
+                  value={tags}
+                  onChange={(e) => setTags(e.target.value)}
+                  placeholder="outdoor, entrance, parking"
+                />
+              </div>
 
-          {error && (
-            <p className="text-xs text-destructive">{error}</p>
-          )}
+              <div className="space-y-2">
+                <Label htmlFor="cam-desc">Description</Label>
+                <Textarea
+                  id="cam-desc"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Optional description..."
+                  rows={2}
+                />
+              </div>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => { onOpenChange(false); resetForm(); }}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={saving || !name.trim() || !streamUrl.trim() || !!streamUrlError || (!isEditMode && !siteId)}>
-              {saving ? 'Saving...' : isEditMode ? 'Save Changes' : 'Save Camera'}
-            </Button>
-          </DialogFooter>
-        </form>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Stream Profile</Label>
+                  <Select value={streamProfileId} onValueChange={(v) => setStreamProfileId(String(v ?? ''))}>
+                    <SelectTrigger className="w-full truncate">
+                      <SelectValue placeholder="Default">
+                        {streamProfiles.find((p) => p.id === streamProfileId)?.name || 'Default'}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Default</SelectItem>
+                      {streamProfiles.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {error && (
+                <p className="text-xs text-destructive">{error}</p>
+              )}
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => { onOpenChange(false); resetForm(); }}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={!canSubmit}>
+                  {saving ? 'Saving...' : isEditMode ? 'Save Changes' : 'Save Camera'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );
