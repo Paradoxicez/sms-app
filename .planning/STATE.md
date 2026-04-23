@@ -3,11 +3,11 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Self-Service, Resilience & UI Polish
 status: executing
-stopped_at: "Phase 19 UAT complete (8/8 passed) — 6 defects fixed during UAT (2 CRITICAL: jobId colon + jobId-per-source; 2 HIGH: WS cookie auth + T-19-04 leak; 1 MED: realtime broadcast; 1 LOW: polling fallback)"
-last_updated: "2026-04-23T09:43:40.170Z"
+stopped_at: Phase 19.1 context gathered (6 areas, 26 decisions)
+last_updated: "2026-04-23T11:53:57.760Z"
 last_activity: 2026-04-22
 progress:
-  total_phases: 6
+  total_phases: 7
   completed_phases: 6
   total_plans: 31
   completed_plans: 31
@@ -65,6 +65,7 @@ Recent decisions affecting current work:
 
 - Phase 15.1 inserted after Phase 15: Tenancy RLS bypass + StreamProcessor transition fixes (URGENT)
 - Phase 19 added: Camera input validation and multi-protocol support (RTMP/RTMPS) — closes 5 gaps from audit `.planning/debug/camera-stream-validation-audit.md` (codec/resolution populate, Add Camera format validation, bulk import dedup, RTMP unblock, Prisma unique constraint)
+- Phase 19.1 inserted after Phase 19: RTMP push ingest with platform-generated stream keys (URGENT)
 
 ### Pending Todos
 
@@ -89,6 +90,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-23T09:43:40.165Z
-Stopped at: Phase 19 UAT complete (8/8 passed) — 6 defects fixed during UAT (2 CRITICAL: jobId colon + jobId-per-source; 2 HIGH: WS cookie auth + T-19-04 leak; 1 MED: realtime broadcast; 1 LOW: polling fallback)
-Resume file: .planning/phases/19-camera-input-validation-and-multi-protocol-support-rtmp-rtmp/19-HUMAN-UAT.md
+Last session: 2026-04-23T11:53:57.753Z
+Stopped at: Phase 19.1 context gathered (6 areas, 26 decisions)
+Resume file: .planning/phases/19.1-rtmp-push-ingest-with-platform-generated-stream-keys/19.1-CONTEXT.md
