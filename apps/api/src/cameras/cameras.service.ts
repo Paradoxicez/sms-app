@@ -4,6 +4,8 @@ import {
   Logger,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -12,6 +14,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SystemPrismaService } from '../prisma/system-prisma.service';
 import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
 import { StreamsService } from '../streams/streams.service';
+import { SrsApiService } from '../srs/srs-api.service';
+import { AuditService } from '../audit/audit.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { CreateSiteDto } from './dto/create-site.dto';
 import { CreateCameraDto } from './dto/create-camera.dto';
@@ -19,6 +23,12 @@ import { UpdateCameraDto } from './dto/update-camera.dto';
 import { BulkImportDto } from './dto/bulk-import.dto';
 import { ProbeJobData } from './types/codec-info';
 import { DuplicateStreamUrlError } from './errors/duplicate-stream-url.error';
+import { DuplicateStreamKeyError } from './errors/duplicate-stream-key.error';
+import {
+  generateStreamKey,
+  buildPushUrl,
+  streamKeyPrefix,
+} from './stream-key.util';
 
 @Injectable()
 export class CamerasService {
@@ -37,6 +47,14 @@ export class CamerasService {
     // positional args remain compatible (bulk-import.test.ts, hierarchy.test.ts,
     // maintenance.test.ts, camera-crud.test.ts).
     private readonly systemPrisma?: SystemPrismaService,
+    // Phase 19.1 (D-20, D-22): SRS kick helper for rotateStreamKey + delete.
+    // forwardRef because SrsModule imports CamerasModule via forwardRef.
+    // Optional so existing tests still construct with positional args.
+    @Inject(forwardRef(() => SrsApiService))
+    private readonly srsApi?: SrsApiService,
+    // Phase 19.1 (D-21): push-specific audit events. Optional for harness
+    // compatibility; real DI path wires the global AuditService.
+    private readonly auditService?: AuditService,
   ) {}
 
   // ─── Projects ──────────────────────────────────
@@ -144,6 +162,15 @@ export class CamerasService {
     // Check maxCameras package limit
     await this.enforceMaxCamerasLimit(orgId);
 
+    // Phase 19.1 D-01 + D-05: branch on ingestMode.
+    // Push → generate key + URL server-side; Pull → use client-supplied URL.
+    const isPush = dto.ingestMode === 'push';
+    const streamKey = isPush ? generateStreamKey() : null;
+    const pushHost = process.env.SRS_PUBLIC_HOST ?? 'localhost';
+    const streamUrl = isPush
+      ? buildPushUrl(pushHost, streamKey!)
+      : (dto.streamUrl as string);
+
     let camera: any;
     try {
       camera = await this.tenancy.camera.create({
@@ -151,7 +178,9 @@ export class CamerasService {
           orgId,
           siteId,
           name: dto.name,
-          streamUrl: dto.streamUrl,
+          streamUrl,
+          ingestMode: dto.ingestMode ?? 'pull',
+          streamKey,
           description: dto.description,
           location: dto.location ?? undefined,
           tags: dto.tags ?? [],
@@ -162,20 +191,42 @@ export class CamerasService {
         },
       });
     } catch (error) {
-      // Phase 19 (D-11): translate P2002 on the (orgId, streamUrl) unique
-      // constraint to DuplicateStreamUrlError (HTTP 409). Only translate when
-      // meta.target includes 'streamUrl' — future unique constraints on other
-      // fields must surface their own errors rather than being swallowed here.
+      // Phase 19 (D-11) + Phase 19.1 (D-04): translate P2002 on either the
+      // (orgId, streamUrl) unique constraint (pull path) or the global
+      // @@unique([streamKey]) (push path). meta.target pinpoints which.
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
       ) {
         const target = (error.meta?.target as string[] | undefined) ?? [];
+        if (target.includes('streamKey')) {
+          throw new DuplicateStreamKeyError();
+        }
         if (target.includes('streamUrl')) {
-          throw new DuplicateStreamUrlError(dto.streamUrl);
+          throw new DuplicateStreamUrlError(streamUrl);
         }
       }
       throw error;
+    }
+
+    // Phase 19.1 (D-21): audit key generation for push cameras only.
+    // Payload carries streamKeyPrefix (first 4 chars) — NEVER the full key.
+    if (isPush && this.auditService) {
+      try {
+        await this.auditService.log({
+          orgId,
+          action: 'camera.push.key_generated',
+          resource: 'camera',
+          resourceId: camera.id,
+          method: 'POST',
+          path: `/api/sites/${siteId}/cameras`,
+          details: { streamKeyPrefix: streamKeyPrefix(streamKey!) },
+        });
+      } catch (err) {
+        this.logger.warn(
+          `Audit key_generated failed for ${camera.id}: ${(err as Error).message}`,
+        );
+      }
     }
 
     // Phase 19 (D-01, D-04): fire-and-forget async probe after DB commit.
@@ -236,14 +287,34 @@ export class CamerasService {
 
   async updateCamera(id: string, dto: UpdateCameraDto) {
     await this.findCameraById(id);
-    return this.tenancy.camera.update({
-      where: { id },
-      data: dto,
-    });
+    // Phase 19.1 D-01: belt-and-suspenders — UpdateCameraSchema.strict()
+    // already rejects an `ingestMode` key at the DTO layer, but strip it
+    // here too so any future callpath that bypasses zod can't mutate the
+    // immutable mode.
+    const safe: any = { ...dto };
+    delete safe.ingestMode;
+    return this.tenancy.camera.update({ where: { id }, data: safe });
   }
 
   async deleteCamera(id: string) {
-    await this.findCameraById(id);
+    const camera = await this.findCameraById(id);
+    // Phase 19.1 D-22: if a push camera is mid-broadcast, kick the
+    // publisher first so SRS releases the RTMP session before the DB row
+    // disappears. Best-effort — a dead SRS must not block admin deletion.
+    if (camera.ingestMode === 'push' && camera.streamKey && this.srsApi) {
+      try {
+        const clientId = await this.srsApi.findPublisherClientId(
+          `push/${camera.streamKey}`,
+        );
+        if (clientId) {
+          await this.srsApi.kickPublisher(clientId);
+        }
+      } catch (err) {
+        this.logger.warn(
+          `Pre-delete kick failed for camera ${id}: ${(err as Error).message}`,
+        );
+      }
+    }
     return this.tenancy.camera.delete({ where: { id } });
   }
 
@@ -258,6 +329,182 @@ export class CamerasService {
         codecInfo: data.codecInfo,
       },
     });
+  }
+
+  // ─── Push Stream-Key Helpers (Phase 19.1) ───────
+
+  /**
+   * D-03, D-15: resolve a camera by its push streamKey. Called from the SRS
+   * on_publish callback which has no CLS context — we intentionally use
+   * systemPrisma to bypass RLS. The 128-bit entropy of the key is the
+   * derived tenancy primitive here: a correctly-guessed key IS the proof
+   * of ownership (see threat_model T-19.1-TENANCY-BYPASS).
+   */
+  async findByStreamKey(streamKey: string): Promise<{
+    id: string;
+    orgId: string;
+    maintenanceMode: boolean;
+    firstPublishAt: Date | null;
+  } | null> {
+    const client: any = this.systemPrisma ?? this.prisma;
+    return client.camera.findFirst({
+      where: { streamKey },
+      select: {
+        id: true,
+        orgId: true,
+        maintenanceMode: true,
+        firstPublishAt: true,
+      },
+    });
+  }
+
+  /**
+   * D-21: flip firstPublishAt atomically. The `firstPublishAt: null` guard
+   * in the WHERE clause means only the first successful on_publish wins —
+   * every subsequent call updates 0 rows and returns false. Used by the
+   * on_publish callback to emit the `camera.push.first_publish` audit once
+   * per camera lifetime.
+   */
+  async markFirstPublishIfNeeded(
+    cameraId: string,
+    _orgId: string,
+    _meta: { codec?: string; resolution?: string; clientIp?: string },
+  ): Promise<boolean> {
+    const client: any = this.systemPrisma ?? this.prisma;
+    const result = await client.camera.updateMany({
+      where: { id: cameraId, firstPublishAt: null },
+      data: { firstPublishAt: new Date() },
+    });
+    return result.count === 1;
+  }
+
+  /**
+   * D-18: resolve push → live forward routing target. SRS calls
+   * POST /api/srs/callbacks/on-forward for every publish; we answer with
+   * the re-mapped target url so the push/{key} session is re-streamed into
+   * live/{orgId}/{cameraId} without an extra FFmpeg process.
+   * Returns null when the key doesn't resolve (SRS then rejects the forward).
+   */
+  async resolveForwardTarget(
+    streamKey: string,
+  ): Promise<{ orgId: string; cameraId: string; needsTranscode: boolean } | null> {
+    const client: any = this.systemPrisma ?? this.prisma;
+    const camera = await client.camera.findFirst({
+      where: { streamKey },
+      select: { id: true, orgId: true, needsTranscode: true },
+    });
+    if (!camera) return null;
+    return {
+      orgId: camera.orgId,
+      cameraId: camera.id,
+      needsTranscode: camera.needsTranscode,
+    };
+  }
+
+  /**
+   * Phase 19.1 D-19 + D-20: rotate a push stream key.
+   *
+   * 1. Verify camera exists and is push mode.
+   * 2. Resolve the old publisher's SRS client_id BEFORE the DB update so we
+   *    still have the old key to match against.
+   * 3. Generate new key + URL and update in a single tenancy call.
+   * 4. Kick the old client (best-effort) — even if the kick fails the new
+   *    key is authoritative in the DB; any continuing publish against the
+   *    old key will be rejected by on_publish on its next cycle.
+   * 5. Audit the rotation with old+new 4-char prefixes (never the full key).
+   */
+  async rotateStreamKey(
+    cameraId: string,
+    userId: string,
+  ): Promise<{ streamUrl: string }> {
+    const camera = await this.tenancy.camera.findUnique({
+      where: { id: cameraId },
+    });
+    if (!camera) {
+      throw new NotFoundException(`Camera ${cameraId} not found`);
+    }
+    if (camera.ingestMode !== 'push') {
+      throw new BadRequestException(
+        'Only push cameras can rotate their stream key',
+      );
+    }
+
+    const oldKey = camera.streamKey as string;
+
+    // Step 2: resolve old client BEFORE rotating so we can still match on
+    // push/<oldKey>. Best-effort — null when SRS is unreachable or no
+    // publisher is currently connected.
+    let oldClientId: string | null = null;
+    if (this.srsApi) {
+      try {
+        oldClientId = await this.srsApi.findPublisherClientId(
+          `push/${oldKey}`,
+        );
+      } catch (err) {
+        this.logger.warn(
+          `findPublisherClientId failed on rotate for ${cameraId}: ${(err as Error).message}`,
+        );
+      }
+    }
+
+    const newKey = generateStreamKey();
+    const pushHost = process.env.SRS_PUBLIC_HOST ?? 'localhost';
+    const newUrl = buildPushUrl(pushHost, newKey);
+
+    let updated: any;
+    try {
+      updated = await this.tenancy.camera.update({
+        where: { id: cameraId },
+        data: { streamKey: newKey, streamUrl: newUrl },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const target = (error.meta?.target as string[] | undefined) ?? [];
+        if (target.includes('streamKey')) throw new DuplicateStreamKeyError();
+        if (target.includes('streamUrl'))
+          throw new DuplicateStreamUrlError(newUrl);
+      }
+      throw error;
+    }
+
+    // Step 4: best-effort kick. Kick happens AFTER the DB commit so the new
+    // key is already authoritative — kick failure does NOT undo the rotation.
+    if (oldClientId && this.srsApi) {
+      try {
+        await this.srsApi.kickPublisher(oldClientId);
+      } catch (err) {
+        this.logger.warn(
+          `Kick failed for client ${oldClientId} on rotate: ${(err as Error).message}`,
+        );
+      }
+    }
+
+    if (this.auditService) {
+      try {
+        await this.auditService.log({
+          orgId: camera.orgId,
+          userId,
+          action: 'camera.push.key_rotated',
+          resource: 'camera',
+          resourceId: cameraId,
+          method: 'POST',
+          path: `/api/cameras/${cameraId}/rotate-key`,
+          details: {
+            oldKeyPrefix: streamKeyPrefix(oldKey),
+            newKeyPrefix: streamKeyPrefix(newKey),
+          },
+        });
+      } catch (err) {
+        this.logger.warn(
+          `Audit key_rotated failed for ${cameraId}: ${(err as Error).message}`,
+        );
+      }
+    }
+
+    return { streamUrl: updated.streamUrl };
   }
 
   // ─── Maintenance Mode ───────────────────────────
@@ -363,6 +610,12 @@ export class CamerasService {
     imported: number;
     skipped: number;
     errors: Array<{ row: number; message: string }>;
+    cameras: Array<{
+      id: string;
+      name: string;
+      ingestMode: string;
+      streamUrl: string;
+    }>;
   }> {
     // Verify site exists
     const site = await this.tenancy.site.findUnique({ where: { id: dto.siteId } });
@@ -379,21 +632,40 @@ export class CamerasService {
     // NOTE: this pre-check is NOT atomic with the subsequent $transaction
     // (T-19-02 TOCTOU). The @@unique constraint catches any race and the
     // P2002 safety net below translates it to a DuplicateStreamUrlError.
-    const incomingUrls = dto.cameras.map((c) => c.streamUrl);
-    const existing = await this.tenancy.camera.findMany({
-      where: { orgId, streamUrl: { in: incomingUrls } },
-      select: { streamUrl: true },
-    });
+    //
+    // Phase 19.1 (D-12): push rows have no client-supplied streamUrl, so they
+    // bypass URL-based dedup entirely. Every push row generates a fresh key
+    // server-side (128-bit entropy — collision handled by P2002 safety net).
+    const pullRows = dto.cameras.filter((c) => c.ingestMode !== 'push');
+    const incomingUrls = pullRows
+      .map((c) => c.streamUrl)
+      .filter((u): u is string => typeof u === 'string' && u.length > 0);
+    const existing = incomingUrls.length
+      ? await this.tenancy.camera.findMany({
+          where: { orgId, streamUrl: { in: incomingUrls } },
+          select: { streamUrl: true },
+        })
+      : [];
     const existingUrls = new Set(existing.map((e: any) => e.streamUrl));
 
     // D-10a mirror: within-file dedup (server-side) — client (P07) also does
     // this so the UI can mark duplicate rows, but we must not trust the
     // client. Keep the first occurrence per streamUrl, skip later duplicates.
+    // Push rows skip this step — their server-generated keys are unique by
+    // construction.
     const seenInFile = new Set<string>();
     const toInsert: typeof dto.cameras = [];
     let skippedCount = 0;
 
     for (const cam of dto.cameras) {
+      if (cam.ingestMode === 'push') {
+        toInsert.push(cam);
+        continue;
+      }
+      if (!cam.streamUrl) {
+        // DTO.superRefine rejects this case, but guard anyway.
+        continue;
+      }
       if (existingUrls.has(cam.streamUrl)) {
         skippedCount++;
         continue;
@@ -414,7 +686,7 @@ export class CamerasService {
     // Short-circuit: nothing to insert. Return early so the empty-array
     // $transaction doesn't spin up a useless tenancy session.
     if (toInsert.length === 0) {
-      return { imported: 0, skipped: skippedCount, errors: [] };
+      return { imported: 0, skipped: skippedCount, errors: [], cameras: [] };
     }
 
     // Create all cameras in a single tenancy-wrapped transaction. The
@@ -429,17 +701,30 @@ export class CamerasService {
     // WITH CHECK, or the outer wrapper silently downgraded to sequential
     // execution — see .planning/debug/org-admin-cannot-add-team-members.md
     // (audit S1) for the full failure-mode analysis.
+    //
+    // Phase 19.1 (D-12, D-14): per-row, pre-compute streamKey + streamUrl
+    // for push rows BEFORE the create. The key is generated in Node
+    // (nanoid 21) so the DB never sees a null streamKey on an ingestMode
+    // ='push' row — only the @@unique([streamKey]) constraint can collide.
+    const pushHost = process.env.SRS_PUBLIC_HOST ?? 'localhost';
     let cameras: any[];
     try {
       cameras = await this.tenancy.$transaction(async (tx: any) => {
         const created: any[] = [];
         for (const cam of toInsert) {
+          const isPush = cam.ingestMode === 'push';
+          const rowStreamKey = isPush ? generateStreamKey() : null;
+          const rowStreamUrl = isPush
+            ? buildPushUrl(pushHost, rowStreamKey!)
+            : (cam.streamUrl as string);
           const c = await tx.camera.create({
             data: {
               orgId,
               siteId: dto.siteId,
               name: cam.name,
-              streamUrl: cam.streamUrl,
+              streamUrl: rowStreamUrl,
+              ingestMode: cam.ingestMode ?? 'pull',
+              streamKey: rowStreamKey,
               description: cam.description,
               location:
                 cam.lat != null && cam.lng != null
@@ -455,16 +740,18 @@ export class CamerasService {
         return created;
       });
     } catch (error) {
-      // Phase 19 (D-11) race safety net: the pre-check above races with a
-      // concurrent import. If the other request wins the P2002 fires on the
-      // (orgId, streamUrl) unique constraint — translate to the shared
-      // DuplicateStreamUrlError so the UI can branch on error.code the same
-      // way it does for single-camera creates.
+      // Phase 19 (D-11) + Phase 19.1 (D-04) race safety net: translate both
+      // streamUrl and streamKey P2002 violations. A streamKey collision in
+      // bulk is astronomically unlikely (128-bit entropy × batch size) but
+      // surface it the same way — the client should retry the whole batch.
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
       ) {
         const target = (error.meta?.target as string[] | undefined) ?? [];
+        if (target.includes('streamKey')) {
+          throw new DuplicateStreamKeyError();
+        }
         if (target.includes('streamUrl')) {
           throw new DuplicateStreamUrlError(
             'bulk-import race: a concurrent request inserted one of these stream URLs',
@@ -506,7 +793,17 @@ export class CamerasService {
       }
     }
 
-    return { imported: cameras.length, skipped: skippedCount, errors: [] };
+    return {
+      imported: cameras.length,
+      skipped: skippedCount,
+      errors: [],
+      cameras: cameras.map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        ingestMode: c.ingestMode,
+        streamUrl: c.streamUrl,
+      })),
+    };
   }
 
   // ─── Probe Enqueue Helpers (Phase 19) ──────────

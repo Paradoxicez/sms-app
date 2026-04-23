@@ -1,13 +1,10 @@
-// Phase 19.1 Wave 0 scaffold — implemented by referenced plan.
+// Phase 19.1 Plan 03 — real fixture implementation.
 // Shared test fixture for push-mode cameras. Plans 01–04 consume this.
 // Usage:
 //   const { camera, streamKey, pushUrl } = await createPushCameraFixture(orgId, siteId, prisma);
-//
-// This is a STUB — Plan 01 fills in the real implementation once the
-// schema has ingestMode + streamKey columns. For now we export the
-// signature so downstream test files compile.
 
 import type { PrismaClient } from '@prisma/client';
+import { generateStreamKey, buildPushUrl } from '../../src/cameras/stream-key.util';
 
 export interface PushCameraFixture {
   camera: any; // Camera row with ingestMode='push'
@@ -16,10 +13,25 @@ export interface PushCameraFixture {
 }
 
 export async function createPushCameraFixture(
-  _orgId: string,
-  _siteId: string,
-  _prisma: PrismaClient,
-  _overrides?: { streamKey?: string; name?: string },
+  orgId: string,
+  siteId: string,
+  prisma: PrismaClient,
+  overrides?: { streamKey?: string; name?: string },
 ): Promise<PushCameraFixture> {
-  throw new Error('createPushCameraFixture not implemented — Plan 01 wires this');
+  const streamKey = overrides?.streamKey ?? generateStreamKey();
+  const pushHost = process.env.SRS_PUBLIC_HOST ?? 'localhost';
+  const pushUrl = buildPushUrl(pushHost, streamKey);
+  const camera = await (prisma as any).camera.create({
+    data: {
+      orgId,
+      siteId,
+      name: overrides?.name ?? `push-cam-${streamKey.slice(0, 4)}`,
+      streamUrl: pushUrl,
+      ingestMode: 'push',
+      streamKey,
+      status: 'offline',
+      needsTranscode: false,
+    },
+  });
+  return { camera, streamKey, pushUrl };
 }
