@@ -125,16 +125,21 @@ export class StreamProbeProcessor extends WorkerHost {
             orgId: true,
           },
         });
-        const isPushPassthrough =
-          camera?.ingestMode === 'push' && camera?.needsTranscode === false;
+        const isPush = camera?.ingestMode === 'push';
+        const isPushPassthrough = isPush && camera?.needsTranscode === false;
 
         // D-02: pull ground-truth {video, audio} from SRS /api/v1/streams.
-        // Phase 19.1: for push+passthrough cameras, the SRS-forward target
-        // (live/<orgId>/<cameraId>) is often registered before SRS has parsed
-        // the RTMP stream headers — it returns with video=null/audio=null.
-        // The push-source stream (app=push, name=<streamKey>) has codec info
-        // immediately from the RTMP handshake, so prefer it for push cameras.
-        let info = isPushPassthrough && camera?.streamKey
+        // Phase 19.1: ALL push cameras (passthrough AND transcode) prefer
+        // the source stream (app=push, name=<streamKey>) because it carries
+        // the real codec from the encoder — what the user actually sent.
+        //   - Passthrough: source = output (SRS forward remaps bytes-as-is)
+        //   - Transcode:   source ≠ output (FFmpeg converts source → H.264)
+        //     Showing source tells the operator what the camera is doing and
+        //     whether auto-transcode was triggered. The transcoded output is
+        //     always H.264/AAC per HLS-browser contract, so no value in showing it.
+        // Pull cameras don't have a push/ source, so fall straight through
+        // to the live/ lookup.
+        let info = isPush && camera?.streamKey
           ? await this.srsApi.getStream(`push/${camera.streamKey}`)
           : null;
         if (!info) {

@@ -16,6 +16,14 @@ interface CodecStatusCellProps {
   codecInfo: unknown
   cameraName: string
   cameraId: string
+  /**
+   * Phase 19.1 — true when the camera is push+transcode. The codec shown in
+   * this cell is the SOURCE codec (what the encoder sends); when transcoding
+   * is active the platform converts it to H.264/AAC before delivery. A small
+   * "transcoded" badge appears next to the codec text so operators can see
+   * at a glance that auto-transcode is engaged.
+   */
+  transcoding?: boolean
 }
 
 /**
@@ -24,7 +32,7 @@ interface CodecStatusCellProps {
  *   - status="pending"                 → spinner + "Probing…" tooltip
  *   - status="failed"                  → amber warning + inline retry
  *   - status="mismatch"                → amber warning (no retry) + codec-mismatch tooltip
- *   - status="success"                 → codec text (e.g. "H.264")
+ *   - status="success"                 → codec text (e.g. "H.264") + optional transcoded badge
  *
  * D-07: All shape normalization happens at the prop boundary via
  * normalizeCodecInfo, so legacy rows self-heal on read.
@@ -33,6 +41,7 @@ export function CodecStatusCell({
   codecInfo,
   cameraName,
   cameraId,
+  transcoding,
 }: CodecStatusCellProps) {
   const info = normalizeCodecInfo(codecInfo)
 
@@ -110,6 +119,35 @@ export function CodecStatusCell({
 
   // status === 'success'
   const codec = info.video?.codec ?? "—"
+  if (transcoding) {
+    return (
+      <TooltipProvider>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="text-xs font-mono text-muted-foreground">{codec}</span>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <span
+                  aria-label="Transcoded to H.264/AAC for delivery"
+                  className={cn(
+                    "inline-flex items-center rounded px-1.5 py-0.5",
+                    "text-[10px] font-medium uppercase tracking-wide",
+                    "bg-sky-100 text-sky-700",
+                    "dark:bg-sky-950/40 dark:text-sky-300",
+                  )}
+                >
+                  transcoded
+                </span>
+              }
+            />
+            <TooltipContent>
+              Source codec shown. Platform converts to H.264/AAC for delivery.
+            </TooltipContent>
+          </Tooltip>
+        </span>
+      </TooltipProvider>
+    )
+  }
   return (
     <span className="text-xs font-mono text-muted-foreground">{codec}</span>
   )

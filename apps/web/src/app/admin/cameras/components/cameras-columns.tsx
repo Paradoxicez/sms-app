@@ -167,6 +167,10 @@ export function createCamerasColumns(
           codecInfo={row.original.codecInfo}
           cameraId={row.original.id}
           cameraName={row.original.name}
+          transcoding={
+            row.original.ingestMode === "push" &&
+            row.original.needsTranscode === true
+          }
         />
       ),
       enableSorting: false,
