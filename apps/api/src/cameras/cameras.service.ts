@@ -841,6 +841,16 @@ export class CamerasService {
       return;
     }
     try {
+      // Remove any prior completed/failed/waiting job with this jobId. BullMQ
+      // keeps completed jobs in history and silently drops add() calls that
+      // reuse the jobId — this breaks re-probe after the encoder reconnects
+      // (second on_publish → enqueue ignored → stale codecInfo forever).
+      const existing = await this.probeQueue.getJob(
+        `probe-${cameraId}-srs-api`,
+      );
+      if (existing) {
+        await existing.remove().catch(() => {});
+      }
       await this.probeQueue.add(
         'probe-camera',
         {

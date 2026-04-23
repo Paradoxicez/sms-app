@@ -113,13 +113,6 @@ export class StreamProbeProcessor extends WorkerHost {
 
     try {
       if (source === 'srs-api') {
-        // D-02: pull ground-truth {video, audio} from SRS /api/v1/streams.
-        const info = await this.srsApi.getStream(`${orgId}/${cameraId}`);
-        if (!info) {
-          // SRS didn't know about the stream — normalize to "Stream path not found".
-          throw new Error('Stream not found');
-        }
-
         // Phase 19.1 (D-16, D-21): codec-mismatch check for push+passthrough
         // cameras only. Transcode handles whatever codec arrives; pull-mode
         // ffprobe path runs pre-publish so is irrelevant here.
@@ -134,6 +127,24 @@ export class StreamProbeProcessor extends WorkerHost {
         });
         const isPushPassthrough =
           camera?.ingestMode === 'push' && camera?.needsTranscode === false;
+
+        // D-02: pull ground-truth {video, audio} from SRS /api/v1/streams.
+        // Phase 19.1: for push+passthrough cameras, the SRS-forward target
+        // (live/<orgId>/<cameraId>) is often registered before SRS has parsed
+        // the RTMP stream headers — it returns with video=null/audio=null.
+        // The push-source stream (app=push, name=<streamKey>) has codec info
+        // immediately from the RTMP handshake, so prefer it for push cameras.
+        let info = isPushPassthrough && camera?.streamKey
+          ? await this.srsApi.getStream(`push/${camera.streamKey}`)
+          : null;
+        if (!info) {
+          info = await this.srsApi.getStream(`${orgId}/${cameraId}`);
+        }
+        if (!info) {
+          // SRS didn't know about the stream — normalize to "Stream path not found".
+          throw new Error('Stream not found');
+        }
+
         const videoCodec = info.video?.codec ?? '';
         const audioCodec = info.audio?.codec ?? '';
         // H.264 has many display forms: "H.264", "H264", "AVC", "avc1".
