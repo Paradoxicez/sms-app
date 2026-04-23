@@ -28,6 +28,11 @@ export const UpdateCameraSchema = z
     tags: z.array(z.string()).optional(),
     thumbnail: z.string().url().optional().nullable(),
     streamProfileId: z.string().uuid().optional().nullable(),
+    // Phase 19.1 D-16: CodecMismatchBanner "Enable auto-transcode" PATCHes
+    // this field to flip a push camera from Passthrough → Transcode after
+    // a codec mismatch kick. Allowed in UpdateCameraDto so the banner's
+    // fetch call passes strict-mode validation.
+    needsTranscode: z.boolean().optional(),
   })
   .strict();
 
