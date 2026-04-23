@@ -29,6 +29,17 @@ export class StreamsService {
       throw new NotFoundException('Camera not found');
     }
 
+    // Phase 19.1 D-17: push + passthrough is a no-op here — SRS `forward`
+    // remaps `push/<key>` → `live/<orgId>/<cameraId>` natively, so no FFmpeg
+    // process is needed. Enqueuing would create a duplicate-reader conflict
+    // between FFmpeg-reading-push-key and SRS-forward-reading-push-key.
+    if (camera.ingestMode === 'push' && !camera.needsTranscode) {
+      this.logger.debug(
+        `startStream: skip FFmpeg for push+passthrough camera ${cameraId} — SRS forward handles it`,
+      );
+      return;
+    }
+
     this.logger.log(`Camera found: ${camera.name}, url: ${camera.streamUrl?.substring(0, 30)}...`);
 
     const profile = camera.streamProfile
@@ -46,10 +57,18 @@ export class StreamsService {
           audioCodec: 'aac' as const,
         };
 
+    // Phase 19.1 D-17: push + transcode reads from the SRS loopback stream
+    // (the camera has already published to `push/<streamKey>`). Pull mode
+    // reads the external camera URL directly as before.
+    const inputUrl =
+      camera.ingestMode === 'push' && camera.streamKey
+        ? `rtmp://127.0.0.1:1935/push/${camera.streamKey}`
+        : (camera.streamUrl as string);
+
     const jobData: StreamJobData = {
       cameraId: camera.id,
       orgId: camera.orgId,
-      inputUrl: camera.streamUrl,
+      inputUrl,
       profile,
       needsTranscode: camera.needsTranscode,
     };
