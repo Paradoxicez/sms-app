@@ -14,12 +14,32 @@ interface CameraViewersEvent {
   count: number;
 }
 
+interface CameraCodecInfoEvent {
+  cameraId: string;
+  // Mirrors the backend tagged union (apps/api/src/cameras/types/codec-info.ts).
+  // Typed as `unknown` here to avoid duplicating the schema across packages —
+  // consumers route it through normalizeCodecInfo at the prop boundary.
+  codecInfo: unknown;
+  timestamp: string;
+}
+
 export function useCameraStatus(
   orgId: string | undefined,
   onStatusChange?: (event: CameraStatusEvent) => void,
   onViewersChange?: (event: CameraViewersEvent) => void,
+  onCodecInfoChange?: (event: CameraCodecInfoEvent) => void,
 ) {
   const socketRef = useRef<Socket | null>(null);
+  // Keep latest callback refs so the WS listener always invokes the freshest
+  // closure even when the parent passes a new function each render. Without
+  // refs, the listener captures the first-render closure and silently misses
+  // state updates added after mount.
+  const statusRef = useRef(onStatusChange);
+  const viewersRef = useRef(onViewersChange);
+  const codecRef = useRef(onCodecInfoChange);
+  statusRef.current = onStatusChange;
+  viewersRef.current = onViewersChange;
+  codecRef.current = onCodecInfoChange;
 
   useEffect(() => {
     if (!orgId) return;
@@ -39,11 +59,15 @@ export function useCameraStatus(
     });
 
     socket.on('camera:status', (event: CameraStatusEvent) => {
-      onStatusChange?.(event);
+      statusRef.current?.(event);
     });
 
     socket.on('camera:viewers', (event: CameraViewersEvent) => {
-      onViewersChange?.(event);
+      viewersRef.current?.(event);
+    });
+
+    socket.on('camera:codec-info', (event: CameraCodecInfoEvent) => {
+      codecRef.current?.(event);
     });
 
     socketRef.current = socket;

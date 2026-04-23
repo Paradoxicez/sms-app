@@ -1,12 +1,26 @@
 ---
-status: draft
+status: resolved
 severity: high
 category: correctness
 trigger: "NotificationsGateway and SrsLogGateway reject every browser WebSocket connection in dev because Better Auth session cookies scoped to localhost:3000 are not sent on WS handshake to localhost:3003"
 created: 2026-04-22T17:30:00Z
-updated: 2026-04-22T17:30:00Z
+updated: 2026-04-22T18:30:00Z
 spun_off_from: .planning/debug/resolved/websocket-socketio-connection-fails.md
-impact: "Real-time notifications and SRS log viewer silently broken in dev. Prod impact unknown — may work if deployed behind single-origin reverse proxy."
+impact: "Real-time notifications and SRS log viewer silently broken in dev. Prod impact N/A — no prod deployment infrastructure exists yet (no reverse proxy, no deploy/, no compose override)."
+resolution_note: |
+  Fixed via Strategy (a) — proxied Socket.IO through the Next.js origin so
+  session cookies ride along. Two commits:
+  - 809aa6c: initial rewrite + hook changes (window.location.origin +
+    withCredentials) + preserved transports fallback from sister session
+  - (next commit): split the single `/socket.io/:path*` rewrite into two
+    rules (base path + subpaths) + added skipTrailingSlashRedirect: true,
+    because Next.js 15's `:path*` wildcard collapses the trailing slash
+    when the capture is empty (breaks Socket.IO's mount point) AND
+    Next.js's default trailing-slash redirect 308s before rewrites run.
+  Verified: HTTP 200 from `http://localhost:3000/socket.io/?EIO=4&transport=polling`
+  proxying through to NestJS on :3003.
+  Browser-level end-to-end verification deferred to next UAT session
+  (restart web dev, login, check DevTools Network → WS, trigger notification).
 ---
 
 ## Current Focus
@@ -14,7 +28,26 @@ impact: "Real-time notifications and SRS log viewer silently broken in dev. Prod
 hypothesis: Adding `source: '/socket.io/:path*'` rewrite to `apps/web/next.config.ts` (targeting `ws://localhost:3003/socket.io/:path*`) will route WebSocket handshakes through the Next.js origin, which means the browser sends the `localhost:3000` session cookie, which the Better Auth `getSession({ headers })` call in each gateway's `handleConnection` can then validate.
 test: After fix, open `/admin` → DevTools Network → WS tab → confirm first frame shows `HTTP/1.1 101 Switching Protocols` AND real-time notifications arrive when a test event is dispatched from API side.
 expecting: `NotificationsGateway.handleConnection` no longer falls into the "no session → disconnect" branch. `client.emit(...)` to this browser client successfully receives events.
-next_action: Start investigation via `/gsd-debug notifications-srs-log-gateways-reject-browser-cookies`
+next_action: Apply rewrite + update 4 hooks + verify handshake URL goes through :3000.
+
+## Prod Topology
+
+**Finding: No prod deployment infrastructure exists yet.**
+
+Evidence gathered 2026-04-22:
+- `docker-compose.yml`: only declares postgres, redis, srs, minio services. No `api` or `web` service, no `nginx`/`caddy`/`traefik` reverse proxy.
+- No `docker-compose.prod.yml`, `docker-compose.override.yml`, `deploy/`, `nginx/`, `Caddyfile`, or k8s manifests anywhere in the repo root.
+- `apps/api/.env` and `apps/web/.env` both set `NEXT_PUBLIC_API_URL=http://localhost:3003` (dev only).
+- `apps/api/src/main.ts` CORS allowlist: hardcoded `http://localhost:3000`, `http://localhost:3002`, `http://localhost:3010` — no production origin configured.
+- Both API processes and the web process run directly on the host (Next.js + NestJS via pnpm dev scripts). Only infrastructure (DB/Redis/SRS/MinIO) is containerized.
+
+**Implication:** The fix is effectively dev-only in impact because prod doesn't exist. When prod is eventually stood up, the planned topology per CLAUDE.md is "Docker Compose (single server, self-hosted)" with SRS on 8080 + API + Web. At that point a reverse proxy should be added (nginx in front terminating both `/` → web and `/api/*` + `/socket.io/*` → api on the same origin), which makes this cookie issue disappear naturally.
+
+**Risk assessment for this fix:** LOW. No prod deploy to break. The fix adds a rewrite that is a no-op when the site is later deployed behind a single-origin reverse proxy (the rewrite just proxies to itself in that case, or can be conditionally skipped via env check).
+
+## Turbopack WS Rewrite Support
+
+Next.js 15.0 with Turbopack. Per Next.js rewrites docs, WebSocket upgrade is supported through `rewrites()`. Will verify empirically after applying the change by checking DevTools Network → WS panel for `HTTP/1.1 101 Switching Protocols` response on `ws://localhost:3000/socket.io/...`.
 
 ## Symptoms
 

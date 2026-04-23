@@ -4,7 +4,8 @@ import { Job } from 'bullmq';
 import { FfprobeService } from '../../cameras/ffprobe.service';
 import { SystemPrismaService } from '../../prisma/system-prisma.service';
 import { SrsApiService } from '../../srs/srs-api.service';
-import { ProbeJobData } from '../../cameras/types/codec-info';
+import { StatusGateway } from '../../status/status.gateway';
+import { ProbeJobData, CodecInfo } from '../../cameras/types/codec-info';
 
 /**
  * StreamProbeProcessor — runs ffprobe (or pulls SRS /api/v1/streams) against
@@ -43,8 +44,33 @@ export class StreamProbeProcessor extends WorkerHost {
     private readonly ffprobeService: FfprobeService,
     private readonly prisma: SystemPrismaService,
     private readonly srsApi: SrsApiService,
+    // Phase 19 follow-up: push codecInfo updates over WebSocket so the
+    // 4-state codec cell auto-transitions without a page refresh.
+    // StatusModule is @Global() and exports StatusGateway, so direct inject
+    // works without adding StatusModule to imports.
+    private readonly statusGateway: StatusGateway,
   ) {
     super();
+  }
+
+  /**
+   * Persist + broadcast codecInfo in one helper. Keeps WS emission inseparable
+   * from the DB write so the UI stays in sync with the source of truth.
+   */
+  private async writeCodecInfo(
+    cameraId: string,
+    orgId: string,
+    codecInfo: CodecInfo,
+    extra?: Record<string, unknown>,
+  ): Promise<void> {
+    await this.prisma.camera.update({
+      where: { id: cameraId },
+      data: {
+        ...(extra ?? {}),
+        codecInfo: codecInfo as any, // Prisma Json column
+      },
+    });
+    this.statusGateway.broadcastCodecInfo(orgId, cameraId, codecInfo);
   }
 
   async process(job: Job<ProbeJobData>): Promise<void> {
@@ -62,15 +88,10 @@ export class StreamProbeProcessor extends WorkerHost {
 
     // Mark pending so the UI spinner appears immediately (D-07 tagged union).
     const nowIso = new Date().toISOString();
-    await this.prisma.camera.update({
-      where: { id: cameraId },
-      data: {
-        codecInfo: {
-          status: 'pending',
-          probedAt: nowIso,
-          source,
-        } as any, // Prisma Json column
-      },
+    await this.writeCodecInfo(cameraId, orgId, {
+      status: 'pending',
+      probedAt: nowIso,
+      source,
     });
 
     try {
@@ -81,31 +102,26 @@ export class StreamProbeProcessor extends WorkerHost {
           // SRS didn't know about the stream — normalize to "Stream path not found".
           throw new Error('Stream not found');
         }
-        await this.prisma.camera.update({
-          where: { id: cameraId },
-          data: {
-            codecInfo: {
-              status: 'success',
-              video: info.video
-                ? {
-                    codec: info.video.codec,
-                    width: info.video.width,
-                    height: info.video.height,
-                    profile: info.video.profile,
-                    level: info.video.level,
-                  }
-                : undefined,
-              audio: info.audio
-                ? {
-                    codec: info.audio.codec,
-                    sampleRate: info.audio.sample_rate,
-                    channels: info.audio.channel,
-                  }
-                : undefined,
-              probedAt: new Date().toISOString(),
-              source: 'srs-api',
-            } as any,
-          },
+        await this.writeCodecInfo(cameraId, orgId, {
+          status: 'success',
+          video: info.video
+            ? {
+                codec: info.video.codec,
+                width: info.video.width,
+                height: info.video.height,
+                profile: info.video.profile,
+                level: info.video.level,
+              }
+            : undefined,
+          audio: info.audio
+            ? {
+                codec: info.audio.codec,
+                sampleRate: info.audio.sample_rate,
+                channels: info.audio.channel,
+              }
+            : undefined,
+          probedAt: new Date().toISOString(),
+          source: 'srs-api',
         });
         this.logger.log(
           `Probed (srs-api) camera ${cameraId}: codec=${info.video?.codec ?? 'n/a'}`,
@@ -114,27 +130,26 @@ export class StreamProbeProcessor extends WorkerHost {
         // ffprobe path — existing behavior preserved but rewritten to the
         // new tagged-union shape.
         const result = await this.ffprobeService.probeCamera(streamUrl);
-        await this.prisma.camera.update({
-          where: { id: cameraId },
-          data: {
-            needsTranscode: result.needsTranscode,
-            codecInfo: {
-              status: 'success',
-              video: {
-                codec: result.codec,
-                width: result.width,
-                height: result.height,
-                fps: result.fps,
-              },
-              audio:
-                result.audioCodec && result.audioCodec !== 'none'
-                  ? { codec: result.audioCodec }
-                  : undefined,
-              probedAt: new Date().toISOString(),
-              source: 'ffprobe',
-            } as any,
+        await this.writeCodecInfo(
+          cameraId,
+          orgId,
+          {
+            status: 'success',
+            video: {
+              codec: result.codec,
+              width: result.width,
+              height: result.height,
+              fps: result.fps,
+            },
+            audio:
+              result.audioCodec && result.audioCodec !== 'none'
+                ? { codec: result.audioCodec }
+                : undefined,
+            probedAt: new Date().toISOString(),
+            source: 'ffprobe',
           },
-        });
+          { needsTranscode: result.needsTranscode },
+        );
         this.logger.log(
           `Probed (ffprobe) camera ${cameraId}: codec=${result.codec}, transcode=${result.needsTranscode}`,
         );
@@ -148,16 +163,11 @@ export class StreamProbeProcessor extends WorkerHost {
       // Best-effort: record error but do not throw. We don't want BullMQ to
       // retry probes against unreachable cameras 20× per import.
       try {
-        await this.prisma.camera.update({
-          where: { id: cameraId },
-          data: {
-            codecInfo: {
-              status: 'failed',
-              error: normalizedError,
-              probedAt: new Date().toISOString(),
-              source,
-            } as any,
-          },
+        await this.writeCodecInfo(cameraId, orgId, {
+          status: 'failed',
+          error: normalizedError,
+          probedAt: new Date().toISOString(),
+          source,
         });
       } catch (updateErr) {
         this.logger.error(

@@ -75,16 +75,32 @@ export default function TenantCamerasPage() {
     fetchCameras();
   }, [fetchCameras]);
 
-  // Real-time status updates via Socket.IO
-  useCameraStatus(orgId, (event) => {
-    setCameras((prev) =>
-      prev.map((c) =>
-        c.id === event.cameraId
-          ? { ...c, status: event.status as CameraRow['status'] }
-          : c
-      )
-    );
-  });
+  // Real-time status + codec updates via Socket.IO. The codec callback fires
+  // whenever StreamProbeProcessor writes a new codecInfo (pending → success/
+  // failed). Patches the row in place so the 4-state codec cell transitions
+  // without a page refresh.
+  useCameraStatus(
+    orgId,
+    (event) => {
+      setCameras((prev) =>
+        prev.map((c) =>
+          c.id === event.cameraId
+            ? { ...c, status: event.status as CameraRow['status'] }
+            : c
+        )
+      );
+    },
+    undefined,
+    (event) => {
+      setCameras((prev) =>
+        prev.map((c) =>
+          c.id === event.cameraId
+            ? { ...c, codecInfo: event.codecInfo as CameraRow['codecInfo'] }
+            : c
+        )
+      );
+    }
+  );
 
   // Action handlers
   function handleEdit(camera: CameraRow) {

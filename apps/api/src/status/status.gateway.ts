@@ -6,6 +6,7 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import type { CodecInfo } from '../cameras/types/codec-info';
 
 @WebSocketGateway({
   namespace: '/camera-status',
@@ -43,5 +44,20 @@ export class StatusGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server
       .to(`org:${orgId}`)
       .emit('camera:viewers', { cameraId, count });
+  }
+
+  /**
+   * Phase 19 follow-up: push CodecInfo updates to subscribed clients so the
+   * codec column auto-updates without a page refresh. Called by
+   * StreamProbeProcessor after each codecInfo write (pending → success/failed).
+   */
+  broadcastCodecInfo(orgId: string, cameraId: string, codecInfo: CodecInfo) {
+    this.server
+      .to(`org:${orgId}`)
+      .emit('camera:codec-info', {
+        cameraId,
+        codecInfo,
+        timestamp: new Date().toISOString(),
+      });
   }
 }
