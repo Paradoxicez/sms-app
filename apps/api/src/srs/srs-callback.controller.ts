@@ -7,6 +7,9 @@ import { PlaybackService } from '../playback/playback.service';
 import { RecordingsService } from '../recordings/recordings.service';
 import { onHlsCallbackSchema } from '../recordings/dto/on-hls-callback.dto';
 import { CamerasService } from '../cameras/cameras.service';
+import { OnForwardSchema } from './dto/on-forward.dto';
+import { AuditService } from '../audit/audit.service';
+import { streamKeyPrefix } from '../cameras/stream-key.util';
 
 @ApiExcludeController()
 @SkipThrottle()
@@ -24,26 +27,120 @@ export class SrsCallbackController {
     // import cycle at DI resolution time.
     @Inject(forwardRef(() => CamerasService))
     private readonly camerasService: CamerasService,
+    // Phase 19.1 (D-21): push-rejected + first-publish audit events.
+    // Optional in type (via `?`) so pre-19.1 unit tests that construct the
+    // controller with 5 positional args still compile. Push-branch code
+    // paths guard with `this.auditService?.log(...)` before invoking.
+    private readonly auditService?: AuditService,
   ) {}
 
   @Post('on-publish')
   async onPublish(@Body() body: any) {
-    const { orgId, cameraId } = this.parseStreamKey(body.stream, body.app);
-    if (orgId && cameraId) {
-      this.logger.log(`Stream published: camera=${cameraId}, org=${orgId}`);
-      await this.statusService.transition(cameraId, orgId, 'online');
+    const app = body?.app ?? '';
+    const stream = body?.stream ?? '';
+    const clientIp = body?.ip ?? undefined;
 
-      // D-02: refresh codecInfo from SRS /api/v1/streams as ground truth.
-      // Delay 1s so SRS registry populates before the worker fetches
-      // (RESEARCH Pitfall 3). Enqueue is best-effort — if it throws, swallow
-      // so SRS still receives { code: 0 } (required to allow the publish).
+    const parsed = this.parseStreamKey(stream, app);
+
+    // Phase 19.1 (D-15): push branch — DB-resolved stream key.
+    if (parsed.mode === 'push') {
+      const camera = await this.camerasService.findByStreamKey(parsed.streamKey);
+
+      if (!camera) {
+        // D-21: unknown key → audit (system org sentinel) + 403.
+        // NEVER log the full key — only the 4-char prefix.
+        try {
+          await this.auditService?.log({
+            orgId: 'system',
+            action: 'camera.push.publish_rejected',
+            resource: 'camera',
+            method: 'POST',
+            path: '/api/srs/callbacks/on-publish',
+            ip: clientIp,
+            details: {
+              streamKeyPrefix: streamKeyPrefix(parsed.streamKey),
+              reason: 'unknown_key',
+            },
+          });
+        } catch (err) {
+          this.logger.warn(
+            `Audit publish_rejected failed: ${(err as Error).message}`,
+          );
+        }
+        this.logger.warn(
+          `Push publish rejected — unknown key prefix=${streamKeyPrefix(parsed.streamKey)} ip=${clientIp ?? '?'}`,
+        );
+        return { code: 403 };
+      }
+
+      this.logger.log(
+        `Push publish: camera=${camera.id} org=${camera.orgId} keyPrefix=${streamKeyPrefix(parsed.streamKey)}`,
+      );
+
+      // D-23: maintenance does not block publish — StatusService gate handles
+      // notification/webhook suppression downstream.
+      await this.statusService.transition(camera.id, camera.orgId, 'online');
+
+      // D-02 pitfall: delay 1000ms so SRS /api/v1/streams reflects the new publisher.
       try {
-        await this.camerasService.enqueueProbeFromSrs(cameraId, orgId, {
+        await this.camerasService.enqueueProbeFromSrs(camera.id, camera.orgId, {
           delay: 1000,
         });
       } catch (err) {
         this.logger.warn(
-          `Failed to enqueue SRS refresh probe for ${cameraId}: ${(err as Error).message}`,
+          `Failed to enqueue SRS refresh probe for ${camera.id}: ${(err as Error).message}`,
+        );
+      }
+
+      // D-21: first_publish audit — idempotent via CamerasService flip.
+      try {
+        const wasFirst = await this.camerasService.markFirstPublishIfNeeded(
+          camera.id,
+          camera.orgId,
+          { clientIp },
+        );
+        if (wasFirst) {
+          await this.auditService?.log({
+            orgId: camera.orgId,
+            action: 'camera.push.first_publish',
+            resource: 'camera',
+            resourceId: camera.id,
+            method: 'POST',
+            path: '/api/srs/callbacks/on-publish',
+            ip: clientIp,
+            details: {},
+          });
+        }
+      } catch (err) {
+        this.logger.warn(
+          `markFirstPublishIfNeeded failed for ${camera.id}: ${(err as Error).message}`,
+        );
+      }
+
+      return { code: 0 };
+    }
+
+    // Live branch — preserve existing behavior exactly.
+    if (parsed.mode === 'live' && parsed.orgId && parsed.cameraId) {
+      this.logger.log(
+        `Stream published: camera=${parsed.cameraId}, org=${parsed.orgId}`,
+      );
+      await this.statusService.transition(
+        parsed.cameraId,
+        parsed.orgId,
+        'online',
+      );
+
+      // D-02: refresh codecInfo from SRS /api/v1/streams as ground truth.
+      try {
+        await this.camerasService.enqueueProbeFromSrs(
+          parsed.cameraId,
+          parsed.orgId,
+          { delay: 1000 },
+        );
+      } catch (err) {
+        this.logger.warn(
+          `Failed to enqueue SRS refresh probe for ${parsed.cameraId}: ${(err as Error).message}`,
         );
       }
     }
@@ -52,17 +149,40 @@ export class SrsCallbackController {
 
   @Post('on-unpublish')
   async onUnpublish(@Body() body: any) {
-    const { orgId, cameraId } = this.parseStreamKey(body.stream, body.app);
-    if (orgId && cameraId) {
-      this.logger.log(`Stream unpublished: camera=${cameraId}, org=${orgId}`);
+    const parsed = this.parseStreamKey(body?.stream ?? '', body?.app ?? '');
+    if (parsed.mode === 'live' && parsed.orgId && parsed.cameraId) {
+      this.logger.log(
+        `Stream unpublished: camera=${parsed.cameraId}, org=${parsed.orgId}`,
+      );
       // Reconnect is handled by BullMQ — do not transition status here
+    } else if (parsed.mode === 'push') {
+      // Push cameras don't need per-play-event handling here — HLS is
+      // served from the forwarded live/{orgId}/{cameraId} path and those
+      // unpublish events flow through the live branch above.
+      this.logger.debug(
+        `on-unpublish push keyPrefix=${streamKeyPrefix(parsed.streamKey)} — no-op`,
+      );
     }
     return { code: 0 };
   }
 
   @Post('on-play')
   async onPlay(@Body() body: any) {
-    const { orgId, cameraId } = this.parseStreamKey(body.stream, body.app);
+    const parsed = this.parseStreamKey(body?.stream ?? '', body?.app ?? '');
+
+    // Push mode on on_play is unexpected (viewers always hit live/...), but
+    // if SRS ever does hand us the push app here we pass through — the
+    // authoritative auth chokepoint is on_publish, and on_play tokens are
+    // bound to live/{orgId}/{cameraId}.
+    if (parsed.mode === 'push') {
+      this.logger.debug(
+        `on-play push keyPrefix=${streamKeyPrefix(parsed.streamKey)} — no-op`,
+      );
+      return { code: 0 };
+    }
+
+    const { orgId, cameraId } =
+      parsed.mode === 'live' ? parsed : { orgId: undefined, cameraId: undefined };
 
     // Internal streams (no orgId/cameraId) pass through without verification
     if (!orgId || !cameraId) {
@@ -114,11 +234,17 @@ export class SrsCallbackController {
 
   @Post('on-stop')
   async onStop(@Body() body: any) {
-    const { orgId, cameraId } = this.parseStreamKey(body.stream, body.app);
-    if (orgId && cameraId) {
-      const count = this.statusService.decrementViewers(cameraId);
-      this.statusGateway.broadcastViewerCount(orgId, cameraId, count);
-      this.logger.debug(`Viewer left: camera=${cameraId}, count=${count}`);
+    const parsed = this.parseStreamKey(body?.stream ?? '', body?.app ?? '');
+    if (parsed.mode === 'live' && parsed.orgId && parsed.cameraId) {
+      const count = this.statusService.decrementViewers(parsed.cameraId);
+      this.statusGateway.broadcastViewerCount(
+        parsed.orgId,
+        parsed.cameraId,
+        count,
+      );
+      this.logger.debug(
+        `Viewer left: camera=${parsed.cameraId}, count=${count}`,
+      );
     }
     return { code: 0 };
   }
@@ -131,10 +257,11 @@ export class SrsCallbackController {
       return { code: 0 };
     }
 
-    const { orgId, cameraId } = this.parseStreamKey(parsed.data.stream, parsed.data.app);
-    if (!orgId || !cameraId) {
-      return { code: 0 }; // Internal stream, skip
+    const parsedKey = this.parseStreamKey(parsed.data.stream, parsed.data.app);
+    if (parsedKey.mode !== 'live' || !parsedKey.orgId || !parsedKey.cameraId) {
+      return { code: 0 }; // Internal stream or push — skip
     }
+    const { orgId, cameraId } = parsedKey;
 
     try {
       const recording = await this.recordingsService.getActiveRecording(cameraId, orgId);
@@ -183,16 +310,82 @@ export class SrsCallbackController {
   }
 
   /**
+   * Phase 19.1 (D-18): SRS v6 forward backend hook. SRS asks where to forward
+   * a publish; we respond with { code: 0, data: { urls: [...] } }.
+   *
+   * Routing matrix:
+   *   app=push + needsTranscode=false → forward to rtmp://127.0.0.1:1935/live/{orgId}/{cameraId}
+   *   app=push + needsTranscode=true  → empty urls (FFmpeg-transcode path handles forward)
+   *   app=live (internal)             → empty urls (RECURSION GUARD — RESEARCH Pitfall 3)
+   *   app=push + unknown key          → empty urls (on_publish is the auth chokepoint; on_forward trusts it)
+   *
+   * MUST return { code: 0 } for SRS to treat the hook as successful. Non-zero
+   * codes abort the publish even though on_publish already allowed it.
+   */
+  @Post('on-forward')
+  async onForward(@Body() body: any) {
+    const parsed = OnForwardSchema.safeParse(body);
+    if (!parsed.success) {
+      this.logger.warn(`on-forward: invalid body ${JSON.stringify(body)}`);
+      return { code: 0, data: { urls: [] } };
+    }
+
+    // Recursion guard — ignore non-push apps (RESEARCH Pitfall 3).
+    if (parsed.data.app !== 'push') {
+      return { code: 0, data: { urls: [] } };
+    }
+
+    const streamKey = parsed.data.stream;
+    let target: { orgId: string; cameraId: string; needsTranscode: boolean } | null = null;
+    try {
+      target = await this.camerasService.resolveForwardTarget(streamKey);
+    } catch (err) {
+      this.logger.warn(
+        `resolveForwardTarget failed: ${(err as Error).message}`,
+      );
+    }
+
+    // Unknown key or transcode path → empty urls.
+    if (!target || target.needsTranscode) {
+      return { code: 0, data: { urls: [] } };
+    }
+
+    // Zero-transcode passthrough: forward push/<key> → live/{orgId}/{cameraId}.
+    // SRS_HOST default '127.0.0.1' works in Docker Compose (same network).
+    const srsHost = process.env.SRS_HOST ?? '127.0.0.1';
+    const url = `rtmp://${srsHost}:1935/live/${target.orgId}/${target.cameraId}`;
+    this.logger.log(
+      `Forward push/${streamKeyPrefix(streamKey)}… → ${url}`,
+    );
+    return { code: 0, data: { urls: [url] } };
+  }
+
+  /**
    * Parse stream key from SRS callback data.
-   * Handles multiple formats:
-   * - app="live" stream="{orgId}/{cameraId}"
-   * - app="live/{orgId}" stream="{cameraId}"
-   * - app="" stream="live/{orgId}/{cameraId}"
+   *
+   * Returns a discriminated union:
+   *   - { mode: 'push', streamKey } — app='push', stream IS the canonical key.
+   *       Extension-strip is NOT applied to push keys (on_publish always
+   *       receives the canonical key; extension-strip is an on_play concern
+   *       that does not apply here — see RESEARCH anti-pattern #3).
+   *   - { mode: 'live', orgId?, cameraId? } — app='live' or empty.
+   *       Handles existing formats:
+   *         app="live" stream="{orgId}/{cameraId}"
+   *         app="live/{orgId}" stream="{cameraId}"
+   *         app="" stream="live/{orgId}/{cameraId}"
    */
   private parseStreamKey(
     stream: string,
     app: string,
-  ): { orgId?: string; cameraId?: string } {
+  ):
+    | { mode: 'push'; streamKey: string }
+    | { mode: 'live'; orgId?: string; cameraId?: string } {
+    // Phase 19.1 (D-15): push branch.
+    if (app === 'push') {
+      return { mode: 'push', streamKey: stream };
+    }
+
+    // Existing live-branch logic — preserve exactly.
     const fullPath = app ? `${app}/${stream}` : stream;
     const parts = fullPath.replace(/^live\//, '').split('/');
     if (parts.length >= 2 && parts[0] && parts[1]) {
@@ -208,8 +401,8 @@ export class SrsCallbackController {
       if (extMatch) {
         cameraId = cameraId.slice(0, -extMatch[0].length).replace(/-\d+$/, '');
       }
-      return { orgId: parts[0], cameraId };
+      return { mode: 'live', orgId: parts[0], cameraId };
     }
-    return {};
+    return { mode: 'live' };
   }
 }

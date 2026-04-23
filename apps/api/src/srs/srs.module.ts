@@ -5,6 +5,7 @@ import { SrsLogGateway } from './srs-log.gateway';
 import { PlaybackModule } from '../playback/playback.module';
 import { RecordingsModule } from '../recordings/recordings.module';
 import { CamerasModule } from '../cameras/cameras.module';
+import { AuditModule } from '../audit/audit.module';
 
 @Module({
   imports: [
@@ -15,6 +16,11 @@ import { CamerasModule } from '../cameras/cameras.module';
     // forwardRef because StreamsModule (imported by CamerasModule) also
     // imports SrsModule — without it Nest cannot resolve the cycle.
     forwardRef(() => CamerasModule),
+    // Phase 19.1 (D-21): SrsCallbackController injects AuditService for
+    // camera.push.publish_rejected + camera.push.first_publish events.
+    // AuditModule is @Global() but explicit import keeps the dependency
+    // visible at the module boundary.
+    AuditModule,
   ],
   controllers: [SrsCallbackController],
   providers: [SrsApiService, SrsLogGateway],
