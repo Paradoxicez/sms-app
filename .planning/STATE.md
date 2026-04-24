@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Self-Service, Resilience & UI Polish
 status: executing
-stopped_at: Phase 20 context gathered
-last_updated: "2026-04-24T12:12:30.694Z"
+stopped_at: Phase 20 UI-SPEC approved
+last_updated: "2026-04-24T12:21:23.899Z"
 last_activity: 2026-04-24
 progress:
   total_phases: 8
@@ -91,6 +91,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-24T12:12:30.684Z
-Stopped at: Phase 20 context gathered
-Resume file: .planning/phases/20-cameras-ux-bulk-actions-maintenance-toggle-copy-id-expressiv/20-CONTEXT.md
+Last session: 2026-04-24T12:21:23.845Z
+Stopped at: Phase 20 UI-SPEC approved
+Resume file: .planning/phases/20-cameras-ux-bulk-actions-maintenance-toggle-copy-id-expressiv/20-UI-SPEC.md
