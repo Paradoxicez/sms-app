@@ -181,6 +181,7 @@ None — no pending todos matched Phase 20 scope.
 - **Toggle switch + OBS-style control** for Start Stream (considered as option 3). Not selected — inconsistent with the row-menu pattern, adds a third visual metaphor.
 - **Selection persistence across pagination.** Current assumption: selection scopes to the visible page and clears on page change. Cross-page selection is deferred.
 - **Mobile responsive layout for the bulk toolbar.** Desktop-first in this phase; if the bar becomes cramped under `md:`, fold action labels into a "⋯" overflow menu.
+- **Shift-click range selection on cameras table.** Added in revision 1 after checker flagged that TanStack v8 does NOT auto-handle Shift-click ranges (it requires manual `lastSelectedIndex` tracking). Phase 20 ships single-click toggle only. Shift-click range selection is deferred to a future phase.
 
 ### Reviewed Todos (not folded)
 

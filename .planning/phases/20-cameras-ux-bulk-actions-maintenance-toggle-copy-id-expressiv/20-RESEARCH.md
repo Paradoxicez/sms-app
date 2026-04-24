@@ -294,7 +294,7 @@ async function handleCopy() {
 
 | Problem | Don't Build | Use Instead | Why |
 |---------|-------------|-------------|-----|
-| Multi-select table state | Custom `useState<Set<string>>` + checkbox wiring | TanStack `enableRowSelection` + `getSelectedRowModel` | Handles shift-click ranges, header tri-state, row-id stability automatically [VERIFIED: @tanstack/react-table v8 API] |
+| Multi-select table state | Custom `useState<Set<string>>` + checkbox wiring | TanStack `enableRowSelection` + `getSelectedRowModel` | Handles header tri-state + row-id stability automatically. **CORRECTION (revision 1):** TanStack v8 does NOT auto-handle Shift-click range selection — that requires manual `lastSelectedIndex` tracking. Phase 20 DEFERS Shift-click range selection to a future phase (CONTEXT.md `<deferred>`). [VERIFIED: @tanstack/react-table v8 API] |
 | Checkbox with indeterminate state | Native `<input type="checkbox">` with manual `indeterminate` DOM prop | `@/components/ui/checkbox` (base-ui wrapper) | Already supports `indeterminate` prop + shadcn theming + ARIA |
 | Dropdown menu with separator + destructive variant | Raw `<ul>` + button-focus management | `DataTableRowActions` (extensive existing usage) + its `variant: "destructive"` option | Handles keyboard nav, portal placement, destructive color already |
 | Concurrency-limited Promise fan-out | `for...of` + `await` in sequence | `chunkedAllSettled` (small util) or `p-limit` (npm) | Sequential is slow for N=25 cameras; unlimited parallel floods the API |
