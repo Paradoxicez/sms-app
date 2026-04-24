@@ -8,6 +8,7 @@ import { ManifestService } from './manifest.service';
 import { RetentionProcessor } from './retention.processor';
 import { ScheduleProcessor } from './schedule.processor';
 import { BulkDownloadService } from './bulk-download.service';
+import { ArchiveMetricsService } from './archive-metrics.service';
 
 @Module({
   imports: [
@@ -22,8 +23,9 @@ import { BulkDownloadService } from './bulk-download.service';
     BulkDownloadService,
     RetentionProcessor,
     ScheduleProcessor,
+    ArchiveMetricsService,
   ],
-  exports: [RecordingsService, MinioService, ManifestService],
+  exports: [RecordingsService, MinioService, ManifestService, ArchiveMetricsService],
 })
 export class RecordingsModule implements OnModuleInit {
   constructor(

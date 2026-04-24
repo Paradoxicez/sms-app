@@ -1,10 +1,11 @@
-import { Body, Controller, Inject, Logger, Post, forwardRef } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Logger, Post, forwardRef } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { StatusService } from '../status/status.service';
 import { StatusGateway } from '../status/status.gateway';
 import { PlaybackService } from '../playback/playback.service';
 import { RecordingsService } from '../recordings/recordings.service';
+import { ArchiveMetricsService } from '../recordings/archive-metrics.service';
 import { onHlsCallbackSchema } from '../recordings/dto/on-hls-callback.dto';
 import { CamerasService } from '../cameras/cameras.service';
 import { StreamsService } from '../streams/streams.service';
@@ -41,7 +42,18 @@ export class SrsCallbackController {
     // controller with 5 positional args still compile. Push-branch code
     // paths guard with `this.auditService?.log(...)` before invoking.
     private readonly auditService?: AuditService,
+    // Archive failure visibility — surfaced via GET /metrics below.
+    // Optional to keep pre-existing unit tests that construct the controller
+    // without this arg compiling; runtime DI always supplies it.
+    private readonly archiveMetrics?: ArchiveMetricsService,
   ) {}
+
+  @Get('metrics')
+  getMetrics() {
+    return {
+      archives: this.archiveMetrics?.snapshot() ?? null,
+    };
+  }
 
   @Post('on-publish')
   async onPublish(@Body() body: any) {
@@ -318,8 +330,12 @@ export class SrsCallbackController {
         url: parsed.data.url,
         m3u8Path: m3u8File,
       });
+      this.archiveMetrics?.recordSuccess();
     } catch (err) {
-      // Fire-and-forget pattern: log error but don't block SRS
+      // Fire-and-forget pattern: log error but don't block SRS.
+      // Errors land in ArchiveMetricsService so /api/srs/callbacks/metrics
+      // surfaces them even when nobody is tailing the process logs.
+      this.archiveMetrics?.recordFailure(err as Error);
       this.logger.error(`Failed to archive segment: ${(err as Error).message}`, (err as Error).stack);
     }
 

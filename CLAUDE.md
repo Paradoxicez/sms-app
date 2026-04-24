@@ -254,7 +254,16 @@ A SaaS platform that lets developers embed live CCTV streams on their websites w
 <!-- GSD:conventions-start source:CONVENTIONS.md -->
 ## Conventions
 
-Conventions not yet established. Will populate as patterns emerge during development.
+### Prisma schema change workflow
+
+Any edit to `apps/api/src/prisma/schema.prisma` MUST be followed by all four steps — skipping any one produces silent runtime errors (caught in controller try/catch blocks) with DB rows that appear to succeed but whose fields never write:
+
+1. `pnpm --filter @sms-platform/api db:push` — applies the schema to Postgres AND regenerates the Prisma client (the script chains `prisma generate` at the end; do not rely on `prisma db push` alone).
+2. Rebuild the API: `pnpm --filter @sms-platform/api build` — SWC compiles source and bundles the new client types.
+3. Restart every long-running API process. `node dist/main` holds the Prisma client in memory and will NOT pick up the regenerated one. Use `pnpm --filter @sms-platform/api start:prod` for prod, `start:dev` for tsx-watch dev.
+4. Verify: `curl http://localhost:3003/api/srs/callbacks/metrics` — the `archives` block should not show `status: failing` with `lastFailureMessage` mentioning the new field name.
+
+Fail-fast observability: `ArchiveMetricsService` tracks archive success/failure counts; failures are surfaced via the metrics endpoint above so schema/client mismatches do not stay hidden behind `{code:0}` SRS callbacks.
 <!-- GSD:conventions-end -->
 
 <!-- GSD:architecture-start source:ARCHITECTURE.md -->
