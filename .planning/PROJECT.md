@@ -169,4 +169,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-22 after Phase 19 completion (camera input validation + RTMP/RTMPS pull)*
+*Last updated: 2026-04-24 after Phase 19.1 completion (RTMP push ingest with platform-generated stream keys). 26/26 locked decisions implemented, 9/9 human UAT passed, 18 live bugs fixed inline. Push cameras now receive RTMP directly from encoders (OBS/cameras) without FFmpeg pull — SRS `forward` directive remaps `push/<key>` → `live/{orgId}/{cameraId}` so the embed URL contract is preserved across both ingest modes.*
