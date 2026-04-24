@@ -233,4 +233,46 @@ describe('CamerasService maintenance mode', () => {
     expect(tenancy.camera.findUnique).toHaveBeenCalledWith({ where: { id: 'c1' } });
     expect(tenancy.camera.update).toHaveBeenCalled();
   });
+
+  // ─── Phase 20 T-20-05 — reason forwarded to audit-visible log line ──
+
+  it('enterMaintenance accepts optional reason and includes it in log output', async () => {
+    tenancy.camera.findUnique.mockResolvedValueOnce({
+      id: 'c1',
+      maintenanceMode: false,
+      status: 'online',
+      orgId: 'o1',
+      ingestMode: 'pull',
+    });
+    tenancy.camera.update
+      .mockResolvedValueOnce({ id: 'c1', maintenanceMode: true, status: 'online', orgId: 'o1' })
+      .mockResolvedValueOnce({ id: 'c1', maintenanceMode: true, status: 'offline', orgId: 'o1' });
+    const logSpy = vi.spyOn((service as any).logger, 'log');
+
+    await service.enterMaintenance('c1', 'u1', 'Lens cleaning');
+
+    expect(logSpy).toHaveBeenCalledWith(
+      expect.stringContaining('reason=Lens cleaning'),
+    );
+  });
+
+  it('enterMaintenance without reason logs without reason= segment', async () => {
+    tenancy.camera.findUnique.mockResolvedValueOnce({
+      id: 'c1',
+      maintenanceMode: false,
+      status: 'online',
+      orgId: 'o1',
+      ingestMode: 'pull',
+    });
+    tenancy.camera.update
+      .mockResolvedValueOnce({ id: 'c1', maintenanceMode: true, status: 'online', orgId: 'o1' })
+      .mockResolvedValueOnce({ id: 'c1', maintenanceMode: true, status: 'offline', orgId: 'o1' });
+    const logSpy = vi.spyOn((service as any).logger, 'log');
+
+    await service.enterMaintenance('c1', 'u1');
+
+    // Assert no "reason=" segment is present in any logged info line
+    const allLogs = logSpy.mock.calls.map((c) => String(c[0]));
+    expect(allLogs.some((m) => m.includes('reason='))).toBe(false);
+  });
 });
