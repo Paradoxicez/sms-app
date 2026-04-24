@@ -315,6 +315,17 @@ export class CamerasService {
         );
       }
     }
+    // Stop any FFmpeg process for this camera (pull: pull-loop ffmpeg;
+    // push+transcode: loopback transcoder). Without this the process
+    // becomes an orphan after the DB row is deleted — CameraHealthService
+    // no longer iterates the missing camera so nothing cleans it up.
+    try {
+      await this.streamsService.stopStream(id);
+    } catch (err) {
+      this.logger.warn(
+        `Pre-delete stopStream failed for camera ${id} — continuing: ${(err as Error).message}`,
+      );
+    }
     return this.tenancy.camera.delete({ where: { id } });
   }
 
