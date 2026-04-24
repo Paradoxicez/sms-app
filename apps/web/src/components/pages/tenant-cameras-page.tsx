@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
+import { Loader2 } from 'lucide-react';
+import type { RowSelectionState } from '@tanstack/react-table';
 import { toast } from 'sonner';
 
 import { apiFetch } from '@/lib/api';
@@ -24,7 +26,34 @@ import { CameraFormDialog } from '@/app/admin/cameras/components/camera-form-dia
 import { EmbedCodeDialog } from '@/app/admin/cameras/components/embed-code-dialog';
 import { ViewStreamSheet } from '@/app/admin/cameras/components/view-stream-sheet';
 import { BulkImportDialog } from '@/app/admin/cameras/components/bulk-import-dialog';
+import { BulkToolbar } from '@/app/admin/cameras/components/bulk-toolbar';
+import { MaintenanceReasonDialog } from '@/app/admin/cameras/components/maintenance-reason-dialog';
+import {
+  bulkAction,
+  filterEnterMaintenanceTargets,
+  filterExitMaintenanceTargets,
+  filterStartRecordingTargets,
+  filterStartStreamTargets,
+  VERB_COPY,
+  type BulkVerb,
+} from '@/lib/bulk-actions';
 
+/**
+ * Phase 20 Plan 03 — tenant cameras page.
+ *
+ * Owns the bulk-action state machine:
+ *   - rowSelection (keyed by camera.id via useReactTable.getRowId)
+ *   - bulkProcessing flag (disables toolbar action buttons)
+ *   - errorByCameraId map (surfaces AlertTriangle badge in Status column)
+ *   - maintenanceDialog union (single row-menu flow or bulk toolbar flow)
+ *   - bulkDeleteOpen AlertDialog (D-06b single-click destructive confirm)
+ *
+ * Row-menu maintenance is asymmetric per D-07:
+ *   - camera.maintenanceMode=false → opens MaintenanceReasonDialog (single)
+ *   - camera.maintenanceMode=true → runs direct DELETE, no dialog
+ *
+ * Bulk maintenance mirrors the same asymmetry at batch scope (D-03).
+ */
 export default function TenantCamerasPage() {
   const [cameras, setCameras] = useState<CameraRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -34,17 +63,31 @@ export default function TenantCamerasPage() {
   // View state
   const [view, setView] = useState<'table' | 'card'>('table');
 
-  // Dialog state
+  // Dialog state (non-bulk)
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editCamera, setEditCamera] = useState<CameraRow | null>(null);
   const [deleteCamera, setDeleteCamera] = useState<CameraRow | null>(null);
   const [embedCamera, setEmbedCamera] = useState<CameraRow | null>(null);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [selectedCameraId, setSelectedCameraId] = useState<string | null>(null);
-  const [maintenanceTarget, setMaintenanceTarget] = useState<CameraRow | null>(null);
-  const [maintenanceLoading, setMaintenanceLoading] = useState(false);
 
-  const selectedCamera = cameras.find(c => c.id === selectedCameraId) ?? null;
+  // ─── Phase 20 Plan 03 — Bulk state ──────────────────────────────────
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [errorByCameraId, setErrorByCameraId] = useState<Record<string, string>>({});
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [maintenanceDialog, setMaintenanceDialog] = useState<
+    | { mode: 'single'; camera: CameraRow }
+    | { mode: 'bulk'; cameras: CameraRow[] }
+    | null
+  >(null);
+
+  const selectedCamera = cameras.find((c) => c.id === selectedCameraId) ?? null;
+
+  const selectedCameras = useMemo(
+    () => cameras.filter((c) => rowSelection[c.id]),
+    [cameras, rowSelection],
+  );
 
   useEffect(() => {
     async function loadSession() {
@@ -86,8 +129,8 @@ export default function TenantCamerasPage() {
         prev.map((c) =>
           c.id === event.cameraId
             ? { ...c, status: event.status as CameraRow['status'] }
-            : c
-        )
+            : c,
+        ),
       );
     },
     undefined,
@@ -96,59 +139,68 @@ export default function TenantCamerasPage() {
         prev.map((c) =>
           c.id === event.cameraId
             ? { ...c, codecInfo: event.codecInfo as CameraRow['codecInfo'] }
-            : c
-        )
+            : c,
+        ),
       );
-    }
+    },
   );
 
-  // Action handlers
-  function handleEdit(camera: CameraRow) {
+  // ─── Row-menu action handlers ────────────────────────────────────────
+  // All row-menu callbacks are stable via useCallback so the column useMemo
+  // in CamerasDataTable does not re-create columns on every parent render —
+  // column-definition churn resets TanStack's internal row-selection state
+  // and defeats the getRowId contract.
+  const handleEdit = useCallback((camera: CameraRow) => {
     setEditCamera(camera);
-  }
+  }, []);
 
-  function handleViewStream(camera: CameraRow) {
+  const handleViewStream = useCallback((camera: CameraRow) => {
     setSelectedCameraId(camera.id);
-    // View Stream Sheet — wired in Plan 03
-  }
+  }, []);
 
-  async function handleStreamToggle(camera: CameraRow) {
-    try {
-      if (camera.status === 'online') {
-        await apiFetch(`/api/cameras/${camera.id}/stream/stop`, { method: 'POST' });
-        toast.success('Stream stopped');
-      } else {
-        await apiFetch(`/api/cameras/${camera.id}/stream/start`, { method: 'POST' });
-        toast.success('Stream started');
+  const handleStreamToggle = useCallback(
+    async (camera: CameraRow) => {
+      try {
+        if (camera.status === 'online') {
+          await apiFetch(`/api/cameras/${camera.id}/stream/stop`, { method: 'POST' });
+          toast.success('Stream stopped');
+        } else {
+          await apiFetch(`/api/cameras/${camera.id}/stream/start`, { method: 'POST' });
+          toast.success('Stream started');
+        }
+        fetchCameras();
+      } catch {
+        toast.error('Failed to toggle stream');
       }
-      fetchCameras();
-    } catch {
-      toast.error('Failed to toggle stream');
-    }
-  }
+    },
+    [fetchCameras],
+  );
 
-  async function handleRecordToggle(camera: CameraRow) {
-    try {
-      if (camera.isRecording) {
-        await stopRecording(camera.id);
-        toast.success('Recording stopped');
-      } else {
-        await startRecording(camera.id);
-        toast.success('Recording started');
+  const handleRecordToggle = useCallback(
+    async (camera: CameraRow) => {
+      try {
+        if (camera.isRecording) {
+          await stopRecording(camera.id);
+          toast.success('Recording stopped');
+        } else {
+          await startRecording(camera.id);
+          toast.success('Recording started');
+        }
+        fetchCameras();
+      } catch {
+        toast.error('Failed to toggle recording');
       }
-      fetchCameras();
-    } catch {
-      toast.error('Failed to toggle recording');
-    }
-  }
+    },
+    [fetchCameras],
+  );
 
-  function handleEmbedCode(camera: CameraRow) {
+  const handleEmbedCode = useCallback((camera: CameraRow) => {
     setEmbedCamera(camera);
-  }
+  }, []);
 
-  function handleDelete(camera: CameraRow) {
+  const handleDelete = useCallback((camera: CameraRow) => {
     setDeleteCamera(camera);
-  }
+  }, []);
 
   async function confirmDelete() {
     if (!deleteCamera) return;
@@ -162,37 +214,152 @@ export default function TenantCamerasPage() {
     }
   }
 
-  function handleMaintenanceToggle(camera: CameraRow) {
-    setMaintenanceTarget(camera);
-  }
+  const runRowExitMaintenance = useCallback(
+    async (camera: CameraRow) => {
+      try {
+        await apiFetch(`/api/cameras/${camera.id}/maintenance`, { method: 'DELETE' });
+        toast.success('Exited maintenance mode');
+        await fetchCameras();
+      } catch {
+        toast.error('Failed to exit maintenance mode. Please try again.');
+      }
+    },
+    [fetchCameras],
+  );
 
-  async function confirmMaintenanceToggle() {
-    if (!maintenanceTarget) return;
-    const entering = !maintenanceTarget.maintenanceMode;
-    setMaintenanceLoading(true);
-    try {
-      const res = await fetch(`/api/cameras/${maintenanceTarget.id}/maintenance`, {
-        method: entering ? 'POST' : 'DELETE',
-        credentials: 'include',
+  /**
+   * D-07 asymmetric: row-menu "Maintenance" opens the reason dialog (single
+   * mode) when entering, runs direct DELETE when exiting. Avoids prompting
+   * users for a reason they don't need to provide on exit.
+   */
+  const handleRowMaintenanceToggle = useCallback(
+    (camera: CameraRow) => {
+      if (camera.maintenanceMode) {
+        void runRowExitMaintenance(camera);
+      } else {
+        setMaintenanceDialog({ mode: 'single', camera });
+      }
+    },
+    [runRowExitMaintenance],
+  );
+
+  // ─── Bulk-action handlers ────────────────────────────────────────────
+
+  /**
+   * Shared fan-out helper used by every bulk verb. Resolves into three
+   * outcomes:
+   *   - All succeeded → clear rowSelection, fire VERB_COPY toast
+   *   - All failed → keep rowSelection at failed ids, fire errorTitle toast
+   *   - Partial → keep rowSelection at failed ids, fire "N succeeded, M failed"
+   *
+   * `errorByCameraId` is patched so the Status column's AlertTriangle badge
+   * shows the verbatim API error until the camera is re-targeted.
+   */
+  async function runBulk(
+    verb: BulkVerb,
+    targets: CameraRow[],
+    opts: { reason?: string } = {},
+  ) {
+    if (targets.length === 0) return;
+    const ids = targets.map((c) => c.id);
+    setBulkProcessing(true);
+    setErrorByCameraId((prev) => {
+      const next = { ...prev };
+      ids.forEach((id) => {
+        delete next[id];
       });
-      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-      toast.success(
-        entering
-          ? `Camera "${maintenanceTarget.name}" is now in maintenance`
-          : 'Exited maintenance — click Start Stream to resume',
-      );
-      setMaintenanceTarget(null);
+      return next;
+    });
+    try {
+      const { succeeded, failed } = await bulkAction(verb, ids, {
+        reason: opts.reason,
+      });
+      const copy = VERB_COPY[verb];
+      if (failed.length === 0) {
+        toast.success(
+          succeeded.length === 1 ? copy.singular : copy.plural(succeeded.length),
+        );
+        setRowSelection({});
+      } else if (succeeded.length === 0) {
+        toast.error(copy.errorTitle);
+        const nextSel: RowSelectionState = {};
+        failed.forEach((f) => {
+          nextSel[f.id] = true;
+        });
+        setRowSelection(nextSel);
+      } else {
+        toast.error(`${succeeded.length} succeeded, ${failed.length} failed`);
+        const nextSel: RowSelectionState = {};
+        failed.forEach((f) => {
+          nextSel[f.id] = true;
+        });
+        setRowSelection(nextSel);
+      }
+      if (failed.length > 0) {
+        setErrorByCameraId((prev) => {
+          const next = { ...prev };
+          failed.forEach((f) => {
+            next[f.id] = f.error;
+          });
+          return next;
+        });
+      }
       await fetchCameras();
-    } catch {
-      toast.error(
-        entering
-          ? 'Failed to enter maintenance mode. Please try again.'
-          : 'Failed to exit maintenance mode. Please try again.',
-      );
     } finally {
-      setMaintenanceLoading(false);
+      setBulkProcessing(false);
     }
   }
+
+  function handleBulkStartStream() {
+    void runBulk('start-stream', filterStartStreamTargets(selectedCameras));
+  }
+
+  function handleBulkStartRecording() {
+    void runBulk('start-recording', filterStartRecordingTargets(selectedCameras));
+  }
+
+  function handleBulkEnterMaintenance() {
+    const targets = filterEnterMaintenanceTargets(selectedCameras);
+    if (targets.length === 0) return;
+    setMaintenanceDialog({ mode: 'bulk', cameras: targets });
+  }
+
+  function handleBulkExitMaintenance() {
+    void runBulk(
+      'exit-maintenance',
+      filterExitMaintenanceTargets(selectedCameras),
+    );
+  }
+
+  function handleBulkDelete() {
+    setBulkDeleteOpen(true);
+  }
+
+  async function confirmBulkDelete() {
+    await runBulk('delete', selectedCameras);
+    setBulkDeleteOpen(false);
+  }
+
+  function handleMaintenanceDialogConfirm({ reason }: { reason: string | undefined }) {
+    if (!maintenanceDialog) return;
+    if (maintenanceDialog.mode === 'single') {
+      const cam = maintenanceDialog.camera;
+      setMaintenanceDialog(null);
+      void runBulk('enter-maintenance', [cam], { reason });
+    } else {
+      const cams = maintenanceDialog.cameras;
+      setMaintenanceDialog(null);
+      void runBulk('enter-maintenance', cams, { reason });
+    }
+  }
+
+  const maintenanceDialogTarget = maintenanceDialog
+    ? maintenanceDialog.mode === 'single'
+      ? { type: 'single' as const, cameraName: maintenanceDialog.camera.name }
+      : { type: 'bulk' as const, count: maintenanceDialog.cameras.length }
+    : null;
+
+  const bulkDeleteCount = selectedCameras.length;
 
   return (
     <div className="space-y-6">
@@ -206,6 +373,17 @@ export default function TenantCamerasPage() {
         </div>
       )}
 
+      <BulkToolbar
+        selected={selectedCameras}
+        processing={bulkProcessing}
+        onStartStream={handleBulkStartStream}
+        onStartRecording={handleBulkStartRecording}
+        onEnterMaintenance={handleBulkEnterMaintenance}
+        onExitMaintenance={handleBulkExitMaintenance}
+        onDelete={handleBulkDelete}
+        onClear={() => setRowSelection({})}
+      />
+
       <CamerasDataTable
         cameras={cameras}
         loading={isLoading}
@@ -214,12 +392,15 @@ export default function TenantCamerasPage() {
         onDelete={handleDelete}
         onRecordToggle={handleRecordToggle}
         onStreamToggle={handleStreamToggle}
-        onMaintenanceToggle={handleMaintenanceToggle}
+        onMaintenanceToggle={handleRowMaintenanceToggle}
         onEmbedCode={handleEmbedCode}
         onCreateCamera={() => setCreateDialogOpen(true)}
         onImportCameras={() => setImportDialogOpen(true)}
         view={view}
         onViewChange={setView}
+        rowSelection={rowSelection}
+        onRowSelectionChange={setRowSelection}
+        errorByCameraId={errorByCameraId}
       />
 
       {/* Create mode dialog */}
@@ -250,7 +431,7 @@ export default function TenantCamerasPage() {
         />
       )}
 
-      {/* Delete confirmation */}
+      {/* Single-row delete confirmation */}
       <AlertDialog
         open={!!deleteCamera}
         onOpenChange={(open) => {
@@ -275,46 +456,64 @@ export default function TenantCamerasPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Maintenance confirmation */}
-      <AlertDialog
-        open={!!maintenanceTarget}
+      {/* Maintenance reason dialog — handles BOTH row-menu (single) and bulk flows */}
+      <MaintenanceReasonDialog
+        open={maintenanceDialog !== null}
         onOpenChange={(open) => {
-          if (!open && !maintenanceLoading) setMaintenanceTarget(null);
+          if (!open) setMaintenanceDialog(null);
         }}
-      >
+        target={maintenanceDialogTarget}
+        submitting={bulkProcessing}
+        onConfirm={handleMaintenanceDialogConfirm}
+      />
+
+      {/* Bulk delete confirm (D-06b single-click destructive) */}
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {maintenanceTarget?.maintenanceMode
-                ? 'Exit maintenance mode?'
-                : 'Enter maintenance mode?'}
+              {bulkDeleteCount === 1
+                ? 'Delete 1 Camera'
+                : `Delete ${bulkDeleteCount} Cameras`}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {maintenanceTarget?.maintenanceMode ? (
-                <>
-                  Camera &quot;{maintenanceTarget?.name}&quot; will resume receiving notifications and webhooks.{' '}
-                  <strong className="font-semibold">
-                    The stream will not auto-restart
-                  </strong>{' '}
-                  — click &quot;Start Stream&quot; to resume when ready.
-                </>
-              ) : (
-                <>
-                  Entering maintenance will{' '}
-                  <strong className="font-semibold">stop the stream</strong>{' '}
-                  for camera &quot;{maintenanceTarget?.name}&quot; and suppress notifications (notifications + webhooks) until maintenance is exited. Recording will also stop.
-                </>
-              )}
+              This will permanently delete the following cameras and all their
+              recordings. This cannot be undone.
             </AlertDialogDescription>
+            {/*
+              List + "+N more" rendered OUTSIDE AlertDialogDescription. base-ui
+              renders AlertDialogDescription as a <p>, and nested <ul>/<div>
+              inside a <p> is invalid HTML (triggers React 19 hydration
+              warnings).
+            */}
+            <div className="mt-1 text-sm text-muted-foreground">
+              <ul className="list-disc pl-5">
+                {selectedCameras.slice(0, 5).map((c) => (
+                  <li key={c.id}>{c.name}</li>
+                ))}
+              </ul>
+              {bulkDeleteCount > 5 && (
+                <p className="mt-2">+{bulkDeleteCount - 5} more</p>
+              )}
+            </div>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={maintenanceLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={bulkProcessing}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              variant={maintenanceTarget?.maintenanceMode ? 'default' : 'destructive'}
-              onClick={confirmMaintenanceToggle}
-              disabled={maintenanceLoading}
+              variant="destructive"
+              onClick={confirmBulkDelete}
+              disabled={bulkProcessing}
             >
-              {maintenanceTarget?.maintenanceMode ? 'Exit maintenance' : 'Enter maintenance'}
+              {bulkProcessing ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : bulkDeleteCount === 1 ? (
+                'Delete 1 Camera'
+              ) : (
+                `Delete ${bulkDeleteCount} Cameras`
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -330,7 +529,9 @@ export default function TenantCamerasPage() {
       <ViewStreamSheet
         camera={selectedCamera}
         open={!!selectedCameraId}
-        onOpenChange={(open) => { if (!open) setSelectedCameraId(null) }}
+        onOpenChange={(open) => {
+          if (!open) setSelectedCameraId(null);
+        }}
         onStreamToggle={handleStreamToggle}
         onRecordToggle={handleRecordToggle}
         onRefresh={fetchCameras}
