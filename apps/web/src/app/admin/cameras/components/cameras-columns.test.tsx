@@ -1,6 +1,6 @@
 import type * as React from "react"
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
-import { render, screen } from "@testing-library/react"
+import { render, screen, waitFor, fireEvent } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import "@testing-library/jest-dom"
 
@@ -119,6 +119,8 @@ describe("Phase 20 row action menu", () => {
     renderActionsCell(camera, cb)
     const trigger = screen.getByRole("button", { name: /open menu/i })
     await user.click(trigger)
+    // Base-UI Menu opens asynchronously; wait for at least one menu item to exist.
+    await screen.findByRole("menuitem", { name: /edit/i })
     return user
   }
 
@@ -171,45 +173,57 @@ describe("Phase 20 row action menu", () => {
     expect(screen.queryByText("Start Recording")).toBeNull()
   })
 
-  it("Copy Camera ID writes camera.id verbatim to clipboard", async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined)
-    Object.assign(navigator, {
-      clipboard: { writeText },
+  // userEvent.setup() installs its own navigator.clipboard stub, so our
+  // writeText mock MUST be installed AFTER the user session is created
+  // (i.e. after openMenu returns). Otherwise userEvent clobbers our mock.
+  function installClipboardMock(writeText: ReturnType<typeof vi.fn>) {
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+      writable: true,
     })
+  }
+
+  it("Copy Camera ID writes camera.id verbatim to clipboard", async () => {
     const user = await openMenu()
-    const item = await screen.findByText("Copy Camera ID")
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    installClipboardMock(writeText)
+    const item = await screen.findByRole("menuitem", { name: /copy camera id/i })
     await user.click(item)
+    await waitFor(() => expect(writeText).toHaveBeenCalled())
     expect(writeText).toHaveBeenCalledWith(baseCamera.id)
     expect(writeText.mock.calls[0]?.[0]).toBe("1dfaadd7-c5f9-49b8-b26e-7a6c402a8103")
   })
 
   it("Copy Camera ID success fires toast 'Camera ID copied'", async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined)
-    Object.assign(navigator, { clipboard: { writeText } })
     const user = await openMenu()
-    const item = await screen.findByText("Copy Camera ID")
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    installClipboardMock(writeText)
+    const item = await screen.findByRole("menuitem", { name: /copy camera id/i })
     await user.click(item)
-    // Wait a tick for the async handler.
-    await new Promise((r) => setTimeout(r, 0))
-    expect(vi.mocked(toast.success)).toHaveBeenCalledWith("Camera ID copied")
+    await waitFor(() =>
+      expect(vi.mocked(toast.success)).toHaveBeenCalledWith("Camera ID copied")
+    )
   })
 
   it("Copy Camera ID failure fires 'Couldn't copy to clipboard' error toast", async () => {
-    const writeText = vi.fn().mockRejectedValue(new Error("clipboard denied"))
-    Object.assign(navigator, { clipboard: { writeText } })
     const user = await openMenu()
-    const item = await screen.findByText("Copy Camera ID")
+    const writeText = vi.fn().mockRejectedValue(new Error("clipboard denied"))
+    installClipboardMock(writeText)
+    const item = await screen.findByRole("menuitem", { name: /copy camera id/i })
     await user.click(item)
-    await new Promise((r) => setTimeout(r, 0))
-    expect(vi.mocked(toast.error)).toHaveBeenCalledWith("Couldn't copy to clipboard")
+    await waitFor(() =>
+      expect(vi.mocked(toast.error)).toHaveBeenCalledWith("Couldn't copy to clipboard")
+    )
   })
 
   it("Copy cURL writes templated snippet with window.location.origin, camera.id, and literal <YOUR_API_KEY>", async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined)
-    Object.assign(navigator, { clipboard: { writeText } })
     const user = await openMenu()
-    const item = await screen.findByText("Copy cURL example")
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    installClipboardMock(writeText)
+    const item = await screen.findByRole("menuitem", { name: /copy curl example/i })
     await user.click(item)
+    await waitFor(() => expect(writeText).toHaveBeenCalled())
     const payload = writeText.mock.calls[0]?.[0] as string | undefined
     expect(payload).toBeDefined()
     expect(payload).toContain(window.location.origin)
@@ -220,15 +234,16 @@ describe("Phase 20 row action menu", () => {
   })
 
   it("Copy cURL does NOT fetch the user's real API key (security invariant T-20-08)", async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined)
-    Object.assign(navigator, { clipboard: { writeText } })
     const fetchSpy = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }))
     const originalFetch = globalThis.fetch
     globalThis.fetch = fetchSpy as unknown as typeof fetch
     try {
       const user = await openMenu()
-      const item = await screen.findByText("Copy cURL example")
+      const writeText = vi.fn().mockResolvedValue(undefined)
+      installClipboardMock(writeText)
+      const item = await screen.findByRole("menuitem", { name: /copy curl example/i })
       await user.click(item)
+      await waitFor(() => expect(writeText).toHaveBeenCalled())
       expect(fetchSpy).not.toHaveBeenCalled()
     } finally {
       globalThis.fetch = originalFetch
@@ -236,11 +251,12 @@ describe("Phase 20 row action menu", () => {
   })
 
   it("Copy cURL template has exactly 3 lines joined by \\n", async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined)
-    Object.assign(navigator, { clipboard: { writeText } })
     const user = await openMenu()
-    const item = await screen.findByText("Copy cURL example")
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    installClipboardMock(writeText)
+    const item = await screen.findByRole("menuitem", { name: /copy curl example/i })
     await user.click(item)
+    await waitFor(() => expect(writeText).toHaveBeenCalled())
     const payload = writeText.mock.calls[0]?.[0] as string
     expect(payload.split("\n")).toHaveLength(3)
   })

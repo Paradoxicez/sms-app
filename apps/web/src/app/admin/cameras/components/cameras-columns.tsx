@@ -2,20 +2,24 @@
 
 import type { ColumnDef } from "@tanstack/react-table"
 import { formatDistanceToNow } from "date-fns"
-import { Pencil, Play, Circle, Code, Trash2, Radio, Wrench } from "lucide-react"
+import {
+  Pencil,
+  Play,
+  Circle,
+  Code,
+  Trash2,
+  Radio,
+  Wrench,
+  Copy,
+  Terminal,
+} from "lucide-react"
+import { toast } from "sonner"
 
 import { DataTableColumnHeader } from "@/components/ui/data-table"
 import { DataTableRowActions, type RowAction } from "@/components/ui/data-table"
-import { CameraStatusDot } from "@/app/admin/cameras/components/camera-status-badge"
+import { StatusPills } from "@/app/admin/cameras/components/camera-status-badge"
 import { CodecStatusCell } from "@/app/admin/cameras/components/codec-status-cell"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 import { normalizeCodecInfo } from "@/lib/codec-info"
-import { cn } from "@/lib/utils"
 
 export interface CameraRow {
   id: string
@@ -51,14 +55,6 @@ interface CamerasColumnCallbacks {
   onMaintenanceToggle: (camera: CameraRow) => void
 }
 
-const statusTooltip: Record<CameraRow["status"], string> = {
-  online: "Online",
-  offline: "Offline",
-  degraded: "Degraded",
-  connecting: "Connecting…",
-  reconnecting: "Reconnecting…",
-}
-
 export function createCamerasColumns(
   callbacks: CamerasColumnCallbacks
 ): ColumnDef<CameraRow>[] {
@@ -68,66 +64,11 @@ export function createCamerasColumns(
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Status" />
       ),
-      cell: ({ row }) => {
-        const camera = row.original
-        return (
-          <TooltipProvider>
-            <div className="flex items-center gap-1" aria-label="Camera status">
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <span>
-                      <CameraStatusDot status={camera.status} />
-                    </span>
-                  }
-                />
-                <TooltipContent>{statusTooltip[camera.status]}</TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Circle
-                      className={cn(
-                        "size-3",
-                        camera.isRecording
-                          ? "fill-red-500 text-red-500"
-                          : "text-muted-foreground"
-                      )}
-                      aria-hidden="true"
-                    />
-                  }
-                />
-                <TooltipContent>
-                  {camera.isRecording ? "Recording" : "Not recording"}
-                </TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Wrench
-                      className={cn(
-                        "size-3.5",
-                        camera.maintenanceMode
-                          ? "text-amber-600 dark:text-amber-500"
-                          : "invisible"
-                      )}
-                      aria-hidden={!camera.maintenanceMode}
-                      aria-label={camera.maintenanceMode ? "maintenance" : undefined}
-                      role={camera.maintenanceMode ? "img" : undefined}
-                    />
-                  }
-                />
-                {camera.maintenanceMode && (
-                  <TooltipContent>In maintenance — notifications suppressed</TooltipContent>
-                )}
-              </Tooltip>
-            </div>
-          </TooltipProvider>
-        )
-      },
-      size: 72,
+      // Phase 20 D-12..D-16: expressive pills replace the 3-dot cell. StatusPills
+      // tokens mirror camera-popup.tsx:201-214 byte-for-byte (LIVE + REC), so the
+      // map popup and table row read as one design language.
+      cell: ({ row }) => <StatusPills camera={row.original} />,
+      size: 120,
       filterFn: (row, id, value: string[]) => value.includes(row.getValue(id)),
     },
     {
@@ -223,6 +164,42 @@ export function createCamerasColumns(
       id: "actions",
       cell: ({ row }) => {
         const camera = row.original
+
+        async function handleCopyCameraId() {
+          try {
+            await navigator.clipboard.writeText(camera.id)
+            toast.success("Camera ID copied")
+          } catch {
+            toast.error("Couldn't copy to clipboard")
+          }
+        }
+
+        async function handleCopyCurl() {
+          const origin =
+            typeof window !== "undefined"
+              ? window.location.origin
+              : "http://localhost:3000"
+          // D-10 / T-20-08 security invariant: <YOUR_API_KEY> stays as a
+          // LITERAL placeholder. The UI must NEVER fetch the user's real API
+          // key — clipboard history is a documented secret-leak vector.
+          const snippet = [
+            `curl -X POST \\`,
+            `  -H "X-API-Key: <YOUR_API_KEY>" \\`,
+            `  ${origin}/api/cameras/${camera.id}/sessions`,
+          ].join("\n")
+          try {
+            await navigator.clipboard.writeText(snippet)
+            toast.success("cURL example copied")
+          } catch {
+            toast.error("Couldn't copy to clipboard")
+          }
+        }
+
+        // D-08 order (9 items; separator auto-inserted above the destructive
+        // Delete entry by DataTableRowActions):
+        //   Edit, View Stream, Start/Stop Stream, Start/Stop Recording,
+        //   Maintenance/Exit Maintenance, Copy Camera ID, Copy cURL example,
+        //   Embed Code, Delete.
         const rowActions: RowAction<CameraRow>[] = [
           { label: "Edit", icon: Pencil, onClick: callbacks.onEdit },
           { label: "View Stream", icon: Play, onClick: callbacks.onViewStream },
@@ -237,10 +214,15 @@ export function createCamerasColumns(
             onClick: callbacks.onRecordToggle,
           },
           {
-            label: "Maintenance",
+            // D-07 asymmetric: parent's onMaintenanceToggle opens the reason
+            // dialog when !maintenanceMode and calls exit directly when
+            // maintenanceMode. Existing plumbing is preserved.
+            label: camera.maintenanceMode ? "Exit Maintenance" : "Maintenance",
             icon: Wrench,
             onClick: callbacks.onMaintenanceToggle,
           },
+          { label: "Copy Camera ID", icon: Copy, onClick: handleCopyCameraId },
+          { label: "Copy cURL example", icon: Terminal, onClick: handleCopyCurl },
           { label: "Embed Code", icon: Code, onClick: callbacks.onEmbedCode },
           {
             label: "Delete",
