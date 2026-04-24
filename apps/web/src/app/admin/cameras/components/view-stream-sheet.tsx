@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Radio, Circle } from "lucide-react"
+import { Radio, Circle, Copy } from "lucide-react"
 import { toast } from "sonner"
 
 import {
@@ -14,6 +14,13 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { cn } from "@/lib/utils"
 
 import { type CameraRow } from "./cameras-columns"
 import { CameraStatusBadge } from "./camera-status-badge"
@@ -32,6 +39,62 @@ interface ViewStreamSheetProps {
   onStreamToggle?: (camera: CameraRow) => void
   onRecordToggle?: (camera: CameraRow) => void
   onRefresh?: () => void
+}
+
+/**
+ * Phase 20 D-17 + D-18 — Camera ID chip row (3rd line of the sheet header).
+ *
+ * - Truncated display: `${id.slice(0,8)}…${id.slice(-8)}` with U+2026 unicode
+ *   ellipsis (single code point, NOT three ASCII dots).
+ * - Click on chip OR adjacent copy icon writes the FULL 36-char UUID to the
+ *   clipboard (not the truncated form). Clipboard pattern mirrors
+ *   `push-url-section.tsx:49-56`.
+ * - Tooltip on chip hover reveals the full UUID (UUIDs are not secrets —
+ *   they appear in embed URLs and playback responses).
+ * - Both copy surfaces carry descriptive aria-labels for screen readers.
+ */
+function IdChipRow({ cameraId }: { cameraId: string }) {
+  // D-18: truncated form = 8 prefix + U+2026 ellipsis + 8 suffix.
+  const truncated = `${cameraId.slice(0, 8)}…${cameraId.slice(-8)}`
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(cameraId)
+      toast.success("Camera ID copied")
+    } catch {
+      toast.error("Couldn't copy to clipboard")
+    }
+  }
+
+  return (
+    <TooltipProvider>
+      <div className="mt-1 flex items-center gap-2">
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button
+                type="button"
+                onClick={copy}
+                className="font-mono text-xs h-6 px-2 bg-muted hover:bg-muted/80 rounded-md text-muted-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                aria-label={`Camera ID ${cameraId}, click to copy`}
+              >
+                {truncated}
+              </button>
+            }
+          />
+          <TooltipContent>{cameraId}</TooltipContent>
+        </Tooltip>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={copy}
+          aria-label="Copy camera ID"
+        >
+          <Copy className="size-3" aria-hidden="true" />
+        </Button>
+      </div>
+    </TooltipProvider>
+  )
 }
 
 export function ViewStreamContent({
@@ -81,6 +144,7 @@ export function ViewStreamContent({
           {camera.site?.name}
           {camera.site?.project?.name ? ` > ${camera.site.project.name}` : ""}
         </SheetDescription>
+        <IdChipRow cameraId={camera.id} />
       </SheetHeader>
 
       <Tabs defaultValue="preview" className="flex-1 flex flex-col overflow-hidden">
@@ -89,26 +153,82 @@ export function ViewStreamContent({
             <TabsTrigger value="preview">Preview</TabsTrigger>
             <TabsTrigger value="activity">Activity</TabsTrigger>
           </TabsList>
-          <div className="flex items-center gap-1">
+          {/*
+           * Phase 20 D-19/D-20/D-21 — Expandable pill-button container.
+           *
+           * min-w-[340px] reserves layout space so toggling active state (which
+           * expands a button from w-9 to w-[160px]) never reflows the TabsList.
+           * justify-end keeps idle squares right-aligned while the container
+           * still occupies 340px.
+           *
+           * D-22 negative assertion: no ticking-clock / duration counter may
+           * appear in this component. The Record pill shows a static "REC"
+           * label with a pulsing red dot — never a running timer. Plan 20-04
+           * acceptance grep enforces this (zero matches for the forbidden
+           * time-API identifiers).
+           */}
+          <div className="flex items-center gap-2 min-w-[340px] justify-end">
             {onStreamToggle && (
-              <Button
-                variant="outline"
-                size="icon-sm"
+              <button
+                type="button"
                 onClick={() => onStreamToggle(camera)}
-                title={camera.status === "online" ? "Stop Stream" : "Start Stream"}
+                aria-pressed={camera.status === "online"}
+                aria-label={
+                  camera.status === "online" ? "Stop stream" : "Start stream"
+                }
+                className={cn(
+                  "inline-flex items-center justify-center rounded-md border text-muted-foreground",
+                  "transition-[width,background-color] duration-150 ease-out",
+                  "focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+                  camera.status === "online"
+                    ? "w-[160px] h-9 gap-1.5 bg-red-500 border-transparent px-3 text-white"
+                    : "w-9 h-9 border-border bg-background"
+                )}
               >
-                <Radio className="size-4" />
-              </Button>
+                <Radio
+                  className={cn(
+                    "size-4",
+                    camera.status === "online" &&
+                      "motion-safe:animate-pulse motion-reduce:animate-none"
+                  )}
+                  aria-hidden="true"
+                />
+                {camera.status === "online" && (
+                  <span className="text-xs font-medium">Stop Stream</span>
+                )}
+              </button>
             )}
             {onRecordToggle && (
-              <Button
-                variant="outline"
-                size="icon-sm"
+              <button
+                type="button"
                 onClick={() => onRecordToggle(camera)}
-                title={camera.isRecording ? "Stop Recording" : "Start Recording"}
+                aria-pressed={camera.isRecording}
+                aria-label={
+                  camera.isRecording ? "Stop recording" : "Start recording"
+                }
+                className={cn(
+                  "inline-flex items-center justify-center rounded-md border text-muted-foreground",
+                  "transition-[width,background-color] duration-150 ease-out",
+                  "focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+                  camera.isRecording
+                    ? "w-[160px] h-9 gap-1.5 bg-zinc-900 border-transparent px-3 text-white dark:bg-zinc-800"
+                    : "w-9 h-9 border-border bg-background"
+                )}
               >
-                <Circle className={`size-4 ${camera.isRecording ? "fill-red-500 text-red-500" : ""}`} />
-              </Button>
+                {camera.isRecording ? (
+                  <>
+                    <span
+                      className="size-2 rounded-full bg-red-500 motion-safe:animate-pulse motion-reduce:animate-none"
+                      aria-hidden="true"
+                    />
+                    <span className="text-[10px] font-bold uppercase tracking-wide">
+                      REC
+                    </span>
+                  </>
+                ) : (
+                  <Circle className="size-4" aria-hidden="true" />
+                )}
+              </button>
             )}
           </div>
         </div>

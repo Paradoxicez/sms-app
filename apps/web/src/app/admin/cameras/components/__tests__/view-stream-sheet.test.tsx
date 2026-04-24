@@ -88,15 +88,17 @@ beforeEach(() => {
 describe("ViewStreamSheet header (Phase 20 D-17, D-18)", () => {
   it("renders 3-line header: camera name / breadcrumb / ID chip", () => {
     renderSheet(baseCamera)
-    expect(screen.getByText("Cam-01")).toBeInTheDocument()
-    // Breadcrumb
+    // Line 1: SheetTitle (heading, Cam-01 also appears in Camera Info card span)
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Cam-01" })
+    ).toBeInTheDocument()
+    // Line 2: breadcrumb "Site A > Proj" as sheet description
     expect(
       screen.getByText((_, el) =>
-        (el?.textContent ?? "").includes("Site A") &&
-        (el?.textContent ?? "").includes("Proj")
+        el?.getAttribute("data-slot") === "sheet-description"
       )
-    ).toBeInTheDocument()
-    // ID chip
+    ).toHaveTextContent(/Site A.*Proj/)
+    // Line 3: ID chip (see dedicated assertions below)
     expect(
       screen.getByRole("button", { name: /camera id.*click to copy/i })
     ).toBeInTheDocument()
