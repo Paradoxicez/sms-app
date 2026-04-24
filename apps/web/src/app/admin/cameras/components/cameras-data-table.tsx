@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react"
 import {
   type ColumnFiltersState,
+  type OnChangeFn,
+  type RowSelectionState,
   type SortingState,
   flexRender,
   getCoreRowModel,
@@ -52,6 +54,24 @@ interface CamerasDataTableProps {
   onImportCameras?: () => void
   view: "table" | "card"
   onViewChange: (view: "table" | "card") => void
+  /**
+   * Phase 20 Plan 03 — rowSelection state lifted to the page so the bulk
+   * toolbar + MaintenanceReasonDialog + Delete AlertDialog can observe and
+   * mutate it. Keyed by `camera.id` via `getRowId` (Research Pitfall 1).
+   *
+   * Optional so legacy pages (e.g. tenant-projects-page) that do NOT yet
+   * surface bulk actions can still mount the table. When omitted, the
+   * component falls back to an internal selection state (bulk UI is simply
+   * absent in that context).
+   */
+  rowSelection?: RowSelectionState
+  onRowSelectionChange?: OnChangeFn<RowSelectionState>
+  /**
+   * Phase 20 D-06a — map of camera.id → verbatim API error message. Surfaces
+   * as an AlertTriangle tooltip in the Status column for rows whose last
+   * bulk-action attempt failed.
+   */
+  errorByCameraId?: Record<string, string>
 }
 
 export function CamerasDataTable({
@@ -68,18 +88,24 @@ export function CamerasDataTable({
   onImportCameras,
   view,
   onViewChange,
+  rowSelection,
+  onRowSelectionChange,
+  errorByCameraId,
 }: CamerasDataTableProps) {
   const columns = useMemo(
     () =>
-      createCamerasColumns({
-        onEdit,
-        onViewStream,
-        onDelete,
-        onRecordToggle,
-        onStreamToggle,
-        onMaintenanceToggle,
-        onEmbedCode,
-      }),
+      createCamerasColumns(
+        {
+          onEdit,
+          onViewStream,
+          onDelete,
+          onRecordToggle,
+          onStreamToggle,
+          onMaintenanceToggle,
+          onEmbedCode,
+        },
+        { errorByCameraId },
+      ),
     [
       onEdit,
       onViewStream,
@@ -88,24 +114,44 @@ export function CamerasDataTable({
       onStreamToggle,
       onMaintenanceToggle,
       onEmbedCode,
+      errorByCameraId,
     ]
   )
 
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
+  // Internal fallback for consumers that don't lift rowSelection state (e.g.
+  // tenant-projects-page in Phase 11). Phase 20 tenant-cameras-page always
+  // passes both props via useState.
+  const [internalSelection, setInternalSelection] = useState<RowSelectionState>(
+    {},
+  )
+  const effectiveSelection = rowSelection ?? internalSelection
+  const effectiveSelectionChange = onRowSelectionChange ?? setInternalSelection
 
   const table = useReactTable({
     data: cameras,
     columns,
+    // Research Pitfall 1: key rowSelection by camera.id (UUID) instead of the
+    // default visual-row-index. Without this, sorting/filtering/pagination
+    // silently reassigns which camera each selected index points to.
+    getRowId: (row) => row.id,
+    enableRowSelection: true,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    state: { sorting, columnFilters, pagination },
+    state: {
+      sorting,
+      columnFilters,
+      pagination,
+      rowSelection: effectiveSelection,
+    },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onPaginationChange: setPagination,
+    onRowSelectionChange: effectiveSelectionChange,
   })
 
   const projectOptions = useMemo(

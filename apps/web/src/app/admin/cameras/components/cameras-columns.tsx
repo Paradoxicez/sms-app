@@ -3,6 +3,7 @@
 import type { ColumnDef } from "@tanstack/react-table"
 import { formatDistanceToNow } from "date-fns"
 import {
+  AlertTriangle,
   Pencil,
   Play,
   Circle,
@@ -15,6 +16,13 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
+import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { DataTableColumnHeader } from "@/components/ui/data-table"
 import { DataTableRowActions, type RowAction } from "@/components/ui/data-table"
 import { StatusPills } from "@/app/admin/cameras/components/camera-status-badge"
@@ -55,10 +63,53 @@ interface CamerasColumnCallbacks {
   onMaintenanceToggle: (camera: CameraRow) => void
 }
 
+/**
+ * Phase 20 Plan 03 — options bag for cross-cutting column state.
+ *
+ * `errorByCameraId` surfaces bulk-action failures as an AlertTriangle badge in
+ * the Status cell (D-06a). The map is owned by `tenant-cameras-page.tsx` and
+ * updated by the bulk handler; it persists until the camera is targeted again.
+ */
+interface CamerasColumnOptions {
+  errorByCameraId?: Record<string, string>
+}
+
 export function createCamerasColumns(
-  callbacks: CamerasColumnCallbacks
+  callbacks: CamerasColumnCallbacks,
+  options: CamerasColumnOptions = {},
 ): ColumnDef<CameraRow>[] {
   return [
+    // ─── Phase 20 D-05 — Select column (FIRST) ────────────────────────
+    // Mirrors recordings-columns.tsx:42-64. getRowId: (row) => row.id is
+    // applied at the useReactTable level in cameras-data-table.tsx so
+    // rowSelection is keyed by camera UUID instead of visual row index.
+    {
+      id: "select",
+      header: ({ table }) => (
+        <Checkbox
+          checked={table.getIsAllPageRowsSelected()}
+          indeterminate={
+            table.getIsSomePageRowsSelected() &&
+            !table.getIsAllPageRowsSelected()
+          }
+          onCheckedChange={(value) =>
+            table.toggleAllPageRowsSelected(!!value)
+          }
+          aria-label="Select all cameras on this page"
+        />
+      ),
+      cell: ({ row }) => (
+        <div onClick={(e) => e.stopPropagation()}>
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
+            aria-label={`Select camera ${row.original.name}`}
+          />
+        </div>
+      ),
+      enableSorting: false,
+      size: 40,
+    },
     {
       accessorKey: "status",
       header: ({ column }) => (
@@ -67,7 +118,37 @@ export function createCamerasColumns(
       // Phase 20 D-12..D-16: expressive pills replace the 3-dot cell. StatusPills
       // tokens mirror camera-popup.tsx:201-214 byte-for-byte (LIVE + REC), so the
       // map popup and table row read as one design language.
-      cell: ({ row }) => <StatusPills camera={row.original} />,
+      //
+      // Plan 03 D-06a: when `options.errorByCameraId[id]` is set, append an
+      // AlertTriangle badge with the verbatim error message as its aria-label.
+      // Badge persists until the camera is re-targeted by another bulk action.
+      cell: ({ row }) => {
+        const camera = row.original
+        const error = options.errorByCameraId?.[camera.id]
+        return (
+          <div className="flex items-center gap-1">
+            <StatusPills camera={camera} />
+            {error && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <span
+                        role="img"
+                        aria-label={`Bulk action failed: ${error}`}
+                        className="ml-1"
+                      >
+                        <AlertTriangle className="size-3.5 text-amber-600 dark:text-amber-500" />
+                      </span>
+                    }
+                  />
+                  <TooltipContent>{error}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
+        )
+      },
       size: 120,
       filterFn: (row, id, value: string[]) => value.includes(row.getValue(id)),
     },
