@@ -20,7 +20,7 @@ describe('Camera Status State Machine', () => {
 
     mockPrisma = {
       camera: {
-        findUnique: vi.fn(),
+        findFirst: vi.fn(),
         update: vi.fn().mockResolvedValue({}),
       },
     };
@@ -49,7 +49,7 @@ describe('Camera Status State Machine', () => {
 
   // Valid transitions
   it('should allow transition offline -> connecting', async () => {
-    mockPrisma.camera.findUnique.mockResolvedValue({ id: 'cam-1', status: 'offline' });
+    mockPrisma.camera.findFirst.mockResolvedValue({ id: 'cam-1', status: 'offline' });
     await service.transition('cam-1', 'org-1', 'connecting');
     expect(mockPrisma.camera.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -60,7 +60,7 @@ describe('Camera Status State Machine', () => {
   });
 
   it('should allow transition connecting -> online', async () => {
-    mockPrisma.camera.findUnique.mockResolvedValue({ id: 'cam-1', status: 'connecting' });
+    mockPrisma.camera.findFirst.mockResolvedValue({ id: 'cam-1', status: 'connecting' });
     await service.transition('cam-1', 'org-1', 'online');
     expect(mockPrisma.camera.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -70,7 +70,7 @@ describe('Camera Status State Machine', () => {
   });
 
   it('should set lastOnlineAt when transitioning to online', async () => {
-    mockPrisma.camera.findUnique.mockResolvedValue({ id: 'cam-1', status: 'connecting' });
+    mockPrisma.camera.findFirst.mockResolvedValue({ id: 'cam-1', status: 'connecting' });
     await service.transition('cam-1', 'org-1', 'online');
     expect(mockPrisma.camera.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -83,37 +83,37 @@ describe('Camera Status State Machine', () => {
   });
 
   it('should allow transition online -> reconnecting', async () => {
-    mockPrisma.camera.findUnique.mockResolvedValue({ id: 'cam-1', status: 'online' });
+    mockPrisma.camera.findFirst.mockResolvedValue({ id: 'cam-1', status: 'online' });
     await service.transition('cam-1', 'org-1', 'reconnecting');
     expect(mockPrisma.camera.update).toHaveBeenCalled();
   });
 
   it('should allow transition reconnecting -> online (retry success)', async () => {
-    mockPrisma.camera.findUnique.mockResolvedValue({ id: 'cam-1', status: 'reconnecting' });
+    mockPrisma.camera.findFirst.mockResolvedValue({ id: 'cam-1', status: 'reconnecting' });
     await service.transition('cam-1', 'org-1', 'online');
     expect(mockPrisma.camera.update).toHaveBeenCalled();
   });
 
   it('should allow transition reconnecting -> offline (max retries)', async () => {
-    mockPrisma.camera.findUnique.mockResolvedValue({ id: 'cam-1', status: 'reconnecting' });
+    mockPrisma.camera.findFirst.mockResolvedValue({ id: 'cam-1', status: 'reconnecting' });
     await service.transition('cam-1', 'org-1', 'offline');
     expect(mockPrisma.camera.update).toHaveBeenCalled();
   });
 
   it('should allow transition online -> degraded', async () => {
-    mockPrisma.camera.findUnique.mockResolvedValue({ id: 'cam-1', status: 'online' });
+    mockPrisma.camera.findFirst.mockResolvedValue({ id: 'cam-1', status: 'online' });
     await service.transition('cam-1', 'org-1', 'degraded');
     expect(mockPrisma.camera.update).toHaveBeenCalled();
   });
 
   it('should allow transition degraded -> online', async () => {
-    mockPrisma.camera.findUnique.mockResolvedValue({ id: 'cam-1', status: 'degraded' });
+    mockPrisma.camera.findFirst.mockResolvedValue({ id: 'cam-1', status: 'degraded' });
     await service.transition('cam-1', 'org-1', 'online');
     expect(mockPrisma.camera.update).toHaveBeenCalled();
   });
 
   it('should allow transition connecting -> offline (any state -> offline on stop)', async () => {
-    mockPrisma.camera.findUnique.mockResolvedValue({ id: 'cam-1', status: 'connecting' });
+    mockPrisma.camera.findFirst.mockResolvedValue({ id: 'cam-1', status: 'connecting' });
     await service.transition('cam-1', 'org-1', 'offline');
     expect(mockPrisma.camera.update).toHaveBeenCalled();
   });
@@ -124,7 +124,7 @@ describe('Camera Status State Machine', () => {
   // connecting because FFmpegService sets that state before SRS fires
   // on_publish — the direct edge is additive.
   it('should allow transition offline -> online (Phase 19.1 push+passthrough path)', async () => {
-    mockPrisma.camera.findUnique.mockResolvedValue({ id: 'cam-1', status: 'offline' });
+    mockPrisma.camera.findFirst.mockResolvedValue({ id: 'cam-1', status: 'offline' });
     await service.transition('cam-1', 'org-1', 'online');
     expect(mockPrisma.camera.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -136,7 +136,7 @@ describe('Camera Status State Machine', () => {
 
   // Gap 15.1 Task 2 — reconnecting -> connecting is now a valid retry re-enqueue
   it('should allow transition reconnecting -> connecting (retry re-enqueue)', async () => {
-    mockPrisma.camera.findUnique.mockResolvedValue({ id: 'cam-1', status: 'reconnecting' });
+    mockPrisma.camera.findFirst.mockResolvedValue({ id: 'cam-1', status: 'reconnecting' });
     await service.transition('cam-1', 'org-1', 'connecting');
 
     expect(mockPrisma.camera.update).toHaveBeenCalledWith(
@@ -149,7 +149,7 @@ describe('Camera Status State Machine', () => {
   });
 
   it('should still reject transition offline -> reconnecting (sanity check)', async () => {
-    mockPrisma.camera.findUnique.mockResolvedValue({ id: 'cam-1', status: 'offline' });
+    mockPrisma.camera.findFirst.mockResolvedValue({ id: 'cam-1', status: 'offline' });
     await expect(service.transition('cam-1', 'org-1', 'reconnecting')).rejects.toThrow(
       'Invalid transition: offline -> reconnecting',
     );
@@ -157,14 +157,14 @@ describe('Camera Status State Machine', () => {
 
   // Socket.IO broadcasting
   it('should broadcast status change via Socket.IO to org room', async () => {
-    mockPrisma.camera.findUnique.mockResolvedValue({ id: 'cam-1', status: 'offline' });
+    mockPrisma.camera.findFirst.mockResolvedValue({ id: 'cam-1', status: 'offline' });
     await service.transition('cam-1', 'org-1', 'connecting');
     expect(mockGateway.broadcastStatus).toHaveBeenCalledWith('org-1', 'cam-1', 'connecting');
   });
 
   // Camera not found
   it('should throw when camera not found', async () => {
-    mockPrisma.camera.findUnique.mockResolvedValue(null);
+    mockPrisma.camera.findFirst.mockResolvedValue(null);
     await expect(service.transition('nonexistent', 'org-1', 'online')).rejects.toThrow(
       'Camera nonexistent not found',
     );
@@ -175,7 +175,7 @@ describe('Viewer Counting', () => {
   let service: StatusService;
 
   beforeEach(() => {
-    const mockPrisma = { camera: { findUnique: vi.fn(), update: vi.fn() } };
+    const mockPrisma = { camera: { findFirst: vi.fn(), update: vi.fn() } };
     const mockGateway = { broadcastStatus: vi.fn(), broadcastViewerCount: vi.fn() };
     const mockWebhooks = { emitEvent: vi.fn().mockResolvedValue(undefined) };
     const mockNotifications = { createForCameraEvent: vi.fn().mockResolvedValue(undefined) };

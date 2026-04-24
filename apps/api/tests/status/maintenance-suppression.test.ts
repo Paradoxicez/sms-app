@@ -20,7 +20,7 @@ describe('StatusService maintenance gate', () => {
 
     mockPrisma = {
       camera: {
-        findUnique: vi.fn(),
+        findFirst: vi.fn(),
         update: vi.fn().mockResolvedValue({}),
       },
     };
@@ -47,7 +47,7 @@ describe('StatusService maintenance gate', () => {
   });
 
   it('when maintenanceMode=true, broadcasts status and updates DB but does NOT enqueue notify', async () => {
-    mockPrisma.camera.findUnique.mockResolvedValue({
+    mockPrisma.camera.findFirst.mockResolvedValue({
       id: 'cam1',
       status: 'online',
       name: 'Cam 1',
@@ -64,7 +64,7 @@ describe('StatusService maintenance gate', () => {
   });
 
   it('when maintenanceMode=false, broadcasts + enqueues as normal', async () => {
-    mockPrisma.camera.findUnique.mockResolvedValue({
+    mockPrisma.camera.findFirst.mockResolvedValue({
       id: 'cam1',
       status: 'online',
       name: 'Cam 1',

@@ -19,7 +19,7 @@ describe('StatusService debounce-by-replacement', () => {
 
     mockPrisma = {
       camera: {
-        findUnique: vi.fn(),
+        findFirst: vi.fn(),
         update: vi.fn().mockResolvedValue({}),
       },
     };
@@ -47,7 +47,7 @@ describe('StatusService debounce-by-replacement', () => {
   });
 
   it('schedules delayed job with deterministic jobId on first transition', async () => {
-    mockPrisma.camera.findUnique.mockResolvedValue({
+    mockPrisma.camera.findFirst.mockResolvedValue({
       id: 'cam1',
       status: 'connecting',
       name: 'Cam 1',
@@ -80,7 +80,7 @@ describe('StatusService debounce-by-replacement', () => {
   });
 
   it('replaces pending job when a second transition fires inside the window', async () => {
-    mockPrisma.camera.findUnique.mockResolvedValue({
+    mockPrisma.camera.findFirst.mockResolvedValue({
       id: 'cam1',
       status: 'connecting',
       name: 'Cam 1',
@@ -96,7 +96,7 @@ describe('StatusService debounce-by-replacement', () => {
     await service.transition('cam1', 'org1', 'online');
 
     // Now imagine the status flips before the delay elapses.
-    mockPrisma.camera.findUnique.mockResolvedValue({
+    mockPrisma.camera.findFirst.mockResolvedValue({
       id: 'cam1',
       status: 'online',
       name: 'Cam 1',
@@ -119,7 +119,7 @@ describe('StatusService debounce-by-replacement', () => {
   });
 
   it('does not enqueue for non-notifiable status (connecting)', async () => {
-    mockPrisma.camera.findUnique.mockResolvedValue({
+    mockPrisma.camera.findFirst.mockResolvedValue({
       id: 'cam1',
       status: 'offline',
       name: 'Cam 1',
@@ -133,7 +133,7 @@ describe('StatusService debounce-by-replacement', () => {
   });
 
   it('does not enqueue when newStatus === currentStatus (no-op guard)', async () => {
-    mockPrisma.camera.findUnique.mockResolvedValue({
+    mockPrisma.camera.findFirst.mockResolvedValue({
       id: 'cam1',
       status: 'online',
       name: 'Cam 1',

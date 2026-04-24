@@ -94,7 +94,7 @@ describe('DashboardService Phase 18 enrichments', () => {
         orgId,
         siteId,
         name: overrides.name ?? 'cam',
-        streamUrl: 'rtsp://example/stream',
+        streamUrl: `rtsp://example/${randomUUID()}`,
         status: overrides.status ?? 'offline',
         isRecording: overrides.isRecording ?? false,
         maintenanceMode: overrides.maintenanceMode ?? false,
