@@ -557,9 +557,22 @@ export class CamerasService {
       },
     });
 
-    // (2) Best-effort stop stream. If no stream is running, stopStream still
-    //     transitions status → offline (harmless). If stream IS running, FFmpeg
-    //     is SIGTERM'd and the offline transition is notify-suppressed (15-01).
+    // Phase 19.1 D-23: push cameras cannot be "stopped" from the platform
+    // side — the encoder (OBS / camera) owns the publish lifecycle.
+    // Maintenance for push = suppress notifications only, keep stream live.
+    // Pull cameras keep the old behavior: stop FFmpeg + force status=offline
+    // so no upstream bandwidth is wasted while the camera is sidelined.
+    if (camera.ingestMode === 'push') {
+      this.logger.log(
+        `Camera ${cameraId} entered maintenance (push — stream continues, notifications suppressed, user=${userId})`,
+      );
+      return updated;
+    }
+
+    // (2) Pull-camera path: stop FFmpeg. If no stream is running, stopStream
+    //     still transitions status → offline (harmless). If stream IS running,
+    //     FFmpeg is SIGTERM'd and the offline transition is notify-suppressed
+    //     (15-01).
     try {
       await this.streamsService.stopStream(cameraId);
     } catch (err) {
