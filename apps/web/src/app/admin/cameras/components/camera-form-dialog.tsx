@@ -199,8 +199,10 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
       if (isEditMode) {
         // D-01 (Phase 19.1): ingestMode is immutable post-create — do NOT send
         // it in the PATCH payload. streamUrl is pull-only (push URL is managed
-        // server-side via rotate-key).
-        body.streamUrl = streamUrl.trim();
+        // server-side via rotate-key), so skip it for push cameras.
+        if (ingestMode === 'pull') {
+          body.streamUrl = streamUrl.trim();
+        }
         if (siteId) body.siteId = siteId;
         await apiFetch(`/api/cameras/${camera.id}`, {
           method: 'PATCH',
@@ -325,7 +327,12 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
                 />
               </div>
 
-              {ingestMode === 'pull' || isEditMode ? (
+              {ingestMode === 'pull' ? (
+                // Stream URL shown for pull cameras (create + edit). Push
+                // cameras don't expose a user-editable URL — the platform
+                // manages the push key via generate/rotate flows and
+                // ingestMode is immutable (D-01), so the edit dialog hides
+                // this input entirely for push cameras.
                 <div className="space-y-1.5">
                   <Label htmlFor="cam-url">Stream URL *</Label>
                   <Input
@@ -350,6 +357,21 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
                       {HELPER_TEXT}
                     </p>
                   )}
+                </div>
+              ) : isEditMode ? (
+                // Push + edit mode: show a read-only reference to the push
+                // URL with a link to the camera detail sheet where the
+                // user can rotate the key.
+                <div className="space-y-1.5">
+                  <Label>Push URL</Label>
+                  <div className="rounded-md border bg-muted/30 p-3 space-y-1">
+                    <p className="font-mono text-xs text-muted-foreground break-all">
+                      {streamUrl}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Managed by the platform. Open the camera detail panel to rotate the key.
+                    </p>
+                  </div>
                 </div>
               ) : (
                 // Phase 19.1 D-10: push-mode hint block (UI-SPEC verbatim copy).
