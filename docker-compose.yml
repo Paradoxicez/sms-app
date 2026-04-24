@@ -47,7 +47,9 @@ services:
       - ./docker-data/srs-hls:/usr/local/srs/objs/nginx/html
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:1985/api/v1/versions"]
+      # ossrs/srs:6 has no curl/wget. CMD-SHELL uses /bin/sh (dash) which
+      # has no /dev/tcp, so invoke bash explicitly to probe the HTTP API.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/localhost/1985 && printf 'GET /api/v1/versions HTTP/1.0\\r\\n\\r\\n' >&3 && head -1 <&3 | grep -q '200 OK'"]
       interval: 10s
       timeout: 5s
       retries: 5
