@@ -3,11 +3,11 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Self-Service, Resilience & UI Polish
 status: executing
-stopped_at: Phase 19.1 UI-SPEC approved (6/6 dimensions)
-last_updated: "2026-04-24T10:13:01.286Z"
+stopped_at: Phase 20 context gathered
+last_updated: "2026-04-24T12:12:30.694Z"
 last_activity: 2026-04-24
 progress:
-  total_phases: 7
+  total_phases: 8
   completed_phases: 7
   total_plans: 39
   completed_plans: 39
@@ -66,6 +66,7 @@ Recent decisions affecting current work:
 - Phase 15.1 inserted after Phase 15: Tenancy RLS bypass + StreamProcessor transition fixes (URGENT)
 - Phase 19 added: Camera input validation and multi-protocol support (RTMP/RTMPS) — closes 5 gaps from audit `.planning/debug/camera-stream-validation-audit.md` (codec/resolution populate, Add Camera format validation, bulk import dedup, RTMP unblock, Prisma unique constraint)
 - Phase 19.1 inserted after Phase 19: RTMP push ingest with platform-generated stream keys (URGENT)
+- Phase 20 added: Cameras UX — bulk actions, maintenance toggle in action menu, copy Camera ID (menu + view-stream header), expressive LIVE/REC status icons, active-state feedback on Start Stream/Record buttons
 
 ### Pending Todos
 
@@ -90,6 +91,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-23T12:12:33.670Z
-Stopped at: Phase 19.1 UI-SPEC approved (6/6 dimensions)
-Resume file: .planning/phases/19.1-rtmp-push-ingest-with-platform-generated-stream-keys/19.1-UI-SPEC.md
+Last session: 2026-04-24T12:12:30.684Z
+Stopped at: Phase 20 context gathered
+Resume file: .planning/phases/20-cameras-ux-bulk-actions-maintenance-toggle-copy-id-expressiv/20-CONTEXT.md
