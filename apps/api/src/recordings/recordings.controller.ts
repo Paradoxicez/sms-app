@@ -26,6 +26,12 @@ import { createScheduleSchema } from './dto/create-schedule.dto';
 import { updateRetentionSchema } from './dto/update-retention.dto';
 import { recordingQuerySchema } from './dto/recording-query.dto';
 import { BulkDownloadService } from './bulk-download.service';
+import {
+  buildDownloadPlaylist,
+  buildRemuxArgs,
+  PlaylistSegment,
+  skipLeadingNonKeyframeSegments,
+} from './download-playlist.util';
 
 @ApiTags('Recordings')
 @Controller('api/recordings')
@@ -253,26 +259,43 @@ export class RecordingsController {
     const dateStr = new Date(recording.startedAt).toISOString().slice(0, 10);
     const filename = `${cameraName}-${dateStr}.mp4`;
 
-    // Build presigned URLs for segments and create an in-memory m3u8
+    // Build presigned URLs for segments and create an in-memory m3u8.
+    // See download-playlist.util.ts for why TARGETDURATION is dynamic and why
+    // `-bsf:a aac_adtstoasc` is required — both are RTMP-push-specific fixes.
     const sortedSegments = recording.segments.sort((a: any, b: any) => a.seqNo - b.seqNo);
 
-    let m3u8 = '#EXTM3U\n#EXT-X-VERSION:7\n';
-    const maxDuration = 3;
-    m3u8 += `#EXT-X-TARGETDURATION:${maxDuration}\n`;
-    m3u8 += '#EXT-X-MEDIA-SEQUENCE:0\n';
-    m3u8 += '#EXT-X-PLAYLIST-TYPE:VOD\n';
-
-    if (recording.initSegment) {
-      const initUrl = await this.minioService.getPresignedUrl(orgId, recording.initSegment, 3600);
-      m3u8 += `#EXT-X-MAP:URI="${initUrl}"\n`;
+    // Phase 19.1 layer-7: drop leading segments we verified contain no IDR.
+    // FFmpeg would skip them at decode time anyway, but trimming here keeps
+    // the produced MP4 aligned with the hls.js preview (same starting frame)
+    // and shaves a few MB off the download for push recordings that began
+    // mid-GOP. Legacy rows (hasKeyframe=null) are preserved by the helper.
+    const playableSegments = skipLeadingNonKeyframeSegments(
+      sortedSegments.map((s: any) => ({
+        duration: s.duration ?? 2.56,
+        url: '', // filled in below
+        hasKeyframe: s.hasKeyframe,
+        __row: s,
+      })),
+    );
+    if (playableSegments.length === 0) {
+      throw new BadRequestException(
+        'Recording has no segments with a decodable keyframe',
+      );
     }
-
-    for (const segment of sortedSegments) {
-      const segUrl = await this.minioService.getPresignedUrl(orgId, segment.objectPath, 3600);
-      m3u8 += `#EXTINF:${(segment as any).duration?.toFixed(6) ?? '2.560000'},\n`;
-      m3u8 += `${segUrl}\n`;
+    const playlistSegments: PlaylistSegment[] = [];
+    for (const entry of playableSegments) {
+      const row = (entry as any).__row;
+      const segUrl = await this.minioService.getPresignedUrl(
+        orgId,
+        row.objectPath,
+        3600,
+      );
+      playlistSegments.push({
+        duration: entry.duration,
+        url: segUrl,
+      });
     }
-    m3u8 += '#EXT-X-ENDLIST\n';
+    const m3u8 = buildDownloadPlaylist(playlistSegments);
 
     // Write m3u8 to temp file (FFmpeg needs seekable input for HLS)
     const { writeFile, unlink } = await import('fs/promises');
@@ -282,25 +305,41 @@ export class RecordingsController {
     await writeFile(tmpPath, m3u8);
 
     const { spawn } = await import('child_process');
-    const ffmpeg = spawn('ffmpeg', [
-      '-y',
-      '-protocol_whitelist', 'file,http,https,tcp,tls,crypto',
-      '-i', tmpPath,
-      '-c', 'copy',
-      '-movflags', 'frag_keyframe+empty_moov',
-      '-f', 'mp4',
-      'pipe:1',
-    ], { stdio: ['pipe', 'pipe', 'pipe'] });
+    const ffmpeg = spawn('ffmpeg', buildRemuxArgs(tmpPath, 'pipe:1'), {
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
 
     res.setHeader('Content-Type', 'video/mp4');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
 
     ffmpeg.stdout.pipe(res);
 
-    ffmpeg.stderr.on('data', () => {});
+    // Capture stderr tail for diagnostics if FFmpeg exits with a non-zero code.
+    // We intentionally keep it small (last 4KB) to avoid memory pressure on
+    // long recordings while preserving enough context for error reporting.
+    const stderrBuf: Buffer[] = [];
+    let stderrBytes = 0;
+    const MAX_STDERR = 4096;
+    ffmpeg.stderr.on('data', (chunk: Buffer) => {
+      stderrBuf.push(chunk);
+      stderrBytes += chunk.length;
+      while (stderrBytes > MAX_STDERR && stderrBuf.length > 1) {
+        const head = stderrBuf.shift()!;
+        stderrBytes -= head.length;
+      }
+    });
 
-    ffmpeg.on('close', async () => {
+    ffmpeg.on('close', async (code) => {
       await unlink(tmpPath).catch(() => {});
+      if (code !== 0) {
+        const stderrTail = Buffer.concat(stderrBuf).toString('utf8').slice(-MAX_STDERR);
+        // NestJS Logger isn't injected here; use console.error to surface the
+        // tail in the API container log for future regressions (e.g. a new
+        // ingest format lands that our `-c copy` pipeline can't handle).
+        console.error(
+          `[downloadRecording] FFmpeg exit=${code} recording=${id} tail=\n${stderrTail}`,
+        );
+      }
     });
 
     ffmpeg.on('error', async () => {
@@ -339,6 +378,10 @@ export class RecordingsController {
     @Param('id') id: string,
     @Res() res: Response,
   ) {
+    // Retained for forward-compat: when SRS is upgraded to v7.0.51+ and
+    // hls_use_fmp4 is re-enabled, manifest.service will start emitting
+    // EXT-X-MAP pointing here. Today (SRS v6 MPEG-TS) no recording has an
+    // initSegment, so serve the row's value if present or return 400.
     const orgId = this.cls.get('ORG_ID');
     const recording = await this.recordingsService.getRecording(id, orgId);
     if (!recording.initSegment) {

@@ -15,7 +15,7 @@
     "db:test:setup": "bash scripts/setup-test-db.sh",
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
-    "db:push": "psql $DATABASE_URL_MIGRATE -f src/prisma/migrations/camera_stream_url_unique/migration.sql && DATABASE_URL=$DATABASE_URL_MIGRATE prisma db push --accept-data-loss && psql $DATABASE_URL_MIGRATE -f src/prisma/migrations/camera_push_fields/migration.sql && psql $DATABASE_URL_MIGRATE -f src/prisma/migrations/rls_apply_all/migration.sql",
+    "db:push": "psql $DATABASE_URL_MIGRATE -f src/prisma/migrations/camera_stream_url_unique/migration.sql && DATABASE_URL=$DATABASE_URL_MIGRATE prisma db push --accept-data-loss && psql $DATABASE_URL_MIGRATE -f src/prisma/migrations/camera_push_fields/migration.sql && psql $DATABASE_URL_MIGRATE -f src/prisma/migrations/recording_segment_has_keyframe/migration.sql && psql $DATABASE_URL_MIGRATE -f src/prisma/migrations/rls_apply_all/migration.sql",
     "db:push:skip-rls": "prisma db push"
   },
   "dependencies": {
@@ -35,6 +35,7 @@
     "better-auth": "^1.6.1",
     "bullmq": "^5.73.2",
     "csv-parse": "^6.2.1",
+    "express": "^5.2.1",
     "fluent-ffmpeg": "^2.1.3",
     "ioredis": "^5.10.1",
     "jose": "^6.2.2",

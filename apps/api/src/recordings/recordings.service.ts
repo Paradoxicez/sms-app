@@ -10,8 +10,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SystemPrismaService } from '../prisma/system-prisma.service';
 import { MinioService } from './minio.service';
 import { RecordingQueryDto } from './dto/recording-query.dto';
+import { containsH264Keyframe } from './h264-utils';
 import * as fs from 'fs/promises';
-import * as path from 'path';
 
 @Injectable()
 export class RecordingsService {
@@ -212,21 +212,33 @@ export class RecordingsService {
     const buffer = await fs.readFile(data.filePath);
     const size = buffer.length;
 
-    // SRS callback context (no CLS) — use systemPrisma. orgId added to count
-    // where clause as defense in depth.
-    const existingSegments = await this.systemPrisma.recordingSegment.count({
-      where: { recordingId, orgId },
-    });
+    // SRS 6.0.184 emits MPEG-TS segments (fMP4 / hls_use_fmp4 is a v7+ feature
+    // — PR #4159 landed in v7.0.51). No init segment exists, so archiveInitSegment
+    // was removed. `recording.initSegment` column stays nullable for forward-compat
+    // with a future SRS v7 upgrade.
 
-    if (existingSegments === 0 && data.m3u8Path) {
-      await this.archiveInitSegment(recordingId, orgId, cameraId, data.m3u8Path);
+    // Phase 19.1 layer-7: probe the TS payload for an H.264 IDR NAL so the
+    // manifest generator can skip leading non-keyframe fragments. See
+    // h264-utils.ts + manifest.service.generateManifest for the rationale.
+    // Runs in <5 ms on typical 1-4 MB RTMP segments (O(n) scan with
+    // early-exit). Failure is swallowed into `null` — treated as "trust it"
+    // downstream, matching legacy behaviour for rows created before this
+    // field existed.
+    let hasKeyframe: boolean | null;
+    try {
+      hasKeyframe = containsH264Keyframe(buffer);
+    } catch (err) {
+      this.logger.warn(
+        `Keyframe probe failed for seq=${data.seqNo}: ${(err as Error).message}`,
+      );
+      hasKeyframe = null;
     }
 
-    // Generate object path: {cameraId}/{YYYY-MM-DD}/{HH-MM-SS}_{seqNo}.m4s
+    // Generate object path: {cameraId}/{YYYY-MM-DD}/{HH-MM-SS}_{seqNo}.ts
     const now = new Date();
     const dateStr = now.toISOString().slice(0, 10); // YYYY-MM-DD
     const timeStr = now.toISOString().slice(11, 19).replace(/:/g, '-'); // HH-MM-SS
-    const objectPath = `${cameraId}/${dateStr}/${timeStr}_${data.seqNo}.m4s`;
+    const objectPath = `${cameraId}/${dateStr}/${timeStr}_${data.seqNo}.ts`;
 
     // Upload to MinIO
     await this.minioService.uploadSegment(orgId, objectPath, buffer, size);
@@ -242,6 +254,7 @@ export class RecordingsService {
         size: BigInt(size),
         seqNo: data.seqNo,
         timestamp: now,
+        hasKeyframe,
       },
     });
 
@@ -548,56 +561,7 @@ export class RecordingsService {
     this.logger.log(`Deleted recording: ${id}`);
   }
 
-  private async archiveInitSegment(
-    recordingId: string,
-    orgId: string,
-    cameraId: string,
-    m3u8Path: string,
-  ): Promise<void> {
-    try {
-      const m3u8Content = await fs.readFile(m3u8Path, 'utf-8');
-      const mapMatch = m3u8Content.match(
-        /#EXT-X-MAP:URI="([^"]+)"/,
-      );
-      if (!mapMatch) {
-        this.logger.warn(
-          `No EXT-X-MAP found in m3u8 for recording=${recordingId}`,
-        );
-        return;
-      }
-
-      const initFileName = mapMatch[1];
-      const initFilePath = path.join(
-        path.dirname(m3u8Path),
-        initFileName,
-      );
-      const initBuffer = await fs.readFile(initFilePath);
-
-      const now = new Date();
-      const dateStr = now.toISOString().slice(0, 10);
-      const initObjectPath = `${cameraId}/${dateStr}/init.mp4`;
-
-      await this.minioService.uploadSegment(
-        orgId,
-        initObjectPath,
-        initBuffer,
-        initBuffer.length,
-      );
-
-      // SRS callback context (no CLS) — use systemPrisma. PK update OK because
-      // recordingId came from a row counted via orgId-scoped query in archiveSegment.
-      await this.systemPrisma.recording.update({
-        where: { id: recordingId },
-        data: { initSegment: initObjectPath },
-      });
-
-      this.logger.debug(
-        `Archived init segment for recording=${recordingId}`,
-      );
-    } catch (err) {
-      this.logger.warn(
-        `Failed to archive init segment for recording=${recordingId}: ${(err as Error).message}`,
-      );
-    }
-  }
+  // archiveInitSegment removed: SRS 6.0.184 produces MPEG-TS (no init segment).
+  // When/if we upgrade to SRS v7.0.51+ and turn on hls_use_fmp4, restore this
+  // method and the first-segment hook in archiveSegment.
 }

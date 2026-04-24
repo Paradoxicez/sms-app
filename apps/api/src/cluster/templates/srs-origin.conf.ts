@@ -29,6 +29,13 @@ http_server {
 http_api {
     enabled         on;
     listen          ${settings.apiPort};
+    # SettingsService reload endpoint needs raw_api → allow_reload to succeed;
+    # without it the POST /api/v1/raw?rpc=reload returns code=1061 and SRS keeps
+    # running with its cold-boot config until restart.
+    raw_api {
+        enabled         on;
+        allow_reload    on;
+    }
 }
 
 stats {
@@ -53,6 +60,18 @@ ${hlsKeysBlock}    }
         on_stop         http://api:3001/api/srs/callbacks/on-stop;
         on_hls          http://api:3001/api/srs/callbacks/on-hls;
         on_dvr          http://api:3001/api/srs/callbacks/on-dvr;
+    }
+
+    # Phase 19.1 D-18: RTMP push → live remap via backend hook.
+    # SRS posts to this URL for every publish and expects
+    # { code: 0, data: { urls: ["rtmp://..."] } } in response.
+    # Backend returns:
+    #   app=push + passthrough → rtmp://127.0.0.1:1935/live/{orgId}/{cameraId}
+    #   app=push + transcode   → empty (FFmpeg handles forward)
+    #   app=live               → empty (recursion guard)
+    forward {
+        enabled         on;
+        backend         http://api:3001/api/srs/callbacks/on-forward;
     }
 
     rtc {

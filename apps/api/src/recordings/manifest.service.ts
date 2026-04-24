@@ -37,38 +37,58 @@ export class ManifestService {
       return this.buildEmptyManifest();
     }
 
-    // 3. Build proxy URLs that route through the API (same origin as manifest)
-    // This avoids CORS issues with direct MinIO presigned URLs
-    const initUrl = recording.initSegment
-      ? `/api/recordings/${recordingId}/init-segment`
-      : null;
+    // 3. Skip leading non-keyframe segments (Phase 19.1 layer-7).
+    //
+    //    RTMP push recordings can begin mid-GOP — the first few segments
+    //    then carry only non-IDR P-frames with no SPS/PPS, which hls.js
+    //    cannot use to initialise its decoder (RFC 8216bis §4.3.2.4 says
+    //    such frames "will be downloaded but possibly discarded", and
+    //    hls.js 1.6.x escalates this to a fatal fragment-parsing error on
+    //    the very first fragment).
+    //
+    //    `hasKeyframe` is populated at archive time by the H.264 NAL
+    //    scanner (see h264-utils.ts). Legacy rows predate the column and
+    //    are stored as `null`; we treat null as "trust it" so RTSP
+    //    recordings (which have always started on a keyframe via our
+    //    FFmpeg pull pipeline) continue to play unchanged.
+    const firstPlayable = segments.findIndex(
+      (s: any) => s.hasKeyframe !== false,
+    );
+    const playableSegments =
+      firstPlayable < 0 ? [] : segments.slice(firstPlayable);
 
-    const segmentUrls = segments.map((seg: any) => ({
+    if (playableSegments.length === 0) {
+      return this.buildEmptyManifest();
+    }
+
+    // 4. Build proxy URLs that route through the API (same origin as manifest)
+    // This avoids CORS issues with direct MinIO presigned URLs.
+    // `recording.initSegment` may still be populated on rows created before the
+    // MPEG-TS switch, but SRS v6 never produces one so we ignore it when
+    // building the manifest (EXT-X-MAP is invalid for MPEG-TS segments).
+    const segmentUrls = playableSegments.map((seg: any) => ({
       duration: seg.duration,
       url: `/api/recordings/segments/${seg.id}/proxy`,
     }));
 
-    // 4. Build m3u8
-    return this.buildManifest(segmentUrls, initUrl);
+    // 5. Build m3u8
+    return this.buildManifest(segmentUrls);
   }
 
   buildManifest(
     segments: { duration: number; url: string }[],
-    initSegmentUrl: string | null,
   ): string {
     const maxDuration = Math.ceil(Math.max(...segments.map(s => s.duration)));
 
     let m3u8 = '#EXTM3U\n';
-    // HLS v7 is required for EXT-X-MAP (fMP4 init segments) — SRS is
-    // configured with hls_use_fmp4=on.
-    m3u8 += '#EXT-X-VERSION:7\n';
+    // HLS v3 for MPEG-TS VOD manifests. Do NOT bump to v7 / add EXT-X-MAP —
+    // that requires fMP4 segments which SRS v6 cannot produce (fmp4 landed in
+    // v7.0.51 via PR #4159). Adding EXT-X-MAP with .ts segments breaks
+    // playback in every mainstream player.
+    m3u8 += '#EXT-X-VERSION:3\n';
     m3u8 += `#EXT-X-TARGETDURATION:${maxDuration}\n`;
     m3u8 += '#EXT-X-MEDIA-SEQUENCE:0\n';
     m3u8 += '#EXT-X-PLAYLIST-TYPE:VOD\n';
-
-    if (initSegmentUrl) {
-      m3u8 += `#EXT-X-MAP:URI="${initSegmentUrl}"\n`;
-    }
 
     for (const seg of segments) {
       m3u8 += `#EXTINF:${seg.duration.toFixed(6)},\n`;
@@ -80,7 +100,7 @@ export class ManifestService {
   }
 
   buildEmptyManifest(): string {
-    return '#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-TARGETDURATION:3\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-PLAYLIST-TYPE:VOD\n#EXT-X-ENDLIST\n';
+    return '#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:3\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-PLAYLIST-TYPE:VOD\n#EXT-X-ENDLIST\n';
   }
 
   async getSegmentsForDate(

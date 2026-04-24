@@ -157,6 +157,14 @@ http_server {
 http_api {
     enabled         on;
     listen          ${settings.apiPort};
+    # SettingsService.regenerateAndReloadSrs() calls /api/v1/raw?rpc=reload.
+    # Without raw_api block SRS returns code=1061 and the reload silently fails,
+    # leaving the running process out of sync with the on-disk config until the
+    # container is manually restarted.
+    raw_api {
+        enabled         on;
+        allow_reload    on;
+    }
 }
 
 stats {
@@ -168,7 +176,6 @@ vhost __defaultVhost__ {
         enabled         on;
         hls_fragment    ${settings.hlsFragment};
         hls_window      ${settings.hlsWindow};
-        hls_use_fmp4    on;
         hls_cleanup     on;
         hls_dispose     30;
         hls_wait_keyframe on;
@@ -184,6 +191,18 @@ ${hlsKeysBlock}    }
         on_stop         http://${process.env.SRS_CALLBACK_HOST || 'host.docker.internal'}:${process.env.SRS_CALLBACK_PORT || '3003'}/api/srs/callbacks/on-stop;
         on_hls          http://${process.env.SRS_CALLBACK_HOST || 'host.docker.internal'}:${process.env.SRS_CALLBACK_PORT || '3003'}/api/srs/callbacks/on-hls;
         on_dvr          http://${process.env.SRS_CALLBACK_HOST || 'host.docker.internal'}:${process.env.SRS_CALLBACK_PORT || '3003'}/api/srs/callbacks/on-dvr;
+    }
+
+    # Phase 19.1 D-18: RTMP push → live remap via backend hook.
+    # SRS posts to this URL for every publish and expects
+    # { code: 0, data: { urls: ["rtmp://..."] } } in response.
+    # Backend returns:
+    #   app=push + passthrough → rtmp://127.0.0.1:1935/live/{orgId}/{cameraId}
+    #   app=push + transcode   → empty (FFmpeg handles forward)
+    #   app=live               → empty (recursion guard)
+    forward {
+        enabled         on;
+        backend         http://${process.env.SRS_CALLBACK_HOST || 'host.docker.internal'}:${process.env.SRS_CALLBACK_PORT || '3003'}/api/srs/callbacks/on-forward;
     }
 
     rtc {

@@ -48,7 +48,9 @@ describe('SRS Config Generator', () => {
     expect(config).toContain('listen              1935;');
     expect(config).toContain('hls_fragment    2;');
     expect(config).toContain('hls_window      10;');
-    expect(config).toContain('hls_use_fmp4    on;');
+    // hls_use_fmp4 removed per commit 2b137b1 — SRS 6.0.184 rejects it and
+    // puts the container into a Restarting(255) loop on cold boot.
+    expect(config).not.toContain('hls_use_fmp4');
     expect(config).toContain('hls_cleanup     on;');
     expect(config).toContain('hls_dispose     30;');
     expect(config).toContain('hls_wait_keyframe on;');
@@ -58,6 +60,13 @@ describe('SRS Config Generator', () => {
     expect(config).toContain('on_stop');
     expect(config).toContain('on_hls');
     expect(config).toContain('on_dvr');
+    // Phase 19.1 D-18: forward hook for RTMP push → live remap.
+    expect(config).toContain('forward {');
+    expect(config).toContain('on-forward');
+    // raw_api block is required for SettingsService reload endpoint to work;
+    // without `allow_reload on;` SRS responds code=1061 to the RPC.
+    expect(config).toContain('raw_api {');
+    expect(config).toContain('allow_reload    on;');
     expect(config).toContain('rtc {');
     expect(config).toContain('rtmp_to_rtc on;');
     expect(config).not.toContain('hls_keys');

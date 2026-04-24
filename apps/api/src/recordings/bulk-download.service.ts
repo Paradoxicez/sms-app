@@ -7,6 +7,12 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 import { MinioService } from './minio.service';
 import { RecordingsService } from './recordings.service';
+import {
+  buildDownloadPlaylist,
+  buildRemuxArgs,
+  PlaylistSegment,
+  skipLeadingNonKeyframeSegments,
+} from './download-playlist.util';
 
 export interface BulkDownloadJob {
   zipPath: string;
@@ -113,41 +119,72 @@ export class BulkDownloadService {
   ): Promise<void> {
     const sortedSegments = recording.segments.sort((a: any, b: any) => a.seqNo - b.seqNo);
 
-    let m3u8 = '#EXTM3U\n#EXT-X-VERSION:7\n';
-    m3u8 += '#EXT-X-TARGETDURATION:3\n';
-    m3u8 += '#EXT-X-MEDIA-SEQUENCE:0\n';
-    m3u8 += '#EXT-X-PLAYLIST-TYPE:VOD\n';
-
-    if (recording.initSegment) {
-      const initUrl = await this.minioService.getPresignedUrl(orgId, recording.initSegment, 3600);
-      m3u8 += `#EXT-X-MAP:URI="${initUrl}"\n`;
+    // See download-playlist.util.ts for dynamic TARGETDURATION + aac_adtstoasc
+    // rationale (RTMP push passthrough fix, 2026-04-24). The Phase 19.1
+    // layer-7 `skipLeadingNonKeyframeSegments` call trims leading mid-GOP
+    // fragments so bulk downloads match the single-download + hls.js preview
+    // artefacts. Legacy RTSP rows (hasKeyframe=null) pass through unchanged.
+    const playableSegments = skipLeadingNonKeyframeSegments(
+      sortedSegments.map((s: any) => ({
+        duration: s.duration ?? 2.56,
+        url: '',
+        hasKeyframe: s.hasKeyframe,
+        __row: s,
+      })),
+    );
+    if (playableSegments.length === 0) {
+      throw new Error(
+        `Recording ${recording.id} has no segments with a decodable keyframe`,
+      );
     }
-
-    for (const segment of sortedSegments) {
-      const segUrl = await this.minioService.getPresignedUrl(orgId, segment.objectPath, 3600);
-      m3u8 += `#EXTINF:${segment.duration?.toFixed(6) ?? '2.560000'},\n`;
-      m3u8 += `${segUrl}\n`;
+    const playlistSegments: PlaylistSegment[] = [];
+    for (const entry of playableSegments) {
+      const row = (entry as any).__row;
+      const segUrl = await this.minioService.getPresignedUrl(
+        orgId,
+        row.objectPath,
+        3600,
+      );
+      playlistSegments.push({
+        duration: entry.duration,
+        url: segUrl,
+      });
     }
-    m3u8 += '#EXT-X-ENDLIST\n';
+    const m3u8 = buildDownloadPlaylist(playlistSegments);
 
     const m3u8Path = `${outputPath}.m3u8`;
     await writeFile(m3u8Path, m3u8);
 
     return new Promise((resolve, reject) => {
-      const ffmpeg = spawn('ffmpeg', [
-        '-y',
-        '-protocol_whitelist', 'file,http,https,tcp,tls,crypto',
-        '-i', m3u8Path,
-        '-c', 'copy',
-        '-movflags', 'frag_keyframe+empty_moov',
-        '-f', 'mp4',
-        outputPath,
-      ], { stdio: ['pipe', 'pipe', 'pipe'] });
+      const ffmpeg = spawn('ffmpeg', buildRemuxArgs(m3u8Path, outputPath), {
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+
+      // Capture stderr tail so a failing FFmpeg run logs actionable context
+      // instead of swallowing the error (old behavior: silent generic message).
+      const stderrBuf: Buffer[] = [];
+      let stderrBytes = 0;
+      const MAX_STDERR = 4096;
+      ffmpeg.stderr.on('data', (chunk: Buffer) => {
+        stderrBuf.push(chunk);
+        stderrBytes += chunk.length;
+        while (stderrBytes > MAX_STDERR && stderrBuf.length > 1) {
+          const head = stderrBuf.shift()!;
+          stderrBytes -= head.length;
+        }
+      });
 
       ffmpeg.on('close', async (code) => {
         await unlink(m3u8Path).catch(() => {});
-        if (code === 0) resolve();
-        else reject(new Error(`FFmpeg exited with code ${code}`));
+        if (code === 0) {
+          resolve();
+        } else {
+          const tail = Buffer.concat(stderrBuf).toString('utf8').slice(-MAX_STDERR);
+          this.logger.warn(
+            `bulk remux FFmpeg exit=${code} recording=${recording.id} tail=\n${tail}`,
+          );
+          reject(new Error(`FFmpeg exited with code ${code}`));
+        }
       });
 
       ffmpeg.on('error', async (err) => {

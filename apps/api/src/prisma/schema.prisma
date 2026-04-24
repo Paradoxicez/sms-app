@@ -554,11 +554,18 @@ model RecordingSegment {
   recordingId String
   recording   Recording @relation(fields: [recordingId], references: [id], onDelete: Cascade)
   cameraId    String
-  objectPath  String // MinIO path: {cameraId}/{YYYY-MM-DD}/{HH-MM-SS}_{seq_no}.m4s
+  objectPath  String // MinIO path: {cameraId}/{YYYY-MM-DD}/{HH-MM-SS}_{seq_no}.ts
   duration    Float // seconds
   size        BigInt // bytes
   seqNo       Int
   timestamp   DateTime // actual time of segment
+  // Phase 19.1 layer-7 fix: RTMP push recordings can contain leading segments
+  // that start mid-GOP (no H.264 IDR / SPS / PPS), which jams hls.js on
+  // playback. We probe each TS at archive time and skip leading false rows
+  // when generating the VOD manifest. Null means "not probed" (legacy rows
+  // before this field existed) — manifest.service treats null as true to
+  // preserve prior behaviour for RTSP recordings that archived cleanly.
+  hasKeyframe Boolean?
   createdAt   DateTime  @default(now())
 
   @@index([orgId])
