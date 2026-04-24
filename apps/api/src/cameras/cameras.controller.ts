@@ -32,6 +32,7 @@ import { CreateSiteSchema } from './dto/create-site.dto';
 import { CreateCameraSchema } from './dto/create-camera.dto';
 import { UpdateCameraSchema } from './dto/update-camera.dto';
 import { BulkImportSchema } from './dto/bulk-import.dto';
+import { enterMaintenanceBodySchema } from './dto/maintenance.dto';
 import { serializeCamera } from './serialize-camera.util';
 
 @ApiTags('Cameras')
@@ -238,12 +239,17 @@ export class CamerasController {
   @Post('cameras/:id/maintenance')
   @ApiOperation({
     summary:
-      'Put camera into maintenance mode (stops stream, suppresses notifications/webhooks per 15-01 gate)',
+      'Put camera into maintenance mode (stops stream, suppresses notifications/webhooks per 15-01 gate); optional reason string persisted to audit trail',
   })
   @ApiResponse({ status: 200, description: 'Camera placed in maintenance mode' })
+  @ApiResponse({ status: 400, description: 'Validation error (reason > 200 chars or wrong type)' })
   @ApiResponse({ status: 404, description: 'Camera not found' })
   @ApiParam({ name: 'id', description: 'Camera ID' })
-  async enterMaintenance(@Param('id') id: string, @Req() req: Request) {
+  async enterMaintenance(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Req() req: Request,
+  ) {
     // AuthGuard attaches the authenticated user to the request (see
     // apps/api/src/auth/guards/auth.guard.ts). CLS carries ORG_ID but NOT
     // USER_ID in the current codebase — sourcing userId from req.user
@@ -252,7 +258,14 @@ export class CamerasController {
     if (!userId) {
       throw new BadRequestException('No authenticated user in request context');
     }
-    return this.camerasService.enterMaintenance(id, userId);
+    // Phase 20 D-07 / Research A2 — reason is optional, ≤200 chars, captured
+    // in audit via AuditInterceptor's request.body snapshot. Reject malformed
+    // bodies (T-20-01, T-20-04, T-20-07).
+    const parsed = enterMaintenanceBodySchema.safeParse(body ?? {});
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.issues[0].message);
+    }
+    return this.camerasService.enterMaintenance(id, userId, parsed.data.reason);
   }
 
   @Delete('cameras/:id/maintenance')

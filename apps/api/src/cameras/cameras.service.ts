@@ -531,7 +531,11 @@ export class CamerasService {
    * Mitigates T-15-01 by using the tenancy client (RLS-scoped) for reads/writes.
    * Mitigates T-15-02 by ordering flag-flip BEFORE transition (tested).
    */
-  async enterMaintenance(cameraId: string, userId: string): Promise<any> {
+  async enterMaintenance(
+    cameraId: string,
+    userId: string,
+    reason?: string,
+  ): Promise<any> {
     // Tenancy client scopes to caller's org via RLS — cross-org lookup returns null.
     const camera = await this.tenancy.camera.findUnique({
       where: { id: cameraId },
@@ -564,7 +568,9 @@ export class CamerasService {
     // so no upstream bandwidth is wasted while the camera is sidelined.
     if (camera.ingestMode === 'push') {
       this.logger.log(
-        `Camera ${cameraId} entered maintenance (push — stream continues, notifications suppressed, user=${userId})`,
+        reason
+          ? `Camera ${cameraId} entered maintenance (push — stream continues, notifications suppressed, user=${userId}, reason=${reason})`
+          : `Camera ${cameraId} entered maintenance (push — stream continues, notifications suppressed, user=${userId})`,
       );
       return updated;
     }
@@ -589,8 +595,14 @@ export class CamerasService {
       data: { status: 'offline' },
     });
 
+    // Phase 20 T-20-05: reason (when provided) is surfaced in the info log
+    // line alongside userId. The request body is also captured into the audit
+    // trail automatically by AuditInterceptor — this log is operational, not
+    // the audit record of record.
     this.logger.log(
-      `Camera ${cameraId} entered maintenance (user=${userId})`,
+      reason
+        ? `Camera ${cameraId} entered maintenance (user=${userId}, reason=${reason})`
+        : `Camera ${cameraId} entered maintenance (user=${userId})`,
     );
     return finalCamera;
   }
