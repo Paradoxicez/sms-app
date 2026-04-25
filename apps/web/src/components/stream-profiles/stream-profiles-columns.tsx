@@ -1,11 +1,17 @@
 "use client"
 
 import type { ColumnDef } from "@tanstack/react-table"
-import { Pencil, Copy, Trash2 } from "lucide-react"
+import { Pencil, Copy, Trash2, Star } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { DataTableColumnHeader } from "@/components/ui/data-table"
 import { DataTableRowActions, type RowAction } from "@/components/ui/data-table"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import {
   getStreamProfileModeName,
   STREAM_PROFILE_MODE_BADGE,
@@ -39,8 +45,33 @@ export function createStreamProfilesColumns(
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Name" />
       ),
+      // Quick task 260426-29p: amber Star + tooltip indicator for the org's
+      // default profile. Mirrors the cameras-columns.tsx pattern (base-ui-react
+      // primitives — `delay` prop on TooltipProvider, `render` prop on
+      // TooltipTrigger to mount the icon as the trigger element). The Star
+      // carries aria-label="Default profile" so screen readers surface the
+      // marker without needing the hover tooltip.
       cell: ({ row }) => (
-        <div className="font-medium">{row.getValue("name")}</div>
+        <div className="flex items-center gap-2 font-medium">
+          <span>{row.getValue("name")}</span>
+          {row.original.isDefault && (
+            <TooltipProvider delay={200}>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Star
+                      className="h-4 w-4 fill-amber-400 text-amber-400"
+                      aria-label="Default profile"
+                    />
+                  }
+                />
+                <TooltipContent>
+                  <p>Default profile — pre-selected when adding new cameras</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
       ),
     },
     {
