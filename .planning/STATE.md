@@ -3,11 +3,11 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Self-Service, Resilience & UI Polish
 status: executing
-stopped_at: Phase 20 UI-SPEC approved
-last_updated: "2026-04-25T03:30:28.283Z"
+stopped_at: Phase 21 context gathered
+last_updated: "2026-04-25T07:07:10.114Z"
 last_activity: 2026-04-25
 progress:
-  total_phases: 8
+  total_phases: 9
   completed_phases: 8
   total_plans: 43
   completed_plans: 43
@@ -67,6 +67,7 @@ Recent decisions affecting current work:
 - Phase 19 added: Camera input validation and multi-protocol support (RTMP/RTMPS) — closes 5 gaps from audit `.planning/debug/camera-stream-validation-audit.md` (codec/resolution populate, Add Camera format validation, bulk import dedup, RTMP unblock, Prisma unique constraint)
 - Phase 19.1 inserted after Phase 19: RTMP push ingest with platform-generated stream keys (URGENT)
 - Phase 20 added: Cameras UX — bulk actions, maintenance toggle in action menu, copy Camera ID (menu + view-stream header), expressive LIVE/REC status icons, active-state feedback on Start Stream/Record buttons
+- Phase 21 added: Hot-reload Stream Profile changes to running cameras — closes audit gap where StreamsService.startStream reads profile only at job-enqueue, leaving live FFmpeg processes on stale settings until manual restart or 60s health-check failure
 
 ### Pending Todos
 
@@ -91,6 +92,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-24T12:21:23.845Z
-Stopped at: Phase 20 UI-SPEC approved
-Resume file: .planning/phases/20-cameras-ux-bulk-actions-maintenance-toggle-copy-id-expressiv/20-UI-SPEC.md
+Last session: 2026-04-25T07:07:10.107Z
+Stopped at: Phase 21 context gathered
+Resume file: .planning/phases/21-hot-reload-stream-profile-changes-to-running-cameras/21-CONTEXT.md
