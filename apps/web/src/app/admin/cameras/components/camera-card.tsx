@@ -148,6 +148,17 @@ export function CameraCard({
           <HoverPreviewPlayer
             src={`/api/cameras/${camera.id}/preview/playlist.m3u8`}
           />
+        ) : camera.thumbnail ? (
+          // Quick task 260425-w7v: snapshot JPEG. The URL already includes
+          // a `?v=ts` cache-buster from MinioService.getSnapshotUrl, so the
+          // browser refetches automatically when the snapshot is regenerated.
+          // {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={camera.thumbnail}
+            alt={camera.name}
+            className="h-full w-full object-cover"
+            loading="lazy"
+          />
         ) : (
           <div className="flex h-full items-center justify-center">
             <Video className="size-12 text-muted-foreground/40" />

@@ -118,6 +118,21 @@ export default function TenantCamerasPage() {
     fetchCameras();
   }, [fetchCameras]);
 
+  // Quick task 260425-w7v: trigger snapshot refresh on page mount.
+  // Pure background — no spinner, no error toast. The refreshed thumbnails
+  // will be picked up by the next fetchCameras() call (e.g. after a mutation
+  // or a status-driven refetch). Server-side is debounced 5s so even rapid
+  // remounts cannot stampede FFmpeg.
+  useEffect(() => {
+    apiFetch('/api/cameras/snapshot/refresh-all', { method: 'POST' }).catch(
+      () => {
+        // intentionally swallowed — best-effort cache warm
+      },
+    );
+    // run-once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Real-time status + codec updates via Socket.IO. The codec callback fires
   // whenever StreamProbeProcessor writes a new codecInfo (pending → success/
   // failed). Patches the row in place so the 4-state codec cell transitions
