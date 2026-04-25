@@ -98,6 +98,11 @@ describe('UpdateStreamProfileSchema', () => {
 
 describe('StreamProfileService', () => {
   // Mock Prisma tenancy client
+  // Quick task 260426-29p: `count` was added to StreamProfileService.create
+  // (auto-mark first profile in org as default). Default the mock to 1 so
+  // these existing tests stay on the "populated org" branch and assert the
+  // legacy mutual-exclusion behavior unchanged. Tests targeting the new
+  // auto-default path live in stream-profile-create-auto-default.test.ts.
   const mockStreamProfile = {
     create: vi.fn(),
     findMany: vi.fn(),
@@ -105,6 +110,7 @@ describe('StreamProfileService', () => {
     update: vi.fn(),
     updateMany: vi.fn(),
     delete: vi.fn(),
+    count: vi.fn().mockResolvedValue(1),
   };
 
   // Phase 21 Plan 05 (D-10): delete() now pre-checks `prisma.camera.findMany`
@@ -126,6 +132,9 @@ describe('StreamProfileService', () => {
     vi.clearAllMocks();
     // Restore the no-references default after clearAllMocks (Phase 21 D-10).
     mockCamera.findMany.mockResolvedValue([]);
+    // Quick task 260426-29p: restore `count` default after clearAllMocks
+    // so create() takes the "populated org" branch (existing behavior).
+    mockStreamProfile.count.mockResolvedValue(1);
 
     // Dynamic import to allow module to exist
     const { StreamProfileService } = await import(

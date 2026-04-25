@@ -26,8 +26,29 @@ export class StreamProfileService {
   ) {}
 
   async create(orgId: string, dto: CreateStreamProfileDto) {
+    // Quick task 260426-29p: auto-mark the first profile in an org as
+    // default — guarantees ≥1 default exists for every org with profiles.
+    // Eliminates the "0 default" gap that the runtime fallback (Phase
+    // quick 260426-07r) would otherwise have to cover. Silent server-side
+    // override; if the create-profile dialog shipped isDefault=false on
+    // the very first profile, the backend overrides to true (positive
+    // surprise — see feedback_ui_pro_minimal.md, infer reasonable
+    // defaults instead of forcing explicit controls).
+    const existingCount = await this.prisma.streamProfile.count({
+      where: { orgId },
+    });
+    let effectiveDto: CreateStreamProfileDto = dto;
+    if (existingCount === 0) {
+      if (!dto.isDefault) {
+        this.logger.log(
+          `auto-marked first profile "${dto.name}" as isDefault=true for org ${orgId}`,
+        );
+      }
+      effectiveDto = { ...dto, isDefault: true };
+    }
+
     // If isDefault, unset other defaults in same org first
-    if (dto.isDefault) {
+    if (effectiveDto.isDefault) {
       await this.prisma.streamProfile.updateMany({
         where: { orgId, isDefault: true },
         data: { isDefault: false },
@@ -37,15 +58,15 @@ export class StreamProfileService {
     return this.prisma.streamProfile.create({
       data: {
         orgId,
-        name: dto.name,
-        codec: dto.codec,
-        preset: dto.preset,
-        resolution: dto.resolution,
-        fps: dto.fps,
-        videoBitrate: dto.videoBitrate,
-        audioCodec: dto.audioCodec,
-        audioBitrate: dto.audioBitrate,
-        isDefault: dto.isDefault,
+        name: effectiveDto.name,
+        codec: effectiveDto.codec,
+        preset: effectiveDto.preset,
+        resolution: effectiveDto.resolution,
+        fps: effectiveDto.fps,
+        videoBitrate: effectiveDto.videoBitrate,
+        audioCodec: effectiveDto.audioCodec,
+        audioBitrate: effectiveDto.audioBitrate,
+        isDefault: effectiveDto.isDefault,
       },
     });
   }
