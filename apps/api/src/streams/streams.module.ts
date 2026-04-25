@@ -1,5 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
+import Redis from 'ioredis';
 import { StreamsController } from './streams.controller';
 import { StreamsService } from './streams.service';
 import { FfmpegService } from './ffmpeg/ffmpeg.service';
@@ -10,6 +11,7 @@ import { StreamProfileController } from './stream-profile.controller';
 import { FfprobeService } from '../cameras/ffprobe.service';
 import { SrsModule } from '../srs/srs.module';
 import { AuditModule } from '../audit/audit.module';
+import { REDIS_CLIENT } from '../api-keys/api-keys.service';
 
 @Module({
   imports: [
@@ -36,6 +38,20 @@ import { AuditModule } from '../audit/audit.module';
     FfprobeService, // needed by StreamProbeProcessor; FfprobeService has no
                     // module-level state, so re-providing here is safe even
                     // though CamerasModule also provides it.
+    // Phase 21.1 (D-12): Redis publisher used by StreamsService.enqueueProfileRestart
+    // to signal active+locked BullMQ jobs via pub/sub channel
+    // `camera:{cameraId}:restart`. Module-local provider matching the same
+    // factory shape used by ApiKeysModule, DashboardModule, and AccountModule —
+    // each module owns its own Redis connection (cheap, isolated shutdown).
+    {
+      provide: REDIS_CLIENT,
+      useFactory: () => {
+        return new Redis({
+          host: process.env.REDIS_HOST || 'localhost',
+          port: parseInt(process.env.REDIS_PORT || '6379', 10),
+        });
+      },
+    },
   ],
   exports: [
     StreamsService,
