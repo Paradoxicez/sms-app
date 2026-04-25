@@ -6,6 +6,10 @@ import { Pencil, Copy, Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { DataTableColumnHeader } from "@/components/ui/data-table"
 import { DataTableRowActions, type RowAction } from "@/components/ui/data-table"
+import {
+  getStreamProfileModeName,
+  STREAM_PROFILE_MODE_BADGE,
+} from "@/lib/stream-profile-mode"
 
 export interface StreamProfileRow {
   id: string
@@ -18,18 +22,6 @@ export interface StreamProfileRow {
   audioCodec: string | null
   audioBitrate: string | null
   isDefault: boolean
-}
-
-function getModeName(codec: string): string {
-  if (codec === "copy") return "Passthrough"
-  if (codec === "libx264") return "Transcode"
-  return "Auto"
-}
-
-const MODE_BADGE: Record<string, string> = {
-  Passthrough: "bg-green-100 text-green-700",
-  Transcode: "bg-amber-100 text-amber-700",
-  Auto: "bg-neutral-100 text-neutral-700",
 }
 
 interface StreamProfilesColumnCallbacks {
@@ -53,13 +45,16 @@ export function createStreamProfilesColumns(
     },
     {
       id: "mode",
-      accessorFn: (row) => getModeName(row.codec),
+      accessorFn: (row) => getStreamProfileModeName(row.codec),
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Mode" />
       ),
       cell: ({ row }) => {
         const mode = row.getValue<string>("mode")
-        const badgeClass = MODE_BADGE[mode] ?? MODE_BADGE.Auto
+        const badgeClass =
+          STREAM_PROFILE_MODE_BADGE[
+            mode as keyof typeof STREAM_PROFILE_MODE_BADGE
+          ] ?? STREAM_PROFILE_MODE_BADGE.Auto
         return (
           <Badge variant="outline" className={badgeClass}>
             {mode}

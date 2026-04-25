@@ -266,6 +266,13 @@ export class CamerasService {
         site: {
           include: { project: true },
         },
+        // Quick task 260425-uw0: surface profile so the Cameras table can show
+        // a Stream Profile column with name + Transcode/Passthrough/Auto badge
+        // without a per-row N+1 lookup. `select` keeps the wire payload tight
+        // (mirrors precedent from findCameraById which uses `streamProfile: true`).
+        streamProfile: {
+          select: { id: true, name: true, codec: true },
+        },
       },
     });
   }
