@@ -32,6 +32,14 @@ interface CameraPopupProps {
   maintenanceEnteredAt?: string | null;
   lastOnlineAt?: string | null;
   retentionDays?: number | null;
+  /**
+   * Gates the HLS preview load. When false, no <video>/HLS player is mounted
+   * and SRS does not see an `on_play`. The map sets this from Leaflet's
+   * popupopen/popupclose events so closed pins do not consume viewer slots.
+   * Defaults to true for backward compatibility with tests and any caller
+   * that wants the preview always live.
+   */
+  previewActive?: boolean;
   onViewStream?: (id: string) => void;
   onSetLocation?: (id: string, name: string) => void;
   onToggleMaintenance?: (id: string, nextState: boolean) => void;
@@ -57,12 +65,25 @@ const STATUS_DOT: Record<string, string> = {
 // Without this, every camera:viewers event caused a remount → new SRS
 // `on_play` → viewerCount broadcast → remount loop, which produced the
 // flicker and a runaway viewer count.
-const PreviewVideo = memo(function PreviewVideo({ id, status }: { id: string; status: string }) {
+//
+// `active` gates HLS load — when false, useEffect short-circuits before
+// creating the player so SRS never sees an `on_play`. The map sets this
+// from popupopen/popupclose events; closed pins now consume zero viewer
+// slots.
+const PreviewVideo = memo(function PreviewVideo({
+  id,
+  status,
+  active,
+}: {
+  id: string;
+  status: string;
+  active: boolean;
+}) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
 
   useEffect(() => {
-    if (status !== 'online' || !videoRef.current) return;
+    if (!active || status !== 'online' || !videoRef.current) return;
 
     const hlsUrl = `/api/cameras/${id}/preview/playlist.m3u8`;
 
@@ -86,12 +107,20 @@ const PreviewVideo = memo(function PreviewVideo({ id, status }: { id: string; st
         hlsRef.current = null;
       }
     };
-  }, [id, status]);
+  }, [id, status, active]);
 
   if (status !== 'online') {
     return (
       <div className="flex h-full w-full items-center justify-center">
         <span className="text-xs text-gray-400">Stream unavailable</span>
+      </div>
+    );
+  }
+
+  if (!active) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-black">
+        <span className="text-xs text-gray-400">Click pin to preview</span>
       </div>
     );
   }
@@ -118,6 +147,7 @@ export function CameraPopup({
   maintenanceEnteredAt,
   lastOnlineAt,
   retentionDays,
+  previewActive = true,
   onViewStream,
   onSetLocation,
   onToggleMaintenance,
@@ -185,7 +215,7 @@ export function CameraPopup({
         data-testid="preview-container"
         className="relative aspect-[16/9] w-full overflow-hidden rounded-md border border-border bg-black"
       >
-        <PreviewVideo id={id} status={status} />
+        <PreviewVideo id={id} status={status} active={previewActive} />
         <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-1 p-1.5">
           {showMaintOverlay ? (
             <span

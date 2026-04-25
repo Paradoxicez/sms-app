@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import { CameraPopup } from './camera-popup';
@@ -134,6 +134,10 @@ export function CameraMarker({
   onToggleMaintenance,
 }: CameraMarkerProps) {
   const markerRef = useRef<L.Marker>(null);
+  // Tracks Leaflet popup-open state so the inner <PreviewVideo> only mounts
+  // (and the HLS player only loads, sending an SRS `on_play`) when the user
+  // actually clicks the pin. Closed pins consume zero viewer slots.
+  const [popupOpen, setPopupOpen] = useState(false);
   const icon = useMemo(
     () => buildMarkerIcon({ status, isRecording, maintenanceMode, name }),
     [status, isRecording, maintenanceMode, name],
@@ -170,6 +174,12 @@ export function CameraMarker({
           onDragEnd(id, name, pos.lat, pos.lng);
         }
       },
+      popupopen() {
+        setPopupOpen(true);
+      },
+      popupclose() {
+        setPopupOpen(false);
+      },
     }),
     [id, name, onDragEnd],
   );
@@ -199,6 +209,7 @@ export function CameraMarker({
           maintenanceEnteredAt={maintenanceEnteredAt}
           lastOnlineAt={lastOnlineAt}
           retentionDays={retentionDays}
+          previewActive={popupOpen}
           onViewStream={handleViewStream}
           onSetLocation={handleSetLocation}
           onToggleMaintenance={handleToggleMaintenance}
