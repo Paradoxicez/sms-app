@@ -107,14 +107,25 @@ describe('StreamProfileService', () => {
     delete: vi.fn(),
   };
 
+  // Phase 21 Plan 05 (D-10): delete() now pre-checks `prisma.camera.findMany`
+  // for referencing cameras and throws ConflictException(409) when any exist.
+  // Default this mock to an empty array so the existing "should delete profile"
+  // test continues to assert the no-references happy path.
+  const mockCamera = {
+    findMany: vi.fn().mockResolvedValue([]),
+  };
+
   const mockTenancyClient = {
     streamProfile: mockStreamProfile,
+    camera: mockCamera,
   };
 
   let service: any;
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    // Restore the no-references default after clearAllMocks (Phase 21 D-10).
+    mockCamera.findMany.mockResolvedValue([]);
 
     // Dynamic import to allow module to exist
     const { StreamProfileService } = await import(
