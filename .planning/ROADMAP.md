@@ -230,8 +230,11 @@ Plans:
 **Goal:** Make profile changes actually restart cameras whose BullMQ `start` job is currently in active+locked state. Phase 21 left audit-log-correct but runtime-broken behavior in this case: `enqueueProfileRestart` calls `existingJob.remove()` which throws on a locked active job (silently caught), then `queue.add()` dedupes by jobId and returns the existing job — so the new 'restart' is silently lost. The new profile only takes effect when FFmpeg dies for some other reason. Post-fix, profile edits must produce an FFmpeg PID change within 30s for the common case (running camera with live FFmpeg from boot recovery).
 **Depends on:** Phase 21
 **Requirements**: (no new REQ-IDs — closes runtime gap documented in 21-06-SUMMARY.md DEFECT section + 21-VALIDATION.md "Manual UAT" section, both written 2026-04-25)
-**Plans:** to be planned via `/gsd-discuss-phase 21.1` — candidate approaches enumerated in 21-06-SUMMARY.md (pub/sub signal · job.update + external SIGTERM · split jobIds · cooperative shutdown flag). Each has trade-offs against the B-1 collision guard architecture from Plan 21-04, so an approach must be locked before planning.
+**Plans:** 3 plans (Wave 1: Plans 01 + 02 parallel · Wave 2: Plan 03 tests)
 
-Plans: (none yet — run `/gsd-discuss-phase 21.1` first)
+Plans:
+- [ ] 21.1-01-PLAN.md — Publisher + module wiring: REDIS_CLIENT provider in StreamsModule + enqueueProfileRestart branch on existingJob.isActive() → publish to camera:{id}:restart on active path, fall through to remove-then-add on every other path (D-12 publisher, D-13 strict scope)
+- [ ] 21.1-02-PLAN.md — Subscriber + 3 in-process mitigations: StreamProcessor.process() opens ioredis.duplicate() subscriber, calls gracefulRestart on signal with restartingCameras Set dedup (M3), runFingerprintSafetyNet on subscribe-ready compares DB vs job profile (M2), unsubscribe+quit in finally (M1)
+- [ ] 21.1-03-PLAN.md — Hybrid test layer (D-14 / M4): 3 unit test files (publisher branch · subscriber + dedup · safety net) using ioredis-mock + 1 real-Redis integration test reproducing BKR06 11-PATCH UAT scenario from 21-VALIDATION.md
 **UI hint**: no
 </content>
