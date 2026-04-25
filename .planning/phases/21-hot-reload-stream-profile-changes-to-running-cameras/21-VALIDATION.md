@@ -50,7 +50,7 @@ created: 2026-04-25
 
 ## Wave 0 Requirements
 
-Test scaffolds RESEARCH.md §8 enumerated (8 files). Wave 0 must create stubs for:
+Test scaffolds RESEARCH.md §8 enumerated (9 files — 8 from original §8 + 1 B-1 collision guard added in revision iter 1). Wave 0 must create stubs for:
 
 - [ ] `apps/api/src/streams/__tests__/profile-fingerprint.spec.ts` — D-01 hash-stability + change-detection
 - [ ] `apps/api/src/streams/__tests__/stream-profile.update.spec.ts` — D-01 enqueue path on profile field change
@@ -60,6 +60,7 @@ Test scaffolds RESEARCH.md §8 enumerated (8 files). Wave 0 must create stubs fo
 - [ ] `apps/api/src/streams/__tests__/profile-restart.execution.spec.ts` — D-05 SIGTERM→transition→spawn shape
 - [ ] `apps/api/src/streams/__tests__/stream-profile.delete.spec.ts` — D-10 409 with usedBy[]
 - [ ] `apps/api/src/audit/__tests__/audit.profile-hot-reload.spec.ts` — D-07 audit row shape at enqueue time
+- [ ] `apps/api/tests/resilience/camera-health-restart-collision.test.ts` — B-1 CameraHealthService.enqueueStart collision guard (preserves in-flight 'restart' jobs)
 
 Frontend (single Wave 0 item):
 - [ ] `apps/web/src/app/admin/stream-profiles/__tests__/edit-dialog.toast.spec.tsx` — D-06 toast on profile save (`{N} camera(s) restarting...`)
@@ -72,8 +73,10 @@ Frontend (single Wave 0 item):
 |----------|----------|------------|-------------------|
 | Toast renders correctly in actual browser (visual) | D-06 | DOM assertion covers content, not visual styling | Open Edit Stream Profile dialog with ≥1 online camera attached, change `videoBitrate`, save → verify info-level toast appears with the correct count |
 | Recording timeline shows 2–5s gap during restart | D-08 | UI rendering of HLS gap is integration-only | Start a recording session on a camera, edit its profile, observe the View Stream Sheet recording timeline shows the gap and the camera returns to `online` |
-| Webhook subscriber experience matches D-11 (no `camera.offline` event seen) | D-11 | Requires external webhook receiver | Use scripts/webhook-tester (or curl-based receiver), edit profile on online camera, verify only `online → reconnecting → connecting → online` transitions reach receiver and `camera.offline` is suppressed by Phase 15 D-04 30s debounce |
 | Activity tab inside View Stream Sheet shows the new `camera.profile_hot_reload` rows | D-07 / deferred bug | Frontend audit query has known bug per RESEARCH.md (resourceId not in `search` filter) | If broken: Phase 21 surfaces it during UAT — file/promote to `/gsd-quick` follow-up |
+
+> **D-11 webhook coalescing — DROPPED from manual UAT (revision iter 1, W-5).**
+> Verified instead by: (a) RESEARCH §A2 written analysis of the Phase 15 D-04 30s notification debounce coalescing transitions within the debounce window, and (b) Phase 15's existing notification-debounce regression test passing in the apps/api full suite. Phase 21 introduces no new transition that bypasses the debounce, so D-11 is verified by automated proof rather than manual UAT.
 
 ---
 
@@ -81,9 +84,10 @@ Frontend (single Wave 0 item):
 
 - [ ] All tasks have `<automated>` verify or Wave 0 dependencies (planner fills per-task map)
 - [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all 8 backend + 1 frontend test scaffolds listed above
+- [ ] Wave 0 covers all 9 backend + 1 frontend test scaffolds listed above
 - [ ] No watch-mode flags in any task command
 - [ ] Feedback latency < 30s on unit subset
 - [ ] `nyquist_compliant: true` set in frontmatter once per-task map is filled and verified
 
 **Approval:** pending
+</content>
