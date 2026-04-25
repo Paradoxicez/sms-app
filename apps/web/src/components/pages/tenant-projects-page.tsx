@@ -54,6 +54,8 @@ import { ViewStreamSheet } from "@/app/admin/cameras/components/view-stream-shee
 import { BulkImportDialog } from "@/app/admin/cameras/components/bulk-import-dialog"
 import { CameraFormDialog } from "@/app/admin/cameras/components/camera-form-dialog"
 import { EmbedCodeDialog } from "@/app/admin/cameras/components/embed-code-dialog"
+import { CameraBulkActions } from "@/app/admin/cameras/components/camera-bulk-actions"
+import { useCameraBulkActions } from "@/hooks/use-camera-bulk-actions"
 import { startRecording, stopRecording } from "@/hooks/use-recordings"
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -99,8 +101,6 @@ export default function TenantProjectsPage() {
   const [editCameraRow, setEditCameraRow] = useState<CameraRow | null>(null)
   const [deleteCameraRow, setDeleteCameraRow] = useState<CameraRow | null>(null)
   const [embedCameraRow, setEmbedCameraRow] = useState<CameraRow | null>(null)
-  const [maintenanceTarget, setMaintenanceTarget] = useState<CameraRow | null>(null)
-  const [maintenanceLoading, setMaintenanceLoading] = useState(false)
 
   // ── Project CRUD ──
   const [createProjectOpen, setCreateProjectOpen] = useState(false)
@@ -225,6 +225,12 @@ export default function TenantProjectsPage() {
     refresh()
     fetchPanelData()
   }
+
+  // ── Phase 20 bulk actions (shared with /app/cameras) ──
+  const bulkActions = useCameraBulkActions({
+    cameras,
+    refresh: refreshAll,
+  })
 
   // ── Project CRUD handlers ──
   async function handleCreateProject(e: React.FormEvent) {
@@ -410,40 +416,12 @@ export default function TenantProjectsPage() {
         setEmbedCameraRow(camera)
       },
       onMaintenanceToggle: (camera: CameraRow) => {
-        setMaintenanceTarget(camera)
+        void bulkActions.handleRowMaintenanceToggle(camera)
       },
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
+    [bulkActions.handleRowMaintenanceToggle]
   )
-
-  async function confirmMaintenanceToggle() {
-    if (!maintenanceTarget) return
-    const entering = !maintenanceTarget.maintenanceMode
-    setMaintenanceLoading(true)
-    try {
-      const res = await fetch(`/api/cameras/${maintenanceTarget.id}/maintenance`, {
-        method: entering ? "POST" : "DELETE",
-        credentials: "include",
-      })
-      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
-      toast.success(
-        entering
-          ? `Camera "${maintenanceTarget.name}" is now in maintenance`
-          : 'Exited maintenance — click Start Stream to resume',
-      )
-      setMaintenanceTarget(null)
-      refreshAll()
-    } catch {
-      toast.error(
-        entering
-          ? 'Failed to enter maintenance mode. Please try again.'
-          : 'Failed to exit maintenance mode. Please try again.',
-      )
-    } finally {
-      setMaintenanceLoading(false)
-    }
-  }
 
   async function confirmDeleteCamera() {
     if (!deleteCameraRow) return
@@ -626,23 +604,29 @@ export default function TenantProjectsPage() {
     }
 
     if (selectedNode.type === "site") {
-      // Cameras table using Phase 11 CamerasDataTable
+      // Cameras table using Phase 11 CamerasDataTable + Phase 20 bulk actions
       return (
-        <CamerasDataTable
-          cameras={cameras}
-          loading={dataLoading}
-          onEdit={cameraCallbacks.onEdit}
-          onViewStream={cameraCallbacks.onViewStream}
-          onDelete={cameraCallbacks.onDelete}
-          onRecordToggle={cameraCallbacks.onRecordToggle}
-          onStreamToggle={cameraCallbacks.onStreamToggle}
-          onMaintenanceToggle={cameraCallbacks.onMaintenanceToggle}
-          onEmbedCode={cameraCallbacks.onEmbedCode}
-          onCreateCamera={() => setCreateCameraOpen(true)}
-          onImportCameras={() => setImportDialogOpen(true)}
-          view={cameraView}
-          onViewChange={setCameraView}
-        />
+        <div className="space-y-4">
+          <CameraBulkActions actions={bulkActions} />
+          <CamerasDataTable
+            cameras={cameras}
+            loading={dataLoading}
+            onEdit={cameraCallbacks.onEdit}
+            onViewStream={cameraCallbacks.onViewStream}
+            onDelete={cameraCallbacks.onDelete}
+            onRecordToggle={cameraCallbacks.onRecordToggle}
+            onStreamToggle={cameraCallbacks.onStreamToggle}
+            onMaintenanceToggle={cameraCallbacks.onMaintenanceToggle}
+            onEmbedCode={cameraCallbacks.onEmbedCode}
+            onCreateCamera={() => setCreateCameraOpen(true)}
+            onImportCameras={() => setImportDialogOpen(true)}
+            view={cameraView}
+            onViewChange={setCameraView}
+            rowSelection={bulkActions.rowSelection}
+            onRowSelectionChange={bulkActions.setRowSelection}
+            errorByCameraId={bulkActions.errorByCameraId}
+          />
+        </div>
       )
     }
 
@@ -1008,51 +992,6 @@ export default function TenantProjectsPage() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* ── Camera Maintenance Confirmation ── */}
-      <AlertDialog
-        open={!!maintenanceTarget}
-        onOpenChange={(open) => {
-          if (!open && !maintenanceLoading) setMaintenanceTarget(null)
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {maintenanceTarget?.maintenanceMode
-                ? "Exit maintenance mode?"
-                : "Enter maintenance mode?"}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {maintenanceTarget?.maintenanceMode ? (
-                <>
-                  Camera &quot;{maintenanceTarget?.name}&quot; will resume receiving notifications and webhooks.{" "}
-                  <strong className="font-semibold">
-                    The stream will not auto-restart
-                  </strong>{" "}
-                  — click &quot;Start Stream&quot; to resume when ready.
-                </>
-              ) : (
-                <>
-                  Entering maintenance will{" "}
-                  <strong className="font-semibold">stop the stream</strong>{" "}
-                  for camera &quot;{maintenanceTarget?.name}&quot; and suppress notifications (notifications + webhooks) until maintenance is exited. Recording will also stop.
-                </>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={maintenanceLoading}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              variant={maintenanceTarget?.maintenanceMode ? "default" : "destructive"}
-              onClick={confirmMaintenanceToggle}
-              disabled={maintenanceLoading}
-            >
-              {maintenanceTarget?.maintenanceMode ? "Exit maintenance" : "Enter maintenance"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
