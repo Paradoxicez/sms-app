@@ -22,8 +22,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
-  CameraStatusBadge,
   CameraStatusDot,
+  CameraStatusPill,
 } from "@/app/admin/cameras/components/camera-status-badge"
 import type { CameraRow } from "./cameras-columns"
 
@@ -155,7 +155,7 @@ export function CameraCard({
         )}
         {/* Status badge overlay */}
         <div className="absolute top-2 right-2">
-          <CameraStatusBadge status={camera.status} />
+          <CameraStatusPill status={camera.status} />
         </div>
       </div>
 
