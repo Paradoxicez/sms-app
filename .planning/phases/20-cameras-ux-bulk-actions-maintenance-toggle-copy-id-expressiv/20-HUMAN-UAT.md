@@ -22,7 +22,8 @@ result: [pending]
 
 ### 3. Tooltip delay on ID chip feels right
 expected: Tooltip with full UUID appears ~500ms after hover; dismisses cleanly
-result: [pending]
+result: [issue-then-fixed]
+note: First hover showed tooltip clipped BEHIND sheet overlay (z-index bug in shared tooltip primitive). Fixed in commit (tooltip Positioner z-50 → z-[1200], above Sheet's z-[1100]). Awaiting re-test.
 
 ### 4. Sticky bulk toolbar z-index interplay with Sheet portal
 expected: Toolbar pinned during scroll; sits BEHIND sheet overlay when View Stream opened; re-pins after sheet closes
