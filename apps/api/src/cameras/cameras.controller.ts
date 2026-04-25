@@ -17,6 +17,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiExcludeEndpoint } from '@nestjs/swagger';
 import { Request, Response } from 'express';
+import { randomUUID } from 'crypto';
 import { ClsService } from 'nestjs-cls';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { CamerasService } from './cameras.service';
@@ -391,9 +392,50 @@ export class CamerasController {
 
   private previewTokenCache = new Map<string, { token: string; expiresAt: number }>();
 
+  /**
+   * Per-browser SRS hls_ctx session cache.
+   *
+   * SRS issues a fresh `hls_ctx` UUID every time the master playlist is
+   * fetched. Without caching, every hls.js playlist poll (~2s cadence)
+   * spawned a new SRS session, exploding the viewer counter and never
+   * letting on_play/on_stop pair up cleanly.
+   *
+   * Keyed by `${browserId}:${cameraId}`; value is the relative inner
+   * playlist URL returned by SRS (it embeds the ctxId path component).
+   * Subsequent playlist polls hit the cached inner URL directly, so SRS
+   * sees one session per browser per camera until the session naturally
+   * expires (then we refetch the master and replace the entry).
+   */
+  private hlsSessionCache = new Map<
+    string,
+    { innerPath: string; lastUsed: number }
+  >();
+
+  /**
+   * Read the persistent `srs_browser_id` cookie or mint one. The cookie is
+   * scoped to `/api/cameras` so it travels with both the playlist proxy
+   * and segment proxy on the same origin (Next.js rewrites preserve it).
+   */
+  private getOrSetBrowserId(req: Request, res: Response): string {
+    const cookieHeader = req.headers.cookie || '';
+    const match = cookieHeader.match(/(?:^|;\s*)srs_browser_id=([^;]+)/);
+    if (match) return decodeURIComponent(match[1]);
+
+    const id = randomUUID();
+    res.setHeader(
+      'Set-Cookie',
+      `srs_browser_id=${id}; Path=/api/cameras; Max-Age=86400; SameSite=Lax; HttpOnly`,
+    );
+    return id;
+  }
+
   @Get('cameras/:id/preview/playlist.m3u8')
   @ApiExcludeEndpoint()
-  async proxyPlaylist(@Param('id') id: string, @Res() res: Response) {
+  async proxyPlaylist(
+    @Param('id') id: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
     const camera = await this.camerasService.findCameraById(id);
     if (!camera) {
       throw new NotFoundException('Camera not found');
@@ -428,10 +470,31 @@ export class CamerasController {
       }
     }
 
-    const srsUrl = `${this.srsBaseUrl}/live/${orgId}/${camera.id}.m3u8?token=${encodeURIComponent(token)}`;
+    const browserId = this.getOrSetBrowserId(req, res);
+    const sessionKey = `${browserId}:${camera.id}`;
 
     try {
-      const upstream = await fetch(srsUrl);
+      // Fast path: reuse the cached inner URL so SRS sees the SAME hls_ctx
+      // session for this browser + camera. No new on_play, no counter churn.
+      const cached = this.hlsSessionCache.get(sessionKey);
+      if (cached) {
+        const inner = await fetch(`${this.srsBaseUrl}${cached.innerPath}`);
+        if (inner.ok) {
+          cached.lastUsed = Date.now();
+          const m3u8 = this.rewritePlaylistSegments(await inner.text(), id);
+          res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+          res.setHeader('Cache-Control', 'no-cache');
+          res.send(m3u8);
+          return;
+        }
+        // SRS expired the session (hls_dispose). Drop the cache entry and
+        // fall through to refetch the master playlist.
+        this.hlsSessionCache.delete(sessionKey);
+      }
+
+      // Slow path: mint a fresh hls_ctx session by hitting the master URL.
+      const masterUrl = `${this.srsBaseUrl}/live/${orgId}/${camera.id}.m3u8?token=${encodeURIComponent(token)}`;
+      const upstream = await fetch(masterUrl);
       if (!upstream.ok) {
         res.status(upstream.status).send('Stream not available');
         return;
@@ -439,21 +502,25 @@ export class CamerasController {
 
       let m3u8 = await upstream.text();
 
-      // hls_ctx on: SRS returns master playlist → follow to get media playlist
+      // hls_ctx on: SRS returns master playlist → follow to inner. Cache the
+      // inner path so all subsequent polls from this browser hit the fast
+      // path above (no more new sessions for the same hls.js instance).
       if (m3u8.includes('#EXT-X-STREAM-INF') && !m3u8.includes('#EXTINF')) {
         const innerLine = m3u8.split('\n').find((l) => l.startsWith('/'));
         if (innerLine) {
-          const inner = await fetch(`${this.srsBaseUrl}${innerLine.trim()}`);
+          const innerPath = innerLine.trim();
+          const inner = await fetch(`${this.srsBaseUrl}${innerPath}`);
           if (inner.ok) {
             m3u8 = await inner.text();
+            this.hlsSessionCache.set(sessionKey, {
+              innerPath,
+              lastUsed: Date.now(),
+            });
           }
         }
       }
 
-      m3u8 = m3u8.replace(
-        /^(?!#)(.+\.(ts|m4s|mp4)(?:\?.*)?)$/gm,
-        `/api/cameras/${id}/preview/$1`,
-      );
+      m3u8 = this.rewritePlaylistSegments(m3u8, id);
 
       res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
       res.setHeader('Cache-Control', 'no-cache');
@@ -462,6 +529,17 @@ export class CamerasController {
       this.logger.warn(`HLS proxy error for camera ${id}: ${err}`);
       res.status(502).send('Stream engine unavailable');
     }
+  }
+
+  /**
+   * Rewrite SRS-relative segment URLs to flow back through this proxy.
+   * Pattern preserves any query suffix (`?token=...`).
+   */
+  private rewritePlaylistSegments(m3u8: string, cameraId: string): string {
+    return m3u8.replace(
+      /^(?!#)(.+\.(ts|m4s|mp4)(?:\?.*)?)$/gm,
+      `/api/cameras/${cameraId}/preview/$1`,
+    );
   }
 
   @Get('cameras/:id/preview/:segment')
