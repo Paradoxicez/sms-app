@@ -130,7 +130,11 @@ describe('CameraFormDialog push mode (D-08/09/10)', () => {
         };
       }
       if (path === '/api/projects') return [{ id: 'proj-1', name: 'Project 1' }];
-      if (path === '/api/stream-profiles') return [];
+      // quick 260426-0nc: non-empty profile list keeps Save enabled; the
+       // empty-state branch otherwise disables Save and breaks these tests.
+       if (path === '/api/stream-profiles') {
+         return [{ id: 'p1', name: 'Default', isDefault: true }];
+       }
       if (path.startsWith('/api/projects/') && path.endsWith('/sites')) {
         return [{ id: 'site-1', name: 'Site 1' }];
       }
@@ -173,7 +177,11 @@ describe('CameraFormDialog push mode (D-08/09/10)', () => {
         };
       }
       if (path === '/api/projects') return [{ id: 'proj-1', name: 'Project 1' }];
-      if (path === '/api/stream-profiles') return [];
+      // quick 260426-0nc: non-empty profile list keeps Save enabled; the
+       // empty-state branch otherwise disables Save and breaks these tests.
+       if (path === '/api/stream-profiles') {
+         return [{ id: 'p1', name: 'Default', isDefault: true }];
+       }
       if (path.startsWith('/api/projects/') && path.endsWith('/sites')) {
         return [{ id: 'site-1', name: 'Site 1' }];
       }

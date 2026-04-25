@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
+import Link from 'next/link';
+import { Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch, ApiError } from '@/lib/api';
 import { extractApiErrorMessage } from '@/lib/api-error';
@@ -41,6 +43,7 @@ interface Site {
 interface StreamProfile {
   id: string;
   name: string;
+  isDefault: boolean;
 }
 
 interface CameraFormDialogProps {
@@ -76,6 +79,9 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
   const [streamProfiles, setStreamProfiles] = useState<StreamProfile[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // quick 260426-0nc: inline validation error for the Stream Profile select.
+  // Cleared on Select.onValueChange + on dialog reset.
+  const [streamProfileError, setStreamProfileError] = useState<string | null>(null);
 
   // Phase 19.1 D-08/09/10/11: push-mode additions.
   // ingestMode defaults to 'pull' for create mode. Edit mode omits the toggle
@@ -123,6 +129,21 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  // quick 260426-0nc: in create mode, after the async /api/stream-profiles
+  // fetch resolves, auto-pre-select the org's isDefault profile (if any).
+  // Skipped when:
+  //   - dialog closed
+  //   - edit mode (existing init useEffect handles camera.streamProfileId)
+  //   - user already picked something
+  //   - org has 0 profiles (empty-state branch handles UI)
+  useEffect(() => {
+    if (!open || camera) return;
+    if (streamProfileId) return;
+    if (streamProfiles.length === 0) return;
+    const def = streamProfiles.find((p) => p.isDefault);
+    if (def) setStreamProfileId(def.id);
+  }, [open, camera, streamProfiles, streamProfileId]);
+
   useEffect(() => {
     if (projectId) {
       if (!pendingSiteIdRef.current) {
@@ -154,6 +175,7 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
     setTags('');
     setDescription('');
     setStreamProfileId('');
+    setStreamProfileError(null);
     setError(null);
     // Phase 19.1 D-08/09: reset push-mode state too so reopening the dialog
     // starts in the default pull/form phase.
@@ -181,6 +203,14 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
     // Push mode: no client-supplied URL; server generates. Pull mode requires URL.
     if (ingestMode === 'pull' && !streamUrl.trim()) return;
     if (!isEditMode && !siteId) return;
+    // quick 260426-0nc: required-profile guard. When the org has profiles but
+    // the user hasn't selected one, surface inline error instead of letting
+    // the request hit the server (where 260426-07r resolves null → org default
+    // silently — confusing UX).
+    if (streamProfiles.length > 0 && !streamProfileId) {
+      setStreamProfileError('Please select a stream profile');
+      return;
+    }
 
     setSaving(true);
     setError(null);
@@ -297,6 +327,10 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
       if (!streamUrl.trim()) return false;
       if (streamUrlError) return false;
     }
+    // quick 260426-0nc: with 0 profiles, the form points the user at
+    // /app/stream-profiles via the empty-state callout — Save stays disabled
+    // (kept visible rather than hidden so layout/Cancel are unaffected).
+    if (streamProfiles.length === 0) return false;
     return !saving;
   })();
 
@@ -487,19 +521,59 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Stream Profile</Label>
-                  <Select value={streamProfileId} onValueChange={(v) => setStreamProfileId(String(v ?? ''))}>
-                    <SelectTrigger className="w-full truncate">
-                      <SelectValue placeholder="Default">
-                        {streamProfiles.find((p) => p.id === streamProfileId)?.name || 'Default'}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">Default</SelectItem>
-                      {streamProfiles.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {streamProfiles.length === 0 ? (
+                    // quick 260426-0nc: empty-state callout when org has 0
+                    // profiles. Replaces the historical hardcoded "Default"
+                    // SelectItem fallback (which silently coerced server-side
+                    // post-260426-07r and confused users about which concrete
+                    // profile would apply).
+                    <div className="rounded-md border border-amber-200 bg-amber-50 p-4">
+                      <div className="flex items-start gap-3">
+                        <Info className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-amber-900">No stream profiles yet</p>
+                          <p className="text-sm text-amber-700 mt-1">
+                            Create a profile before adding cameras.
+                          </p>
+                          <Link
+                            href="/app/stream-profiles"
+                            className="inline-flex items-center gap-1 text-sm text-amber-800 font-medium mt-2 hover:underline"
+                          >
+                            Create your first stream profile →
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {isEditMode && camera && !streamProfileId && (
+                        <p className="text-sm text-amber-600">
+                          ⚠ This camera has no profile assigned. Choose one to enable hot-reload.
+                        </p>
+                      )}
+                      <Select
+                        value={streamProfileId}
+                        onValueChange={(v) => {
+                          setStreamProfileError(null);
+                          setStreamProfileId(String(v ?? ''));
+                        }}
+                      >
+                        <SelectTrigger className="w-full truncate">
+                          <SelectValue placeholder="Select a stream profile">
+                            {streamProfiles.find((p) => p.id === streamProfileId)?.name}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {streamProfiles.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {streamProfileError && (
+                        <p className="text-sm text-red-600 mt-1">{streamProfileError}</p>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
 

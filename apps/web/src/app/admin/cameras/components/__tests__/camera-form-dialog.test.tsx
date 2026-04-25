@@ -20,7 +20,11 @@ function installDefaultApiMocks() {
   const fn = apiFetch as unknown as ApiFetchMock;
   fn.mockImplementation(async (path: string) => {
     if (path === '/api/projects') return [{ id: 'proj-1', name: 'Project 1' }];
-    if (path === '/api/stream-profiles') return [];
+    // quick 260426-0nc: existing tests need a non-empty profile list so the
+    // empty-state branch (which disables Save) doesn't fire and break them.
+    if (path === '/api/stream-profiles') {
+      return [{ id: 'p1', name: 'Default', isDefault: true }];
+    }
     if (path.startsWith('/api/projects/') && path.endsWith('/sites')) {
       return [{ id: 'site-1', name: 'Site 1' }];
     }
@@ -133,7 +137,10 @@ describe('CameraFormDialog Stream URL live validation — Phase 19 (D-15)', () =
         throw new ApiError(409, 'Conflict', { code: 'DUPLICATE_STREAM_URL', message: 'duplicate' });
       }
       if (path === '/api/projects') return [{ id: 'proj-1', name: 'Project 1' }];
-      if (path === '/api/stream-profiles') return [];
+      // quick 260426-0nc: non-empty profile list keeps Save enabled.
+      if (path === '/api/stream-profiles') {
+        return [{ id: 'p1', name: 'Default', isDefault: true }];
+      }
       if (path.startsWith('/api/projects/') && path.endsWith('/sites')) {
         return [{ id: 'site-1', name: 'Site 1' }];
       }
@@ -161,7 +168,10 @@ describe('CameraFormDialog Stream URL live validation — Phase 19 (D-15)', () =
         throw new ApiError(500, 'Internal Server Error', { message: 'boom' });
       }
       if (path === '/api/projects') return [{ id: 'proj-1', name: 'Project 1' }];
-      if (path === '/api/stream-profiles') return [];
+      // quick 260426-0nc: non-empty profile list keeps Save enabled.
+      if (path === '/api/stream-profiles') {
+        return [{ id: 'p1', name: 'Default', isDefault: true }];
+      }
       if (path.startsWith('/api/projects/') && path.endsWith('/sites')) {
         return [{ id: 'site-1', name: 'Site 1' }];
       }
@@ -192,5 +202,171 @@ describe('CameraFormDialog Stream URL live validation — Phase 19 (D-15)', () =
     const input = screen.getByLabelText(/Stream URL/);
     expect(input.getAttribute('aria-describedby')).toBe('cam-url-help');
     expect(input.getAttribute('aria-invalid')).toBe('false');
+  });
+});
+
+describe('CameraFormDialog Stream Profile selection — quick 260426-0nc', () => {
+  it('(a) create mode pre-selects org\'s isDefault profile', async () => {
+    const fn = apiFetch as unknown as ApiFetchMock;
+    fn.mockImplementation(async (path: string) => {
+      if (path === '/api/projects') return [{ id: 'proj-1', name: 'Project 1' }];
+      if (path === '/api/stream-profiles') {
+        return [
+          { id: 'p1', name: 'Pull Default', isDefault: true },
+          { id: 'p2', name: 'High', isDefault: false },
+        ];
+      }
+      if (path.startsWith('/api/projects/') && path.endsWith('/sites')) {
+        return [{ id: 'site-1', name: 'Site 1' }];
+      }
+      return [];
+    });
+
+    renderDialog();
+
+    // After the async /api/stream-profiles fetch resolves and the create-mode
+    // pre-select effect runs, the Stream Profile select trigger should
+    // display the org's isDefault profile name. Three selects exist
+    // (Project, Site, Stream Profile) — the Stream Profile select is the
+    // last `[data-slot="select-value"]` in document order.
+    await waitFor(() => {
+      const selectValues = document.querySelectorAll('[data-slot="select-value"]');
+      expect(selectValues.length).toBeGreaterThan(0);
+      const streamProfileSelectValue = selectValues[selectValues.length - 1];
+      expect(streamProfileSelectValue).toHaveTextContent('Pull Default');
+    });
+    // No hardcoded `Default` SelectItem present in the DOM.
+    expect(screen.queryByRole('option', { name: 'Default' })).toBeNull();
+  });
+
+  it('(b) create mode + no isDefault profile + Save click → inline error and no POST', async () => {
+    const fn = apiFetch as unknown as ApiFetchMock;
+    fn.mockImplementation(async (path: string) => {
+      if (path === '/api/projects') return [{ id: 'proj-1', name: 'Project 1' }];
+      if (path === '/api/stream-profiles') {
+        return [{ id: 'p2', name: 'High', isDefault: false }];
+      }
+      if (path.startsWith('/api/projects/') && path.endsWith('/sites')) {
+        return [{ id: 'site-1', name: 'Site 1' }];
+      }
+      return [];
+    });
+
+    renderDialog();
+    await typeName('Test Camera');
+    await typeStreamUrl('rtsp://host/s');
+    await waitFor(() => {
+      const btn = screen.getByRole('button', { name: /Save Camera|Save Changes/ });
+      expect(btn).not.toBeDisabled();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Save Camera|Save Changes/ }));
+
+    expect(
+      await screen.findByText('Please select a stream profile'),
+    ).toBeInTheDocument();
+
+    // Ensure no POST to /api/sites/:id/cameras happened.
+    const postCalls = fn.mock.calls.filter((call) => {
+      const path = call[0];
+      const opts = call[1] as RequestInit | undefined;
+      return (
+        opts?.method === 'POST' &&
+        typeof path === 'string' &&
+        /\/api\/sites\/.+\/cameras/.test(path)
+      );
+    });
+    expect(postCalls).toHaveLength(0);
+  });
+
+  it('(c) create mode + 0 profiles → empty-state callout + disabled Save', async () => {
+    const fn = apiFetch as unknown as ApiFetchMock;
+    fn.mockImplementation(async (path: string) => {
+      if (path === '/api/projects') return [{ id: 'proj-1', name: 'Project 1' }];
+      if (path === '/api/stream-profiles') return [];
+      if (path.startsWith('/api/projects/') && path.endsWith('/sites')) {
+        return [{ id: 'site-1', name: 'Site 1' }];
+      }
+      return [];
+    });
+
+    renderDialog();
+    expect(
+      await screen.findByText('No stream profiles yet'),
+    ).toBeInTheDocument();
+    const link = screen.getByRole('link', {
+      name: /Create your first stream profile/,
+    });
+    expect(link.getAttribute('href')).toBe('/app/stream-profiles');
+    // The Stream Profile Select trigger should be absent (replaced by callout).
+    expect(screen.queryByText('Select a stream profile')).toBeNull();
+
+    await typeName('Test Camera');
+    await typeStreamUrl('rtsp://host/s');
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /Save Camera|Save Changes/ }),
+      ).toBeDisabled();
+    });
+  });
+
+  it('(d) edit mode + camera has streamProfileId → pre-selects that profile, NOT org default', async () => {
+    const fn = apiFetch as unknown as ApiFetchMock;
+    fn.mockImplementation(async (path: string) => {
+      if (path === '/api/projects') return [{ id: 'proj-1', name: 'Project 1' }];
+      if (path === '/api/stream-profiles') {
+        return [
+          { id: 'p1', name: 'Pull Default', isDefault: true },
+          { id: 'p2', name: 'High', isDefault: false },
+        ];
+      }
+      if (path.startsWith('/api/projects/') && path.endsWith('/sites')) {
+        return [{ id: 'site-1', name: 'Site 1' }];
+      }
+      return [];
+    });
+
+    renderDialog({
+      camera: {
+        id: 'c1',
+        name: 'cam',
+        streamUrl: 'rtsp://h/s',
+        streamProfileId: 'p2',
+      },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('High')).toBeInTheDocument();
+    });
+    // The org's isDefault profile name should NOT appear (no auto-override).
+    expect(screen.queryByText('Pull Default')).toBeNull();
+  });
+
+  it('(e) edit mode + legacy camera (streamProfileId === null) → amber warning + no auto-select', async () => {
+    const fn = apiFetch as unknown as ApiFetchMock;
+    fn.mockImplementation(async (path: string) => {
+      if (path === '/api/projects') return [{ id: 'proj-1', name: 'Project 1' }];
+      if (path === '/api/stream-profiles') {
+        return [{ id: 'p1', name: 'Pull Default', isDefault: true }];
+      }
+      if (path.startsWith('/api/projects/') && path.endsWith('/sites')) {
+        return [{ id: 'site-1', name: 'Site 1' }];
+      }
+      return [];
+    });
+
+    renderDialog({
+      camera: {
+        id: 'c1',
+        name: 'cam',
+        streamUrl: 'rtsp://h/s',
+        streamProfileId: null,
+      },
+    });
+
+    expect(
+      await screen.findByText(/no profile assigned/i),
+    ).toBeInTheDocument();
+    // Org default name must NOT appear in the trigger (no auto-override of legacy null).
+    expect(screen.queryByText('Pull Default')).toBeNull();
   });
 });
