@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { ConflictException, Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
 import { CreateStreamProfileDto } from './dto/create-stream-profile.dto';
 import { UpdateStreamProfileDto } from './dto/update-stream-profile.dto';
@@ -107,7 +107,27 @@ export class StreamProfileService {
   }
 
   async delete(id: string) {
-    // Camera.streamProfileId set null via onDelete: SetNull in Prisma schema
+    // Phase 21 D-10: pre-delete check (Option B per 21-RESEARCH.md §4 — service-
+    // layer guard, no schema change). The tenancy client scopes findMany to the
+    // requester's org via RLS, so cross-org camera names never leak (T-21-02).
+    // Schema-level `onDelete: SetNull` is preserved as defense-in-depth for the
+    // T-21-RACE-DELETE-PATCH window between findMany and delete.
+    const usedBy = await this.prisma.camera.findMany({
+      where: { streamProfileId: id },
+      select: { id: true, name: true },
+    });
+
+    if (usedBy.length > 0) {
+      throw new ConflictException({
+        message:
+          'Stream profile is in use by one or more cameras. Reassign before deleting.',
+        usedBy: usedBy.map((c: { id: string; name: string }) => ({
+          cameraId: c.id,
+          name: c.name,
+        })),
+      });
+    }
+
     return this.prisma.streamProfile.delete({
       where: { id },
     });
