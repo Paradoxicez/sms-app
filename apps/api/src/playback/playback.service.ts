@@ -116,6 +116,90 @@ export class PlaybackService {
   }
 
   /**
+   * Create a playback session for a BACKGROUND/SYSTEM caller (no HTTP request
+   * context, no CLS ORG_ID). Mirrors createSession line-for-line EXCEPT every
+   * Prisma op uses systemPrisma (RLS bypass) and the user-viewer-limit check
+   * is skipped — background tasks (e.g. SnapshotService FFmpeg snapshot grab)
+   * are not user viewers.
+   *
+   * SECURITY: createSession remains the only path for HTTP-request callers.
+   * createSystemSession is callable only from server-side services that
+   * already know the trusted orgId (e.g. resolved via systemPrisma in the
+   * caller). The orgId/cameraId match check below is preserved as
+   * defense-in-depth (mirrors 49adac6 StatusService pattern + 260420-oid).
+   *
+   * Closes the regression introduced when SnapshotService.refreshOne (added
+   * in 260426-06n) called createSession from a fire-and-forget path with no
+   * CLS context — tenantPrisma's tenancy extension returned null even for
+   * cameras that exist in Postgres, producing the cascading "Camera not
+   * found" log spam.
+   */
+  async createSystemSession(cameraId: string, orgId: string) {
+    // 1. Verify camera exists and belongs to org (systemPrisma — bypass RLS)
+    const camera = await this.systemPrisma.camera.findUnique({
+      where: { id: cameraId },
+    });
+
+    if (!camera || camera.orgId !== orgId) {
+      throw new NotFoundException(`Camera ${cameraId} not found`);
+    }
+
+    // 2. Resolve policy (policiesService is policy-config only, not tenant-scoped)
+    const resolved = await this.policiesService.resolve(cameraId);
+
+    // 3. Viewer-limit check is INTENTIONALLY skipped — background snapshot
+    //    tasks must not be blocked by user viewer counts. (Per quick task
+    //    260426-0m4 design lock.)
+
+    // 4. Create placeholder PlaybackSession via systemPrisma
+    const expiresAt = new Date(Date.now() + resolved.ttlSeconds * 1000);
+    const session = await this.systemPrisma.playbackSession.create({
+      data: {
+        orgId,
+        cameraId,
+        token: '',
+        hlsUrl: '',
+        ttlSeconds: resolved.ttlSeconds,
+        maxViewers: resolved.maxViewers,
+        domains: resolved.domains,
+        allowNoReferer: resolved.allowNoReferer,
+        expiresAt,
+      },
+    });
+
+    // 5. Sign JWT — identical claim shape to createSession so on_play accepts
+    const token = jwt.sign(
+      {
+        cam: cameraId,
+        org: orgId,
+        domains: resolved.domains,
+        sub: session.id,
+      },
+      this.jwtSecret,
+      { algorithm: 'HS256', expiresIn: resolved.ttlSeconds },
+    );
+
+    // 6. Pick edge node + build hlsUrl — byte-identical formula to createSession
+    //    so the URL FFmpeg requests is the URL on_play will validate.
+    const edgeNode = await this.clusterService.getLeastLoadedEdge();
+    const hlsBase = edgeNode
+      ? `${edgeNode.hlsUrl}/live/${orgId}/${cameraId}.m3u8`
+      : `http://${process.env.SRS_HOST || 'localhost'}:8080/live/${orgId}/${cameraId}.m3u8`;
+    const hlsUrl = `${hlsBase}?token=${token}`;
+
+    const updated = await this.systemPrisma.playbackSession.update({
+      where: { id: session.id },
+      data: { token, hlsUrl },
+    });
+
+    return {
+      sessionId: updated.id,
+      hlsUrl: updated.hlsUrl,
+      expiresAt: updated.expiresAt,
+    };
+  }
+
+  /**
    * Create playback sessions for multiple cameras in one call.
    * Returns both successful sessions and per-camera errors.
    */

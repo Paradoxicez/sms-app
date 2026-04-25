@@ -103,16 +103,15 @@ export class SnapshotService implements OnModuleInit {
       });
       if (!camera) throw new NotFoundException(`Camera ${cameraId} not found`);
 
-      // Quick task 260426-06n: hls_ctx is enabled in srs.conf, so SRS calls
-      // on_play to authorize ANY HTTP GET of the playlist — including
-      // FFmpeg's. Mint a real playback session and reuse the JWT-signed
-      // hlsUrl it returns; that is the only shape on_play will accept.
-      // Reuse session.hlsUrl byte-for-byte — DO NOT rebuild the URL by
-      // hand, that guarantees the URL we pass to FFmpeg is byte-identical
-      // to the URL on_play will validate against. Also auto-handles the
-      // edge-cluster case (PlaybackService selects the least-loaded edge
-      // node when one exists).
-      const session = await this.getPlaybackService().createSession(
+      // Quick task 260426-0m4: refreshOne runs in a fire-and-forget background
+      // path with no HTTP request context (no CLS ORG_ID), so tenantPrisma
+      // queries are denied by RLS. Use createSystemSession — the system-context
+      // twin of createSession that uses systemPrisma and skips the user-viewer
+      // limit. Reuse session.hlsUrl byte-for-byte so the URL we hand FFmpeg is
+      // identical to the URL on_play will validate against (preserves the
+      // 260426-06n auth fix). Edge-cluster selection still happens inside
+      // createSystemSession.
+      const session = await this.getPlaybackService().createSystemSession(
         camera.id,
         camera.orgId,
       );
