@@ -1,10 +1,11 @@
 ---
 phase: 21
 slug: hot-reload-stream-profile-changes-to-running-cameras
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: ready
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-04-25
+last_updated: 2026-04-25
 ---
 
 # Phase 21 — Validation Strategy
@@ -42,7 +43,17 @@ created: 2026-04-25
 
 | Task ID | Plan | Wave | Decision | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|----------|-----------|-------------------|-------------|--------|
-| TBD     | TBD  | TBD  | D-01..D-11 | TBD     | TBD               | TBD         | ⬜ pending |
+| 21-01-T1 | 21-01 | 0 | scaffold | unit | (scaffold only — no behavior) | ✓ created in this task | ✅ green |
+| 21-01-T2 | 21-01 | 0 | D-06 scaffold | component | (scaffold only) | ✓ created in this task | ✅ green |
+| 21-02-T1 | 21-02 | 1 | D-01 fingerprint util | unit | `pnpm --filter @sms-platform/api test -- tests/streams/profile-fingerprint.test.ts` | ✓ from 21-01-T1 | ⬜ pending |
+| 21-02-T2 | 21-02 | 1 | D-01 + D-07 update trigger | unit | `pnpm --filter @sms-platform/api test -- tests/streams/stream-profile-restart.test.ts tests/streams/profile-restart-audit.test.ts` | ✓ from 21-01-T1 | ⬜ pending |
+| 21-03-T1 | 21-03 | 1 | D-02 + D-07 reassign trigger | unit | `pnpm --filter @sms-platform/api test -- tests/cameras/camera-profile-reassign.test.ts` | ✓ from 21-01-T1 | ⬜ pending |
+| 21-04-T1 | 21-04 | 2 | D-05 graceful kill | unit | `pnpm --filter @sms-platform/api test -- tests/streams/ffmpeg-graceful-restart.test.ts` | ✓ from 21-01-T1 | ⬜ pending |
+| 21-04-T2 | 21-04 | 2 | D-03/D-04/D-05/D-08/D-09 enqueue+execution + B-1 collision guard | unit | `pnpm --filter @sms-platform/api test -- tests/streams/profile-restart-dedup.test.ts tests/streams/profile-restart-failure-fallthrough.test.ts tests/streams/stream-processor.test.ts tests/resilience/camera-health-restart-collision.test.ts` | ✓ from 21-01-T1 | ⬜ pending |
+| 21-05-T1 | 21-05 | 3 | D-10 DELETE 409 | integration | `pnpm --filter @sms-platform/api test -- tests/streams/stream-profile-delete-protection.test.ts` | ✓ from 21-01-T1 | ⬜ pending |
+| 21-05-T2 | 21-05 | 3 | D-06 toasts (admin + tenant + camera dialog) | component | `pnpm --filter @sms-platform/web test -- src/app/admin/stream-profiles/components/__tests__/profile-form-dialog-toast.test.tsx` | ✓ from 21-01-T2 | ⬜ pending |
+| 21-06-T1 | 21-06 | 4 | full suite green | integration | `pnpm --filter @sms-platform/api test && pnpm --filter @sms-platform/web test && pnpm --filter @sms-platform/web build` | n/a | ⬜ pending |
+| 21-06-T2 | 21-06 | 4 | manual UAT | manual | (see Manual-Only Verifications) | n/a | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -82,12 +93,12 @@ Frontend (single Wave 0 item):
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies (planner fills per-task map)
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all 9 backend + 1 frontend test scaffolds listed above
-- [ ] No watch-mode flags in any task command
-- [ ] Feedback latency < 30s on unit subset
-- [ ] `nyquist_compliant: true` set in frontmatter once per-task map is filled and verified
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all 9 backend + 1 frontend test scaffolds listed above
+- [x] No watch-mode flags in any task command
+- [x] Feedback latency < 30s on unit subset
+- [x] `nyquist_compliant: true` set in frontmatter once per-task map is filled and verified
 
-**Approval:** pending
+**Approval:** approved (Wave 0 sign-off — 2026-04-25)
 </content>
