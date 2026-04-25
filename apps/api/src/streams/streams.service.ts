@@ -1,11 +1,13 @@
 import { Inject, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import Redis from 'ioredis';
 import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
 import { SystemPrismaService } from '../prisma/system-prisma.service';
 import { FfmpegService } from './ffmpeg/ffmpeg.service';
 import { StatusService } from '../status/status.service';
 import { AuditService } from '../audit/audit.service';
+import { REDIS_CLIENT } from '../api-keys/api-keys.service';
 import { StreamJobData, calculateBackoff, MAX_BACKOFF_MS } from './processors/stream.processor';
 
 @Injectable()
@@ -26,6 +28,16 @@ export class StreamsService {
     // Optional so existing unit tests that don't construct an AuditService
     // (e.g. streams-service-push.test.ts) still build cleanly.
     @Optional() private readonly auditService?: AuditService,
+    // Phase 21.1 (D-12): Redis publisher for the `camera:{cameraId}:restart`
+    // pub/sub channel. Used in enqueueProfileRestart's active+locked branch
+    // to signal a running BullMQ worker to gracefulRestart its FFmpeg child.
+    // Optional + appended-at-end so existing test files that construct
+    // StreamsService positionally (profile-restart-dedup.test.ts,
+    // streams-service-push.test.ts, etc.) still build. When undefined the
+    // active-job branch falls through to the existing remove-then-add path
+    // (best-effort safety net — should only happen in tests, never in prod
+    // where DI wires REDIS_CLIENT from the module).
+    @Optional() @Inject(REDIS_CLIENT) private readonly redis?: Redis,
   ) {}
 
   async startStream(cameraId: string): Promise<void> {
@@ -200,20 +212,16 @@ export class StreamsService {
         });
       }
 
-      // D-03 + Q5: remove-then-add (latest save wins). The literal jobId
-      // pattern `camera:{id}:ffmpeg` is shared with startStream so the two
-      // job names ('start' and 'restart') cannot coexist for one camera.
-      const jobId = `camera:${cam.id}:ffmpeg`;
-      const existingJob = await this.streamQueue.getJob(jobId);
-      if (existingJob) {
-        await existingJob.remove().catch(() => {});
-      }
-
       // Fetch the up-to-date profile so the job carries fresh settings.
       // (StreamProcessor uses job.data.profile directly per stream.processor.ts:45.)
       // Plan 03 D-02: 'none-sentinel' marks the non-null → null reassignment
       // case where the camera now has no profile attached — skip the lookup
       // and fall through to the default {codec:'auto', audioCodec:'aac'} below.
+      //
+      // Phase 21.1 D-12: profile + inputUrl are now computed BEFORE the
+      // getJob branch because the active-job pub/sub branch needs them in
+      // its payload. Audit-write ordering (D-07) is unchanged — audit still
+      // fires above this block, before any queue lookup or signal.
       const profileRow =
         args.profileId === 'none-sentinel'
           ? null
@@ -236,6 +244,66 @@ export class StreamsService {
         cam.ingestMode === 'push' && cam.streamKey
           ? `rtmp://127.0.0.1:1935/push/${cam.streamKey}`
           : (cam.streamUrl as string);
+
+      // Phase 21.1 D-12: branch on existingJob.isActive() to fix the active+locked
+      // collision documented in 21-06-SUMMARY.md "DEFECT — Active-Job Collision".
+      //
+      // - active+locked → publish to `camera:{cameraId}:restart`. The
+      //   StreamProcessor subscriber (Plan 02) calls gracefulRestart which lets
+      //   the worker's natural retry path re-spawn FFmpeg with the new profile.
+      //   Skip the remove-then-add path entirely — `remove()` throws on a locked
+      //   active job, and the subsequent `add()` would silently dedupe and drop
+      //   the new 'restart' (this is the exact defect being fixed).
+      //
+      // - any other state (no job, wait, queued, delayed, completed, failed)
+      //   → fall through to the original remove-then-add. That path is correct
+      //   and tested (profile-restart-dedup.test.ts queued-path cases — green).
+      //
+      // D-13: only enqueueProfileRestart gets this fix. startStream + stopStream
+      // keep their existing remove-then-add — they have correct behavior for
+      // their intent (start: dedup-as-no-op is fine; stop: explicit fallthrough).
+      const jobId = `camera:${cam.id}:ffmpeg`;
+      const existingJob = await this.streamQueue.getJob(jobId);
+      // Mock-compat: existing tests construct `getJob` returns without an
+      // `isActive` method (e.g. profile-restart-dedup.test.ts test 2). Treat
+      // those as "not active" — same as the queued-state real behavior. Plan 03
+      // adds new tests with mocks that DO implement isActive().
+      const isActive =
+        existingJob && typeof (existingJob as any).isActive === 'function'
+          ? await (existingJob as any).isActive()
+          : false;
+
+      if (isActive && this.redis) {
+        // Active+locked path — publish signal, skip queue mutation.
+        // Subscriber-side (StreamProcessor, Plan 02) calls gracefulRestart on
+        // receipt; gracefulRestart kills FFmpeg, which causes the worker's
+        // FfmpegService.startStream promise to reject, BullMQ retries with
+        // exponential backoff, and the retry re-reads the camera+profile via
+        // the worker subscriber's fingerprint safety net (Plan 02 Mitigation 2).
+        const channel = `camera:${cam.id}:restart`;
+        const payload = JSON.stringify({
+          profile,
+          inputUrl,
+          needsTranscode: cam.needsTranscode,
+          fingerprint: args.newFingerprint,
+        });
+        const subscriberCount = await this.redis.publish(channel, payload);
+        this.logger.log(
+          `enqueueProfileRestart: signaled active job for camera ${cam.id} via ${channel} (subscribers=${subscriberCount})`,
+        );
+        // IMPORTANT: skip the queue.add below — the live FFmpeg's death will
+        // trigger BullMQ retry, which re-reads job.data fresh from Prisma via
+        // the worker's startup path. Adding here would silently dedupe (the
+        // original defect).
+        continue;
+      }
+
+      // D-03 + Q5: remove-then-add (latest save wins). The literal jobId
+      // pattern `camera:{id}:ffmpeg` is shared with startStream so the two
+      // job names ('start' and 'restart') cannot coexist for one camera.
+      if (existingJob) {
+        await existingJob.remove().catch(() => {});
+      }
 
       await this.streamQueue.add(
         'restart',
