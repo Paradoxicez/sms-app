@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 Phase: 21.1
 Plan: Not started
 Status: Executing Phase 21.1
-Last activity: 2026-04-25 - Completed quick task 260425-w7v: Add camera snapshot thumbnails (FFmpeg + MinIO snapshots bucket) for card view
+Last activity: 2026-04-25 - Completed quick task 260425-wy8: Switch snapshot trigger from on_publish to on_hls (fix 404 race)
 
 Progress: [░░░░░░░░░░] 0% (v1.2: 0/5 phases)
 
@@ -92,6 +92,7 @@ None yet.
 | 260425-uw0 | Add Stream Profile column (after Resolution) to Cameras table — name + Transcode/Passthrough badge using same color tokens as Stream Profiles page | 2026-04-25 | 5ca5168 | | [260425-uw0-add-stream-profile-column-after-resoluti](./quick/260425-uw0-add-stream-profile-column-after-resoluti/) |
 | 260425-vrl | Sync camera card-view status badge with table-view StatusPills style — extracted shared CameraStatusPill primitive | 2026-04-25 | c5187a7 | | [260425-vrl-sync-camera-card-view-status-badge-with-](./quick/260425-vrl-sync-camera-card-view-status-badge-with-/) |
 | 260425-w7v | Add camera snapshot thumbnails (FFmpeg + MinIO snapshots bucket) for card view — refresh on online transition + page mount | 2026-04-25 | f32c746 | | [260425-w7v-add-camera-snapshot-thumbnails-ffmpeg-mi](./quick/260425-w7v-add-camera-snapshot-thumbnails-ffmpeg-mi/) |
+| 260425-wy8 | Switch snapshot trigger from on_publish to on_hls (fix 404 race) — fires only on first segment per session (seq_no===0) | 2026-04-25 | a4c517d | | [260425-wy8-switch-snapshot-trigger-from-on-publish-](./quick/260425-wy8-switch-snapshot-trigger-from-on-publish-/) |
 
 ## Session Continuity
 
