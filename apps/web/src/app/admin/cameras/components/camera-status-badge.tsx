@@ -79,6 +79,24 @@ export function CameraStatusBadge({ status, showLabel = true }: CameraStatusBadg
 const PILL_BASE =
   'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide shadow-sm';
 
+// Module-scope className constants — single source of truth shared by
+// `StatusPills` (table view) and `CameraStatusPill` (card-view overlay).
+// A future visual tweak to either LIVE pill updates both views in one
+// edit. See quick-task 260425-vrl.
+const PILL_LIVE_RED = cn(
+  PILL_BASE,
+  'bg-red-500/95 text-white motion-safe:animate-pulse motion-reduce:animate-none'
+);
+const PILL_LIVE_AMBER = cn(
+  PILL_BASE,
+  'border border-amber-500 bg-transparent text-amber-700 dark:text-amber-400',
+  'motion-safe:animate-pulse motion-reduce:animate-none [animation-duration:1s]'
+);
+const PILL_OFFLINE = cn(
+  PILL_BASE,
+  'border border-border bg-muted text-muted-foreground'
+);
+
 export interface StatusPillsProps {
   camera: Pick<CameraRow, 'status' | 'isRecording' | 'maintenanceMode'>;
 }
@@ -93,26 +111,13 @@ export function StatusPills({ camera }: StatusPillsProps) {
   return (
     <div className="flex items-center gap-1" role="group" aria-label="Camera status">
       {isOnline && !maintenanceMode && (
-        <span
-          className={cn(
-            PILL_BASE,
-            'bg-red-500/95 text-white motion-safe:animate-pulse motion-reduce:animate-none'
-          )}
-          aria-label="Live"
-        >
+        <span className={PILL_LIVE_RED} aria-label="Live">
           <Radio className="size-3" aria-hidden="true" />
           LIVE
         </span>
       )}
       {isReconnecting && !maintenanceMode && (
-        <span
-          className={cn(
-            PILL_BASE,
-            'border border-amber-500 bg-transparent text-amber-700 dark:text-amber-400',
-            'motion-safe:animate-pulse motion-reduce:animate-none [animation-duration:1s]'
-          )}
-          aria-label="Reconnecting"
-        >
+        <span className={PILL_LIVE_AMBER} aria-label="Reconnecting">
           <Radio className="size-3" aria-hidden="true" />
           LIVE
         </span>
@@ -143,10 +148,7 @@ export function StatusPills({ camera }: StatusPillsProps) {
         </span>
       )}
       {shouldShowOffline && (
-        <span
-          className={cn(PILL_BASE, 'border border-border bg-muted text-muted-foreground')}
-          aria-label="Offline"
-        >
+        <span className={PILL_OFFLINE} aria-label="Offline">
           <span
             className="size-2 rounded-full border border-muted-foreground bg-transparent"
             aria-hidden="true"
@@ -155,5 +157,49 @@ export function StatusPills({ camera }: StatusPillsProps) {
         </span>
       )}
     </div>
+  );
+}
+
+// ───────────────────────── Quick 260425-vrl ─────────────────────────
+// CameraStatusPill — status-only variant consumed by the camera-card
+// thumbnail overlay (apps/web/src/app/admin/cameras/components/
+// camera-card.tsx). Renders the SAME visual treatment as the table-view
+// `StatusPills` LIVE branches (online → red, reconnecting/connecting →
+// amber) and the OFFLINE pill, by reading from the same module-scope
+// className constants. Anything that is not online / reconnecting /
+// connecting falls through to OFFLINE.
+
+export interface CameraStatusPillProps {
+  status: CameraStatus;
+}
+
+export function CameraStatusPill({ status }: CameraStatusPillProps) {
+  const isOnline = status === 'online';
+  const isReconnecting = status === 'reconnecting' || status === 'connecting';
+
+  if (isOnline) {
+    return (
+      <span className={PILL_LIVE_RED} aria-label="Live">
+        <Radio className="size-3" aria-hidden="true" />
+        LIVE
+      </span>
+    );
+  }
+  if (isReconnecting) {
+    return (
+      <span className={PILL_LIVE_AMBER} aria-label="Live">
+        <Radio className="size-3" aria-hidden="true" />
+        LIVE
+      </span>
+    );
+  }
+  return (
+    <span className={PILL_OFFLINE} aria-label="Offline">
+      <span
+        className="size-2 rounded-full border border-muted-foreground bg-transparent"
+        aria-hidden="true"
+      />
+      OFFLINE
+    </span>
   );
 }

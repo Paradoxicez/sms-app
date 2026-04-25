@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
-import { StatusPills } from '../camera-status-badge';
+import { CameraStatusPill, StatusPills } from '../camera-status-badge';
 import type { CameraRow } from '../cameras-columns';
 
 type PillCamera = Pick<CameraRow, 'status' | 'isRecording' | 'maintenanceMode'>;
@@ -207,5 +207,95 @@ describe('StatusPills (Phase 20)', () => {
       const redDot = container.querySelector('.bg-red-500.motion-safe\\:animate-pulse');
       expect(redDot).not.toBeNull();
     });
+  });
+});
+
+// ───────────────────────── Quick 260425-vrl ─────────────────────────
+// CameraStatusPill — status-only variant of StatusPills consumed by the
+// camera card-view overlay. Reads from the SAME module-scope className
+// constants as StatusPills so a future visual tweak updates both views
+// in one edit (table ↔ card share a single source of truth).
+describe('CameraStatusPill (card-view variant)', () => {
+  it('renders red LIVE pill with Radio icon when status=online', () => {
+    const { container } = render(<CameraStatusPill status="online" />);
+    const live = screen.getByLabelText('Live');
+    expect(live).toBeInTheDocument();
+    expect(live.textContent).toContain('LIVE');
+    expect(live.className).toContain('bg-red-500/95');
+    expect(live.className).toContain('text-white');
+    expect(live.className).toContain('motion-safe:animate-pulse');
+    // Radio icon (lucide renders an svg).
+    const svg = container.querySelector('svg');
+    expect(svg).not.toBeNull();
+  });
+
+  it('renders amber LIVE pill with Radio icon when status=reconnecting', () => {
+    const { container } = render(<CameraStatusPill status="reconnecting" />);
+    const live = screen.getByLabelText('Live');
+    expect(live).toBeInTheDocument();
+    expect(live.textContent).toContain('LIVE');
+    expect(live.className).toContain('border-amber-500');
+    expect(live.className).toContain('bg-transparent');
+    expect(live.className).toContain('text-amber-700');
+    expect(live.className).toContain('motion-safe:animate-pulse');
+    expect(live.className).toContain('[animation-duration:1s]');
+    const svg = container.querySelector('svg');
+    expect(svg).not.toBeNull();
+  });
+
+  it('renders amber LIVE pill (same as reconnecting) when status=connecting', () => {
+    const { container } = render(<CameraStatusPill status="connecting" />);
+    const live = screen.getByLabelText('Live');
+    expect(live).toBeInTheDocument();
+    expect(live.textContent).toContain('LIVE');
+    expect(live.className).toContain('border-amber-500');
+    expect(live.className).toContain('bg-transparent');
+    expect(live.className).toContain('text-amber-700');
+    expect(live.className).toContain('motion-safe:animate-pulse');
+    expect(live.className).toContain('[animation-duration:1s]');
+    const svg = container.querySelector('svg');
+    expect(svg).not.toBeNull();
+  });
+
+  it('renders gray OFFLINE pill with hollow circle when status=offline', () => {
+    const { container } = render(<CameraStatusPill status="offline" />);
+    const offline = screen.getByLabelText('Offline');
+    expect(offline).toBeInTheDocument();
+    expect(offline.textContent).toContain('OFFLINE');
+    expect(offline.className).toContain('border-border');
+    expect(offline.className).toContain('bg-muted');
+    expect(offline.className).toContain('text-muted-foreground');
+    // Hollow dot = bg-transparent with muted-foreground border.
+    const hollowDot = container.querySelector(
+      '.size-2.rounded-full.border-muted-foreground.bg-transparent'
+    );
+    expect(hollowDot).not.toBeNull();
+  });
+
+  it('renders gray OFFLINE pill (same as offline) when status=degraded', () => {
+    const { container } = render(<CameraStatusPill status="degraded" />);
+    const offline = screen.getByLabelText('Offline');
+    expect(offline).toBeInTheDocument();
+    expect(offline.textContent).toContain('OFFLINE');
+    expect(offline.className).toContain('border-border');
+    expect(offline.className).toContain('bg-muted');
+    expect(offline.className).toContain('text-muted-foreground');
+    const hollowDot = container.querySelector(
+      '.size-2.rounded-full.border-muted-foreground.bg-transparent'
+    );
+    expect(hollowDot).not.toBeNull();
+  });
+
+  it('table StatusPills LIVE and card CameraStatusPill LIVE share the same className (single source of truth)', () => {
+    const { unmount } = render(
+      <StatusPills camera={{ status: 'online', isRecording: false, maintenanceMode: false }} />
+    );
+    const tableLive = screen.getByLabelText('Live');
+    const tableLiveClass = tableLive.className;
+    unmount();
+
+    render(<CameraStatusPill status="online" />);
+    const cardLive = screen.getByLabelText('Live');
+    expect(cardLive.className).toBe(tableLiveClass);
   });
 });
