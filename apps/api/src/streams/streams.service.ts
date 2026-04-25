@@ -9,6 +9,7 @@ import { StatusService } from '../status/status.service';
 import { AuditService } from '../audit/audit.service';
 import { REDIS_CLIENT } from '../api-keys/api-keys.service';
 import { StreamJobData, calculateBackoff, MAX_BACKOFF_MS } from './processors/stream.processor';
+import { StreamProfile } from './ffmpeg/ffmpeg-command.builder';
 
 @Injectable()
 export class StreamsService {
@@ -77,20 +78,52 @@ export class StreamsService {
 
     this.logger.log(`Camera found: ${camera.name}, url: ${camera.streamUrl?.substring(0, 30)}...`);
 
-    const profile = camera.streamProfile
-      ? {
-          codec: camera.streamProfile.codec,
-          preset: camera.streamProfile.preset,
-          resolution: camera.streamProfile.resolution,
-          fps: camera.streamProfile.fps,
-          videoBitrate: camera.streamProfile.videoBitrate,
-          audioCodec: camera.streamProfile.audioCodec,
-          audioBitrate: camera.streamProfile.audioBitrate,
-        }
-      : {
-          codec: 'auto' as const,
-          audioCodec: 'aac' as const,
+    // Phase quick-260426-07r (Edge Cases A1, choice 1A): when the camera
+    // has no streamProfile attached, look up the org's isDefault profile
+    // and use those settings before falling back to the hardcoded
+    // {codec:'auto', audioCodec:'aac'} safety net. This closes the gap
+    // where 4 legacy null cameras (BKR01–BKR04 per choice 2C — no
+    // migration) were getting jobs with codec='auto' instead of the
+    // org's default profile.
+    let profile: StreamProfile;
+    if (camera.streamProfile) {
+      profile = {
+        codec: camera.streamProfile.codec,
+        preset: camera.streamProfile.preset ?? undefined,
+        resolution: camera.streamProfile.resolution ?? undefined,
+        fps: camera.streamProfile.fps ?? undefined,
+        videoBitrate: camera.streamProfile.videoBitrate ?? undefined,
+        audioCodec: camera.streamProfile.audioCodec,
+        audioBitrate: camera.streamProfile.audioBitrate ?? undefined,
+      };
+    } else if (this.systemPrisma) {
+      const defaultRow = await this.systemPrisma.streamProfile.findFirst({
+        where: { orgId: camera.orgId, isDefault: true },
+      });
+      if (defaultRow) {
+        this.logger.log(
+          `camera ${camera.id} streamProfileId is null — using org default profile ${defaultRow.id} (${defaultRow.name})`,
+        );
+        profile = {
+          codec: defaultRow.codec,
+          preset: defaultRow.preset ?? undefined,
+          resolution: defaultRow.resolution ?? undefined,
+          fps: defaultRow.fps ?? undefined,
+          videoBitrate: defaultRow.videoBitrate ?? undefined,
+          audioCodec: defaultRow.audioCodec,
+          audioBitrate: defaultRow.audioBitrate ?? undefined,
         };
+      } else {
+        this.logger.warn(
+          `camera ${camera.id} streamProfileId is null AND no isDefault profile in org ${camera.orgId} — using hardcoded {codec:'auto'} fallback`,
+        );
+        profile = { codec: 'auto', audioCodec: 'aac' };
+      }
+    } else {
+      // Defensive: systemPrisma not injected (test-only path; production DI
+      // always wires it via @Global PrismaModule).
+      profile = { codec: 'auto', audioCodec: 'aac' };
+    }
 
     // Phase 19.1 D-17: push + transcode reads from the SRS loopback stream
     // (the camera has already published to `push/<streamKey>`). Pull mode

@@ -1,4 +1,11 @@
-import { ConflictException, Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import {
+  ConflictException,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
 import { CreateStreamProfileDto } from './dto/create-stream-profile.dto';
 import { UpdateStreamProfileDto } from './dto/update-stream-profile.dto';
@@ -107,6 +114,38 @@ export class StreamProfileService {
   }
 
   async delete(id: string) {
+    // Phase quick-260426-07r (Edge Case A3, choice 3B): pre-fetch the
+    // target row so we can run the isDefault precondition BEFORE the
+    // existing usedBy check. The two checks throw distinct
+    // ConflictException shapes (plain string vs object with usedBy[])
+    // so the frontend can disambiguate the failure mode.
+    const target = await this.prisma.streamProfile.findUnique({
+      where: { id },
+      select: { id: true, orgId: true, isDefault: true },
+    });
+
+    if (!target) {
+      throw new NotFoundException('Stream profile not found');
+    }
+
+    // Block deleting an isDefault profile while OTHER profiles exist in
+    // the same org — preserves the org invariant that a populated org
+    // always has exactly one default. When isDefault is the ONLY
+    // profile (otherCount === 0), the delete is allowed: the org
+    // returns to a 0-profile state and the runtime hardcoded fallback
+    // in streams.service.ts handles cameras until a new profile is
+    // created.
+    if (target.isDefault) {
+      const otherCount = await this.prisma.streamProfile.count({
+        where: { orgId: target.orgId, id: { not: target.id } },
+      });
+      if (otherCount > 0) {
+        throw new ConflictException(
+          'Set another profile as default before deleting this one. Run PATCH /api/stream-profiles/:id with isDefault=true on the profile you want to promote, then retry delete.',
+        );
+      }
+    }
+
     // Phase 21 D-10: pre-delete check (Option B per 21-RESEARCH.md §4 — service-
     // layer guard, no schema change). The tenancy client scopes findMany to the
     // requester's org via RLS, so cross-org camera names never leak (T-21-02).
