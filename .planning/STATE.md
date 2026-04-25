@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 Phase: 21.1
 Plan: Not started
 Status: Executing Phase 21.1
-Last activity: 2026-04-26 - Completed quick task 260426-0m4: Add PlaybackService.createSystemSession for background tasks (snapshot RLS fix)
+Last activity: 2026-04-26 - Completed quick task 260426-0nc: Frontend camera-form default-profile UX
 
 Progress: [░░░░░░░░░░] 0% (v1.2: 0/5 phases)
 
@@ -96,6 +96,7 @@ None yet.
 | 260426-06n | Snapshot auth via PlaybackService token + relax on_hls guard for missing snapshots — fixes hls_ctx 403 + catches up streams already publishing before deploy | 2026-04-26 | 2f46722 | | [260426-06n-snapshot-auth-via-playbackservice-token-](./quick/260426-06n-snapshot-auth-via-playbackservice-token-/) |
 | 260426-07r | Backend default-profile semantic alignment — null streamProfileId fallback to org isDefault profile + 409 block on deleting default while other profiles exist | 2026-04-26 | 813be0a | | [260426-07r-backend-default-profile-semantic-alignme](./quick/260426-07r-backend-default-profile-semantic-alignme/) |
 | 260426-0m4 | Add PlaybackService.createSystemSession for background tasks (snapshot RLS fix) — fixes "Camera not found" cascade from 260426-06n; createSession unchanged for HTTP callers | 2026-04-26 | 3898415 | | [260426-0m4-add-playbackservice-createsystemsession-](./quick/260426-0m4-add-playbackservice-createsystemsession-/) |
+| 260426-0nc | Frontend camera-form default-profile UX — remove hardcoded Default option, pre-select isDefault on new, validate required, empty-state CTA when org has 0 profiles, edit-mode warning for legacy null cameras | 2026-04-26 | 68e2a71 | | [260426-0nc-frontend-camera-form-default-profile-ux-](./quick/260426-0nc-frontend-camera-form-default-profile-ux-/) |
 
 ## Session Continuity
 
