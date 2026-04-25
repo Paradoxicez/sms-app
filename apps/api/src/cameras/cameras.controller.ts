@@ -22,6 +22,7 @@ import { ClsService } from 'nestjs-cls';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { CamerasService } from './cameras.service';
 import { FfprobeService } from './ffprobe.service';
+import { SnapshotService } from './snapshot.service';
 import { ModuleRef } from '@nestjs/core';
 // PlaybackService is resolved lazily via ModuleRef to avoid the module
 // import cycle Cameras → Playback → Cluster → Srs → Playback. The value
@@ -45,6 +46,9 @@ export class CamerasController {
     private readonly ffprobeService: FfprobeService,
     private readonly cls: ClsService,
     private readonly moduleRef: ModuleRef,
+    // Quick task 260425-w7v: card-view thumbnails. SnapshotService is exported
+    // from CamerasModule itself, so direct DI works without ModuleRef.
+    private readonly snapshotService: SnapshotService,
   ) {}
 
   private playbackRef: PlaybackService | null = null;
@@ -320,6 +324,43 @@ export class CamerasController {
     // reachable once tenancy has confirmed the camera belongs to the caller.
     await this.camerasService.findCameraById(id);
     return this.camerasService.rotateStreamKey(id, userId);
+  }
+
+  // ─── Snapshot Refresh (card-view thumbnails) ─────
+  // Declared BEFORE the per-id snapshot route so NestJS path-to-regexp picks
+  // the literal `snapshot/refresh-all` segment over any `:id` capture in the
+  // shared @Controller('api') tree (mirrors the existing 'cameras/bulk-import'
+  // sibling, which also predates the `cameras/:id/...` blocks).
+
+  @Post('cameras/snapshot/refresh-all')
+  @HttpCode(202)
+  @ApiOperation({
+    summary:
+      'Fire-and-forget bulk refresh of all online camera thumbnails for the requesting org. Debounced server-side; UI does not block on completion.',
+  })
+  @ApiResponse({ status: 202, description: 'Bulk refresh queued' })
+  async refreshAllSnapshots(): Promise<{ accepted: true; queued: number }> {
+    return this.snapshotService.refreshAllForOrg(this.getOrgId());
+  }
+
+  @Post('cameras/:id/snapshot/refresh')
+  @ApiOperation({
+    summary:
+      'Refresh the camera card thumbnail by grabbing one frame from the live HLS feed (sync; ~1-2s on a healthy stream).',
+  })
+  @ApiResponse({ status: 200, description: 'Thumbnail URL refreshed' })
+  @ApiResponse({ status: 404, description: 'Camera not found' })
+  @ApiParam({ name: 'id', description: 'Camera ID' })
+  async refreshSnapshot(
+    @Param('id') id: string,
+  ): Promise<{ thumbnail: string }> {
+    // Tenancy gate: findCameraById throws NotFoundException on cross-org →
+    // surfaces as 404 without leaking existence (matches the retryProbe
+    // pattern at the top of the controller).
+    const camera = await this.camerasService.findCameraById(id);
+    if (!camera) throw new NotFoundException('Camera not found');
+    const url = await this.snapshotService.refreshOne(id);
+    return { thumbnail: url };
   }
 
   // ─── Bulk Import ────────────────────────────────

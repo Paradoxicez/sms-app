@@ -8,6 +8,7 @@ import { RecordingsService } from '../recordings/recordings.service';
 import { ArchiveMetricsService } from '../recordings/archive-metrics.service';
 import { onHlsCallbackSchema } from '../recordings/dto/on-hls-callback.dto';
 import { CamerasService } from '../cameras/cameras.service';
+import { SnapshotService } from '../cameras/snapshot.service';
 import { StreamsService } from '../streams/streams.service';
 import { OnForwardSchema } from './dto/on-forward.dto';
 import { AuditService } from '../audit/audit.service';
@@ -46,6 +47,12 @@ export class SrsCallbackController {
     // Optional to keep pre-existing unit tests that construct the controller
     // without this arg compiling; runtime DI always supplies it.
     private readonly archiveMetrics?: ArchiveMetricsService,
+    // Quick task 260425-w7v: card-view snapshot refresh on offline→online.
+    // Optional + guarded with `?.` at call sites so existing unit tests that
+    // construct the controller positionally remain compatible. forwardRef on
+    // CamerasModule already resolves the cycle for runtime DI.
+    @Inject(forwardRef(() => SnapshotService))
+    private readonly snapshotService?: SnapshotService,
   ) {}
 
   @Get('metrics')
@@ -101,6 +108,12 @@ export class SrsCallbackController {
       // D-23: maintenance does not block publish — StatusService gate handles
       // notification/webhook suppression downstream.
       await this.statusService.transition(camera.id, camera.orgId, 'online');
+
+      // Quick task 260425-w7v: refresh card thumbnail on offline→online.
+      // Fire-and-forget — the SnapshotService implementation already swallows
+      // all errors so we MUST NOT await here (FFmpeg would block the {code:0}
+      // ACK to SRS) and MUST NOT wrap in try/catch.
+      this.snapshotService?.refreshOneFireAndForget(camera.id);
 
       // D-17: push+transcode needs FFmpeg to read the push loopback and
       // republish transcoded output to live/<orgId>/<cameraId>. Passthrough
@@ -165,6 +178,10 @@ export class SrsCallbackController {
         parsed.orgId,
         'online',
       );
+
+      // Quick task 260425-w7v: refresh card thumbnail on offline→online.
+      // Same contract as the push branch above — fire-and-forget, swallow-safe.
+      this.snapshotService?.refreshOneFireAndForget(parsed.cameraId);
 
       // D-02: refresh codecInfo from SRS /api/v1/streams as ground truth.
       try {
