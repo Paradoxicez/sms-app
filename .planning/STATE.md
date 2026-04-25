@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 Phase: 21.1
 Plan: Not started
 Status: Executing Phase 21.1
-Last activity: 2026-04-26 - Completed quick task 260426-06n: Snapshot auth via PlaybackService token + relax on_hls guard for missing snapshots
+Last activity: 2026-04-26 - Completed quick task 260426-07r: Backend default-profile semantic alignment
 
 Progress: [░░░░░░░░░░] 0% (v1.2: 0/5 phases)
 
@@ -94,6 +94,7 @@ None yet.
 | 260425-w7v | Add camera snapshot thumbnails (FFmpeg + MinIO snapshots bucket) for card view — refresh on online transition + page mount | 2026-04-25 | f32c746 | | [260425-w7v-add-camera-snapshot-thumbnails-ffmpeg-mi](./quick/260425-w7v-add-camera-snapshot-thumbnails-ffmpeg-mi/) |
 | 260425-wy8 | Switch snapshot trigger from on_publish to on_hls (fix 404 race) — fires only on first segment per session (seq_no===0) | 2026-04-25 | a4c517d | | [260425-wy8-switch-snapshot-trigger-from-on-publish-](./quick/260425-wy8-switch-snapshot-trigger-from-on-publish-/) |
 | 260426-06n | Snapshot auth via PlaybackService token + relax on_hls guard for missing snapshots — fixes hls_ctx 403 + catches up streams already publishing before deploy | 2026-04-26 | 2f46722 | | [260426-06n-snapshot-auth-via-playbackservice-token-](./quick/260426-06n-snapshot-auth-via-playbackservice-token-/) |
+| 260426-07r | Backend default-profile semantic alignment — null streamProfileId fallback to org isDefault profile + 409 block on deleting default while other profiles exist | 2026-04-26 | 813be0a | | [260426-07r-backend-default-profile-semantic-alignme](./quick/260426-07r-backend-default-profile-semantic-alignme/) |
 
 ## Session Continuity
 
