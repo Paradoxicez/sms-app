@@ -131,11 +131,28 @@ export class CameraHealthService implements OnModuleInit {
   }
 
   private async enqueueStart(camera: any): Promise<void> {
+    // Phase 21 B-1 collision guard: the camera-health tick and Phase 21
+    // profile-restart enqueues share the SAME jobId (`camera:{id}:ffmpeg`)
+    // because that is the canonical Phase 15 dedup contract (RESEARCH §1).
+    // Without this guard, BullMQ same-jobId remove-then-add semantics would
+    // SILENTLY replace an in-flight `'restart'` job (which carries the
+    // SIGTERM+respawn-with-new-profile branch in StreamProcessor) with a
+    // `'start'` job carrying the camera-health snapshot — and the OLD
+    // FFmpeg profile would persist. We MUST preserve in-flight 'restart'.
+    const jobId = `camera:${camera.id}:ffmpeg`;
+    const existing = await this.streamQueue.getJob(jobId);
+    if (existing && existing.name === 'restart') {
+      this.logger.debug(
+        `CameraHealthService: skipping enqueue for ${camera.id} — in-flight 'restart' job ${existing.id} preserved (will retry next tick)`,
+      );
+      return;
+    }
+
     await this.streamQueue.add(
       'start',
       buildStreamJobData(camera),
       {
-        jobId: `camera:${camera.id}:ffmpeg`,
+        jobId,
         attempts: 20,
         backoff: { type: 'exponential', delay: 1000 },
         removeOnComplete: true,

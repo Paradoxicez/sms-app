@@ -77,9 +77,28 @@ export class StreamProcessor extends WorkerHost {
     const srsHost = process.env.SRS_HOST || 'localhost';
     const outputUrl = `rtmp://${srsHost}:1935/${streamKey}`;
 
-    this.logger.log(`Processing stream job for camera ${cameraId} (attempt ${job.attemptsMade + 1})`);
+    // Phase 21 D-05 restart branch: kill the existing FFmpeg, transition
+    // to 'reconnecting', then fall through to the normal spawn path so
+    // the new profile values from job.data.profile take effect.
+    //
+    // After gracefulRestart returns, the FFmpeg process is GONE from
+    // runningProcesses (because the 'error'/'end' handlers in
+    // ffmpeg.service.ts:34-66 delete the entry on either intentional stop
+    // or kill), so the subsequent startStream call will not short-circuit
+    // at ffmpeg.service.ts:19 ("Stream already running").
+    if (job.name === 'restart') {
+      this.logger.log(
+        `Processing RESTART job for camera ${cameraId} (attempt ${job.attemptsMade + 1})`,
+      );
+      await this.ffmpegService.gracefulRestart(cameraId, 5_000);
+      await this.statusService.transition(cameraId, orgId, 'reconnecting');
+    } else {
+      this.logger.log(
+        `Processing stream job for camera ${cameraId} (attempt ${job.attemptsMade + 1})`,
+      );
+      await this.statusService.transition(cameraId, orgId, 'connecting');
+    }
 
-    await this.statusService.transition(cameraId, orgId, 'connecting');
     await this.ffmpegService.startStream(cameraId, inputUrl, outputUrl, profile, needsTranscode);
   }
 }

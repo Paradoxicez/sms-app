@@ -13,7 +13,12 @@ describe('StreamProcessor — Phase 19 (D-14 rename + existing guard)', () => {
   let processor: StreamProcessor;
 
   beforeEach(() => {
-    ffmpegService = { startStream: vi.fn().mockResolvedValue(undefined), stopStream: vi.fn() };
+    ffmpegService = {
+      startStream: vi.fn().mockResolvedValue(undefined),
+      stopStream: vi.fn(),
+      gracefulRestart: vi.fn().mockResolvedValue(undefined),
+      isRunning: vi.fn().mockReturnValue(false),
+    };
     statusService = { transition: vi.fn().mockResolvedValue(undefined) };
     processor = new StreamProcessor(ffmpegService as any, statusService as any);
   });
@@ -70,5 +75,50 @@ describe('StreamProcessor — Phase 19 (D-14 rename + existing guard)', () => {
     } as any);
     expect(ffmpegService.startStream).not.toHaveBeenCalled();
     expect(statusService.transition).not.toHaveBeenCalled();
+  });
+
+  it("Phase 21 — restart job name calls gracefulRestart THEN transition('reconnecting') THEN startStream", async () => {
+    await processor.process({
+      id: 'j',
+      name: 'restart',
+      data: {
+        cameraId: 'c',
+        orgId: 'o',
+        inputUrl: 'rtsp://x',
+        profile: { codec: 'auto', audioCodec: 'aac' } as any,
+        needsTranscode: false,
+      },
+      attemptsMade: 0,
+    } as any);
+
+    // Order check: gracefulRestart before transition before startStream.
+    expect(ffmpegService.gracefulRestart.mock.invocationCallOrder[0]).toBeLessThan(
+      statusService.transition.mock.invocationCallOrder[0],
+    );
+    expect(statusService.transition.mock.invocationCallOrder[0]).toBeLessThan(
+      ffmpegService.startStream.mock.invocationCallOrder[0],
+    );
+    // Transition target is 'reconnecting' (NOT 'connecting').
+    expect(statusService.transition).toHaveBeenCalledWith('c', 'o', 'reconnecting');
+    // gracefulRestart called with the 5s grace value.
+    expect(ffmpegService.gracefulRestart).toHaveBeenCalledWith('c', 5_000);
+  });
+
+  it('Phase 21 — non-restart job names still use connecting transition (no regression)', async () => {
+    await processor.process({
+      id: 'j',
+      name: 'start',
+      data: {
+        cameraId: 'c',
+        orgId: 'o',
+        inputUrl: 'rtsp://x',
+        profile: {} as any,
+        needsTranscode: false,
+      },
+      attemptsMade: 0,
+    } as any);
+
+    expect(ffmpegService.gracefulRestart).not.toHaveBeenCalled();
+    expect(statusService.transition).toHaveBeenCalledWith('c', 'o', 'connecting');
   });
 });

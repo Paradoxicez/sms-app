@@ -107,4 +107,39 @@ export class FfmpegService {
     cmd.kill('SIGKILL');
     this.logger.warn(`FFmpeg SIGKILLed for camera ${cameraId} (grace expired)`);
   }
+
+  /**
+   * Phase 21 D-05: graceful per-camera restart.
+   *
+   * SIGTERM the running FFmpeg, poll isRunning every 100ms until either
+   * the process exits naturally OR the grace deadline expires (then SIGKILL).
+   * No-op if the camera has no running process.
+   *
+   * graceMs default 5000 — restart-flow value per 21-RESEARCH.md §6, NOT
+   * the 10s shutdown grace from resilience.service.ts (which prioritizes
+   * clean exit over latency; restart prioritizes latency over clean exit).
+   *
+   * Mirrors resilience.service.ts:39-53 polling loop, single-camera variant.
+   * Resolves in all cases — never rejects (FFmpeg restart must not surface
+   * errors to the BullMQ worker layer; the subsequent startStream call
+   * carries failure semantics if the new spawn fails).
+   */
+  async gracefulRestart(
+    cameraId: string,
+    graceMs: number = 5_000,
+  ): Promise<void> {
+    if (!this.isRunning(cameraId)) return;
+
+    this.stopStream(cameraId); // SIGTERM, sets intentionalStops
+    const deadline = Date.now() + graceMs;
+
+    while (Date.now() < deadline) {
+      if (!this.isRunning(cameraId)) return;
+      await new Promise<void>((resolve) => setTimeout(resolve, 100));
+    }
+
+    // Grace expired — force the kill. forceKill is a no-op if the process
+    // already exited between the last poll and now (it checks runningProcesses).
+    this.forceKill(cameraId);
+  }
 }
