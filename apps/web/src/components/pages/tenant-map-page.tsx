@@ -155,20 +155,31 @@ export default function TenantMapPage() {
     }
   }, [mapEnabled, fetchCameras]);
 
-  // Real-time status updates via Socket.IO.
-  // NOTE: viewer-count events are intentionally not written into the cameras
-  // state here — doing so invalidates MarkerClusterGroup's children on every
-  // on_play/on_stop, which remounts the popup + its <video> element. Each
-  // remount is itself a fresh SRS play session, so the count climbs forever
-  // and the card visibly flickers. If viewer-count UI is needed on the map,
-  // surface it through a subscription local to the popup instead.
-  useCameraStatus(orgId, (event) => {
-    setCameras((prev) =>
-      prev.map((c) =>
-        c.id === event.cameraId ? { ...c, status: event.status } : c,
-      ),
-    );
-  });
+  // Real-time updates via Socket.IO. Status writes flow into `cameras` (low
+  // frequency, structural). Viewer-count writes go into a SEPARATE
+  // `viewerCounts` map so MarkerClusterGroup's children (driven by `cameras`)
+  // never re-cluster on on_play/on_stop. PreviewVideo is memoized with
+  // {id, status} only, so popup re-renders from new viewer counts do not
+  // remount the <video> element — the runaway-count regression from Phase 13
+  // stays fixed.
+  const [viewerCounts, setViewerCounts] = useState<Record<string, number>>({});
+  useCameraStatus(
+    orgId,
+    (event) => {
+      setCameras((prev) =>
+        prev.map((c) =>
+          c.id === event.cameraId ? { ...c, status: event.status } : c,
+        ),
+      );
+    },
+    (event) => {
+      setViewerCounts((prev) =>
+        prev[event.cameraId] === event.count
+          ? prev
+          : { ...prev, [event.cameraId]: event.count },
+      );
+    },
+  );
 
   // Handle View Stream from map popup
   const handleViewStream = useCallback(
@@ -323,6 +334,7 @@ export default function TenantMapPage() {
 
           <CameraMap
             cameras={cameras}
+            viewerCounts={viewerCounts}
             filteredCameraIds={filteredCameraIds}
             placementActive={placement.state.mode !== 'idle'}
             onMapClick={placement.onMapClick}

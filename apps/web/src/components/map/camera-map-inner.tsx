@@ -90,6 +90,8 @@ export function createClusterIcon(cluster: ClusterLike): L.DivIcon {
 
 interface CameraMapInnerProps {
   cameras: MapCamera[];
+  /** Live viewer counts keyed by camera id; overrides camera.viewerCount when present. */
+  viewerCounts?: Record<string, number>;
   filteredCameraIds?: string[] | null;
   placementActive?: boolean;
   onMapClick?: (lat: number, lng: number) => void;
@@ -151,6 +153,7 @@ function MapClickHandler({ onMapClick }: { onMapClick: (lat: number, lng: number
 
 export default function CameraMapInner({
   cameras,
+  viewerCounts,
   filteredCameraIds,
   placementActive,
   onMapClick,
@@ -208,7 +211,7 @@ export default function CameraMapInner({
             status={camera.status}
             latitude={camera.latitude}
             longitude={camera.longitude}
-            viewerCount={camera.viewerCount}
+            viewerCount={viewerCounts?.[camera.id] ?? camera.viewerCount}
             isRecording={camera.isRecording ?? false}
             maintenanceMode={camera.maintenanceMode ?? false}
             maintenanceEnteredBy={camera.maintenanceEnteredBy ?? null}

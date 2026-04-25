@@ -29,6 +29,12 @@ export interface MapCamera {
 
 interface CameraMapProps {
   cameras: MapCamera[];
+  /**
+   * Live viewer counts keyed by camera id. Updated independently of the
+   * `cameras` array so MarkerClusterGroup never re-clusters on viewer events.
+   * Falls back to camera.viewerCount when the id is not present.
+   */
+  viewerCounts?: Record<string, number>;
   filteredCameraIds?: string[] | null;
   placementActive?: boolean;
   onMapClick?: (lat: number, lng: number) => void;
@@ -41,6 +47,7 @@ interface CameraMapProps {
 
 export function CameraMap({
   cameras,
+  viewerCounts,
   filteredCameraIds,
   placementActive,
   onMapClick,
@@ -53,6 +60,7 @@ export function CameraMap({
   return (
     <CameraMapInner
       cameras={cameras}
+      viewerCounts={viewerCounts}
       filteredCameraIds={filteredCameraIds}
       placementActive={placementActive}
       onMapClick={onMapClick}
