@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Self-Service, Resilience & UI Polish
 status: executing
-stopped_at: Phase 21 context gathered
-last_updated: "2026-04-25T12:11:23.304Z"
+stopped_at: Phase 21.1 context gathered
+last_updated: "2026-04-25T12:41:08.344Z"
 last_activity: 2026-04-25
 progress:
   total_phases: 10
@@ -92,6 +92,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-25T07:07:10.107Z
-Stopped at: Phase 21 context gathered
-Resume file: .planning/phases/21-hot-reload-stream-profile-changes-to-running-cameras/21-CONTEXT.md
+Last session: 2026-04-25T12:41:08.334Z
+Stopped at: Phase 21.1 context gathered
+Resume file: .planning/phases/21.1-active-job-collision-fix-for-hot-reload-restart-gap-closure/21.1-CONTEXT.md
