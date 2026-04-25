@@ -151,70 +151,110 @@ export class PoliciesService implements OnModuleInit {
    * only null/undefined means "inherit".
    */
   async resolve(cameraId: string): Promise<ResolvedPolicy> {
-    // Get camera with site and project info
-    const camera = await this.prisma.camera.findUnique({
-      where: { id: cameraId },
-      include: { site: { include: { project: true } } },
-    });
+    // Body of resolve() — extracted so it can be invoked either directly
+    // (HTTP path: caller already holds an active CLS context with ORG_ID
+    // set by AuthGuard) or wrapped in a fresh cls.run with IS_SUPERUSER='true'
+    // (background path: snapshot pipeline / system session, no CLS context).
+    const run = async (): Promise<ResolvedPolicy> => {
+      // Get camera with site and project info
+      const camera = await this.prisma.camera.findUnique({
+        where: { id: cameraId },
+        include: { site: { include: { project: true } } },
+      });
 
-    if (!camera) {
-      throw new NotFoundException(`Camera ${cameraId} not found`);
-    }
+      if (!camera) {
+        throw new NotFoundException(`Camera ${cameraId} not found`);
+      }
 
-    // Fetch policies at all 4 levels
-    const policies = await this.prisma.policy.findMany({
-      where: {
-        OR: [
-          { level: 'CAMERA', cameraId: camera.id },
-          { level: 'SITE', siteId: camera.siteId },
-          { level: 'PROJECT', projectId: camera.site.projectId },
-          { level: 'SYSTEM' },
-        ],
-      },
-    });
+      // Fetch policies at all 4 levels
+      const policies = await this.prisma.policy.findMany({
+        where: {
+          OR: [
+            { level: 'CAMERA', cameraId: camera.id },
+            { level: 'SITE', siteId: camera.siteId },
+            { level: 'PROJECT', projectId: camera.site.projectId },
+            { level: 'SYSTEM' },
+          ],
+        },
+      });
 
-    // Sort by priority: CAMERA > SITE > PROJECT > SYSTEM
-    policies.sort(
-      (a: any, b: any) => LEVEL_PRIORITY[a.level] - LEVEL_PRIORITY[b.level],
-    );
+      // Sort by priority: CAMERA > SITE > PROJECT > SYSTEM
+      policies.sort(
+        (a: any, b: any) => LEVEL_PRIORITY[a.level] - LEVEL_PRIORITY[b.level],
+      );
 
-    // Start with hardcoded defaults as fallback
-    const resolved: Omit<ResolvedPolicy, 'sources'> = { ...SYSTEM_DEFAULTS };
+      // Start with hardcoded defaults as fallback
+      const resolved: Omit<ResolvedPolicy, 'sources'> = { ...SYSTEM_DEFAULTS };
 
-    // Default every source to SYSTEM -- covers the "no policies" fallback
-    // (Test E) and any scalar field no policy supplies.
-    const sources: ResolvedPolicy['sources'] = {
-      ttlSeconds: 'SYSTEM',
-      maxViewers: 'SYSTEM',
-      domains: 'SYSTEM',
-      allowNoReferer: 'SYSTEM',
-      rateLimit: 'SYSTEM',
-    };
+      // Default every source to SYSTEM -- covers the "no policies" fallback
+      // (Test E) and any scalar field no policy supplies.
+      const sources: ResolvedPolicy['sources'] = {
+        ttlSeconds: 'SYSTEM',
+        maxViewers: 'SYSTEM',
+        domains: 'SYSTEM',
+        allowNoReferer: 'SYSTEM',
+        rateLimit: 'SYSTEM',
+      };
 
-    // Per-field merge for scalar fields: take first non-null/non-undefined value
-    const scalarFields = ['ttlSeconds', 'maxViewers', 'allowNoReferer', 'rateLimit'] as const;
+      // Per-field merge for scalar fields: take first non-null/non-undefined value
+      const scalarFields = ['ttlSeconds', 'maxViewers', 'allowNoReferer', 'rateLimit'] as const;
 
-    for (const field of scalarFields) {
-      for (const policy of policies) {
-        const value = policy[field];
-        if (value !== null && value !== undefined) {
-          (resolved as any)[field] = value;
-          sources[field] = policy.level as PolicyLevel;
-          break;
+      for (const field of scalarFields) {
+        for (const policy of policies) {
+          const value = policy[field];
+          if (value !== null && value !== undefined) {
+            (resolved as any)[field] = value;
+            sources[field] = policy.level as PolicyLevel;
+            break;
+          }
         }
       }
+
+      // Domains uses array -- the highest-priority policy with a domains field wins
+      // Since Prisma defaults domains to [], we use the first policy's domains in priority order
+      // All policies have a domains array (never null due to @default([]))
+      // The highest-priority policy's domains value is used
+      if (policies.length > 0) {
+        resolved.domains = policies[0].domains;
+        sources.domains = policies[0].level as PolicyLevel;
+      }
+
+      return { ...resolved, sources };
+    };
+
+    // Detect "no active CLS context" — mirrors the gating logic of the
+    // tenancy extension byte-for-byte (prisma-tenancy.extension.ts:11-19):
+    // a positive ORG_ID or IS_SUPERUSER signal is required for set_config to
+    // emit; otherwise RLS closes-by-default and camera.findUnique returns
+    // null. Background callers (snapshot job → PlaybackService.createSystemSession
+    // → policiesService.resolve) hit this branch; HTTP callers (AuthGuard
+    // sets ORG_ID) do not.
+    //
+    // Defensive: legacy unit tests historically constructed PoliciesService
+    // with the prisma arg only (no ClsService). When `this.cls` is absent we
+    // fall through to run() — the prior in-place behavior. Production DI
+    // always supplies cls, so the bypass branch is reachable in the snapshot
+    // pipeline and other background callers.
+    if (!this.cls) {
+      return run();
     }
 
-    // Domains uses array -- the highest-priority policy with a domains field wins
-    // Since Prisma defaults domains to [], we use the first policy's domains in priority order
-    // All policies have a domains array (never null due to @default([]))
-    // The highest-priority policy's domains value is used
-    if (policies.length > 0) {
-      resolved.domains = policies[0].domains;
-      sources.domains = policies[0].level as PolicyLevel;
+    const hasCtx =
+      this.cls.isActive() &&
+      (this.cls.get<string | undefined>('ORG_ID') ||
+        this.cls.get<string | undefined>('IS_SUPERUSER'));
+
+    if (hasCtx) {
+      return run();
     }
 
-    return { ...resolved, sources };
+    this.logger.debug(
+      `No CLS context — running resolve with IS_SUPERUSER bypass for camera ${cameraId}`,
+    );
+    return this.cls.run(async () => {
+      this.cls.set('IS_SUPERUSER', 'true');
+      return run();
+    });
   }
 
   private validateLevelForeignKey(dto: CreatePolicyDto): void {
