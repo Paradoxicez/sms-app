@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
+import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   Tooltip,
@@ -28,6 +29,10 @@ import { DataTableRowActions, type RowAction } from "@/components/ui/data-table"
 import { StatusPills } from "@/app/admin/cameras/components/camera-status-badge"
 import { CodecStatusCell } from "@/app/admin/cameras/components/codec-status-cell"
 import { normalizeCodecInfo } from "@/lib/codec-info"
+import {
+  getStreamProfileModeName,
+  STREAM_PROFILE_MODE_BADGE,
+} from "@/lib/stream-profile-mode"
 
 export interface CameraRow {
   id: string
@@ -38,6 +43,8 @@ export interface CameraRow {
   streamUrl: string
   codecInfo?: unknown
   streamProfileId?: string | null
+  /** Quick task 260425-uw0 — populated by findAllCameras include; null when no profile assigned. */
+  streamProfile?: { id: string; name: string; codec: string } | null
   location?: { lat: number; lng: number } | null
   description?: string | null
   tags?: string[]
@@ -223,6 +230,36 @@ export function createCamerasColumns(
         )
       },
       enableSorting: false,
+    },
+    // Quick task 260425-uw0: Stream Profile column. Renders the assigned profile's
+    // name + a Transcode/Passthrough/Auto mode badge (shared tokens with the
+    // Stream Profiles page via @/lib/stream-profile-mode). Null/undefined profile
+    // collapses to a muted em-dash, matching the resolution-column null pattern.
+    {
+      id: "streamProfile",
+      accessorFn: (row) => row.streamProfile?.name ?? "",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Stream Profile" />
+      ),
+      cell: ({ row }) => {
+        const profile = row.original.streamProfile
+        if (!profile) {
+          return (
+            <span className="text-xs text-muted-foreground">{"—"}</span>
+          )
+        }
+        const mode = getStreamProfileModeName(profile.codec)
+        const badgeClass =
+          STREAM_PROFILE_MODE_BADGE[mode] ?? STREAM_PROFILE_MODE_BADGE.Auto
+        return (
+          <div className="flex items-center gap-2">
+            <span className="font-medium">{profile.name}</span>
+            <Badge variant="outline" className={badgeClass}>
+              {mode}
+            </Badge>
+          </div>
+        )
+      },
     },
     {
       accessorKey: "createdAt",

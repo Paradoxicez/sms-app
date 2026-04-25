@@ -282,3 +282,102 @@ describe("Phase 20 Status column", () => {
     expect(statusCol?.size).toBe(120)
   })
 })
+
+function renderStreamProfileCell(camera: CameraRow) {
+  const columns = createCamerasColumns(noopCallbacks) as unknown as AnyCol[]
+  const col = columns.find((c) => c.id === "streamProfile")
+  if (!col || typeof col.cell !== "function") {
+    throw new Error("streamProfile cell missing")
+  }
+  const fakeRow = {
+    original: camera,
+    getValue: (key: string) =>
+      (camera as unknown as Record<string, unknown>)[key],
+  }
+  const cellFn = col.cell as (ctx: {
+    row: typeof fakeRow
+  }) => React.ReactElement
+  return render(cellFn({ row: fakeRow }))
+}
+
+describe("Stream Profile column (quick 260425-uw0)", () => {
+  it("renders profile name + Transcode badge for codec=libx264", () => {
+    renderStreamProfileCell({
+      ...baseCamera,
+      streamProfile: { id: "p1", name: "SD640", codec: "libx264" },
+    })
+    expect(screen.getByText("SD640")).toBeInTheDocument()
+    const badge = screen.getByText("Transcode")
+    expect(badge).toBeInTheDocument()
+    expect(badge.className).toContain("bg-amber-100")
+    expect(badge.className).toContain("text-amber-700")
+  })
+
+  it("renders profile name + Passthrough badge for codec=copy", () => {
+    renderStreamProfileCell({
+      ...baseCamera,
+      streamProfile: { id: "p2", name: "HD 15", codec: "copy" },
+    })
+    expect(screen.getByText("HD 15")).toBeInTheDocument()
+    const badge = screen.getByText("Passthrough")
+    expect(badge).toBeInTheDocument()
+    expect(badge.className).toContain("bg-green-100")
+    expect(badge.className).toContain("text-green-700")
+  })
+
+  it("renders Auto badge for unknown codec (e.g. h264_nvenc)", () => {
+    renderStreamProfileCell({
+      ...baseCamera,
+      streamProfile: { id: "p3", name: "Custom", codec: "h264_nvenc" },
+    })
+    expect(screen.getByText("Custom")).toBeInTheDocument()
+    const badge = screen.getByText("Auto")
+    expect(badge).toBeInTheDocument()
+    expect(badge.className).toContain("bg-neutral-100")
+  })
+
+  it("renders em-dash with NO badge when streamProfile is null", () => {
+    renderStreamProfileCell({ ...baseCamera, streamProfile: null })
+    expect(screen.getByText("—")).toBeInTheDocument()
+    expect(screen.queryByText("Transcode")).toBeNull()
+    expect(screen.queryByText("Passthrough")).toBeNull()
+    expect(screen.queryByText("Auto")).toBeNull()
+  })
+
+  it("renders em-dash when streamProfile is undefined (legacy rows)", () => {
+    const cam: CameraRow = { ...baseCamera }
+    // Ensure the property is genuinely absent, not just null.
+    delete (cam as unknown as Record<string, unknown>).streamProfile
+    renderStreamProfileCell(cam)
+    expect(screen.getByText("—")).toBeInTheDocument()
+  })
+
+  it("is positioned between resolution and createdAt columns", () => {
+    const columns = createCamerasColumns(noopCallbacks) as unknown as AnyCol[]
+    const resIdx = columns.findIndex((c) => c.id === "resolution")
+    const profIdx = columns.findIndex((c) => c.id === "streamProfile")
+    const createdIdx = columns.findIndex(
+      (c) => c.accessorKey === "createdAt",
+    )
+    expect(resIdx).toBeGreaterThan(-1)
+    expect(profIdx).toBeGreaterThan(-1)
+    expect(createdIdx).toBeGreaterThan(-1)
+    expect(profIdx).toBe(resIdx + 1)
+    expect(createdIdx).toBe(profIdx + 1)
+  })
+
+  it("accessorFn returns profile name for sorting (empty string when null)", () => {
+    const columns = createCamerasColumns(noopCallbacks) as unknown as AnyCol[]
+    const col = columns.find((c) => c.id === "streamProfile") as
+      | { accessorFn?: (row: CameraRow) => string }
+      | undefined
+    expect(typeof col?.accessorFn).toBe("function")
+    expect(
+      col!.accessorFn!({
+        ...baseCamera,
+        streamProfile: { id: "x", name: "SD640", codec: "libx264" },
+      }),
+    ).toBe("SD640")
+    expect(col!.accessorFn!({ ...baseCamera, streamProfile: null })).toBe("")
+  })
+})
