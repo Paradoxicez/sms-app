@@ -58,6 +58,12 @@ export interface CameraRow {
   firstPublishAt?: string | null
   /** Phase 19.1 D-16 — needsTranscode toggle consumed by accept-auto-transcode flow. */
   needsTranscode?: boolean
+  /**
+   * Quick task 260425-w7v — public MinIO URL for the camera card thumbnail.
+   * Populated by SnapshotService on every offline→online transition. Null
+   * for cameras that have never been online.
+   */
+  thumbnail?: string | null
 }
 
 interface CamerasColumnCallbacks {

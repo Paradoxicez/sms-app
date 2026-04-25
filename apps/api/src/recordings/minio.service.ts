@@ -120,4 +120,71 @@ export class MinioService implements OnModuleInit {
     const v = version ?? Date.now();
     return `${scheme}://${endpoint}:${port}/avatars/${userId}.webp?v=${v}`;
   }
+
+  // ─── Snapshots (camera card thumbnails) ─────────────────────────────
+  // Mirrors the avatar block above but with shorter Cache-Control and JPEG
+  // content type. Snapshots are a regenerable cache — overwritten on each
+  // refresh; the `?v=ts` URL suffix produced by getSnapshotUrl() handles
+  // immediate cache busting on the client.
+
+  async ensureSnapshotsBucket(): Promise<void> {
+    const bucket = 'snapshots';
+    const exists = await this.client.bucketExists(bucket);
+    if (!exists) {
+      await this.client.makeBucket(bucket);
+      this.logger.log(`Created MinIO bucket: ${bucket}`);
+    }
+    const policy = {
+      Version: '2012-10-17',
+      Statement: [
+        {
+          Effect: 'Allow',
+          Principal: { AWS: ['*'] },
+          Action: ['s3:GetObject'],
+          Resource: [`arn:aws:s3:::${bucket}/*`],
+        },
+      ],
+    };
+    await this.client.setBucketPolicy(bucket, JSON.stringify(policy));
+    this.logger.log('Snapshots bucket ready (public-read)');
+  }
+
+  async uploadSnapshot(cameraId: string, buffer: Buffer): Promise<string> {
+    const bucket = 'snapshots';
+    const objectName = `${cameraId}.jpg`;
+    await this.client.putObject(bucket, objectName, buffer, buffer.length, {
+      'Content-Type': 'image/jpeg',
+      // Cache-Control deliberately short (60s) since snapshots are overwritten
+      // on each on_publish refresh. The version query param (?v=ts) handles
+      // immediate cache busting on the client; the 60s TTL keeps cross-tab
+      // refetch cheap.
+      'Cache-Control': 'public, max-age=60',
+    });
+    return this.getSnapshotUrl(cameraId, Date.now());
+  }
+
+  async removeSnapshot(cameraId: string): Promise<void> {
+    try {
+      await this.client.removeObject('snapshots', `${cameraId}.jpg`);
+    } catch (err: any) {
+      // Idempotent — NoSuchKey / NotFound means already gone.
+      if (err?.code !== 'NoSuchKey' && err?.code !== 'NotFound') {
+        throw err;
+      }
+      this.logger.debug(`removeSnapshot: object ${cameraId}.jpg already absent`);
+    }
+  }
+
+  getSnapshotUrl(cameraId: string, version?: number): string {
+    const endpoint =
+      this.configService.get<string>('MINIO_PUBLIC_ENDPOINT') ??
+      this.configService.get<string>('MINIO_ENDPOINT', 'localhost');
+    const port =
+      this.configService.get<string>('MINIO_PUBLIC_PORT') ??
+      this.configService.get<string>('MINIO_PORT', '9000');
+    const scheme =
+      this.configService.get<string>('MINIO_USE_SSL') === 'true' ? 'https' : 'http';
+    const v = version ?? Date.now();
+    return `${scheme}://${endpoint}:${port}/snapshots/${cameraId}.jpg?v=${v}`;
+  }
 }
