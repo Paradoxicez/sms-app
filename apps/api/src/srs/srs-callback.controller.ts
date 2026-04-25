@@ -320,11 +320,29 @@ export class SrsCallbackController {
     // the playlist did not yet exist — FFmpeg got 404 every time. on_hls is
     // the earliest moment SRS guarantees a playable .m3u8 + segment on disk.
     //
+    // Quick task 260426-06n: broaden the guard so cameras already publishing
+    // when this fix deploys (seq_no in the thousands) still get a catch-up
+    // snapshot. The OR short-circuits: seq_no===0 fires immediately without a
+    // DB hit; for seq_no>0 we ask SnapshotService whether a thumbnail already
+    // exists. Once the thumbnail is set the hasSnapshot path returns true and
+    // no further refreshes are triggered until the bulk-refresh-all endpoint
+    // or the next on_publish cycle invalidates it.
+    //
+    // The whole block is gated on snapshotService presence so legacy unit
+    // tests that construct the controller without snapshotService keep
+    // working — the `!(await x?.fn())` shape would otherwise yield `!undefined
+    // === true` and always trigger.
+    //
     // Fire-and-forget — SnapshotService.refreshOneFireAndForget swallows all
     // errors internally; the in-flight Set guards against bulk-refresh races.
-    // Single-arg call: the service resolves orgId internally via prisma.
-    if (parsed.data.seq_no === 0) {
-      this.snapshotService?.refreshOneFireAndForget(cameraId);
+    if (this.snapshotService) {
+      const isFirstSegment = parsed.data.seq_no === 0;
+      const needsCatchUp =
+        !isFirstSegment &&
+        !(await this.snapshotService.hasSnapshot(cameraId));
+      if (isFirstSegment || needsCatchUp) {
+        this.snapshotService.refreshOneFireAndForget(cameraId);
+      }
     }
 
     try {

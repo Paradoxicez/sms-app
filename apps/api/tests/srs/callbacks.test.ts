@@ -57,6 +57,10 @@ describe('SRS Callback Controller', () => {
 
     mockSnapshotService = {
       refreshOneFireAndForget: vi.fn(),
+      // Default to false so existing seq_no===0 cases continue to fire via the
+      // OR-branch (first-segment short-circuit) — observable behaviour stays
+      // identical for those tests.
+      hasSnapshot: vi.fn().mockResolvedValue(false),
     };
 
     // Full positional signature: status, gateway, playback, recordings,
@@ -168,11 +172,47 @@ describe('SRS Callback Controller', () => {
       expect(result).toEqual({ code: 0 });
     });
 
-    it('does NOT trigger snapshot refresh on subsequent segments (seq_no > 0)', async () => {
+    it('does NOT trigger snapshot refresh on subsequent segments (seq_no > 0) when thumbnail already exists', async () => {
+      // Quick task 260426-06n: the seq_no>0 guard is now an OR — a thumbnail
+      // must ALSO already exist for the controller to skip. Mock hasSnapshot
+      // → true to assert the steady-state path: no refresh fires.
+      mockSnapshotService.hasSnapshot.mockResolvedValue(true);
       await controller.onHls(makeOnHlsBody({ seq_no: 1 }));
       await controller.onHls(makeOnHlsBody({ seq_no: 2 }));
       await controller.onHls(makeOnHlsBody({ seq_no: 47 }));
       expect(mockSnapshotService.refreshOneFireAndForget).not.toHaveBeenCalled();
+      // hasSnapshot MUST be consulted on every seq_no>0 callback — proves the
+      // OR-guard is actually wired (not a stub).
+      expect(mockSnapshotService.hasSnapshot).toHaveBeenCalledWith('cam-1');
+      expect(mockSnapshotService.hasSnapshot).toHaveBeenCalledTimes(3);
+    });
+
+    it('triggers snapshot when seq_no > 0 AND no thumbnail exists yet (catch-up for already-publishing streams)', async () => {
+      // Quick task 260426-06n: cameras already streaming when the fix deploys
+      // have seq_no in the thousands and never get a snapshot until republish
+      // unless the OR-branch fires. hasSnapshot=false → catch-up refresh.
+      mockSnapshotService.hasSnapshot.mockResolvedValue(false);
+      const result = await controller.onHls(makeOnHlsBody({ seq_no: 500 }));
+      expect(mockSnapshotService.refreshOneFireAndForget).toHaveBeenCalledTimes(1);
+      expect(mockSnapshotService.refreshOneFireAndForget).toHaveBeenCalledWith('cam-1');
+      expect(result).toEqual({ code: 0 });
+    });
+
+    it('skips snapshot when seq_no > 0 AND thumbnail already exists (steady state)', async () => {
+      mockSnapshotService.hasSnapshot.mockResolvedValue(true);
+      const result = await controller.onHls(makeOnHlsBody({ seq_no: 500 }));
+      expect(mockSnapshotService.refreshOneFireAndForget).not.toHaveBeenCalled();
+      expect(result).toEqual({ code: 0 });
+    });
+
+    it('skips hasSnapshot DB lookup when seq_no === 0 (short-circuits the OR)', async () => {
+      // Cheap-path proof: JS `||` short-circuits, so cameras whose first
+      // segment fires on_hls must NOT incur a DB hit on every segment.
+      mockSnapshotService.hasSnapshot.mockResolvedValue(true);
+      await controller.onHls(makeOnHlsBody({ seq_no: 0 }));
+      expect(mockSnapshotService.refreshOneFireAndForget).toHaveBeenCalledTimes(1);
+      expect(mockSnapshotService.refreshOneFireAndForget).toHaveBeenCalledWith('cam-1');
+      expect(mockSnapshotService.hasSnapshot).not.toHaveBeenCalled();
     });
 
     it('strips .ts segment suffix when resolving cameraId for snapshot', async () => {

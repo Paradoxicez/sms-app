@@ -4,18 +4,24 @@ import {
   NotFoundException,
   OnModuleInit,
 } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { spawn } from 'child_process';
 import { SystemPrismaService } from '../prisma/system-prisma.service';
 import { MinioService } from '../recordings/minio.service';
+import { PlaybackService } from '../playback/playback.service';
 
 /**
  * SnapshotService — populates camera-card thumbnails.
  *
- * Source: SRS internal HLS feed at
- *   http://${SRS_HOST}:8080/live/{orgId}/{cameraId}.m3u8
- * which exists for every running camera regardless of ingest mode (push/pull,
- * transcode/passthrough). One-frame extract via ffmpeg → MinIO `snapshots`
- * bucket → Camera.thumbnail update.
+ * Source: tokenized SRS HLS URL minted via PlaybackService.createSession —
+ * required because srs.conf has hls_ctx on, which forces on_play auth on
+ * every playlist GET. Without a valid `?token=` the playlist returns 403
+ * and FFmpeg sees "End of file" → snapshot fails silently.
+ *
+ * The session also handles the edge-cluster case (PlaybackService selects the
+ * least-loaded edge node when one exists) — single source of truth for the
+ * URL shape that on_play will validate. One-frame extract via ffmpeg → MinIO
+ * `snapshots` bucket → Camera.thumbnail update.
  *
  * Snapshots are a regenerable CACHE — best-effort, no transactions, no retries
  * beyond the natural retrigger on next online transition. Failures are logged
@@ -24,7 +30,7 @@ import { MinioService } from '../recordings/minio.service';
  *
  * Per-camera in-process dedup: refreshOne() short-circuits if a refresh is
  * already in flight for that cameraId. Prevents the bulk refresh-all + an
- * on_publish hook from spawning two concurrent FFmpegs for one camera.
+ * on_hls hook from spawning two concurrent FFmpegs for one camera.
  */
 @Injectable()
 export class SnapshotService implements OnModuleInit {
@@ -36,7 +42,36 @@ export class SnapshotService implements OnModuleInit {
   constructor(
     private readonly prisma: SystemPrismaService,
     private readonly minio: MinioService,
+    // Quick task 260426-06n: lazy DI mirrors cameras.controller.ts pattern.
+    // CamerasModule does NOT import PlaybackModule (would form a cycle:
+    // Cameras → Playback → Cluster → Srs → Cameras). ModuleRef walks the
+    // global scope at call time so PlaybackService is resolved without any
+    // module-graph change.
+    private readonly moduleRef: ModuleRef,
   ) {}
+
+  private playbackRef: PlaybackService | null = null;
+  private getPlaybackService(): PlaybackService {
+    if (!this.playbackRef) {
+      this.playbackRef = this.moduleRef.get(PlaybackService, { strict: false });
+    }
+    return this.playbackRef;
+  }
+
+  /**
+   * Cheap existence check used by the on_hls callback to decide whether a
+   * mid-stream catch-up snapshot is needed. Single indexed lookup; acceptable
+   * to call on every segment (every ~2s per camera) — no caching layer
+   * needed, the DB load is negligible for the camera fleet sizes we target
+   * (single-host SaaS).
+   */
+  async hasSnapshot(cameraId: string): Promise<boolean> {
+    const row = await this.prisma.camera.findUnique({
+      where: { id: cameraId },
+      select: { thumbnail: true },
+    });
+    return Boolean(row?.thumbnail);
+  }
 
   async onModuleInit(): Promise<void> {
     await this.minio.ensureSnapshotsBucket();
@@ -68,10 +103,21 @@ export class SnapshotService implements OnModuleInit {
       });
       if (!camera) throw new NotFoundException(`Camera ${cameraId} not found`);
 
-      const srsHost = process.env.SRS_HOST || 'localhost';
-      const source = `http://${srsHost}:8080/live/${camera.orgId}/${camera.id}.m3u8`;
+      // Quick task 260426-06n: hls_ctx is enabled in srs.conf, so SRS calls
+      // on_play to authorize ANY HTTP GET of the playlist — including
+      // FFmpeg's. Mint a real playback session and reuse the JWT-signed
+      // hlsUrl it returns; that is the only shape on_play will accept.
+      // Reuse session.hlsUrl byte-for-byte — DO NOT rebuild the URL by
+      // hand, that guarantees the URL we pass to FFmpeg is byte-identical
+      // to the URL on_play will validate against. Also auto-handles the
+      // edge-cluster case (PlaybackService selects the least-loaded edge
+      // node when one exists).
+      const session = await this.getPlaybackService().createSession(
+        camera.id,
+        camera.orgId,
+      );
 
-      const buffer = await this.grabFrame(source);
+      const buffer = await this.grabFrame(session.hlsUrl);
       const url = await this.minio.uploadSnapshot(cameraId, buffer);
       await this.prisma.camera.update({
         where: { id: cameraId },
