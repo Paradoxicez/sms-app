@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { apiFetch, ApiError } from '@/lib/api';
+import { extractApiErrorMessage } from '@/lib/api-error';
 import { cn } from '@/lib/utils';
 import { validateStreamUrl, HELPER_TEXT } from '@/lib/stream-url-validation';
 import { Button } from '@/components/ui/button';
@@ -243,6 +244,9 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
       onOpenChange(false);
       onSuccess();
     } catch (err) {
+      const fallback = isEditMode
+        ? 'Failed to update camera. Check the details and try again.'
+        : 'Failed to create camera. Check the details and try again.';
       // D-11: server-layer DuplicateStreamUrlError translates to 409 + body.code.
       // Phase 19.1: DuplicateStreamKey (push) also surfaces as 409 + code
       // DUPLICATE_STREAM_KEY — rare nanoid collision; same class of error.
@@ -252,18 +256,12 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
         } else if (err.code === 'DUPLICATE_STREAM_KEY') {
           setError('A camera with this push key already exists. Please try saving again.');
         } else {
-          setError(
-            isEditMode
-              ? 'Failed to update camera. Check the details and try again.'
-              : 'Failed to create camera. Check the details and try again.',
-          );
+          setError(extractApiErrorMessage(err, fallback));
         }
       } else {
-        setError(
-          isEditMode
-            ? 'Failed to update camera. Check the details and try again.'
-            : 'Failed to create camera. Check the details and try again.'
-        );
+        // 400 from NestJS Zod validation surfaces field-level messages; other
+        // statuses fall back to the generic copy.
+        setError(extractApiErrorMessage(err, fallback));
       }
     } finally {
       setSaving(false);
