@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 Phase: 21.1
 Plan: Not started
 Status: Executing Phase 21.1
-Last activity: 2026-04-25
+Last activity: 2026-04-25 - Completed quick task 260425-uw0: Add Stream Profile column to Cameras table
 
 Progress: [░░░░░░░░░░] 0% (v1.2: 0/5 phases)
 
@@ -89,6 +89,7 @@ None yet.
 | 260421-g9o | fix StreamProcessor undefined cameraId bug - add defensive guard | 2026-04-21 | 5cf6343 | | [260421-g9o-fix-streamprocessor-undefined-cameraid-b](./quick/260421-g9o-fix-streamprocessor-undefined-cameraid-b/) |
 | 260422-cnv | Align Team page empty state with API Keys table pattern | 2026-04-22 | a4f2eb0 | | [260422-cnv-align-team-page-empty-state-with-api-key](./quick/260422-cnv-align-team-page-empty-state-with-api-key/) |
 | 260422-ds9 | Fix RLS bug pattern across codebase (Option A) — OrgAdminGuard, AdminDashboardService, bulkImport, test harness, seeds | 2026-04-22 | a1e8348 | Verified | [260422-ds9-fix-rls-bug-pattern-across-codebase-opti](./quick/260422-ds9-fix-rls-bug-pattern-across-codebase-opti/) |
+| 260425-uw0 | Add Stream Profile column (after Resolution) to Cameras table — name + Transcode/Passthrough badge using same color tokens as Stream Profiles page | 2026-04-25 | 5ca5168 | | [260425-uw0-add-stream-profile-column-after-resoluti](./quick/260425-uw0-add-stream-profile-column-after-resoluti/) |
 
 ## Session Continuity
 
