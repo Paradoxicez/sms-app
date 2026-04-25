@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { toast } from 'sonner';
 import { apiFetch, ApiError } from '@/lib/api';
 import { extractApiErrorMessage } from '@/lib/api-error';
 import { cn } from '@/lib/utils';
@@ -205,10 +206,20 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
           body.streamUrl = streamUrl.trim();
         }
         if (siteId) body.siteId = siteId;
-        await apiFetch(`/api/cameras/${camera.id}`, {
-          method: 'PATCH',
-          body: JSON.stringify(body),
-        });
+        // Phase 21 D-06: capture restartTriggered so we can surface a toast
+        // when the server-side reassign trigger fires (server emits
+        // restartTriggered=true when streamProfileId changed AND fingerprints
+        // differ AND camera is restart-eligible — see Plan 03 SUMMARY).
+        const response = await apiFetch<{ restartTriggered?: boolean }>(
+          `/api/cameras/${camera.id}`,
+          {
+            method: 'PATCH',
+            body: JSON.stringify(body),
+          },
+        );
+        if (response?.restartTriggered) {
+          toast.info('Stream restarting with new profile');
+        }
       } else if (ingestMode === 'push') {
         // Create-push: server generates streamKey + streamUrl. No streamUrl in payload.
         body.ingestMode = 'push';

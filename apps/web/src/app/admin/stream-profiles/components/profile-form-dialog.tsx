@@ -145,11 +145,22 @@ export function ProfileFormDialog({
       const payload = buildPayload();
 
       if (isEdit) {
-        await apiFetch(`/api/stream-profiles/${editProfile.id}`, {
-          method: 'PATCH',
-          body: JSON.stringify(payload),
-        });
-        toast.success('Profile updated');
+        // Phase 21 D-06: surface restart count when one or more cameras are
+        // restarting with the new settings. Server (Plan 02) returns
+        // `affectedCameras` on PATCH; falls back to 0 for older responses.
+        const response = await apiFetch<{ affectedCameras?: number }>(
+          `/api/stream-profiles/${editProfile.id}`,
+          {
+            method: 'PATCH',
+            body: JSON.stringify(payload),
+          },
+        );
+        const n = response?.affectedCameras ?? 0;
+        if (n > 0) {
+          toast.info(`Profile updated · ${n} camera(s) restarting with new settings`);
+        } else {
+          toast.success('Profile updated');
+        }
       } else {
         await apiFetch('/api/stream-profiles', {
           method: 'POST',

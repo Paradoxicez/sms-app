@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { apiFetch } from '@/lib/api';
+import { apiFetch, ApiError } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -28,6 +28,12 @@ export default function TenantStreamProfilesPage() {
   const [editProfile, setEditProfile] = useState<StreamProfileRow | null>(null);
   const [deleteProfile, setDeleteProfile] = useState<StreamProfileRow | null>(null);
   const [deleting, setDeleting] = useState(false);
+  // Phase 21 D-10: when DELETE returns 409 with usedBy[], render the camera
+  // list inline inside the AlertDialog instead of toast-erroring. Null when no
+  // 409 has occurred for the current dialog open cycle.
+  const [deleteUsedBy, setDeleteUsedBy] = useState<
+    Array<{ cameraId: string; name: string }> | null
+  >(null);
 
   const fetchProfiles = useCallback(async () => {
     setIsLoading(true);
@@ -77,6 +83,7 @@ export default function TenantStreamProfilesPage() {
   async function handleDelete() {
     if (!deleteProfile) return;
     setDeleting(true);
+    setDeleteUsedBy(null);
     try {
       await apiFetch(`/api/stream-profiles/${deleteProfile.id}`, {
         method: 'DELETE',
@@ -84,7 +91,17 @@ export default function TenantStreamProfilesPage() {
       toast.success('Profile deleted');
       setDeleteProfile(null);
       fetchProfiles();
-    } catch {
+    } catch (err) {
+      // Phase 21 D-10: detect 409 with usedBy[] and render the camera list
+      // inline. apiFetch throws ApiError carrying status + parsed JSON body.
+      if (err instanceof ApiError && err.status === 409) {
+        const body = err.body as { usedBy?: Array<{ cameraId: string; name: string }> } | null;
+        if (body && Array.isArray(body.usedBy) && body.usedBy.length > 0) {
+          setDeleteUsedBy(body.usedBy);
+          // Do NOT close the dialog — let the user see the list and reassign.
+          return;
+        }
+      }
       toast.error('Failed to delete profile');
     } finally {
       setDeleting(false);
@@ -129,27 +146,39 @@ export default function TenantStreamProfilesPage() {
       <AlertDialog
         open={!!deleteProfile}
         onOpenChange={(open) => {
-          if (!open) setDeleteProfile(null);
+          if (!open) {
+            setDeleteProfile(null);
+            setDeleteUsedBy(null);
+          }
         }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Profile</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete &ldquo;{deleteProfile?.name}&rdquo;?
-              Cameras using this profile will fall back to the default passthrough
-              profile.
+              {deleteUsedBy
+                ? `Reassign before deleting · ${deleteUsedBy.length} camera${deleteUsedBy.length === 1 ? '' : 's'} still using this profile:`
+                : `Are you sure you want to delete "${deleteProfile?.name ?? ''}"? Deletion is blocked while any camera still references this profile.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {deleteUsedBy && (
+            <ul className="list-disc pl-5 text-sm text-foreground">
+              {deleteUsedBy.map((c) => (
+                <li key={c.cameraId}>{c.name}</li>
+              ))}
+            </ul>
+          )}
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              disabled={deleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleting ? 'Deleting...' : 'Delete'}
-            </AlertDialogAction>
+            {!deleteUsedBy && (
+              <AlertDialogAction
+                onClick={handleDelete}
+                disabled={deleting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deleting ? 'Deleting...' : 'Delete'}
+              </AlertDialogAction>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
