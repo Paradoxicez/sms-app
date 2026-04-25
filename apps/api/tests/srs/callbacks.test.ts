@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { SrsCallbackController } from '../../src/srs/srs-callback.controller';
 import { SrsApiService } from '../../src/srs/srs-api.service';
 
@@ -7,6 +7,10 @@ describe('SRS Callback Controller', () => {
   let mockStatusService: any;
   let mockStatusGateway: any;
   let mockPlaybackService: any;
+  let mockRecordingsService: any;
+  let mockCamerasService: any;
+  let mockStreamsService: any;
+  let mockSnapshotService: any;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -34,7 +38,40 @@ describe('SRS Callback Controller', () => {
       matchDomain: vi.fn().mockReturnValue(true),
     };
 
-    controller = new SrsCallbackController(mockStatusService, mockStatusGateway, mockPlaybackService);
+    mockRecordingsService = {
+      // Default: not recording — handler returns early after snapshot trigger.
+      getActiveRecording: vi.fn().mockResolvedValue(null),
+      checkStorageQuota: vi.fn().mockResolvedValue({ allowed: true }),
+      archiveSegment: vi.fn().mockResolvedValue(undefined),
+    };
+
+    mockCamerasService = {
+      findByStreamKey: vi.fn().mockResolvedValue(null),
+      enqueueProbeFromSrs: vi.fn().mockResolvedValue(undefined),
+      markFirstPublishIfNeeded: vi.fn().mockResolvedValue(false),
+    };
+
+    mockStreamsService = {
+      startStream: vi.fn().mockResolvedValue(undefined),
+    };
+
+    mockSnapshotService = {
+      refreshOneFireAndForget: vi.fn(),
+    };
+
+    // Full positional signature: status, gateway, playback, recordings,
+    // cameras, streams, audit, archiveMetrics, snapshot.
+    controller = new SrsCallbackController(
+      mockStatusService,
+      mockStatusGateway,
+      mockPlaybackService,
+      mockRecordingsService,
+      mockCamerasService,
+      mockStreamsService,
+      undefined, // auditService — optional, not asserted in this file
+      undefined, // archiveMetrics — optional, not asserted in this file
+      mockSnapshotService,
+    );
   });
 
   describe('on_publish', () => {
@@ -49,6 +86,10 @@ describe('SRS Callback Controller', () => {
       });
 
       expect(mockStatusService.transition).toHaveBeenCalledWith('cam-1', 'org-1', 'online');
+      // Quick task 260425-wy8: snapshot trigger relocated to on_hls.
+      // on_publish MUST NOT spawn a snapshot — the HLS playlist does not yet
+      // exist at on_publish time, so FFmpeg would 404.
+      expect(mockSnapshotService.refreshOneFireAndForget).not.toHaveBeenCalled();
       expect(result).toEqual({ code: 0 });
     });
   });
@@ -99,8 +140,60 @@ describe('SRS Callback Controller', () => {
   });
 
   describe('on_hls', () => {
-    it('should return code 0', async () => {
-      const result = await controller.onHls({ duration: 2, file: '/data/hls/live/org-1/cam-1.ts' });
+    function makeOnHlsBody(
+      overrides: Partial<{ stream: string; app: string; seq_no: number }> = {},
+    ) {
+      return {
+        action: 'on_hls' as const,
+        client_id: 'c1',
+        ip: '127.0.0.1',
+        vhost: '__defaultVhost__',
+        app: overrides.app ?? 'live',
+        stream: overrides.stream ?? 'org-1/cam-1',
+        param: '',
+        duration: 2,
+        cwd: '/usr/local/srs',
+        file: './objs/nginx/html/live/org-1/cam-1-0.ts',
+        url: '/live/org-1/cam-1-0.ts',
+        m3u8: './objs/nginx/html/live/org-1/cam-1.m3u8',
+        m3u8_url: '/live/org-1/cam-1.m3u8',
+        seq_no: overrides.seq_no ?? 0,
+      };
+    }
+
+    it('triggers snapshot refresh on the first segment (seq_no===0) for live mode', async () => {
+      const result = await controller.onHls(makeOnHlsBody({ seq_no: 0 }));
+      expect(mockSnapshotService.refreshOneFireAndForget).toHaveBeenCalledTimes(1);
+      expect(mockSnapshotService.refreshOneFireAndForget).toHaveBeenCalledWith('cam-1');
+      expect(result).toEqual({ code: 0 });
+    });
+
+    it('does NOT trigger snapshot refresh on subsequent segments (seq_no > 0)', async () => {
+      await controller.onHls(makeOnHlsBody({ seq_no: 1 }));
+      await controller.onHls(makeOnHlsBody({ seq_no: 2 }));
+      await controller.onHls(makeOnHlsBody({ seq_no: 47 }));
+      expect(mockSnapshotService.refreshOneFireAndForget).not.toHaveBeenCalled();
+    });
+
+    it('strips .ts segment suffix when resolving cameraId for snapshot', async () => {
+      // SRS posts the segment filename in `stream` for on_hls events
+      // (e.g., "cam-1-0.ts"). parseStreamKey strips both the extension and
+      // the trailing "-{seq}" segment number; the snapshot call must
+      // receive the bare cameraId.
+      await controller.onHls(makeOnHlsBody({ stream: 'org-1/cam-1-0.ts', seq_no: 0 }));
+      expect(mockSnapshotService.refreshOneFireAndForget).toHaveBeenCalledWith('cam-1');
+    });
+
+    it('does NOT trigger snapshot for push-mode on_hls payloads', async () => {
+      // Push apps are unexpected on on_hls (HLS is served from live/...) but
+      // if SRS posts one, parseStreamKey returns mode='push' and we must skip.
+      await controller.onHls(makeOnHlsBody({ app: 'push', stream: 'some-stream-key', seq_no: 0 }));
+      expect(mockSnapshotService.refreshOneFireAndForget).not.toHaveBeenCalled();
+    });
+
+    it('returns code 0 even when seq_no===0 and no active recording', async () => {
+      // Default mockRecordingsService.getActiveRecording returns null.
+      const result = await controller.onHls(makeOnHlsBody({ seq_no: 0 }));
       expect(result).toEqual({ code: 0 });
     });
   });

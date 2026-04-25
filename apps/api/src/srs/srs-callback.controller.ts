@@ -109,11 +109,11 @@ export class SrsCallbackController {
       // notification/webhook suppression downstream.
       await this.statusService.transition(camera.id, camera.orgId, 'online');
 
-      // Quick task 260425-w7v: refresh card thumbnail on offline→online.
-      // Fire-and-forget — the SnapshotService implementation already swallows
-      // all errors so we MUST NOT await here (FFmpeg would block the {code:0}
-      // ACK to SRS) and MUST NOT wrap in try/catch.
-      this.snapshotService?.refreshOneFireAndForget(camera.id);
+      // Quick task 260425-wy8: snapshot trigger MOVED to on_hls (seq_no===0).
+      // At on_publish time SRS has not yet written the .m3u8 playlist, so
+      // FFmpeg `-i .../live/{org}/{cam}.m3u8` returns 404 every time. on_hls
+      // is the earliest moment SRS guarantees a playable playlist + segment
+      // on disk. See onHls() below.
 
       // D-17: push+transcode needs FFmpeg to read the push loopback and
       // republish transcoded output to live/<orgId>/<cameraId>. Passthrough
@@ -179,9 +179,9 @@ export class SrsCallbackController {
         'online',
       );
 
-      // Quick task 260425-w7v: refresh card thumbnail on offline→online.
-      // Same contract as the push branch above — fire-and-forget, swallow-safe.
-      this.snapshotService?.refreshOneFireAndForget(parsed.cameraId);
+      // Quick task 260425-wy8: snapshot trigger MOVED to on_hls (seq_no===0).
+      // Same reason as the push branch — playlist does not exist yet at
+      // on_publish time. See onHls() below for the relocated trigger.
 
       // D-02: refresh codecInfo from SRS /api/v1/streams as ground truth.
       try {
@@ -314,6 +314,18 @@ export class SrsCallbackController {
       return { code: 0 }; // Internal stream or push — skip
     }
     const { orgId, cameraId } = parsedKey;
+
+    // Quick task 260425-wy8: trigger card-view snapshot refresh on the FIRST
+    // HLS segment of each session (seq_no===0). Moved from on_publish where
+    // the playlist did not yet exist — FFmpeg got 404 every time. on_hls is
+    // the earliest moment SRS guarantees a playable .m3u8 + segment on disk.
+    //
+    // Fire-and-forget — SnapshotService.refreshOneFireAndForget swallows all
+    // errors internally; the in-flight Set guards against bulk-refresh races.
+    // Single-arg call: the service resolves orgId internally via prisma.
+    if (parsed.data.seq_no === 0) {
+      this.snapshotService?.refreshOneFireAndForget(cameraId);
+    }
 
     try {
       const recording = await this.recordingsService.getActiveRecording(cameraId, orgId);
