@@ -117,16 +117,26 @@ export class StreamsService {
   }
 
   /**
-   * Phase 21 D-01/D-03/D-04/D-07: profile-driven hot-reload restart.
+   * Phase 21 D-01/D-02/D-03/D-04/D-07: profile-driven hot-reload restart.
    *
-   * Finds all running, non-maintenance cameras attached to `profileId`,
-   * writes a `camera.profile_hot_reload` audit row per camera at enqueue
-   * time (so audit survives any later supersession via remove-then-add),
-   * then enqueues a stream-ffmpeg job per camera with the canonical
-   * `camera:{id}:ffmpeg` jobId and 0–30s jitter.
+   * Two modes (selected by the optional `cameraId` arg):
+   *   - Multi-camera (D-01): no `cameraId`. Finds every running,
+   *     non-maintenance camera attached to `profileId` and fans out a
+   *     restart for each. Used by StreamProfileService.update (Plan 02).
+   *   - Single-camera (D-02): `cameraId` set. Targets exactly that one
+   *     camera (still subject to the status + maintenance gate). Used by
+   *     CamerasService.updateCamera when a profile reassign produces a
+   *     fingerprint mismatch (Plan 03).
+   *
+   * Either way, writes a `camera.profile_hot_reload` audit row per
+   * affected camera at enqueue time (so the audit survives any later
+   * supersession via remove-then-add), then enqueues a stream-ffmpeg
+   * job per camera with the canonical `camera:{id}:ffmpeg` jobId and
+   * 0–30s jitter.
    *
    * Returns the count of affected cameras so the controller layer can
-   * surface it as `affectedCameras` in the response (D-06 toast input).
+   * surface it as `affectedCameras` (D-01 toast input) or as
+   * `restartTriggered: boolean` (D-02 single-camera reassign).
    *
    * Caller MUST have already committed the new profile row — fingerprints
    * are passed in by the caller, not recomputed here.
@@ -140,13 +150,23 @@ export class StreamsService {
     triggeredBy: { userId: string; userEmail: string } | { system: true };
     originPath: string;
     originMethod: string;
+    // Plan 03 D-02: single-camera mode. When present, the where clause
+    // targets exactly this cameraId instead of fanning out by profileId.
+    cameraId?: string;
   }): Promise<{ affectedCameras: number }> {
+    const where: any = args.cameraId
+      ? {
+          id: args.cameraId,
+          status: { in: ['online', 'connecting', 'reconnecting', 'degraded'] },
+          maintenanceMode: false,
+        }
+      : {
+          streamProfileId: args.profileId,
+          status: { in: ['online', 'connecting', 'reconnecting', 'degraded'] },
+          maintenanceMode: false,
+        };
     const cameras = await this.prisma.camera.findMany({
-      where: {
-        streamProfileId: args.profileId,
-        status: { in: ['online', 'connecting', 'reconnecting', 'degraded'] },
-        maintenanceMode: false,
-      },
+      where,
       select: {
         id: true,
         orgId: true,
@@ -191,9 +211,15 @@ export class StreamsService {
 
       // Fetch the up-to-date profile so the job carries fresh settings.
       // (StreamProcessor uses job.data.profile directly per stream.processor.ts:45.)
-      const profileRow = await this.prisma.streamProfile.findUnique({
-        where: { id: args.profileId },
-      });
+      // Plan 03 D-02: 'none-sentinel' marks the non-null → null reassignment
+      // case where the camera now has no profile attached — skip the lookup
+      // and fall through to the default {codec:'auto', audioCodec:'aac'} below.
+      const profileRow =
+        args.profileId === 'none-sentinel'
+          ? null
+          : await this.prisma.streamProfile.findUnique({
+              where: { id: args.profileId },
+            });
       const profile = profileRow
         ? {
             codec: profileRow.codec,
