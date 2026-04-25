@@ -47,6 +47,9 @@ describe('CameraHealthService', () => {
       add: vi.fn().mockResolvedValue({ id: 'health-job-1' }),
     };
     mockStreamQueue = {
+      // Phase 21 B-1 collision guard: enqueueStart now calls getJob before add.
+      // Default returns null (no in-flight job), allowing the normal recovery path.
+      getJob: vi.fn().mockResolvedValue(null),
       add: vi.fn().mockResolvedValue({ id: 'stream-job-1' }),
     };
 
