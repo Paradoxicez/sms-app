@@ -11,7 +11,16 @@ describe('Phase 21 — D-10 service-layer 409 protection (Option B, no schema ch
       camera: { findMany: vi.fn() },
       streamProfile: {
         delete: vi.fn().mockResolvedValue({ id: 'p1', name: 'gone' }),
-        findUnique: vi.fn(),
+        // quick-260426-07r: delete() now pre-fetches the target row to run
+        // the isDefault precondition before the existing usedBy check. These
+        // tests pin a non-default profile so the new check falls through and
+        // the original usedBy-based assertions still drive the test.
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'p1',
+          orgId: 'org-1',
+          isDefault: false,
+        }),
+        count: vi.fn().mockResolvedValue(0),
         update: vi.fn(),
         updateMany: vi.fn(),
       },
