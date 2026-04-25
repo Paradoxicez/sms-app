@@ -29,6 +29,7 @@ import {
   buildPushUrl,
   streamKeyPrefix,
 } from './stream-key.util';
+import { fingerprintProfile } from '../streams/profile-fingerprint.util';
 
 @Injectable()
 export class CamerasService {
@@ -285,15 +286,76 @@ export class CamerasService {
     return camera;
   }
 
-  async updateCamera(id: string, dto: UpdateCameraDto) {
-    await this.findCameraById(id);
+  async updateCamera(
+    id: string,
+    dto: UpdateCameraDto,
+    triggeredBy: { userId: string; userEmail: string } | { system: true } = {
+      system: true,
+    },
+  ): Promise<any> {
+    // Load pre-image WITH the existing profile so we can fingerprint the old
+    // settings BEFORE the row update commits.
+    const pre = await this.tenancy.camera.findUnique({
+      where: { id },
+      include: { streamProfile: true },
+    });
+    if (!pre) {
+      throw new NotFoundException(`Camera ${id} not found`);
+    }
+
     // Phase 19.1 D-01: belt-and-suspenders — UpdateCameraSchema.strict()
     // already rejects an `ingestMode` key at the DTO layer, but strip it
     // here too so any future callpath that bypasses zod can't mutate the
     // immutable mode.
     const safe: any = { ...dto };
     delete safe.ingestMode;
-    return this.tenancy.camera.update({ where: { id }, data: safe });
+
+    const updated = await this.tenancy.camera.update({
+      where: { id },
+      data: safe,
+      include: { streamProfile: true },
+    });
+
+    // Phase 21 D-02: profile reassign detection.
+    // Only consider a restart when streamProfileId is explicitly in the PATCH
+    // body AND the new value differs from the old. Object.prototype.hasOwnProperty
+    // discriminates undefined (field absent) from null (field cleared) — the
+    // latter is a real reassignment that needs a restart.
+    let restartTriggered = false;
+    const profileChanged =
+      Object.prototype.hasOwnProperty.call(dto, 'streamProfileId') &&
+      (dto as any).streamProfileId !== pre.streamProfileId;
+
+    if (profileChanged) {
+      const oldFp = fingerprintProfile(pre.streamProfile);
+      const newFp = fingerprintProfile(updated.streamProfile);
+
+      if (oldFp !== newFp) {
+        // Eligibility gate (D-02 + RESEARCH §2 maintenance/status filter).
+        const eligible =
+          ['online', 'connecting', 'reconnecting', 'degraded'].includes(
+            pre.status,
+          ) && pre.maintenanceMode === false;
+
+        if (eligible && this.streamsService) {
+          const result = await this.streamsService.enqueueProfileRestart({
+            // 'none-sentinel' marks the non-null → null case so the
+            // streamQueue helper skips a doomed `findUnique('null')` lookup
+            // and falls through to the default profile.
+            profileId: (dto as any).streamProfileId ?? 'none-sentinel',
+            oldFingerprint: oldFp,
+            newFingerprint: newFp,
+            triggeredBy,
+            originPath: `/api/cameras/${id}`,
+            originMethod: 'PATCH',
+            cameraId: id,
+          });
+          restartTriggered = result.affectedCameras > 0;
+        }
+      }
+    }
+
+    return { ...updated, restartTriggered };
   }
 
   async deleteCamera(id: string) {

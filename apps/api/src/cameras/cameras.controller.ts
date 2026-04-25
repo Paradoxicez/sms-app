@@ -218,12 +218,25 @@ export class CamerasController {
   @ApiResponse({ status: 200, description: 'Camera updated' })
   @ApiResponse({ status: 400, description: 'Validation error' })
   @ApiParam({ name: 'id', description: 'Camera ID' })
-  async updateCamera(@Param('id') id: string, @Body() body: unknown) {
+  async updateCamera(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Req() req: Request,
+  ) {
     const result = UpdateCameraSchema.safeParse(body);
     if (!result.success) {
       throw new BadRequestException(result.error.flatten());
     }
-    return this.camerasService.updateCamera(id, result.data);
+    // Phase 21 D-02: thread req.user → triggeredBy so the audit row inside
+    // enqueueProfileRestart records who triggered the reassignment. Falls
+    // back to { system: true } for callpaths without an authenticated user
+    // (e.g., script invocations going through the same service method).
+    const user = (req as any).user;
+    const triggeredBy =
+      user?.id && user?.email
+        ? { userId: user.id as string, userEmail: user.email as string }
+        : ({ system: true } as const);
+    return this.camerasService.updateCamera(id, result.data, triggeredBy);
   }
 
   @Delete('cameras/:id')
