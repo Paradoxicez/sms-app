@@ -4,13 +4,13 @@ milestone: v1.2
 milestone_name: Self-Service, Resilience & UI Polish
 status: executing
 stopped_at: Phase 21 context gathered
-last_updated: "2026-04-25T07:07:10.114Z"
+last_updated: "2026-04-25T12:11:23.304Z"
 last_activity: 2026-04-25
 progress:
-  total_phases: 9
-  completed_phases: 8
-  total_plans: 43
-  completed_plans: 43
+  total_phases: 10
+  completed_phases: 9
+  total_plans: 49
+  completed_plans: 49
   percent: 100
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-18)
 
 **Core value:** Developers can get a secure HLS playback URL for any registered camera via a single API call, and embed it on their website immediately.
-**Current focus:** Phase 20 — cameras-ux-bulk-actions-maintenance-toggle-copy-id-expressiv
+**Current focus:** Phase 21 — hot-reload-stream-profile-changes-to-running-cameras
 
 ## Current Position
 
-Phase: 20
+Phase: 21.1
 Plan: Not started
-Status: Executing Phase 20
+Status: Executing Phase 21
 Last activity: 2026-04-25
 
 Progress: [░░░░░░░░░░] 0% (v1.2: 0/5 phases)
@@ -36,7 +36,7 @@ Progress: [░░░░░░░░░░] 0% (v1.2: 0/5 phases)
 
 **Velocity:**
 
-- Total plans completed: 111 (v1.0: 53, v1.1: 15)
+- Total plans completed: 117 (v1.0: 53, v1.1: 15)
 - Average duration: ~5 min/plan
 - Total execution time: ~3.2 hours
 

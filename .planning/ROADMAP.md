@@ -214,7 +214,7 @@ Plans:
 **Goal:** When a `StreamProfile` is edited (PATCH `/stream-profiles/:id`) or a `Camera.streamProfileId` is changed (PATCH `/cameras/:id`) while affected cameras are live, the running FFmpeg processes are automatically killed and respawned with the new settings within 30 seconds — eliminating the audit-found gap where stale profile values persist on running streams until manual restart or 60s health-check failure. DELETE on a stream profile still in use returns HTTP 409 with the camera list. Edit dialogs surface info-level toasts when restarts fire. New audit action `camera.profile_hot_reload` records each downstream restart per affected camera.
 **Depends on:** Phase 20
 **Requirements**: (no new REQ-IDs — closes audit-found gap discovered 2026-04-25; implements 11 locked decisions D-01..D-11 from CONTEXT.md)
-**Plans:** 6 plans (Wave 0: scaffolds · Wave 1: profile-side trigger · Wave 2: camera-side trigger + restart execution · Wave 3: DELETE protection + UI toasts · Wave 4: verification gate)
+**Plans:** 6/6 plans complete
 
 Plans:
 - [x] 21-01-PLAN.md — Wave 0 test scaffolds: 8 backend + 1 frontend test files with it.todo stubs covering D-01..D-11; fill 21-VALIDATION.md per-task map
