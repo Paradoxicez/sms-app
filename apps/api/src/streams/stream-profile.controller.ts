@@ -6,10 +6,12 @@ import {
   Delete,
   Param,
   Body,
+  Req,
   UseGuards,
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { ClsService } from 'nestjs-cls';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { StreamProfileService } from './stream-profile.service';
@@ -56,12 +58,24 @@ export class StreamProfileController {
   }
 
   @Patch('stream-profiles/:id')
-  async update(@Param('id') id: string, @Body() body: unknown) {
+  async update(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Req() req: Request,
+  ) {
     const result = UpdateStreamProfileSchema.safeParse(body);
     if (!result.success) {
       throw new BadRequestException(result.error.flatten());
     }
-    return this.profileService.update(id, result.data);
+    // Phase 21 D-07: thread req.user into the service so the audit row's
+    // triggeredBy field carries actor identity. NOT CLS — req.user is the
+    // single, final source for Phase 21 (mirrors cameras.controller.ts:258).
+    const user = (req as any).user;
+    const triggeredBy =
+      user?.id && user?.email
+        ? { userId: user.id, userEmail: user.email }
+        : ({ system: true } as const);
+    return this.profileService.update(id, result.data, triggeredBy);
   }
 
   @Delete('stream-profiles/:id')

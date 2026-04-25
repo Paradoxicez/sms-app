@@ -1,7 +1,9 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
 import { CreateStreamProfileDto } from './dto/create-stream-profile.dto';
 import { UpdateStreamProfileDto } from './dto/update-stream-profile.dto';
+import { fingerprintProfile } from './profile-fingerprint.util';
+import { StreamsService } from './streams.service';
 
 @Injectable()
 export class StreamProfileService {
@@ -9,6 +11,11 @@ export class StreamProfileService {
 
   constructor(
     @Inject(TENANCY_CLIENT) private readonly prisma: any,
+    // Phase 21 D-01: profile-side trigger of hot-reload restart fan-out.
+    // Optional so unit tests that exercise pure profile CRUD (no restart) can
+    // omit it; manual harness in stream-profile-restart.test.ts passes a real
+    // StreamsService instance constructed in-test.
+    @Optional() private readonly streamsService?: StreamsService,
   ) {}
 
   async create(orgId: string, dto: CreateStreamProfileDto) {
@@ -48,24 +55,55 @@ export class StreamProfileService {
     });
   }
 
-  async update(id: string, dto: UpdateStreamProfileDto) {
-    // If setting as default, unset other defaults first
-    if (dto.isDefault) {
-      const existing = await this.prisma.streamProfile.findUnique({
-        where: { id },
-      });
-      if (existing) {
-        await this.prisma.streamProfile.updateMany({
-          where: { orgId: existing.orgId, isDefault: true },
-          data: { isDefault: false },
-        });
-      }
+  async update(
+    id: string,
+    dto: UpdateStreamProfileDto,
+    triggeredBy: { userId: string; userEmail: string } | { system: true } = {
+      system: true,
+    },
+  ): Promise<any> {
+    // Phase 21 D-01: read pre-image so we can compute the old fingerprint
+    // and compare against the post-update row. The pre-image also gives us
+    // orgId for the isDefault unset.
+    const pre = await this.prisma.streamProfile.findUnique({ where: { id } });
+    if (!pre) {
+      // Caller (controller) raises NotFoundException; service stays minimal.
+      throw new Error(`Stream profile ${id} not found`);
     }
 
-    return this.prisma.streamProfile.update({
+    if (dto.isDefault) {
+      await this.prisma.streamProfile.updateMany({
+        where: { orgId: pre.orgId, isDefault: true },
+        data: { isDefault: false },
+      });
+    }
+
+    const updated = await this.prisma.streamProfile.update({
       where: { id },
       data: dto,
     });
+
+    // D-01 fingerprint diff. Identical seven fields ⇒ no restart.
+    const oldFp = fingerprintProfile(pre);
+    const newFp = fingerprintProfile(updated);
+    if (oldFp === newFp) {
+      return { ...updated, affectedCameras: 0 };
+    }
+
+    let affectedCameras = 0;
+    if (this.streamsService) {
+      const result = await this.streamsService.enqueueProfileRestart({
+        profileId: id,
+        oldFingerprint: oldFp,
+        newFingerprint: newFp,
+        triggeredBy,
+        originPath: `/api/stream-profiles/${id}`,
+        originMethod: 'PATCH',
+      });
+      affectedCameras = result.affectedCameras;
+    }
+
+    return { ...updated, affectedCameras };
   }
 
   async delete(id: string) {

@@ -5,6 +5,7 @@ import { TENANCY_CLIENT } from '../tenancy/prisma-tenancy.extension';
 import { SystemPrismaService } from '../prisma/system-prisma.service';
 import { FfmpegService } from './ffmpeg/ffmpeg.service';
 import { StatusService } from '../status/status.service';
+import { AuditService } from '../audit/audit.service';
 import { StreamJobData, calculateBackoff, MAX_BACKOFF_MS } from './processors/stream.processor';
 
 @Injectable()
@@ -21,6 +22,10 @@ export class StreamsService {
     // when the tenancy lookup fails. Optional so existing unit tests
     // that only inject the tenancy client still construct.
     @Optional() private readonly systemPrisma?: SystemPrismaService,
+    // Phase 21 (D-07): direct AuditService.log call inside enqueueProfileRestart.
+    // Optional so existing unit tests that don't construct an AuditService
+    // (e.g. streams-service-push.test.ts) still build cleanly.
+    @Optional() private readonly auditService?: AuditService,
   ) {}
 
   async startStream(cameraId: string): Promise<void> {
@@ -109,6 +114,124 @@ export class StreamsService {
     });
 
     this.logger.log(`Stream job queued for camera ${cameraId}`);
+  }
+
+  /**
+   * Phase 21 D-01/D-03/D-04/D-07: profile-driven hot-reload restart.
+   *
+   * Finds all running, non-maintenance cameras attached to `profileId`,
+   * writes a `camera.profile_hot_reload` audit row per camera at enqueue
+   * time (so audit survives any later supersession via remove-then-add),
+   * then enqueues a stream-ffmpeg job per camera with the canonical
+   * `camera:{id}:ffmpeg` jobId and 0–30s jitter.
+   *
+   * Returns the count of affected cameras so the controller layer can
+   * surface it as `affectedCameras` in the response (D-06 toast input).
+   *
+   * Caller MUST have already committed the new profile row — fingerprints
+   * are passed in by the caller, not recomputed here.
+   *
+   * Source: 21-RESEARCH.md §1 (jobId suffix), §2 (Phase 15 reuse), §7 Q5 (remove-then-add).
+   */
+  async enqueueProfileRestart(args: {
+    profileId: string;
+    oldFingerprint: string;
+    newFingerprint: string;
+    triggeredBy: { userId: string; userEmail: string } | { system: true };
+    originPath: string;
+    originMethod: string;
+  }): Promise<{ affectedCameras: number }> {
+    const cameras = await this.prisma.camera.findMany({
+      where: {
+        streamProfileId: args.profileId,
+        status: { in: ['online', 'connecting', 'reconnecting', 'degraded'] },
+        maintenanceMode: false,
+      },
+      select: {
+        id: true,
+        orgId: true,
+        name: true,
+        streamUrl: true,
+        streamKey: true,
+        ingestMode: true,
+        needsTranscode: true,
+      },
+    });
+
+    for (const cam of cameras) {
+      // D-07: write audit row BEFORE queue.add so the row exists even if a
+      // subsequent remove-then-add supersedes the job we are about to enqueue.
+      if (this.auditService) {
+        await this.auditService.log({
+          orgId: cam.orgId,
+          userId:
+            'userId' in args.triggeredBy ? args.triggeredBy.userId : undefined,
+          action: 'camera.profile_hot_reload',
+          resource: 'camera',
+          resourceId: cam.id,
+          method: args.originMethod,
+          path: args.originPath,
+          details: {
+            profileId: args.profileId,
+            oldFingerprint: args.oldFingerprint,
+            newFingerprint: args.newFingerprint,
+            triggeredBy: args.triggeredBy,
+          },
+        });
+      }
+
+      // D-03 + Q5: remove-then-add (latest save wins). The literal jobId
+      // pattern `camera:{id}:ffmpeg` is shared with startStream so the two
+      // job names ('start' and 'restart') cannot coexist for one camera.
+      const jobId = `camera:${cam.id}:ffmpeg`;
+      const existingJob = await this.streamQueue.getJob(jobId);
+      if (existingJob) {
+        await existingJob.remove().catch(() => {});
+      }
+
+      // Fetch the up-to-date profile so the job carries fresh settings.
+      // (StreamProcessor uses job.data.profile directly per stream.processor.ts:45.)
+      const profileRow = await this.prisma.streamProfile.findUnique({
+        where: { id: args.profileId },
+      });
+      const profile = profileRow
+        ? {
+            codec: profileRow.codec,
+            preset: profileRow.preset,
+            resolution: profileRow.resolution,
+            fps: profileRow.fps,
+            videoBitrate: profileRow.videoBitrate,
+            audioCodec: profileRow.audioCodec,
+            audioBitrate: profileRow.audioBitrate,
+          }
+        : { codec: 'auto' as const, audioCodec: 'aac' as const };
+
+      const inputUrl =
+        cam.ingestMode === 'push' && cam.streamKey
+          ? `rtmp://127.0.0.1:1935/push/${cam.streamKey}`
+          : (cam.streamUrl as string);
+
+      await this.streamQueue.add(
+        'restart',
+        {
+          cameraId: cam.id,
+          orgId: cam.orgId,
+          inputUrl,
+          profile,
+          needsTranscode: cam.needsTranscode,
+        },
+        {
+          jobId,
+          delay: Math.floor(Math.random() * 30_000),
+          attempts: 20,
+          backoff: { type: 'exponential', delay: 1000 },
+          removeOnComplete: true,
+          removeOnFail: false,
+        },
+      );
+    }
+
+    return { affectedCameras: cameras.length };
   }
 
   async stopStream(cameraId: string): Promise<void> {

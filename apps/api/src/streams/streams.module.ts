@@ -9,6 +9,7 @@ import { StreamProfileService } from './stream-profile.service';
 import { StreamProfileController } from './stream-profile.controller';
 import { FfprobeService } from '../cameras/ffprobe.service';
 import { SrsModule } from '../srs/srs.module';
+import { AuditModule } from '../audit/audit.module';
 
 @Module({
   imports: [
@@ -20,6 +21,10 @@ import { SrsModule } from '../srs/srs.module';
     // CamerasModule forms a cycle (SrsCallbackController injects
     // CamerasService.enqueueProbeFromSrs).
     forwardRef(() => SrsModule),
+    // Phase 21 (D-07): StreamsService.enqueueProfileRestart writes audit rows
+    // directly via AuditService.log. AuditModule is @Global so the import is
+    // declarative — listed here for readability and to mirror cameras.module.
+    AuditModule,
   ],
   controllers: [StreamsController, StreamProfileController],
   providers: [
