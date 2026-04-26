@@ -67,37 +67,37 @@ CPU usage: significant (~15-30% per stream depending on resolution)`} />
             <tbody className="text-muted-foreground">
               <tr className="border-b">
                 <td className="py-2 pr-4 font-mono">codec</td>
-                <td className="py-2 pr-4">auto / h264</td>
-                <td className="py-2">Auto detects source codec. h264 forces transcoding to H.264.</td>
+                <td className="py-2 pr-4">auto / copy / libx264</td>
+                <td className="py-2">auto detects source codec; copy = passthrough (no transcode, lowest CPU); libx264 = software encode to H.264.</td>
               </tr>
               <tr className="border-b">
                 <td className="py-2 pr-4 font-mono">preset</td>
-                <td className="py-2 pr-4">ultrafast to veryslow</td>
+                <td className="py-2 pr-4">ultrafast / superfast / veryfast / faster / fast / medium</td>
                 <td className="py-2">FFmpeg encoding speed/quality tradeoff. Faster = lower CPU but larger file size.</td>
               </tr>
               <tr className="border-b">
                 <td className="py-2 pr-4 font-mono">resolution</td>
-                <td className="py-2 pr-4">1080p / 720p / 480p / 360p</td>
+                <td className="py-2 pr-4">Format: WxH (e.g. 1920x1080, 1280x720, 854x480, 640x360)</td>
                 <td className="py-2">Output video resolution. Lower = less bandwidth and CPU.</td>
               </tr>
               <tr className="border-b">
                 <td className="py-2 pr-4 font-mono">fps</td>
-                <td className="py-2 pr-4">5 / 10 / 15 / 25 / 30</td>
+                <td className="py-2 pr-4">Integer 1-60</td>
                 <td className="py-2">Output frame rate. 15fps is often sufficient for surveillance.</td>
               </tr>
               <tr className="border-b">
                 <td className="py-2 pr-4 font-mono">videoBitrate</td>
-                <td className="py-2 pr-4">256k to 4000k</td>
+                <td className="py-2 pr-4">Format: Nk (e.g. 500k to 8000k typical for transcode); no hard bounds enforced by schema</td>
                 <td className="py-2">Target video bitrate. Higher = better quality, more bandwidth.</td>
               </tr>
               <tr className="border-b">
                 <td className="py-2 pr-4 font-mono">audioCodec</td>
-                <td className="py-2 pr-4">aac</td>
-                <td className="py-2">Audio is always transcoded to AAC for HLS compatibility.</td>
+                <td className="py-2 pr-4">aac / copy / mute</td>
+                <td className="py-2">aac (always transcoded for HLS compat); copy = passthrough audio; mute = drop audio.</td>
               </tr>
               <tr className="border-b">
                 <td className="py-2 pr-4 font-mono">audioBitrate</td>
-                <td className="py-2 pr-4">64k / 128k</td>
+                <td className="py-2 pr-4">Format: Nk (e.g. 64k, 128k)</td>
                 <td className="py-2">Audio bitrate. 64k is sufficient for surveillance audio.</td>
               </tr>
             </tbody>

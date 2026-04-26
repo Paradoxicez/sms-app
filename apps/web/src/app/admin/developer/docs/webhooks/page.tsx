@@ -94,6 +94,11 @@ export default function WebhooksGuidePage() {
         <p className="text-sm text-muted-foreground">
           Header format: <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">X-Webhook-Signature: t=1705312245,v1=5257a869e7ecebeda32affa62cdca3fa51cad7e77a0e56ff536d0ce8e108d8bd</code>
         </p>
+        <p className="text-sm text-muted-foreground">
+          Webhook deliveries also include two informational headers (not used for verification):{" "}
+          <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">X-Webhook-Event: {`{eventName}`}</code> identifies the event type, and{" "}
+          <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">X-Webhook-Delivery: {`{uniqueDeliveryId}`}</code> uniquely identifies this delivery attempt (useful for deduplication and support).
+        </p>
         <CodeBlock language="javascript" code={`const crypto = require('crypto');
 
 function verifyWebhookSignature(rawBody, signatureHeader, secret) {

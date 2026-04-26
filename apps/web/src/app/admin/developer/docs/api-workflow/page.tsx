@@ -69,7 +69,7 @@ export default function ApiWorkflowGuidePage() {
         </p>
         <CodeBlock language="json" code={`{
   "sessionId": "sess_xyz789",
-  "hlsUrl": "${baseUrl}/stream/cam_abc123/index.m3u8?token=eyJhbG...",
+  "hlsUrl": "${baseUrl}/api/playback/stream/{orgId}/cam_abc123.m3u8?token=eyJhbG...",
   "expiresAt": "2026-01-15T10:32:00Z"
 }`} />
       </section>
@@ -96,8 +96,11 @@ export default function ApiWorkflowGuidePage() {
           Use an iframe or hls.js to embed the stream in your website.
         </p>
         <h3 className="text-base font-medium">Option A: iframe</h3>
+        <p className="text-sm text-muted-foreground">
+          Replace <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">{`{sessionId}`}</code> with the <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">sessionId</code> returned from the Step 2 session-create response.
+        </p>
         <CodeBlock language="html" code={`<iframe
-  src="${baseUrl}/embed/cam_abc123?token=eyJhbG..."
+  src="${baseUrl}/embed/{sessionId}"
   width="640"
   height="360"
   frameborder="0"
@@ -108,7 +111,7 @@ export default function ApiWorkflowGuidePage() {
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <script>
   const video = document.getElementById('video');
-  const hlsUrl = '${baseUrl}/stream/cam_abc123/index.m3u8?token=eyJhbG...';
+  const hlsUrl = '${baseUrl}/api/playback/stream/{orgId}/cam_abc123.m3u8?token=eyJhbG...';
 
   if (Hls.isSupported()) {
     const hls = new Hls();
