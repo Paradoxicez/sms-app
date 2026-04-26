@@ -262,9 +262,59 @@ export class CamerasService {
     return camera;
   }
 
-  async findAllCameras(siteId?: string) {
+  async findAllCameras(
+    orgIdOrSiteId?: string,
+    options?: { siteId?: string; tags?: string[] },
+  ) {
+    // Phase 22 D-06: optional `tags` filter wired through the GIN-indexed
+    // `tagsNormalized` shadow column populated by the Prisma extension from
+    // Plan 22-01.
+    //
+    // Backwards-compatible signature: existing callers pass either nothing
+    // or a bare `siteId` string as the first argument. Phase 22 callers pass
+    // `(orgId, { siteId, tags })`. The first arg is ignored when `options`
+    // is supplied (orgId is enforced by the tenancy client / RLS — we don't
+    // need to thread it into the where-clause).
+    const where: Prisma.CameraWhereInput = {};
+
+    // Resolve siteId.
+    //
+    // Two call shapes are supported for backwards compatibility:
+    //
+    //   • Legacy: findAllCameras(siteId?: string) — first arg IS the siteId.
+    //     Used by camera-crud.test.ts and by the quick-task era of
+    //     cameras.controller.ts before Phase 22 wired `tags`.
+    //
+    //   • Phase 22: findAllCameras(orgId, { siteId?, tags? }) — first arg is
+    //     the orgId (informational only — RLS scopes via tenancy client; we
+    //     don't filter on orgId in the where-clause), siteId moves into
+    //     options.
+    //
+    // The discriminator is `options`: when present we're on the Phase 22 form
+    // and the first arg is treated as orgId (ignored for the where-clause);
+    // when absent we're on the legacy form and the first arg is the siteId.
+    const siteId =
+      options !== undefined ? options.siteId : orgIdOrSiteId;
+    if (siteId) where.siteId = siteId;
+
+    // Phase 22 Pitfall 3: ALWAYS lowercase + trim incoming tags before
+    // querying tagsNormalized. The shadow column only contains lowercase
+    // values (Plan 22-01 normalizeForDb), so an unlowercased "Lobby" query
+    // returns zero rows even when matching "Lobby"-tagged rows exist. The
+    // `.filter((t) => t.length > 0)` strips `?tags[]=` (empty value) which
+    // would otherwise pollute the hasSome array with `''` and skew planner
+    // estimates.
+    if (options?.tags && options.tags.length > 0) {
+      const normalized = options.tags
+        .map((t) => t.trim().toLowerCase())
+        .filter((t) => t.length > 0);
+      if (normalized.length > 0) {
+        where.tagsNormalized = { hasSome: normalized };
+      }
+    }
+
     return this.tenancy.camera.findMany({
-      where: siteId ? { siteId } : undefined,
+      where,
       orderBy: { createdAt: 'desc' },
       include: {
         site: {

@@ -19,6 +19,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiExcludeEndpo
 import { Request, Response } from 'express';
 import { randomUUID } from 'crypto';
 import { ClsService } from 'nestjs-cls';
+import { z } from 'zod';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { CamerasService } from './cameras.service';
 import { FfprobeService } from './ffprobe.service';
@@ -36,6 +37,25 @@ import { UpdateCameraSchema } from './dto/update-camera.dto';
 import { BulkImportSchema } from './dto/bulk-import.dto';
 import { enterMaintenanceBodySchema } from './dto/maintenance.dto';
 import { serializeCamera } from './serialize-camera.util';
+
+// Phase 22 D-06 — query schema for GET /cameras.
+//
+// `tags` accepts BOTH array (`?tags[]=a&tags[]=b`) and single-value
+// (`?tags[]=a`) shapes because Express's qs parser flips between them based
+// on cardinality. The transform unifies to `string[]` so the service sees a
+// consistent type. `z.union` is used here (not `z.array(z.string())`) to be
+// resilient to either shape arriving on the wire.
+//
+// Why this lives here (not under `dto/`): the schema is exclusively a query-
+// string shape used by ONE endpoint, mirrors the inline maintenance body
+// pattern, and avoids creating a near-empty DTO module just for one filter.
+const listCamerasQuerySchema = z.object({
+  siteId: z.string().optional(),
+  tags: z
+    .union([z.string(), z.array(z.string())])
+    .transform((v) => (Array.isArray(v) ? v : [v]))
+    .optional(),
+});
 
 @ApiTags('Cameras')
 @Controller('api')
@@ -198,11 +218,41 @@ export class CamerasController {
   @ApiOperation({ summary: 'List all cameras' })
   @ApiResponse({ status: 200, description: 'List of cameras' })
   @ApiQuery({ name: 'siteId', required: false, description: 'Filter by site ID' })
-  async findAllCameras(@Query('siteId') siteId?: string) {
+  @ApiQuery({
+    name: 'tags',
+    required: false,
+    isArray: true,
+    description:
+      'Filter by tags (case-insensitive OR semantics — Phase 22 D-06). Repeat the param for multiple values: ?tags[]=lobby&tags[]=entrance',
+  })
+  async findAllCameras(
+    @Query('siteId') siteId?: string,
+    @Query('tags') tagsRaw?: string | string[],
+  ) {
+    // Phase 22 D-06: parse + normalize the `?tags[]=` query through Zod so
+    // both single-value (`?tags[]=lobby`) and array (`?tags[]=a&tags[]=b`)
+    // shapes resolve to `string[]`. The schema is also tolerant of `tags`
+    // being absent — `.optional()` keeps existing callers working.
+    //
+    // Validation failure here would only fire on truly malformed input
+    // (e.g., a non-string value), so safeParse + 400 mirrors the rest of the
+    // controller's body-parse error path.
+    const parsed = listCamerasQuerySchema.safeParse({
+      siteId,
+      tags: tagsRaw,
+    });
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+
     // Phase 19.1 D-07: route every outbound camera through serializeCamera
     // so future non-owner surfaces only need to flip the perspective flag.
     // Tenancy already scoped to the caller's org, so 'owner' is correct.
-    const cameras = await this.camerasService.findAllCameras(siteId);
+    const orgId = this.getOrgId();
+    const cameras = await this.camerasService.findAllCameras(orgId, {
+      siteId: parsed.data.siteId,
+      tags: parsed.data.tags,
+    });
     return cameras.map((c: any) => serializeCamera(c, { perspective: 'owner' }));
   }
 
