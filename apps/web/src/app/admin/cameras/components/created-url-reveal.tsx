@@ -71,7 +71,7 @@ export function CreatedUrlReveal({
 
       <div className="flex items-center justify-between">
         <a
-          href="/docs/push-setup"
+          href="/app/developer/docs/encoder-setup"
           target="_blank"
           rel="noreferrer"
           className="text-xs text-muted-foreground underline-offset-4 hover:underline"

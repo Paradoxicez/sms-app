@@ -109,7 +109,7 @@ export function PushUrlSection({ camera, onRotated }: PushUrlSectionProps) {
           </div>
           <div className="flex justify-end">
             <a
-              href="/docs/push-setup"
+              href="/app/developer/docs/encoder-setup"
               target="_blank"
               rel="noreferrer"
               className="text-xs text-muted-foreground underline-offset-4 hover:underline"
