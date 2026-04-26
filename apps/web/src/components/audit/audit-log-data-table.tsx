@@ -14,6 +14,13 @@ import { createAuditLogColumns, type AuditLogRow } from "./audit-log-columns"
 interface AuditLogDataTableProps {
   apiUrl?: string
   showOrganization?: boolean
+  /**
+   * When true, the Resource column is hidden. Used by the camera View Stream
+   * sheet's Activity tab where the table is already scoped to one camera.
+   * Default false — global /admin/audit-log and tenant audit-log keep the
+   * column visible.
+   */
+  hideResourceColumn?: boolean
 }
 
 interface AuditResponse {
@@ -33,7 +40,11 @@ const ACTION_FILTER_CONFIG: FacetedFilterConfig[] = [
   },
 ]
 
-export function AuditLogDataTable({ apiUrl = "/api/audit-log", showOrganization }: AuditLogDataTableProps) {
+export function AuditLogDataTable({
+  apiUrl = "/api/audit-log",
+  showOrganization,
+  hideResourceColumn,
+}: AuditLogDataTableProps) {
   const [data, setData] = React.useState<AuditLogRow[]>([])
   const [totalCount, setTotalCount] = React.useState(0)
   const [loading, setLoading] = React.useState(true)
@@ -74,9 +85,9 @@ export function AuditLogDataTable({ apiUrl = "/api/audit-log", showOrganization 
             },
           },
         ],
-        { showOrganization },
+        { showOrganization, hideResourceColumn },
       ),
-    [showOrganization],
+    [showOrganization, hideResourceColumn],
   )
 
   // Build dynamic org filter from fetched data when showOrganization is enabled

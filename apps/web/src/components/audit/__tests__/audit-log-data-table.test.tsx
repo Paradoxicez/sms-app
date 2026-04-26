@@ -13,7 +13,7 @@
  *   - merges the runtime params (page, pageSize, …) alongside them
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 
 // Mock the api fetch so we can spy on the URL the component generates.
 const apiFetchMock = vi.fn();
@@ -78,5 +78,65 @@ describe("AuditLogDataTable URL composition (regression)", () => {
 
     const calledWith = apiFetchMock.mock.calls[0][0] as string;
     expect(calledWith.startsWith("/api/audit-log?")).toBe(true);
+  });
+});
+
+/**
+ * Plan 260426-l5a Task 2 — `hideResourceColumn` prop coverage.
+ *
+ * The camera View Stream sheet's Activity tab is scoped to a single camera, so
+ * the Resource column adds nothing. We expose a single boolean prop to hide it
+ * there while keeping it visible on the global / tenant audit-log pages.
+ */
+describe("AuditLogDataTable hideResourceColumn prop", () => {
+  const ONE_ROW = {
+    items: [
+      {
+        id: "row-1",
+        orgId: "o1",
+        createdAt: new Date().toISOString(),
+        userId: null,
+        action: "create",
+        resource: "camera",
+        resourceId: "cam-xyz",
+        ip: "127.0.0.1",
+        details: null,
+        method: "POST",
+        path: "/api/cameras",
+        user: null,
+      },
+    ],
+    totalCount: 1,
+  };
+
+  it("hides the Resource column header and cell when hideResourceColumn={true}", async () => {
+    apiFetchMock.mockReset();
+    apiFetchMock.mockResolvedValue(ONE_ROW);
+
+    render(<AuditLogDataTable hideResourceColumn />);
+
+    // Wait until any non-resource cell from the row has rendered (proves data
+    // + columns flowed through). The Action cell renders "Created camera"
+    // via deriveActionLabel for the POST /api/cameras row.
+    await screen.findByText("Created camera");
+
+    expect(
+      screen.queryByRole("columnheader", { name: /resource/i }),
+    ).toBeNull();
+    expect(screen.queryByText("cam-xyz")).toBeNull();
+  });
+
+  it("renders the Resource column by default (sanity)", async () => {
+    apiFetchMock.mockReset();
+    apiFetchMock.mockResolvedValue(ONE_ROW);
+
+    render(<AuditLogDataTable />);
+
+    await waitFor(() => expect(apiFetchMock).toHaveBeenCalled());
+
+    expect(
+      await screen.findByRole("columnheader", { name: /resource/i }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText("cam-xyz")).toBeInTheDocument();
   });
 });

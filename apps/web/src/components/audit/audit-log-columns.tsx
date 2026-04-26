@@ -5,6 +5,7 @@ import { format } from "date-fns"
 
 import { DataTableColumnHeader } from "@/components/ui/data-table"
 import { DataTableRowActions, type RowAction } from "@/components/ui/data-table"
+import { deriveActionLabel } from "@/lib/audit/derive-action-label"
 
 export interface AuditLogRow {
   id: string
@@ -30,6 +31,14 @@ const ACTION_COLORS: Record<string, string> = {
 
 interface AuditLogColumnsOptions {
   showOrganization?: boolean
+  /**
+   * When true, the Resource column is omitted from the rendered columns.
+   * Used by the camera View Stream sheet's Activity tab, which is already
+   * scoped to one camera and so the Resource column adds noise.
+   * Other callers (global /admin/audit-log, tenant audit-log) leave this
+   * unset so the column stays visible.
+   */
+  hideResourceColumn?: boolean
 }
 
 export function createAuditLogColumns(
@@ -95,40 +104,54 @@ export function createAuditLogColumns(
         <DataTableColumnHeader column={column} title="Action" />
       ),
       cell: ({ row }) => {
-        const action = row.getValue("action") as string
-        const colorClass = ACTION_COLORS[action] || "bg-gray-100 text-gray-700"
-        return (
-          <span
-            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize ${colorClass}`}
-          >
-            {action}
-          </span>
-        )
+        const derived = deriveActionLabel(row.original)
+        if (derived.fallback) {
+          // Unmapped entry — keep the original color-coded pill so the global
+          // /admin/audit-log + tenant audit-log pages look unchanged.
+          const action = row.getValue("action") as string
+          const colorClass = ACTION_COLORS[action] || "bg-gray-100 text-gray-700"
+          return (
+            <span
+              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize ${colorClass}`}
+            >
+              {action}
+            </span>
+          )
+        }
+        // Mapped entry — render the specific verb as plain text (no pill).
+        return <span className="text-sm">{derived.label}</span>
       },
       filterFn: (row, id, value: string[]) => {
+        // Filter on the underlying generic action verb so the existing
+        // Create/Update/Delete faceted filter still works after the cell
+        // started rendering specific verbs.
         return value.includes(row.getValue(id) as string)
       },
     },
-    {
-      accessorKey: "resource",
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Resource" />
-      ),
-      cell: ({ row }) => {
-        const resource = row.getValue("resource") as string
-        const resourceId = row.original.resourceId
-        return (
-          <div>
-            <span className="text-sm">{resource}</span>
-            {resourceId && (
-              <span className="block text-xs text-muted-foreground font-mono">
-                {resourceId}
-              </span>
-            )}
-          </div>
-        )
-      },
-    },
+    ...(options?.hideResourceColumn
+      ? []
+      : [
+          {
+            accessorKey: "resource",
+            header: ({ column }: any) => (
+              <DataTableColumnHeader column={column} title="Resource" />
+            ),
+            cell: ({ row }: any) => {
+              const resource = row.getValue("resource") as string
+              const resourceId = row.original.resourceId
+              return (
+                <div>
+                  <span className="text-sm">{resource}</span>
+                  {resourceId && (
+                    <span className="block text-xs text-muted-foreground font-mono">
+                      {resourceId}
+                    </span>
+                  )}
+                </div>
+              )
+            },
+          } satisfies ColumnDef<AuditLogRow, unknown>,
+        ]),
     {
       accessorKey: "ip",
       header: "IP Address",

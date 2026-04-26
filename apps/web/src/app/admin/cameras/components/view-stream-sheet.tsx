@@ -326,6 +326,7 @@ export function ViewStreamContent({
           */}
           <AuditLogDataTable
             apiUrl={`/api/audit-log?resource=camera&resourceId=${camera.id}`}
+            hideResourceColumn
           />
         </TabsContent>
       </Tabs>
