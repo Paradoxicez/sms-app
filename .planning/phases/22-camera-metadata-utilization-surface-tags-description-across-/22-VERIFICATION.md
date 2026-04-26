@@ -1,7 +1,7 @@
 ---
 phase: 22-camera-metadata-utilization-surface-tags-description-across-
 verified: 2026-04-26T00:00:00Z
-status: human_needed
+status: passed
 score: 28/28 D-codes verified (programmatic) — manual UI smoke pending
 re_verification: null
 human_verification:
