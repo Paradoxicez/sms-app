@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 Phase: 21.1
 Plan: Not started
 Status: Executing Phase 21.1
-Last activity: 2026-04-26 - Completed quick task 260426-lg5: Inline duplicate detection (Name + Stream URL) in Add Camera + Bulk Import (cell-level amber border, status pills, smart Confirm/Close)
+Last activity: 2026-04-26 - Completed quick task 260426-nqr: Camera Edit form dirty-tracking PATCH + extended deriveActionLabel for single-field cases
 
 Progress: [░░░░░░░░░░] 0% (v1.2: 0/5 phases)
 
@@ -104,6 +104,7 @@ None yet.
 | 260426-l5a | Activity tab UX polish — specific action labels (deriveActionLabel) + hideResourceColumn prop for single-camera scope | 2026-04-26 | 00fc95e | | [260426-l5a-activity-tab-ux-polish-specific-action-l](./quick/260426-l5a-activity-tab-ux-polish-specific-action-l/) |
 | 260426-mth | Fix map camera-pin click collapses to group regression — useMemo position reference in camera-marker.tsx (regression from d570449) | 2026-04-26 | ffa2a7b | | [260426-mth-fix-map-camera-pin-click-collapses-to-gr](./quick/260426-mth-fix-map-camera-pin-click-collapses-to-gr/) |
 | 260426-lg5 | Inline duplicate detection (Name + Stream URL) in Add Camera + Bulk Import — DB `@@unique([orgId, name])` + cell-level amber border + status pills + smart Confirm(N)/Close | 2026-04-26 | (pending) | | [260426-lg5-inline-live-duplicate-detection-for-name](./quick/260426-lg5-inline-live-duplicate-detection-for-name/) |
+| 260426-nqr | Camera Edit form dirty-tracking PATCH (send only changed fields) + extend deriveActionLabel for tags/description/location/siteId/streamUrl/needsTranscode single-field rules | 2026-04-26 | 18dd74f | | [260426-nqr-camera-edit-form-dirty-tracking-patch-se](./quick/260426-nqr-camera-edit-form-dirty-tracking-patch-se/) |
 
 ## Session Continuity
 
