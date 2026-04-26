@@ -11,7 +11,7 @@ export default function ApiWorkflowGuidePage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold">Overview</h2>
         <p className="text-sm text-muted-foreground">
-          The SMS Platform API lets you manage cameras, create playback sessions, and embed live streams on your website.
+          The StreamBridge API lets you manage cameras, create playback sessions, and embed live streams on your website.
           This guide walks through the complete workflow: authenticate, create an API key, generate a playback session, and embed the stream.
         </p>
       </section>

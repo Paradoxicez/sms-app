@@ -9,7 +9,7 @@ export default function StreamingBasicsGuidePage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold">Overview</h2>
         <p className="text-sm text-muted-foreground">
-          The SMS Platform takes video feeds from IP cameras and delivers them as browser-playable streams.
+          StreamBridge takes video feeds from IP cameras and delivers them as browser-playable streams.
           This guide explains the key protocols, codecs, and concepts involved in that process.
         </p>
       </section>
@@ -24,7 +24,7 @@ export default function StreamingBasicsGuidePage() {
         <p className="text-sm text-muted-foreground">
           <strong>Why browsers cannot play RTSP:</strong> Web browsers do not support the RTSP protocol natively.
           RTSP requires a dedicated client (like VLC) or must be converted to a browser-compatible format like HLS.
-          This is the core problem the SMS Platform solves.
+          This is the core problem StreamBridge solves.
         </p>
       </section>
 

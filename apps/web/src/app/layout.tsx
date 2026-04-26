@@ -3,7 +3,7 @@ import './globals.css';
 import { Toaster } from 'sonner';
 
 export const metadata: Metadata = {
-  title: 'SMS Platform',
+  title: 'StreamBridge',
   description: 'Surveillance Management System - Live CCTV Stream Platform',
 };
 

@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { StreamBridgeLogo } from "@/components/brand/streambridge-logo";
 
 const signInSchema = z.object({
   email: z.string().email("Please enter a valid email address."),
@@ -88,14 +89,8 @@ export default function SignInPage() {
         }}
       >
         {/* Logo */}
-        <div className="flex items-center gap-2.5 relative z-10">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10" />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
-          </div>
-          <span className="text-sm font-semibold">SMS Platform</span>
+        <div className="relative z-10">
+          <StreamBridgeLogo variant="lockup" theme="dark" />
         </div>
 
         {/* Hero */}
@@ -108,31 +103,26 @@ export default function SignInPage() {
             System
           </h1>
           <p className="mt-4 text-sm text-white/70 leading-relaxed">
-            Centralized CCTV streaming, recording, and monitoring
-            <br />
-            platform for enterprise deployments.
+            Centralized CCTV streaming, Ingest, transcode, record, monitoring and deliver — all from a single API.
           </p>
 
-          {/* Stats */}
-          <div className="mt-10 flex gap-8">
-            <div>
-              <div className="text-2xl font-bold">99.9%</div>
-              <div className="text-xs text-white/50">Uptime SLA</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold">&lt;1s</div>
-              <div className="text-xs text-white/50">Stream latency</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold">24/7</div>
-              <div className="text-xs text-white/50">Recording</div>
-            </div>
+          {/* Protocols */}
+          <div className="mt-10 flex flex-wrap gap-2">
+            {(["RTSP", "RTMP", "SRT", "WebRTC"] as const).map((proto) => (
+              <span
+                key={proto}
+                className="inline-flex items-center px-3.5 py-2 rounded-md bg-white/10 border border-white/20 text-white font-mono text-[13px] tracking-wide"
+              >
+                {proto}
+              </span>
+            ))}
           </div>
+          <p className="mt-3 text-sm text-white/60">Ingest protocols supported</p>
         </div>
 
         {/* Footer */}
         <div className="text-xs text-white/40 relative z-10">
-          <p>&copy; 2026 SMS Platform. All rights reserved.</p>
+          <p>&copy; 2026 StreamBridge. All rights reserved.</p>
           <p>Developed by Sura Boonsung</p>
         </div>
 

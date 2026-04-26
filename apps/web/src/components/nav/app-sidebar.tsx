@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import type { NavGroup } from "./nav-config";
 import { SidebarFooterContent } from "./sidebar-footer";
 import { NotificationBell } from "@/components/notifications/notification-bell";
+import { StreamBridgeLogo } from "@/components/brand/streambridge-logo";
 import {
   Sidebar,
   SidebarContent,
@@ -66,10 +67,11 @@ function SidebarHeaderContent({
     <SidebarHeader className="h-14 flex-row items-center justify-between px-4">
       <div className="flex items-center gap-2 overflow-hidden">
         {collapsed ? (
-          <span className="text-base font-bold text-primary">SM</span>
+          <StreamBridgeLogo variant="icon" theme="light" className="h-6 w-6" />
         ) : (
           <>
-            <span className="text-xl font-bold text-primary">SMS</span>
+            <StreamBridgeLogo variant="icon" theme="light" className="h-6 w-6 shrink-0" />
+            <span className="text-base font-bold text-foreground">StreamBridge</span>
             <span
               className="truncate rounded bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
               title={portalBadgeTitle}

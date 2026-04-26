@@ -16,7 +16,7 @@ export default function TenantDeveloperDocsPage() {
   return (
     <div className="space-y-6 p-6">
       <h1 className="text-[28px] font-semibold">Documentation</h1>
-      <p className="text-sm text-muted-foreground">Learn how to use the SMS Platform API and configure your streaming setup.</p>
+      <p className="text-sm text-muted-foreground">Learn how to use the StreamBridge API and configure your streaming setup.</p>
       <div className="grid gap-4 md:grid-cols-2">
         {guides.map((g) => <GuideCard key={g.href} {...g} />)}
       </div>
