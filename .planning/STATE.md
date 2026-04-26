@@ -4,14 +4,14 @@ milestone: v1.2
 milestone_name: Self-Service, Resilience & UI Polish
 status: executing
 stopped_at: Phase 22 UI-SPEC approved
-last_updated: "2026-04-26T11:06:02.243Z"
-last_activity: "2026-04-26 - Completed quick task 260426-nqr: Camera Edit form dirty-tracking PATCH + extended deriveActionLabel for single-field cases"
+last_updated: "2026-04-26T12:38:12.713Z"
+last_activity: 2026-04-26 -- Phase 22 planning complete
 progress:
   total_phases: 11
   completed_phases: 10
-  total_plans: 52
+  total_plans: 64
   completed_plans: 52
-  percent: 100
+  percent: 81
 ---
 
 # Project State
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 
 Phase: 21.1
 Plan: Not started
-Status: Executing Phase 21.1
-Last activity: 2026-04-26 - Completed quick task 260426-ox9: Migrate per-camera Recordings detail to DataTable + Download/Delete row actions
+Status: Ready to execute
+Last activity: 2026-04-26 -- Phase 22 planning complete
 
 Progress: [░░░░░░░░░░] 0% (v1.2: 0/5 phases)
 
