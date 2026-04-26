@@ -63,7 +63,7 @@ export function WaitingForFirstPublish({
             <li>· Paste the full URL including /push/...</li>
           </ul>
           <a
-            href="/docs/push-setup"
+            href="/app/developer/docs/encoder-setup"
             target="_blank"
             rel="noreferrer"
             className="inline-block mt-2 text-xs text-muted-foreground underline-offset-4 hover:underline"
