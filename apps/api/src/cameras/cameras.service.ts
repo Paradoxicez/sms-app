@@ -24,6 +24,7 @@ import { BulkImportDto } from './dto/bulk-import.dto';
 import { ProbeJobData } from './types/codec-info';
 import { DuplicateStreamUrlError } from './errors/duplicate-stream-url.error';
 import { DuplicateStreamKeyError } from './errors/duplicate-stream-key.error';
+import { DuplicateCameraNameError } from './errors/duplicate-camera-name.error';
 import {
   generateStreamKey,
   buildPushUrl,
@@ -202,6 +203,9 @@ export class CamerasService {
         const target = (error.meta?.target as string[] | undefined) ?? [];
         if (target.includes('streamKey')) {
           throw new DuplicateStreamKeyError();
+        }
+        if (target.includes('name')) {
+          throw new DuplicateCameraNameError(dto.name);
         }
         if (target.includes('streamUrl')) {
           throw new DuplicateStreamUrlError(streamUrl);
@@ -864,6 +868,11 @@ export class CamerasService {
         const target = (error.meta?.target as string[] | undefined) ?? [];
         if (target.includes('streamKey')) {
           throw new DuplicateStreamKeyError();
+        }
+        if (target.includes('name')) {
+          throw new DuplicateCameraNameError(
+            'bulk-import: a camera in this batch has a name that already exists in your organization',
+          );
         }
         if (target.includes('streamUrl')) {
           throw new DuplicateStreamUrlError(

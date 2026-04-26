@@ -271,3 +271,73 @@ describe('createCamera duplicate detection — Phase 19 (D-11)', () => {
     }
   });
 });
+
+describe('createCamera duplicate name detection — quick 260426-lg5', () => {
+  let service: CamerasService;
+  let orgId: string;
+  let siteId: string;
+  let secondSiteId: string;
+
+  beforeEach(async () => {
+    await cleanupCameraData(testPrisma);
+    await cleanupTestData(testPrisma);
+
+    const pkg = await createTestPackage(testPrisma, { maxCameras: 10 });
+    const org = await createTestOrganization(testPrisma, { packageId: pkg.id });
+    orgId = org.id;
+
+    service = new CamerasService(
+      testPrisma as any,
+      testPrisma as any,
+      undefined as any,
+      undefined as any,
+    );
+
+    const project = await service.createProject(orgId, { name: 'DupName Project' });
+    const site = await service.createSite(orgId, project.id, { name: 'Site A' });
+    siteId = site.id;
+    const site2 = await service.createSite(orgId, project.id, { name: 'Site B' });
+    secondSiteId = site2.id;
+  });
+
+  afterEach(async () => {
+    await cleanupCameraData(testPrisma);
+    await cleanupTestData(testPrisma);
+  });
+
+  it('throws DuplicateCameraNameError (409) when same name reused in same org (different site)', async () => {
+    await service.createCamera(orgId, siteId, {
+      name: 'Front Door',
+      streamUrl: 'rtsp://dupname/a',
+    });
+
+    await expect(
+      service.createCamera(orgId, secondSiteId, {
+        name: 'Front Door',
+        streamUrl: 'rtsp://dupname/b',
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'DUPLICATE_CAMERA_NAME' },
+    });
+  });
+
+  it('error body contains code, message, and conflicting name; HTTP 409', async () => {
+    await service.createCamera(orgId, siteId, {
+      name: 'Lobby Cam',
+      streamUrl: 'rtsp://dupname/c',
+    });
+
+    try {
+      await service.createCamera(orgId, siteId, {
+        name: 'Lobby Cam',
+        streamUrl: 'rtsp://dupname/d',
+      });
+      expect.fail('Expected DuplicateCameraNameError');
+    } catch (err: any) {
+      expect(err.response?.code).toBe('DUPLICATE_CAMERA_NAME');
+      expect(err.response?.message).toMatch(/already exists/i);
+      expect(err.response?.name).toBe('Lobby Cam');
+      expect(err.getStatus()).toBe(409);
+    }
+  });
+});

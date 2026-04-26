@@ -230,6 +230,7 @@ model Camera {
   playbackSessions PlaybackSession[]
   recordings       Recording[]
 
+  @@unique([orgId, name])
   @@unique([orgId, streamUrl])
   @@unique([streamKey])
   @@index([orgId])

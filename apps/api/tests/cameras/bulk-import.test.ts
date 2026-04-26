@@ -502,6 +502,51 @@ describe('bulkImport server-side dedup — Phase 19 (D-10b)', () => {
       response: { code: 'DUPLICATE_STREAM_URL' },
     });
   });
+
+  it('quick-260426-lg5: P2002 race on (orgId, name) translates to DuplicateCameraNameError', async () => {
+    const { Prisma } = await import('@prisma/client');
+    const mockTenancy: any = {
+      site: { findUnique: async () => ({ id: siteId }) },
+      camera: {
+        findMany: async () => [],
+        count: async () => 0,
+      },
+      streamProfile: {
+        findFirst: async () => null,
+      },
+      $transaction: async (_cb: any) => {
+        throw new Prisma.PrismaClientKnownRequestError(
+          'Unique constraint failed',
+          {
+            code: 'P2002',
+            clientVersion: '6.0.0',
+            meta: { target: ['orgId', 'name'] },
+          } as any,
+        );
+      },
+    };
+    const mockPrisma: any = {
+      organization: {
+        findUnique: async () => ({ package: { maxCameras: 50 } }),
+      },
+    };
+
+    const raceService = new CamerasService(
+      mockTenancy,
+      mockPrisma,
+      undefined as any,
+      undefined as any,
+    );
+
+    await expect(
+      raceService.bulkImport(orgId, {
+        cameras: [{ name: 'Racey Name', streamUrl: 'rtsp://race-name/1' }],
+        siteId,
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'DUPLICATE_CAMERA_NAME' },
+    });
+  });
 });
 
 describe('Phase 19 — BulkImport 4-protocol allowlist (D-12, D-17)', () => {
