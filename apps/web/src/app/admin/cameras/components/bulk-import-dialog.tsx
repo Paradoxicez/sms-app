@@ -266,8 +266,15 @@ export function validateRow(row: CameraRow): Record<string, string> {
  * Phase 19.1 D-12: push rows are never flagged as duplicates — server generates
  * the URL after save, so no client-side URL exists to compare. Dedup applies
  * only to pull rows (whose streamUrl is user-supplied).
+ *
+ * Quick 260426-lg5: against-db check runs FIRST. If the row's streamUrl is in
+ * existingUrls, it wins over within-file because removing other rows would
+ * not resolve the conflict — the user must edit this row's URL.
  */
-export function annotateDuplicates(rows: CameraRow[]): CameraRow[] {
+export function annotateDuplicates(
+  rows: CameraRow[],
+  existingUrls?: Set<string>,
+): CameraRow[] {
   const seen = new Map<string, number>(); // trimmed streamUrl → first row index
   return rows.map((row, idx) => {
     if (row.ingestMode === 'push') {
@@ -275,6 +282,9 @@ export function annotateDuplicates(rows: CameraRow[]): CameraRow[] {
     }
     const url = row.streamUrl.trim();
     if (!url) return { ...row, duplicate: false, duplicateReason: undefined };
+    if (existingUrls?.has(url)) {
+      return { ...row, duplicate: true, duplicateReason: 'against-db' as const };
+    }
     const firstIdx = seen.get(url);
     if (firstIdx !== undefined && firstIdx !== idx) {
       return { ...row, duplicate: true, duplicateReason: 'within-file' as const };
@@ -362,6 +372,10 @@ export function BulkImportDialog({
   const [rows, setRows] = useState<CameraRow[]>([]);
   const [sites, setSites] = useState<SiteOption[]>([]);
   const [selectedSiteId, setSelectedSiteId] = useState('');
+  // Quick 260426-lg5: org's existing pull-camera URLs cached on dialog open.
+  // annotateDuplicates marks rows whose streamUrl is in this Set as
+  // duplicateReason: 'against-db'. Push URLs are server-generated and excluded.
+  const [existingUrls, setExistingUrls] = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [step, setStep] = useState<'upload' | 'preview' | 'result'>('upload');
@@ -391,6 +405,23 @@ export function BulkImportDialog({
       }
     } catch {
       // Sites may not be available
+    }
+    // Quick 260426-lg5: cache pull-camera streamUrls so against-db dedup runs
+    // alongside within-file dedup. Push streamUrls are server-generated and
+    // not user-supplied, so excluding them avoids spurious flags.
+    try {
+      const cameras = await apiFetch<
+        Array<{ id: string; streamUrl: string; ingestMode?: string }>
+      >('/api/cameras');
+      setExistingUrls(
+        new Set(
+          cameras
+            .filter((c) => c.ingestMode !== 'push')
+            .map((c) => c.streamUrl),
+        ),
+      );
+    } catch {
+      setExistingUrls(new Set());
     }
   }, [selectedSiteId]);
 
@@ -513,7 +544,7 @@ export function BulkImportDialog({
       errors: validateRow(row),
     }));
 
-    setRows(annotateDuplicates(validated));
+    setRows(annotateDuplicates(validated, existingUrls));
     setStep('preview');
     loadSites();
   }
@@ -526,12 +557,12 @@ export function BulkImportDialog({
         next.errors = validateRow(next);
         return next;
       });
-      return annotateDuplicates(updated);
+      return annotateDuplicates(updated, existingUrls);
     });
   }
 
   function handleRemoveRow(index: number) {
-    setRows((prev) => annotateDuplicates(prev.filter((_, i) => i !== index)));
+    setRows((prev) => annotateDuplicates(prev.filter((_, i) => i !== index), existingUrls));
   }
 
   const validCount = rows.filter((r) => Object.keys(r.errors).length === 0 && !r.duplicate).length;
@@ -647,6 +678,8 @@ export function BulkImportDialog({
       // Phase 19.1 D-14: discard imported-camera snapshot when the dialog closes
       // so the next open session starts fresh.
       setImportedCameras([]);
+      // Quick 260426-lg5: reset against-db cache so re-opens re-fetch fresh.
+      setExistingUrls(new Set());
     }
     onOpenChange(isOpen);
   }

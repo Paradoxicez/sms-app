@@ -155,6 +155,7 @@ C,http://bad/url`;
       if (path.includes('/sites')) {
         return [{ id: 's1', name: 'Site' }];
       }
+      if (path === '/api/cameras') return [];
       return listSites();
     });
 
@@ -221,6 +222,38 @@ C,http://bad`;
     expect(annotatedAfter[1].duplicate).toBe(false);
     expect(annotatedAfter[1].duplicateReason).toBeUndefined();
   });
+
+  it('quick-260426-lg5: annotateDuplicates flags rows whose streamUrl is in existingUrls as against-db', () => {
+    const existingUrls = new Set(['rtsp://existing/1']);
+    const rows = [
+      makeRow({ name: 'A', streamUrl: 'rtsp://existing/1' }),
+      makeRow({ name: 'B', streamUrl: 'rtsp://new/1' }),
+      makeRow({ name: 'C', streamUrl: 'rtsp://new/1' }),
+    ];
+    const annotated = annotateDuplicates(rows, existingUrls);
+
+    // Row 0: against-db hit (wins over within-file)
+    expect(annotated[0].duplicate).toBe(true);
+    expect(annotated[0].duplicateReason).toBe('against-db');
+
+    // Row 1: first occurrence of a new URL → not flagged
+    expect(annotated[1].duplicate).toBe(false);
+
+    // Row 2: within-file duplicate of row 1 → flagged within-file
+    expect(annotated[2].duplicate).toBe(true);
+    expect(annotated[2].duplicateReason).toBe('within-file');
+  });
+
+  it('quick-260426-lg5: omitting existingUrls preserves prior behavior (within-file only)', () => {
+    const rows = [
+      makeRow({ name: 'A', streamUrl: 'rtsp://h/s' }),
+      makeRow({ name: 'B', streamUrl: 'rtsp://h/s' }),
+    ];
+    const annotated = annotateDuplicates(rows);
+    expect(annotated[0].duplicate).toBe(false);
+    expect(annotated[1].duplicate).toBe(true);
+    expect(annotated[1].duplicateReason).toBe('within-file');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -236,6 +269,7 @@ describe('BulkImportDialog post-import toast cascade — Phase 19 (UI-SPEC)', ()
       if (path.includes('/sites')) {
         return [{ id: 's1', name: 'Site' }];
       }
+      if (path === '/api/cameras') return [];
       return undefined as never;
     });
 
@@ -329,6 +363,7 @@ describe('BulkImportDialog drop-zone drag-and-drop', () => {
     apiFetchMock.mockImplementation(async (path: string) => {
       if (path === '/api/projects') return [{ id: 'p1', name: 'Proj' }];
       if (path.includes('/sites')) return [{ id: 's1', name: 'Site' }];
+      if (path === '/api/cameras') return [];
       return undefined as never;
     });
 

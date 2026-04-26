@@ -77,6 +77,12 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
   const [projects, setProjects] = useState<Project[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [streamProfiles, setStreamProfiles] = useState<StreamProfile[]>([]);
+  // quick 260426-lg5: cache org's existing cameras so each keystroke can
+  // check Name (case-insensitive trim) + Stream URL (exact) for duplicates.
+  // Single fetch per dialog session — backend P2002 covers stale-cache races.
+  const [existingCameras, setExistingCameras] = useState<
+    Array<{ id: string; name: string; streamUrl: string }>
+  >([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // quick 260426-0nc: inline validation error for the Stream Profile select.
@@ -99,6 +105,27 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
   // Pull mode only — push mode does not carry a client-supplied streamUrl.
   const streamUrlError = useMemo(() => validateStreamUrl(streamUrl), [streamUrl]);
 
+  // quick 260426-lg5: zero-latency duplicate hints against the cached
+  // org cameras. Edit mode excludes the row being edited via camera?.id.
+  const nameDuplicateError = useMemo(() => {
+    const trimmed = name.trim().toLowerCase();
+    if (!trimmed) return null;
+    const hit = existingCameras.find(
+      (c) => c.name.trim().toLowerCase() === trimmed && c.id !== camera?.id,
+    );
+    return hit ? 'A camera with this name already exists.' : null;
+  }, [name, existingCameras, camera?.id]);
+
+  const streamUrlDuplicateError = useMemo(() => {
+    if (ingestMode !== 'pull') return null;
+    const trimmed = streamUrl.trim();
+    if (!trimmed) return null;
+    const hit = existingCameras.find(
+      (c) => c.streamUrl === trimmed && c.id !== camera?.id,
+    );
+    return hit ? 'A camera with this stream URL already exists.' : null;
+  }, [streamUrl, ingestMode, existingCameras, camera?.id]);
+
   useEffect(() => {
     if (open) {
       apiFetch<Project[]>('/api/projects')
@@ -107,6 +134,10 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
       apiFetch<StreamProfile[]>('/api/stream-profiles')
         .then(setStreamProfiles)
         .catch(() => setStreamProfiles([]));
+      // quick 260426-lg5: cache for inline duplicate detection.
+      apiFetch<Array<{ id: string; name: string; streamUrl: string }>>('/api/cameras')
+        .then(setExistingCameras)
+        .catch(() => setExistingCameras([]));
 
       if (camera) {
         setName(camera.name || '');
@@ -177,6 +208,7 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
     setStreamProfileId('');
     setStreamProfileError(null);
     setError(null);
+    setExistingCameras([]);
     // Phase 19.1 D-08/09: reset push-mode state too so reopening the dialog
     // starts in the default pull/form phase.
     setIngestMode('pull');
@@ -292,7 +324,9 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
       // Phase 19.1: DuplicateStreamKey (push) also surfaces as 409 + code
       // DUPLICATE_STREAM_KEY — rare nanoid collision; same class of error.
       if (err instanceof ApiError && err.status === 409) {
-        if (err.code === 'DUPLICATE_STREAM_URL') {
+        if (err.code === 'DUPLICATE_CAMERA_NAME') {
+          setError('A camera with this name already exists.');
+        } else if (err.code === 'DUPLICATE_STREAM_URL') {
           setError('A camera with this stream URL already exists.');
         } else if (err.code === 'DUPLICATE_STREAM_KEY') {
           setError('A camera with this push key already exists. Please try saving again.');
@@ -326,7 +360,9 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
     if (ingestMode === 'pull') {
       if (!streamUrl.trim()) return false;
       if (streamUrlError) return false;
+      if (streamUrlDuplicateError) return false;
     }
+    if (nameDuplicateError) return false;
     // quick 260426-0nc: with 0 profiles, the form points the user at
     // /app/stream-profiles via the empty-state callout — Save stays disabled
     // (kept visible rather than hidden so layout/Cancel are unaffected).
@@ -359,15 +395,25 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
                 <IngestModeToggle value={ingestMode} onChange={handleIngestModeChange} />
               )}
 
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label htmlFor="cam-name">Name *</Label>
                 <Input
                   id="cam-name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Camera name"
+                  className={cn(
+                    nameDuplicateError && 'border-destructive focus-visible:ring-destructive/50',
+                  )}
+                  aria-invalid={!!nameDuplicateError}
+                  aria-describedby={nameDuplicateError ? 'cam-name-error' : undefined}
                   required
                 />
+                {nameDuplicateError && (
+                  <p id="cam-name-error" role="alert" className="text-xs text-destructive">
+                    {nameDuplicateError}
+                  </p>
+                )}
               </div>
 
               {ingestMode === 'pull' ? (
@@ -398,6 +444,11 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
                   ) : (
                     <p id="cam-url-help" className="text-xs text-muted-foreground">
                       {HELPER_TEXT}
+                    </p>
+                  )}
+                  {streamUrlDuplicateError && (
+                    <p role="alert" className="text-xs text-destructive">
+                      {streamUrlDuplicateError}
                     </p>
                   )}
                 </div>

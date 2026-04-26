@@ -25,6 +25,9 @@ function installDefaultApiMocks() {
     if (path === '/api/stream-profiles') {
       return [{ id: 'p1', name: 'Default', isDefault: true }];
     }
+    // quick 260426-lg5: empty cameras list by default; per-test override
+    // injects rows to drive duplicate-detection assertions.
+    if (path === '/api/cameras') return [];
     if (path.startsWith('/api/projects/') && path.endsWith('/sites')) {
       return [{ id: 'site-1', name: 'Site 1' }];
     }
@@ -141,6 +144,7 @@ describe('CameraFormDialog Stream URL live validation — Phase 19 (D-15)', () =
       if (path === '/api/stream-profiles') {
         return [{ id: 'p1', name: 'Default', isDefault: true }];
       }
+      if (path === '/api/cameras') return [];
       if (path.startsWith('/api/projects/') && path.endsWith('/sites')) {
         return [{ id: 'site-1', name: 'Site 1' }];
       }
@@ -172,6 +176,7 @@ describe('CameraFormDialog Stream URL live validation — Phase 19 (D-15)', () =
       if (path === '/api/stream-profiles') {
         return [{ id: 'p1', name: 'Default', isDefault: true }];
       }
+      if (path === '/api/cameras') return [];
       if (path.startsWith('/api/projects/') && path.endsWith('/sites')) {
         return [{ id: 'site-1', name: 'Site 1' }];
       }
@@ -216,6 +221,7 @@ describe('CameraFormDialog Stream Profile selection — quick 260426-0nc', () =>
           { id: 'p2', name: 'High', isDefault: false },
         ];
       }
+      if (path === '/api/cameras') return [];
       if (path.startsWith('/api/projects/') && path.endsWith('/sites')) {
         return [{ id: 'site-1', name: 'Site 1' }];
       }
@@ -246,6 +252,7 @@ describe('CameraFormDialog Stream Profile selection — quick 260426-0nc', () =>
       if (path === '/api/stream-profiles') {
         return [{ id: 'p2', name: 'High', isDefault: false }];
       }
+      if (path === '/api/cameras') return [];
       if (path.startsWith('/api/projects/') && path.endsWith('/sites')) {
         return [{ id: 'site-1', name: 'Site 1' }];
       }
@@ -283,6 +290,7 @@ describe('CameraFormDialog Stream Profile selection — quick 260426-0nc', () =>
     fn.mockImplementation(async (path: string) => {
       if (path === '/api/projects') return [{ id: 'proj-1', name: 'Project 1' }];
       if (path === '/api/stream-profiles') return [];
+      if (path === '/api/cameras') return [];
       if (path.startsWith('/api/projects/') && path.endsWith('/sites')) {
         return [{ id: 'site-1', name: 'Site 1' }];
       }
@@ -319,6 +327,7 @@ describe('CameraFormDialog Stream Profile selection — quick 260426-0nc', () =>
           { id: 'p2', name: 'High', isDefault: false },
         ];
       }
+      if (path === '/api/cameras') return [];
       if (path.startsWith('/api/projects/') && path.endsWith('/sites')) {
         return [{ id: 'site-1', name: 'Site 1' }];
       }
@@ -348,6 +357,7 @@ describe('CameraFormDialog Stream Profile selection — quick 260426-0nc', () =>
       if (path === '/api/stream-profiles') {
         return [{ id: 'p1', name: 'Pull Default', isDefault: true }];
       }
+      if (path === '/api/cameras') return [];
       if (path.startsWith('/api/projects/') && path.endsWith('/sites')) {
         return [{ id: 'site-1', name: 'Site 1' }];
       }
@@ -368,5 +378,139 @@ describe('CameraFormDialog Stream Profile selection — quick 260426-0nc', () =>
     ).toBeInTheDocument();
     // Org default name must NOT appear in the trigger (no auto-override of legacy null).
     expect(screen.queryByText('Pull Default')).toBeNull();
+  });
+});
+
+describe('CameraFormDialog inline duplicate detection — quick 260426-lg5', () => {
+  function mockWithExisting(
+    existing: Array<{ id: string; name: string; streamUrl: string }>,
+  ) {
+    const fn = apiFetch as unknown as ApiFetchMock;
+    fn.mockImplementation(async (path: string) => {
+      if (path === '/api/projects') return [{ id: 'proj-1', name: 'Project 1' }];
+      if (path === '/api/stream-profiles') {
+        return [{ id: 'p1', name: 'Default', isDefault: true }];
+      }
+      if (path === '/api/cameras') return existing;
+      if (path.startsWith('/api/projects/') && path.endsWith('/sites')) {
+        return [{ id: 'site-1', name: 'Site 1' }];
+      }
+      return [];
+    });
+  }
+
+  it('typing existing name (case-insensitive + trimmed) shows inline alert + disables Save', async () => {
+    mockWithExisting([
+      { id: 'c1', name: 'Front Door', streamUrl: 'rtsp://existing/1' },
+    ]);
+    renderDialog();
+    await waitFor(() => expect((apiFetch as unknown as ApiFetchMock).mock.calls.some(c => c[0] === '/api/cameras')).toBe(true));
+
+    await typeName('Front Door');
+    expect(
+      await screen.findByText('A camera with this name already exists.'),
+    ).toBeInTheDocument();
+
+    // Case-insensitive
+    await typeName('front door');
+    expect(
+      await screen.findByText('A camera with this name already exists.'),
+    ).toBeInTheDocument();
+
+    // Trimmed
+    await typeName('  Front Door  ');
+    expect(
+      await screen.findByText('A camera with this name already exists.'),
+    ).toBeInTheDocument();
+
+    // Save disabled while alert is showing
+    await typeStreamUrl('rtsp://new-unique/1');
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /Save Camera|Save Changes/ }),
+      ).toBeDisabled();
+    });
+
+    // Clear name → alert disappears, Save enables
+    await typeName('Unique Name');
+    await waitFor(() => {
+      expect(
+        screen.queryByText('A camera with this name already exists.'),
+      ).toBeNull();
+    });
+  });
+
+  it('typing existing streamUrl (exact) shows inline alert + disables Save', async () => {
+    mockWithExisting([
+      { id: 'c1', name: 'Front Door', streamUrl: 'rtsp://existing/1' },
+    ]);
+    renderDialog();
+    await waitFor(() => expect((apiFetch as unknown as ApiFetchMock).mock.calls.some(c => c[0] === '/api/cameras')).toBe(true));
+
+    await typeName('Some New Name');
+    await typeStreamUrl('rtsp://existing/1');
+    expect(
+      await screen.findByText('A camera with this stream URL already exists.'),
+    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /Save Camera|Save Changes/ }),
+      ).toBeDisabled();
+    });
+  });
+
+  it('edit mode: typing the SAME name as the camera being edited does NOT show duplicate alert (self exclusion)', async () => {
+    mockWithExisting([
+      { id: 'c1', name: 'Front Door', streamUrl: 'rtsp://existing/1' },
+    ]);
+    renderDialog({
+      camera: {
+        id: 'c1',
+        name: 'Front Door',
+        streamUrl: 'rtsp://existing/1',
+      },
+    });
+    await waitFor(() => expect((apiFetch as unknown as ApiFetchMock).mock.calls.some(c => c[0] === '/api/cameras')).toBe(true));
+
+    // Name field starts populated with the camera's name and matches its own row.
+    // The duplicate alert should NOT appear (self-row excluded).
+    await waitFor(() => {
+      expect(
+        screen.queryByText('A camera with this name already exists.'),
+      ).toBeNull();
+    });
+  });
+
+  it('server 409 DUPLICATE_CAMERA_NAME (race past stale cache) shows friendly bottom-slot copy', async () => {
+    const fn = apiFetch as unknown as ApiFetchMock;
+    fn.mockImplementation(async (path: string, options?: RequestInit) => {
+      if (options?.method === 'POST' && /\/api\/sites\/.+\/cameras/.test(path)) {
+        throw new ApiError(409, 'Conflict', { code: 'DUPLICATE_CAMERA_NAME', message: 'duplicate' });
+      }
+      if (path === '/api/projects') return [{ id: 'proj-1', name: 'Project 1' }];
+      if (path === '/api/stream-profiles') {
+        return [{ id: 'p1', name: 'Default', isDefault: true }];
+      }
+      // Empty cache: client-side hint will not fire, only server 409 catches it.
+      if (path === '/api/cameras') return [];
+      if (path.startsWith('/api/projects/') && path.endsWith('/sites')) {
+        return [{ id: 'site-1', name: 'Site 1' }];
+      }
+      return [];
+    });
+
+    renderDialog();
+    await typeName('Race Cam');
+    await typeStreamUrl('rtsp://host/s');
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /Save Camera|Save Changes/ }),
+      ).not.toBeDisabled();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Save Camera|Save Changes/ }));
+
+    expect(
+      await screen.findByText('A camera with this name already exists.'),
+    ).toBeInTheDocument();
   });
 });
