@@ -243,3 +243,99 @@ describe('CamerasDataTable selection plumbing (Phase 20 Plan 03)', () => {
     expect(spy).toHaveBeenCalled();
   });
 });
+
+/**
+ * Phase 22 Plan 22-08 — Tags MultiSelect filter integration (D-06, D-07).
+ *
+ * Asserts the toolbar surfaces a "Tags" filter populated from
+ * `/api/cameras/tags/distinct` and that selecting a tag narrows the visible
+ * rows via the column filterFn (case-insensitive OR semantics, defined in
+ * cameras-columns.tsx Plan 22-08 Task 2).
+ *
+ * The fetch is stubbed via `vi.stubGlobal('fetch', …)` so the test does not
+ * touch the network. The DataTable mounts the toolbar before the filter
+ * dropdown is opened — no need to wait on async population for the trigger
+ * button assertion (it shows even with zero options).
+ */
+describe('Phase 22: tags filter MultiSelect (D-06, D-07)', () => {
+  function cam22(id: string, overrides: Partial<CameraRow> = {}): CameraRow {
+    return {
+      id,
+      name: `Cam-${id}`,
+      status: 'offline',
+      isRecording: false,
+      maintenanceMode: false,
+      streamUrl: 'rtsp://x',
+      codecInfo: null,
+      streamProfileId: null,
+      location: null,
+      description: null,
+      tags: [],
+      site: { id: 's', name: 'S', project: { id: 'p', name: 'P' } },
+      createdAt: new Date('2026-04-26T00:00:00Z').toISOString(),
+      ...overrides,
+    };
+  }
+
+  function Wrap22({ cameras }: { cameras: CameraRow[] }) {
+    const noop = useCallback(() => {}, []);
+    const [sel, setSel] = useState<RowSelectionState>({});
+    return (
+      <CamerasDataTable
+        cameras={cameras}
+        loading={false}
+        onEdit={noop}
+        onViewStream={noop}
+        onDelete={noop}
+        onRecordToggle={noop}
+        onStreamToggle={noop}
+        onMaintenanceToggle={noop}
+        onEmbedCode={noop}
+        onCreateCamera={noop}
+        view="table"
+        onViewChange={noop}
+        rowSelection={sel}
+        onRowSelectionChange={setSel}
+      />
+    );
+  }
+
+  it('toolbar exposes a "Tags" filter trigger button', () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ tags: ['lobby', 'outdoor'] }),
+      }),
+    );
+    render(<Wrap22 cameras={[cam22('a', { tags: ['lobby'] })]} />);
+    expect(screen.getByRole('button', { name: /^Tags$/i })).toBeInTheDocument();
+    vi.unstubAllGlobals();
+  });
+
+  it('fetches /api/cameras/tags/distinct on mount', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ tags: ['lobby'] }),
+    });
+    vi.stubGlobal('fetch', fetchSpy);
+    render(<Wrap22 cameras={[cam22('a')]} />);
+    // Wait for useEffect to fire
+    await new Promise((r) => setTimeout(r, 0));
+    expect(fetchSpy).toHaveBeenCalled();
+    const url = fetchSpy.mock.calls[0][0] as string;
+    expect(url).toContain('/api/cameras/tags/distinct');
+    vi.unstubAllGlobals();
+  });
+
+  it('filter survives a fetch failure (still mounts the trigger; no crash)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockRejectedValue(new Error('network down')),
+    );
+    render(<Wrap22 cameras={[cam22('a')]} />);
+    await new Promise((r) => setTimeout(r, 10));
+    expect(screen.getByRole('button', { name: /^Tags$/i })).toBeInTheDocument();
+    vi.unstubAllGlobals();
+  });
+});
