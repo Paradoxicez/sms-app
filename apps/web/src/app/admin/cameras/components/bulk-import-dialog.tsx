@@ -5,7 +5,24 @@ import { Upload, Check, X, AlertCircle, Download, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 
-import { apiFetch } from '@/lib/api';
+import { apiFetch, ApiError } from '@/lib/api';
+
+function extractApiErrorMessage(err: ApiError): string {
+  const body = err.body;
+  if (typeof body === 'string' && body.trim()) return body;
+  if (body && typeof body === 'object') {
+    const obj = body as Record<string, unknown>;
+    if (typeof obj.message === 'string' && obj.message.trim()) return obj.message;
+    const flatten = obj as { fieldErrors?: Record<string, string[]>; formErrors?: string[] };
+    const fieldMsgs = flatten.fieldErrors
+      ? Object.entries(flatten.fieldErrors).flatMap(([k, v]) => v.map((m) => `${k}: ${m}`))
+      : [];
+    const formMsgs = flatten.formErrors ?? [];
+    const all = [...formMsgs, ...fieldMsgs];
+    if (all.length > 0) return `Import failed — ${all.slice(0, 2).join('; ')}`;
+  }
+  return `Import failed (${err.status} ${err.statusText})`;
+}
 import { validateStreamUrl } from '@/lib/stream-url-validation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -533,18 +550,23 @@ export function BulkImportDialog({
       const payloadRows = rows.filter(
         (r) => Object.keys(r.errors).length === 0 && !r.duplicate,
       );
-      const cameras = payloadRows.map((r) => ({
-        name: r.name,
-        // Phase 19.1 D-12: pull rows send streamUrl; push rows omit it so the
-        // server generates the key + URL.
-        ...(r.ingestMode === 'push' ? {} : { streamUrl: r.streamUrl }),
-        ingestMode: r.ingestMode ?? 'pull',
-        tags: r.tags || undefined,
-        description: r.description || undefined,
-        ...(r.latitude && r.longitude
-          ? { location: { lat: Number(r.latitude), lng: Number(r.longitude) } }
-          : {}),
-      }));
+      const cameras = payloadRows.map((r) => {
+        const tagsArr = r.tags
+          ? r.tags.split(/[,;]/).map((t) => t.trim()).filter(Boolean)
+          : [];
+        return {
+          name: r.name,
+          // Phase 19.1 D-12: pull rows send streamUrl; push rows omit it so the
+          // server generates the key + URL.
+          ...(r.ingestMode === 'push' ? {} : { streamUrl: r.streamUrl }),
+          ingestMode: r.ingestMode ?? 'pull',
+          tags: tagsArr.length > 0 ? tagsArr : undefined,
+          description: r.description || undefined,
+          ...(r.latitude && r.longitude
+            ? { location: { lat: Number(r.latitude), lng: Number(r.longitude) } }
+            : {}),
+        };
+      });
 
       setProgress(50);
 
@@ -605,8 +627,12 @@ export function BulkImportDialog({
         setProgress(null);
         setImportedCameras([]);
       }
-    } catch {
-      toast.error('Import failed. Check camera limits and try again.');
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? extractApiErrorMessage(err)
+          : 'Import failed. Try again.';
+      toast.error(message);
     } finally {
       setImporting(false);
     }

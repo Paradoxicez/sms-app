@@ -831,11 +831,8 @@ export class CamerasService {
               ingestMode: cam.ingestMode ?? 'pull',
               streamKey: rowStreamKey,
               description: cam.description,
-              location:
-                cam.lat != null && cam.lng != null
-                  ? { lat: cam.lat, lng: cam.lng }
-                  : undefined,
-              tags: cam.tags ? cam.tags.split(',').map((t: string) => t.trim()) : [],
+              location: cam.location ?? undefined,
+              tags: cam.tags ?? [],
               status: 'offline',
               needsTranscode: false,
             },

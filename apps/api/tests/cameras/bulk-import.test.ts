@@ -174,17 +174,65 @@ describe('Bulk Camera Import', () => {
   });
 
   it('should parse CSV-formatted data correctly', () => {
-    // CSV row validation
+    // CSV row validation — tags is now string[] aligned with single-camera DTO
+    // (frontend splits the CSV cell on `,` or `;` before POSTing).
     const row1 = BulkImportCameraSchema.safeParse({
       name: 'Front Door',
       streamUrl: 'rtsp://192.168.1.100/stream1',
-      tags: 'entrance,outdoor',
+      tags: ['entrance', 'outdoor'],
       description: 'Main entrance camera',
+      location: { lat: 13.7563, lng: 100.5018 },
     });
     expect(row1.success).toBe(true);
     if (row1.success) {
-      expect(row1.data.tags).toBe('entrance,outdoor');
+      expect(row1.data.tags).toEqual(['entrance', 'outdoor']);
+      expect(row1.data.location).toEqual({ lat: 13.7563, lng: 100.5018 });
+      expect(row1.data.description).toBe('Main entrance camera');
     }
+  });
+
+  it('should reject the legacy flat lat/lng shape (regression guard for bulk-import-camera-fields-dropped)', () => {
+    // Pre-fix the DTO accepted flat `lat`/`lng` keys but the frontend always
+    // sent nested `location: { lat, lng }`. Zod silently stripped `location`
+    // and the fields never reached Prisma. After the fix the schema only
+    // accepts the nested shape; the flat shape is allowed (extra keys stripped)
+    // BUT location is then absent → service writes location: undefined.
+    // The persistence test below is the authoritative regression guard.
+    const flat = BulkImportCameraSchema.safeParse({
+      name: 'Cam',
+      streamUrl: 'rtsp://1.1.1.1/s',
+      lat: 13.7563,
+      lng: 100.5018,
+    } as any);
+    expect(flat.success).toBe(true);
+    if (flat.success) {
+      expect((flat.data as any).location).toBeUndefined();
+    }
+  });
+
+  it('persists location and tags end-to-end (regression guard for bulk-import-camera-fields-dropped)', async () => {
+    const result = await service.bulkImport(orgId, {
+      cameras: [
+        {
+          name: 'GeoCam',
+          streamUrl: 'rtsp://10.0.5.1/geo',
+          location: { lat: 13.7563, lng: 100.5018 },
+          tags: ['entrance', 'outdoor'],
+          description: 'Front gate, fish-eye',
+        },
+      ],
+      siteId,
+    });
+
+    expect(result.imported).toBe(1);
+
+    const persisted = await testPrisma.camera.findFirst({
+      where: { siteId, name: 'GeoCam' },
+    });
+    expect(persisted).not.toBeNull();
+    expect(persisted?.location).toEqual({ lat: 13.7563, lng: 100.5018 });
+    expect(persisted?.tags).toEqual(['entrance', 'outdoor']);
+    expect(persisted?.description).toBe('Front gate, fish-eye');
   });
 
   it('should parse JSON array of camera objects', () => {

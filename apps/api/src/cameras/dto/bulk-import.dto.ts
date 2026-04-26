@@ -8,12 +8,14 @@ export const BulkImportCameraSchema = z
     // D-12: ingestMode column; defaults to 'pull' for backward-compat with existing CSVs.
     ingestMode: z.enum(['pull', 'push']).default('pull'),
     streamUrl: z.string().optional(),
-    projectName: z.string().optional(),
-    siteName: z.string().optional(),
-    lat: z.number().optional(),
-    lng: z.number().optional(),
-    tags: z.string().optional(), // comma-separated
-    description: z.string().optional(),
+    description: z.string().max(500).optional(),
+    location: z
+      .object({
+        lat: z.number(),
+        lng: z.number(),
+      })
+      .optional(),
+    tags: z.array(z.string()).optional(),
   })
   .superRefine((row, ctx) => {
     if (row.ingestMode === 'pull') {
