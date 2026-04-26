@@ -1,13 +1,16 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
+import Redis from 'ioredis';
 import { CamerasController } from './cameras.controller';
 import { CamerasService } from './cameras.service';
 import { FfprobeService } from './ffprobe.service';
 import { SnapshotService } from './snapshot.service';
+import { TagCacheService } from './tag-cache.service';
 import { StreamsModule } from '../streams/streams.module';
 import { SrsModule } from '../srs/srs.module';
 import { AuditModule } from '../audit/audit.module';
 import { RecordingsModule } from '../recordings/recordings.module';
+import { REDIS_CLIENT } from '../api-keys/api-keys.service';
 
 @Module({
   imports: [
@@ -34,7 +37,28 @@ import { RecordingsModule } from '../recordings/recordings.module';
     BullModule.registerQueue({ name: 'stream-probe' }),
   ],
   controllers: [CamerasController],
-  providers: [CamerasService, FfprobeService, SnapshotService],
-  exports: [CamerasService, FfprobeService, SnapshotService],
+  providers: [
+    CamerasService,
+    FfprobeService,
+    SnapshotService,
+    // Phase 22 Plan 22-05 (D-09, D-28): TagCacheService backs GET
+    // /cameras/tags/distinct with Redis-first read-through caching + an
+    // in-memory fallback. Module-local REDIS_CLIENT factory matches the
+    // pattern used by StreamsModule + ApiKeysModule (each module owns its
+    // own Redis connection — cheap, isolated shutdown). TagCacheService
+    // takes REDIS_CLIENT as `@Optional` so test harnesses constructing the
+    // service directly with positional args (no Redis) still work.
+    TagCacheService,
+    {
+      provide: REDIS_CLIENT,
+      useFactory: () => {
+        return new Redis({
+          host: process.env.REDIS_HOST || 'localhost',
+          port: parseInt(process.env.REDIS_PORT || '6379', 10),
+        });
+      },
+    },
+  ],
+  exports: [CamerasService, FfprobeService, SnapshotService, TagCacheService],
 })
 export class CamerasModule {}
