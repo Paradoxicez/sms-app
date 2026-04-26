@@ -5,7 +5,7 @@ milestone_name: Self-Service, Resilience & UI Polish
 status: executing
 stopped_at: Phase 22 UI-SPEC approved
 last_updated: "2026-04-26T12:59:47.262Z"
-last_activity: 2026-04-26 -- Phase 22 execution started
+last_activity: 2026-04-26 -- Completed quick task 260426-sjz: Add Push & Encoder Setup docs guide and fix 3 broken setup-guide links
 progress:
   total_phases: 11
   completed_phases: 10
@@ -106,6 +106,7 @@ None yet.
 | 260426-lg5 | Inline duplicate detection (Name + Stream URL) in Add Camera + Bulk Import — DB `@@unique([orgId, name])` + cell-level amber border + status pills + smart Confirm(N)/Close | 2026-04-26 | (pending) | | [260426-lg5-inline-live-duplicate-detection-for-name](./quick/260426-lg5-inline-live-duplicate-detection-for-name/) |
 | 260426-nqr | Camera Edit form dirty-tracking PATCH (send only changed fields) + extend deriveActionLabel for tags/description/location/siteId/streamUrl/needsTranscode single-field rules | 2026-04-26 | 18dd74f | | [260426-nqr-camera-edit-form-dirty-tracking-patch-se](./quick/260426-nqr-camera-edit-form-dirty-tracking-patch-se/) |
 | 260426-ox9 | Migrate per-camera Recordings detail table to shared DataTable + add Download/Delete row actions (DataTableRowActions, AlertDialog, refetch + deleted-current handler) | 2026-04-26 | 4f1a136 | | [260426-ox9-add-download-delete-row-actions-to-per-c](./quick/260426-ox9-add-download-delete-row-actions-to-per-c/) |
+| 260426-sjz | Add Push & Encoder Setup docs guide (6th developer-portal menu) + fix 4 broken `/docs/push-setup` links | 2026-04-26 | 0a4d597 | | [260426-sjz-add-push-encoder-setup-docs-guide-and-fi](./quick/260426-sjz-add-push-encoder-setup-docs-guide-and-fi/) |
 
 ## Session Continuity
 
