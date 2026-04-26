@@ -68,6 +68,11 @@ export class AuditService {
     if (query.userId) where.userId = query.userId;
     if (query.action) where.action = query.action;
     if (query.resource) where.resource = query.resource;
+    // Narrow to a single resource instance (e.g. one camera's Activity tab).
+    // Applied BEFORE the `search` OR-clause so a camera-scoped query doesn't
+    // get widened by an unrelated free-text `search` term — Prisma AND-merges
+    // top-level fields with `OR`, which is the desired behavior here.
+    if (query.resourceId) where.resourceId = query.resourceId;
     if (query.dateFrom || query.dateTo) {
       where.createdAt = {};
       if (query.dateFrom) where.createdAt.gte = new Date(query.dateFrom);
@@ -75,8 +80,14 @@ export class AuditService {
     }
 
     if (query.search) {
+      // Free-text search across user-meaningful columns. `resource` is a type
+      // literal ("camera", "policy", …); `resourceId` carries UUIDs so users
+      // can paste an entity id; `path` lets ops grep by URL fragment; `ip`
+      // supports IP-based forensics.
       where.OR = [
         { resource: { contains: query.search, mode: 'insensitive' } },
+        { resourceId: { contains: query.search, mode: 'insensitive' } },
+        { path: { contains: query.search, mode: 'insensitive' } },
         { ip: { contains: query.search, mode: 'insensitive' } },
       ];
     }

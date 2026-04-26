@@ -106,29 +106,37 @@ export function AuditLogDataTable({ apiUrl = "/api/audit-log", showOrganization 
     async function fetchData() {
       setLoading(true)
       try {
-        const params = new URLSearchParams()
-        params.set("page", String(pagination.pageIndex + 1))
-        params.set("pageSize", String(pagination.pageSize))
+        // Build the query string by MERGING any preset params already on
+        // `apiUrl` (e.g. the camera Activity tab passes
+        // `/api/audit-log?resource=camera&resourceId=<id>`) with the runtime
+        // params produced here. Naively concatenating with `?` produced URLs
+        // with two `?` separators, which corrupted the preset values — see
+        // .planning/debug/resolved/view-stream-activity-tab-no-events.md
+        // (Bug #2). Using URL with a base lets us treat relative paths
+        // uniformly; window.location.origin is only used for parsing and is
+        // stripped before we hand the result to apiFetch (which itself
+        // expects a relative path).
+        const url = new URL(apiUrl, window.location.origin)
+        url.searchParams.set("page", String(pagination.pageIndex + 1))
+        url.searchParams.set("pageSize", String(pagination.pageSize))
 
         if (debouncedSearch) {
-          params.set("search", debouncedSearch)
+          url.searchParams.set("search", debouncedSearch)
         }
         if (actionFilter.length === 1) {
           // Single action filter - send as API param
-          params.set("action", actionFilter[0])
+          url.searchParams.set("action", actionFilter[0])
         }
         if (dateRange?.from) {
-          params.set("dateFrom", dateRange.from.toISOString())
+          url.searchParams.set("dateFrom", dateRange.from.toISOString())
         }
         if (dateRange?.to) {
           const end = new Date(dateRange.to)
           end.setHours(23, 59, 59, 999)
-          params.set("dateTo", end.toISOString())
+          url.searchParams.set("dateTo", end.toISOString())
         }
 
-        const res = await apiFetch<AuditResponse>(
-          `${apiUrl}?${params.toString()}`,
-        )
+        const res = await apiFetch<AuditResponse>(`${url.pathname}${url.search}`)
         if (!cancelled) {
           setData(res.items)
           setTotalCount(res.totalCount)

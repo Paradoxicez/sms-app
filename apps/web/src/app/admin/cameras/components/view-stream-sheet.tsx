@@ -317,8 +317,15 @@ export function ViewStreamContent({
         </TabsContent>
 
         <TabsContent value="activity" className="flex-1 overflow-y-auto p-4">
+          {/*
+            Scope the Activity tab to this single camera. We pass `resourceId`
+            (the canonical column the interceptor populates) rather than
+            `search` because `search` is a free-text OR-clause across multiple
+            text columns and cannot reliably narrow to one entity. See
+            .planning/debug/resolved/view-stream-activity-tab-no-events.md.
+          */}
           <AuditLogDataTable
-            apiUrl={`/api/audit-log?resource=camera&search=${camera.id}`}
+            apiUrl={`/api/audit-log?resource=camera&resourceId=${camera.id}`}
           />
         </TabsContent>
       </Tabs>
