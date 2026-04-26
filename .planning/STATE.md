@@ -5,7 +5,7 @@ milestone_name: Self-Service, Resilience & UI Polish
 status: executing
 stopped_at: Phase 22 UI-SPEC approved
 last_updated: "2026-04-26T17:28:47.804Z"
-last_activity: 2026-04-27 - Completed quick task 260427-1u5: Rebrand SMS Platform to StreamBridge across user-facing UI strings and redesign login left panel
+last_activity: 2026-04-27 - Completed quick task 260427-2sd: Move org badge + bell to top header bar, add version label above sidebar user profile
 progress:
   total_phases: 11
   completed_phases: 11
@@ -111,6 +111,7 @@ None yet.
 | 260426-x2o | Fix 16 docs-vs-code drift issues across 4 tenant developer-portal docs pages (policies/api-workflow/stream-profiles/webhooks) — TTL/maxViewers/rateLimit defaults, field names, endpoint URLs, profile enums | 2026-04-26 | d37cd13 | | [260426-x2o-fix-16-docs-vs-code-drift-issues-across-](./quick/260426-x2o-fix-16-docs-vs-code-drift-issues-across-/) |
 | 260427-0r1 | Delete Developer Portal Overview page (content duplicated in Docs) — server-side redirects /app/developer→/app/developer/docs and /admin/developer→/admin/developer/docs, drop Overview from sidebar nav + role matrix + breadcrumb | 2026-04-27 | c1b5fe9 | | [260427-0r1-overview-docs](./quick/260427-0r1-overview-docs/) |
 | 260427-1u5 | Rebrand SMS Platform → StreamBridge across user-facing UI strings (browser title, login wordmark, sidebar header, footer, docs intros, API Swagger title) + redesign login left panel (drop stat boxes, add 4 protocol pills RTSP/RTMP/SRT/WebRTC, new tagline) — internal `@sms-platform/*` package names preserved | 2026-04-27 | c1f5f62 | | [260427-1u5-rebrand-sms-platform-to-streambridge-acr](./quick/260427-1u5-rebrand-sms-platform-to-streambridge-acr/) |
+| 260427-2sd | Move org badge + NotificationBell from sidebar header to top header bar (right-aligned) in tenant + admin layouts; add small `v0.1.0` version label above sidebar user profile (expanded only) | 2026-04-27 | 6a5cd2f | | [260427-2sd-move-org-badge-bell-to-top-header-bar-ad](./quick/260427-2sd-move-org-badge-bell-to-top-header-bar-ad/) |
 
 ## Session Continuity
 
