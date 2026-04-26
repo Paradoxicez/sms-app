@@ -54,6 +54,13 @@ export class NotifyDispatchProcessor extends WorkerHost {
         status: newStatus,
         previousStatus,
         timestamp: new Date().toISOString(),
+        // D-22 (Plan 22-03): tag-based webhook subscribers need tags in payload.
+        // Display casing preserved per D-04 (camera.tags is canonical user-facing array,
+        // not tagsNormalized). `?? []` guards against null/undefined; the camera record
+        // is loaded via findUnique without `select`, so tags is always populated.
+        // Description and cameraName intentionally excluded per D-22 (human-facing,
+        // not machine-actionable).
+        tags: camera.tags ?? [],
       })
       .catch((err: Error) => {
         this.logger.warn(
