@@ -197,7 +197,7 @@ export default function PlaybackPage() {
   }
 
   return (
-    <div className="container mx-auto space-y-6 py-6">
+    <div className="container mx-auto space-y-6">
       <PlaybackPageHeader
         cameraName={recording.camera?.name ?? 'Recording'}
         siteName={recording.camera?.site?.name}
