@@ -5,7 +5,7 @@ milestone_name: Self-Service, Resilience & UI Polish
 status: executing
 stopped_at: Phase 22 UI-SPEC approved
 last_updated: "2026-04-26T17:28:47.804Z"
-last_activity: 2026-04-26
+last_activity: 2026-04-27 - Completed quick task 260427-0r1: Delete Developer Portal Overview page
 progress:
   total_phases: 11
   completed_phases: 11
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 Phase: 22
 Plan: Not started
 Status: Executing Phase 22
-Last activity: 2026-04-26
+Last activity: 2026-04-27 - Completed quick task 260427-0r1: Delete Developer Portal Overview page
 
 Progress: [░░░░░░░░░░] 0% (v1.2: 0/5 phases)
 
@@ -109,6 +109,7 @@ None yet.
 | 260426-sjz | Add Push & Encoder Setup docs guide (6th developer-portal menu) + fix 4 broken `/docs/push-setup` links | 2026-04-26 | 0a4d597 | | [260426-sjz-add-push-encoder-setup-docs-guide-and-fi](./quick/260426-sjz-add-push-encoder-setup-docs-guide-and-fi/) |
 | 260426-udl | Trim encoder-setup docs to OBS+NVR only (drop FFmpeg/Wirecast/vMix) + replace SRS / Simple Realtime Server with "stream engine" in tenant docs | 2026-04-26 | 6bf8952 | | [260426-udl-trim-encoder-setup-docs-to-obs-nvr-only-](./quick/260426-udl-trim-encoder-setup-docs-to-obs-nvr-only-/) |
 | 260426-x2o | Fix 16 docs-vs-code drift issues across 4 tenant developer-portal docs pages (policies/api-workflow/stream-profiles/webhooks) — TTL/maxViewers/rateLimit defaults, field names, endpoint URLs, profile enums | 2026-04-26 | d37cd13 | | [260426-x2o-fix-16-docs-vs-code-drift-issues-across-](./quick/260426-x2o-fix-16-docs-vs-code-drift-issues-across-/) |
+| 260427-0r1 | Delete Developer Portal Overview page (content duplicated in Docs) — server-side redirects /app/developer→/app/developer/docs and /admin/developer→/admin/developer/docs, drop Overview from sidebar nav + role matrix + breadcrumb | 2026-04-27 | c1b5fe9 | | [260427-0r1-overview-docs](./quick/260427-0r1-overview-docs/) |
 
 ## Session Continuity
 
