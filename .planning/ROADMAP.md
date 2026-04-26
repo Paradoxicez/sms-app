@@ -238,3 +238,13 @@ Plans:
 - [x] 21.1-03-PLAN.md — Hybrid test layer (D-14 / M4): 3 unit test files (publisher branch · subscriber + dedup · safety net) using ioredis-mock + 1 real-Redis integration test reproducing BKR06 11-PATCH UAT scenario from 21-VALIDATION.md
 **UI hint**: no
 </content>
+
+### Phase 22: Camera metadata utilization — surface tags & description across UI, search, and integrations
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 21
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 22 to break down)
