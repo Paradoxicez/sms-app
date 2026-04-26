@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-18)
 Phase: 21.1
 Plan: Not started
 Status: Executing Phase 21.1
-Last activity: 2026-04-26 - Completed quick task 260426-l5a: Activity tab UX polish — specific action labels + drop redundant Resource column
+Last activity: 2026-04-26 - Completed quick task 260426-mth: Fix map camera-pin click collapses to group regression (useMemo position fix)
 
 Progress: [░░░░░░░░░░] 0% (v1.2: 0/5 phases)
 
@@ -68,6 +68,7 @@ Recent decisions affecting current work:
 - Phase 19.1 inserted after Phase 19: RTMP push ingest with platform-generated stream keys (URGENT)
 - Phase 20 added: Cameras UX — bulk actions, maintenance toggle in action menu, copy Camera ID (menu + view-stream header), expressive LIVE/REC status icons, active-state feedback on Start Stream/Record buttons
 - Phase 21 added: Hot-reload Stream Profile changes to running cameras — closes audit gap where StreamsService.startStream reads profile only at job-enqueue, leaving live FFmpeg processes on stale settings until manual restart or 60s health-check failure
+- Phase 22 added: Camera metadata utilization — surface tags & description across UI, search, and integrations. Closes write-only-metadata gap from Explore audit (2026-04-26): tags/description fully persisted but never displayed (no table column, no detail view), no backend filter, no webhook payload, no audit log. Scope spans 9 sub-items across UI display, backend filter+autocomplete+bulk ops, and integration surface — refine via /gsd-discuss-phase before planning.
 
 ### Pending Todos
 
@@ -101,9 +102,10 @@ None yet.
 | 260426-29p | Stream Profiles page default indicator (Star icon + tooltip) + backend auto-mark first profile per org as isDefault=true | 2026-04-26 | 3c69577 | | [260426-29p-stream-profiles-page-default-indicator-s](./quick/260426-29p-stream-profiles-page-default-indicator-s/) |
 | 260426-2vj | Developer Portal Overview Step 2 → static template (drop dynamic key/camera hints, use CAMERA_ID + sk_live_YOUR_API_KEY placeholders) | 2026-04-26 | 59561bc | | [260426-2vj-developer-portal-overview-step-2-remove-](./quick/260426-2vj-developer-portal-overview-step-2-remove-/) |
 | 260426-l5a | Activity tab UX polish — specific action labels (deriveActionLabel) + hideResourceColumn prop for single-camera scope | 2026-04-26 | 00fc95e | | [260426-l5a-activity-tab-ux-polish-specific-action-l](./quick/260426-l5a-activity-tab-ux-polish-specific-action-l/) |
+| 260426-mth | Fix map camera-pin click collapses to group regression — useMemo position reference in camera-marker.tsx (regression from d570449) | 2026-04-26 | ffa2a7b | | [260426-mth-fix-map-camera-pin-click-collapses-to-gr](./quick/260426-mth-fix-map-camera-pin-click-collapses-to-gr/) |
 
 ## Session Continuity
 
-Last session: 2026-04-25T12:41:08.334Z
+Last session: 2026-04-26T09:30:00.000Z
 Stopped at: Phase 21.1 context gathered
 Resume file: .planning/phases/21.1-active-job-collision-fix-for-hot-reload-restart-gap-closure/21.1-CONTEXT.md
