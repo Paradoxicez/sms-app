@@ -418,3 +418,76 @@ describe('Phase 22 Plan 22-06 — bulkTagAction service method (D-11, D-12, D-26
     expect(after?.tagsNormalized).toEqual(['existing', 'newlobby']);
   });
 });
+
+// ─── Layer 2: POST /cameras/bulk/tags controller route smoke ────────
+
+describe('Phase 22 Plan 22-06 — POST /cameras/bulk/tags controller route', () => {
+  let controller: import('../../src/cameras/cameras.controller').CamerasController;
+  let camerasService: any;
+  let getOrgIdSpy: any;
+
+  beforeEach(async () => {
+    // Lazy import so the controller module isn't loaded before all setup.
+    const { CamerasController } = await import(
+      '../../src/cameras/cameras.controller'
+    );
+
+    camerasService = {
+      bulkTagAction: vi
+        .fn()
+        .mockResolvedValue({ updatedCount: 3 }),
+    };
+
+    controller = new CamerasController(
+      camerasService,
+      {} as any, // ffprobeService
+      { get: () => 'org-controller' } as any, // cls
+      {} as any, // moduleRef
+      {} as any, // snapshotService
+    );
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('Test 9 — controller threads dto + orgId + req.user through to service.bulkTagAction', async () => {
+    const dto = {
+      cameraIds: [randomUUID(), randomUUID()],
+      action: 'add' as const,
+      tag: 'lobby',
+    };
+    const req = {
+      user: { id: 'user-controller', email: 'c@test.local' },
+    } as any;
+
+    const result = await (controller as any).bulkTags(dto, req);
+
+    expect(result).toEqual({ updatedCount: 3 });
+    expect(camerasService.bulkTagAction).toHaveBeenCalledWith(
+      'org-controller',
+      { userId: 'user-controller', userEmail: 'c@test.local' },
+      dto,
+    );
+  });
+
+  it('Test 10 — controller falls back to system triggeredBy when req.user is missing', async () => {
+    // Defensive contract: routes that go through AuthGuard always have
+    // req.user populated, but the service signature accepts an undefined
+    // email so the controller MUST NOT crash on a partial user object.
+    const dto = {
+      cameraIds: [randomUUID()],
+      action: 'remove' as const,
+      tag: 'old',
+    };
+    const req = { user: { id: 'user-noemail' } } as any;
+
+    await (controller as any).bulkTags(dto, req);
+
+    expect(camerasService.bulkTagAction).toHaveBeenCalledWith(
+      'org-controller',
+      { userId: 'user-noemail', userEmail: undefined },
+      dto,
+    );
+  });
+});
