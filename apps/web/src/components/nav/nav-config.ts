@@ -11,7 +11,6 @@ import {
   FileText,
   Key,
   Bell,
-  Code2,
   BookOpen,
   Building2,
   Package,
@@ -56,7 +55,6 @@ const ORGANIZATION: NavItem[] = [
 ];
 
 const DEVELOPER: NavItem[] = [
-  { label: "Overview", href: "/app/developer", icon: Code2, exactMatch: true },
   { label: "API Keys", href: "/app/developer/api-keys", icon: Key, feature: "apiKeys" },
   { label: "Webhooks", href: "/app/developer/webhooks", icon: Bell, feature: "webhooks" },
   { label: "Docs", href: "/app/developer/docs", icon: BookOpen },
@@ -105,7 +103,6 @@ export const ROLE_MATRIX: Record<MemberRole, ReadonlyArray<string> | "ALL"> = {
     "/app/dashboard",
     "/app/cameras",
     "/app/map",
-    "/app/developer",
     "/app/developer/api-keys",
     "/app/developer/webhooks",
     "/app/developer/docs",

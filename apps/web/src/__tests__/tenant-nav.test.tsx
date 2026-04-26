@@ -36,13 +36,11 @@ describe("ROLE_MATRIX", () => {
   });
 
   it("developer includes developer paths but not recordings", () => {
-    expect(ROLE_MATRIX.developer).toContain("/app/developer");
     expect(ROLE_MATRIX.developer).toContain("/app/developer/api-keys");
     expect(ROLE_MATRIX.developer).not.toContain("/app/recordings");
   });
 
   it("viewer excludes developer paths", () => {
-    expect(ROLE_MATRIX.viewer).not.toContain("/app/developer");
     expect(ROLE_MATRIX.viewer).not.toContain("/app/developer/api-keys");
   });
 });
@@ -54,25 +52,24 @@ describe("filterNavGroups", () => {
   it("admin with all features returns all items", () => {
     const result = filterNavGroups(tenantNavGroups, "admin", allEnabled);
     const allHrefs = result.flatMap((g) => g.items.map((i) => i.href));
-    // All 13 items when all features are on
-    expect(allHrefs).toHaveLength(13);
+    // All 12 items when all features are on
+    expect(allHrefs).toHaveLength(12);
   });
 
   it("viewer excludes Developer section items", () => {
     const result = filterNavGroups(tenantNavGroups, "viewer", allEnabled);
     const allHrefs = result.flatMap((g) => g.items.map((i) => i.href));
-    expect(allHrefs).not.toContain("/app/developer");
     expect(allHrefs).not.toContain("/app/developer/api-keys");
     expect(allHrefs).not.toContain("/app/developer/webhooks");
     expect(allHrefs).not.toContain("/app/developer/docs");
   });
 
-  it("operator includes /app/dashboard and /app/cameras but excludes /app/developer", () => {
+  it("operator includes /app/dashboard and /app/cameras but excludes Developer section", () => {
     const result = filterNavGroups(tenantNavGroups, "operator", allEnabled);
     const allHrefs = result.flatMap((g) => g.items.map((i) => i.href));
     expect(allHrefs).toContain("/app/dashboard");
     expect(allHrefs).toContain("/app/cameras");
-    expect(allHrefs).not.toContain("/app/developer");
+    expect(allHrefs).not.toContain("/app/developer/api-keys");
   });
 
   it("feature flag filtering: recordings=false excludes Recordings item", () => {
@@ -88,8 +85,8 @@ describe("filterNavGroups", () => {
     const allLabels = result.flatMap((g) => g.items.map((i) => i.label));
     expect(allLabels).not.toContain("API Keys");
     expect(allLabels).not.toContain("Webhooks");
-    // Overview and Docs should still be present
-    expect(allLabels).toContain("Overview");
+    // Dashboard and Docs should still be present
+    expect(allLabels).toContain("Dashboard");
     expect(allLabels).toContain("Docs");
   });
 
