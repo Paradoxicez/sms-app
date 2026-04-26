@@ -103,52 +103,80 @@ export class ManifestService {
     return '#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:3\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-PLAYLIST-TYPE:VOD\n#EXT-X-ENDLIST\n';
   }
 
+  /**
+   * Bucket a camera's segments into 24 hour-slots over an explicit UTC window.
+   *
+   * The window is supplied by the caller (frontend) as the UTC instants
+   * representing local-midnight-to-local-midnight of the user's selected date.
+   * Buckets are computed as `floor((timestamp - windowStart) / 1h)` so the
+   * server stays timezone-agnostic — `hours[0]` is "the first hour of the
+   * client's local day" regardless of where the API process runs.
+   *
+   * Background: pre-fix this method assumed the date string named a UTC day
+   * and bucketed via `getUTCHours()`, while the recordings-list table on the
+   * frontend rendered `format(...)` (browser-local). For a Bangkok user
+   * (UTC+7) a 17:45 local recording landed at hour 10 on the timeline →
+   * 7-hour visual offset between timeline and table. See debug session
+   * `recordings-detail-timeline-timezone-mismatch.md` for full analysis.
+   */
   async getSegmentsForDate(
     cameraId: string,
     orgId: string,
-    date: string,
+    windowStart: Date,
+    windowEnd: Date,
   ): Promise<{ hour: number; hasData: boolean }[]> {
-    const dayStart = new Date(`${date}T00:00:00Z`);
-    const dayEnd = new Date(`${date}T23:59:59.999Z`);
-
     const segments = await this.prisma.recordingSegment.findMany({
       where: {
         cameraId,
         orgId,
-        timestamp: { gte: dayStart, lte: dayEnd },
+        timestamp: { gte: windowStart, lte: windowEnd },
       },
       select: { timestamp: true },
     });
 
+    const startMs = windowStart.getTime();
+    const HOUR_MS = 60 * 60 * 1000;
     const hours = Array.from({ length: 24 }, (_, i) => ({ hour: i, hasData: false }));
     for (const seg of segments) {
-      const hour = new Date(seg.timestamp).getUTCHours();
-      hours[hour].hasData = true;
+      const offsetMs = new Date(seg.timestamp).getTime() - startMs;
+      const hour = Math.floor(offsetMs / HOUR_MS);
+      // Defensive clamp — DB rows sit inside [windowStart, windowEnd] thanks
+      // to the gte/lte filter, but we still bound to 0..23 to harden against
+      // any future caller passing a non-24h window.
+      if (hour >= 0 && hour < 24) hours[hour].hasData = true;
     }
     return hours;
   }
 
+  /**
+   * Days-of-month (1..31) within the supplied UTC window that contain at
+   * least one segment. The window is the user's local-month boundary
+   * expressed as UTC instants, and day numbers are computed relative to
+   * the window start so the result lines up with the calendar the user
+   * sees in their browser timezone.
+   */
   async getDaysWithRecordings(
     cameraId: string,
     orgId: string,
-    year: number,
-    month: number,
+    windowStart: Date,
+    windowEnd: Date,
   ): Promise<number[]> {
-    const monthStart = new Date(year, month - 1, 1);
-    const monthEnd = new Date(year, month, 0, 23, 59, 59, 999);
-
     const segments = await this.prisma.recordingSegment.groupBy({
       by: ['timestamp'],
       where: {
         cameraId,
         orgId,
-        timestamp: { gte: monthStart, lte: monthEnd },
+        timestamp: { gte: windowStart, lte: windowEnd },
       },
     });
 
+    const startMs = windowStart.getTime();
+    const DAY_MS = 24 * 60 * 60 * 1000;
     const days = new Set<number>();
     for (const seg of segments) {
-      days.add(new Date(seg.timestamp).getDate());
+      const offsetMs = new Date(seg.timestamp).getTime() - startMs;
+      const day = Math.floor(offsetMs / DAY_MS) + 1;
+      if (day >= 1 && day <= 31) days.add(day);
     }
     return Array.from(days).sort((a, b) => a - b);
   }

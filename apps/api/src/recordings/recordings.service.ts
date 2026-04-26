@@ -472,12 +472,26 @@ export class RecordingsService {
     return { deleted, failed };
   }
 
-  async listRecordings(cameraId: string, orgId: string, date?: string) {
+  /**
+   * List recordings whose `startedAt` falls within the supplied UTC window.
+   * The window is the user's local-day expressed as UTC instants — the
+   * controller resolves this from either the legacy `date=YYYY-MM-DD` param
+   * (UTC midnights, kept for backward compatibility) or the new
+   * `startUtc`/`endUtc` form (browser-local-day boundaries).
+   *
+   * Pre-fix this method took a `date` string and applied `gte` / `lte` on
+   * UTC midnights, which dropped recordings whose UTC instant landed on a
+   * different UTC date than their local date — see debug session
+   * `recordings-detail-timeline-timezone-mismatch.md` for the full chain.
+   */
+  async listRecordings(
+    cameraId: string,
+    orgId: string,
+    window?: { start: Date; end: Date } | null,
+  ) {
     const where: any = { cameraId, orgId };
-    if (date) {
-      const start = new Date(`${date}T00:00:00.000Z`);
-      const end = new Date(`${date}T23:59:59.999Z`);
-      where.startedAt = { gte: start, lte: end };
+    if (window) {
+      where.startedAt = { gte: window.start, lte: window.end };
     }
     return this.tenantPrisma.recording.findMany({
       where,

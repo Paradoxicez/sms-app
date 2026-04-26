@@ -59,20 +59,23 @@ export default function PlaybackPage() {
   }, [selectedDate, displayedMonth]);
 
   const cameraId = recording?.cameraId;
-  const dateStr = selectedDate ? formatDateStr(selectedDate) : undefined;
-
-  const { hours, loading: timelineLoading } = useRecordingTimeline(cameraId, dateStr);
-  const { recordings, loading: listLoading, refetch: refetchRecordings } =
-    useRecordingsList(cameraId, dateStr);
-  const { days } = useRecordingCalendar(
+  // Hooks now take a Date (the user's local-day selection) and compute the
+  // UTC window internally. Pre-fix we passed a `YYYY-MM-DD` string and the
+  // backend mis-interpreted it as a UTC day, causing the timeline-vs-table
+  // 7-hour offset for any non-UTC user. See debug session
+  // recordings-detail-timeline-timezone-mismatch.md.
+  const { hours, loading: timelineLoading } = useRecordingTimeline(
     cameraId,
-    displayedMonth?.getFullYear() ?? 0,
-    (displayedMonth?.getMonth() ?? 0) + 1,
+    selectedDate ?? undefined,
   );
+  const { recordings, loading: listLoading, refetch: refetchRecordings } =
+    useRecordingsList(cameraId, selectedDate ?? undefined);
+  const { days } = useRecordingCalendar(cameraId, displayedMonth ?? undefined);
 
   // After date change, navigate to first recording on the new date (D-05)
   useEffect(() => {
-    if (!recordings.length || !dateStr || !recording) return;
+    if (!recordings.length || !selectedDate || !recording) return;
+    const dateStr = formatDateStr(selectedDate);
     const currentRecordingDate = formatDateStr(new Date(recording.startedAt));
     if (
       dateStr !== currentRecordingDate &&
@@ -80,15 +83,18 @@ export default function PlaybackPage() {
     ) {
       router.push(`/app/recordings/${recordings[0].id}`);
     }
-  }, [recordings, dateStr, recording, id, router]);
+  }, [recordings, selectedDate, recording, id, router]);
 
-  // Timeline click -> navigate to recording at that hour (D-09)
+  // Timeline click -> navigate to recording at that hour (D-09).
+  // The timeline indexes hours 0..23 over the user's local day (the backend
+  // buckets relative to the supplied window start). To match those buckets
+  // we read the recording's local hour via getHours() — NOT getUTCHours().
   const handleSeek = useCallback(
     (hour: number) => {
       const target = recordings.find((r) => {
-        const sH = new Date(r.startedAt).getUTCHours();
+        const sH = new Date(r.startedAt).getHours();
         const eH = r.stoppedAt
-          ? new Date(r.stoppedAt).getUTCHours() + 1
+          ? new Date(r.stoppedAt).getHours() + 1
           : 24;
         return hour >= sH && hour < eH;
       });

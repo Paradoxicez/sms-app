@@ -116,21 +116,52 @@ export function useRecording(id: string | undefined) {
   return { recording, loading, error };
 }
 
+/* ---------- Timezone helpers (timeline / calendar / list) ---------- */
+
+// Convert a user-facing local date (or month) to the UTC instants that
+// bracket it in the user's browser timezone. The backend's timeline and
+// list endpoints accept these as `startUtc`/`endUtc` and do all bucketing
+// relative to them, so the API process never needs to know what timezone
+// the user is in. Pre-fix the endpoints accepted `date=YYYY-MM-DD` and
+// applied `gte/lte` on UTC midnights, which mis-bucketed any non-UTC user.
+// See debug session `recordings-detail-timeline-timezone-mismatch.md`.
+function localDayWindow(d: Date): { startUtc: string; endUtc: string } {
+  const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+  const end = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+  return { startUtc: start.toISOString(), endUtc: end.toISOString() };
+}
+
+function localMonthWindow(d: Date): { startUtc: string; endUtc: string } {
+  const start = new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0);
+  // Day 0 of next month = last day of this month at 23:59:59.999 local.
+  const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
+  return { startUtc: start.toISOString(), endUtc: end.toISOString() };
+}
+
 /* ---------- Timeline ---------- */
 
 export function useRecordingTimeline(
   cameraId: string | undefined,
-  date: string | undefined,
+  selectedDate: Date | undefined,
 ) {
   const [hours, setHours] = useState<TimelineHour[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // Memoise window strings so the effect doesn't refire on every render
+  // (a fresh Date with the same value would otherwise produce a new
+  // identity each render and refetch in a loop).
+  const dateKey = selectedDate
+    ? `${selectedDate.getFullYear()}-${selectedDate.getMonth()}-${selectedDate.getDate()}`
+    : '';
+
   useEffect(() => {
-    if (!cameraId || !date) return;
+    if (!cameraId || !selectedDate) return;
     let cancelled = false;
     setLoading(true);
+    const { startUtc, endUtc } = localDayWindow(selectedDate);
+    const params = new URLSearchParams({ startUtc, endUtc });
     apiFetch<{ hours: TimelineHour[] }>(
-      `/api/recordings/camera/${cameraId}/timeline?date=${date}`,
+      `/api/recordings/camera/${cameraId}/timeline?${params.toString()}`,
     )
       .then((data) => {
         if (!cancelled) setHours(Array.isArray(data) ? data : data.hours ?? []);
@@ -144,7 +175,11 @@ export function useRecordingTimeline(
     return () => {
       cancelled = true;
     };
-  }, [cameraId, date]);
+    // dateKey is the stable identity for the local day; selectedDate would
+    // change identity on every parent render even when the calendar day is
+    // unchanged.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cameraId, dateKey]);
 
   return { hours, loading };
 }
@@ -153,18 +188,23 @@ export function useRecordingTimeline(
 
 export function useRecordingCalendar(
   cameraId: string | undefined,
-  year: number,
-  month: number,
+  displayedMonth: Date | undefined,
 ) {
   const [days, setDays] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const monthKey = displayedMonth
+    ? `${displayedMonth.getFullYear()}-${displayedMonth.getMonth()}`
+    : '';
+
   useEffect(() => {
-    if (!cameraId) return;
+    if (!cameraId || !displayedMonth) return;
     let cancelled = false;
     setLoading(true);
+    const { startUtc, endUtc } = localMonthWindow(displayedMonth);
+    const params = new URLSearchParams({ startUtc, endUtc });
     apiFetch<{ days: number[] }>(
-      `/api/recordings/camera/${cameraId}/calendar?year=${year}&month=${month}`,
+      `/api/recordings/camera/${cameraId}/calendar?${params.toString()}`,
     )
       .then((data) => {
         if (!cancelled) setDays(data.days ?? []);
@@ -178,7 +218,8 @@ export function useRecordingCalendar(
     return () => {
       cancelled = true;
     };
-  }, [cameraId, year, month]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cameraId, monthKey]);
 
   return { days, loading };
 }
@@ -187,17 +228,23 @@ export function useRecordingCalendar(
 
 export function useRecordingsList(
   cameraId: string | undefined,
-  date: string | undefined,
+  selectedDate: Date | undefined,
 ) {
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const dateKey = selectedDate
+    ? `${selectedDate.getFullYear()}-${selectedDate.getMonth()}-${selectedDate.getDate()}`
+    : '';
+
   const fetch = useCallback(async () => {
-    if (!cameraId || !date) return;
+    if (!cameraId || !selectedDate) return;
     setLoading(true);
     try {
+      const { startUtc, endUtc } = localDayWindow(selectedDate);
+      const params = new URLSearchParams({ startUtc, endUtc });
       const data = await apiFetch<Recording[]>(
-        `/api/recordings/camera/${cameraId}?date=${date}`,
+        `/api/recordings/camera/${cameraId}?${params.toString()}`,
       );
       setRecordings(data);
     } catch {
@@ -205,7 +252,8 @@ export function useRecordingsList(
     } finally {
       setLoading(false);
     }
-  }, [cameraId, date]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cameraId, dateKey]);
 
   useEffect(() => {
     fetch();

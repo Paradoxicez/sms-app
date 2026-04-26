@@ -54,13 +54,6 @@ interface RecordingsTabProps {
   };
 }
 
-function formatDate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
 function formatTime(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -82,27 +75,29 @@ export function RecordingsTab({ camera }: RecordingsTabProps) {
   );
   const [deleteTarget, setDeleteTarget] = useState<Recording | null>(null);
 
-  const dateStr = formatDate(selectedDate);
   const calYear = selectedDate.getFullYear();
   const calMonth = selectedDate.getMonth() + 1;
 
   const { isRecording, refetch: refetchStatus } = useRecordingStatus(
     camera.id,
   );
+  // Hooks now take a Date and compute the local-day UTC window internally.
+  // Pre-fix we passed a `YYYY-MM-DD` string that the backend interpreted as
+  // a UTC day, which mis-bucketed the timeline by the user's UTC offset.
+  // See debug session recordings-detail-timeline-timezone-mismatch.md.
   const { hours, loading: timelineLoading } = useRecordingTimeline(
     camera.id,
-    dateStr,
+    selectedDate,
   );
   const { days: calendarDays } = useRecordingCalendar(
     camera.id,
-    calYear,
-    calMonth,
+    selectedDate,
   );
   const {
     recordings,
     loading: listLoading,
     refetch: refetchList,
-  } = useRecordingsList(camera.id, dateStr);
+  } = useRecordingsList(camera.id, selectedDate);
 
   // Build dates that have recordings for calendar modifiers
   const daysWithRecordings = useMemo(() => {
@@ -116,12 +111,15 @@ export function RecordingsTab({ camera }: RecordingsTabProps) {
     refetchList();
   }, [refetchStatus, refetchList]);
 
+  // Timeline buckets are 0..23 of the user's local day (backend buckets
+  // relative to the supplied window start). Read recording hours via local
+  // getHours() — NOT getUTCHours() — to keep seek/range-select aligned.
   const handleSeek = useCallback(
     (hour: number) => {
       const target = recordings.find((r) => {
-        const startH = new Date(r.startedAt).getUTCHours();
+        const startH = new Date(r.startedAt).getHours();
         const endH = r.stoppedAt
-          ? new Date(r.stoppedAt).getUTCHours() + 1
+          ? new Date(r.stoppedAt).getHours() + 1
           : 24;
         return hour >= startH && hour < endH;
       });
@@ -137,7 +135,7 @@ export function RecordingsTab({ camera }: RecordingsTabProps) {
     (start: number, end: number) => {
       setSelectedRange({ start, end });
       const target = recordings.find((r) => {
-        const startH = new Date(r.startedAt).getUTCHours();
+        const startH = new Date(r.startedAt).getHours();
         return startH >= Math.floor(start) && startH < Math.ceil(end);
       });
       if (target) {
@@ -285,8 +283,10 @@ export function RecordingsTab({ camera }: RecordingsTabProps) {
                 className="cursor-pointer"
                 onClick={() => {
                   setPlayerRecordingId(rec.id);
-                  const startH = new Date(rec.startedAt).getUTCHours();
-                  const endH = rec.stoppedAt ? new Date(rec.stoppedAt).getUTCHours() + 1 : startH + 1;
+                  // Read local hours so the highlighted range on the timeline
+                  // matches the table's local-formatted Time Range column.
+                  const startH = new Date(rec.startedAt).getHours();
+                  const endH = rec.stoppedAt ? new Date(rec.stoppedAt).getHours() + 1 : startH + 1;
                   setSelectedRange({ start: startH, end: Math.min(endH, 24) });
                 }}
               >

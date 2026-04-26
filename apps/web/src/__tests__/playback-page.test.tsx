@@ -1,5 +1,13 @@
 /**
  * VALIDATION: Phase 17 — REC-01, REC-02, supporting (date-change, error states)
+ *
+ * Timezone note: post-fix (debug session
+ * `recordings-detail-timeline-timezone-mismatch.md`) the timeline buckets
+ * recordings by *local* hour and the hooks send `startUtc`/`endUtc` (no
+ * longer `date=YYYY-MM-DD`). Test fixtures use local-midnight-anchored
+ * timestamps so the assertions hold regardless of the host TZ — we read
+ * the recording's local hour at suite setup and feed that hour to the
+ * timeline-click simulation.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
@@ -80,6 +88,37 @@ const baseRecording = {
   _count: { segments: 30 },
 };
 
+// Local hour the test recording starts at — depends on host TZ.
+// Pre-fix the timeline used getUTCHours() which gave a fixed 8; post-fix
+// we read getHours() (local), so a Bangkok-local CI gives 15 and a UTC
+// CI gives 8. Compute it once so the click-to-seek test is portable.
+const baseRecLocalStartHour = new Date(baseRecording.startedAt).getHours();
+
+// Detector for the per-day "list recordings" call. Pre-fix this was
+// `?date=YYYY-MM-DD`; post-fix the hook sends `?startUtc=...&endUtc=...`.
+function isListUrl(url: string): boolean {
+  return (
+    url.startsWith("/api/recordings/camera/") &&
+    !url.includes("/timeline") &&
+    !url.includes("/calendar") &&
+    !url.includes("/schedules") &&
+    !url.includes("/retention") &&
+    url.includes("startUtc=")
+  );
+}
+
+// Extract the local-day key (YYYY-MM-DD) from a list URL by parsing the
+// startUtc and converting it to a local Date. The hook sends the local-
+// midnight as UTC, so converting back via `new Date(startUtc)` yields
+// midnight in the host's timezone — `.getDate()` therefore returns the
+// day the user picked in their browser.
+function localDayKeyFromListUrl(url: string): string | null {
+  const m = url.match(/startUtc=([^&]+)/);
+  if (!m) return null;
+  const d = new Date(decodeURIComponent(m[1]));
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function setApiFetchSequence(handler: (url: string) => any) {
   (apiFetch as any).mockImplementation((url: string) =>
     Promise.resolve(handler(url)),
@@ -105,17 +144,11 @@ describe("PlaybackPage (Phase 17)", () => {
 
   it("REC-01: mounts HlsPlayer with src=/api/recordings/:id/manifest when recording loads", async () => {
     setApiFetchSequence((url) => {
-      if (
-        url.startsWith("/api/recordings/rec-1") &&
-        !url.includes("/timeline") &&
-        !url.includes("/calendar") &&
-        !url.includes("?date=")
-      ) {
-        return baseRecording;
-      }
+      if (url === "/api/recordings/rec-1") return baseRecording;
       if (url.includes("/timeline")) return { hours: [] };
       if (url.includes("/calendar")) return { days: [] };
-      return [baseRecording];
+      if (isListUrl(url)) return [baseRecording];
+      return [];
     });
 
     render(<PlaybackPage />);
@@ -128,23 +161,19 @@ describe("PlaybackPage (Phase 17)", () => {
   it("REC-02 click-to-seek: timeline click navigates to recording containing the hour", async () => {
     const otherRec = { ...baseRecording, id: "rec-2" };
     setApiFetchSequence((url) => {
-      if (
-        url.startsWith("/api/recordings/rec-1") &&
-        !url.includes("/timeline") &&
-        !url.includes("/calendar") &&
-        !url.includes("?date=")
-      ) {
-        return baseRecording;
-      }
+      if (url === "/api/recordings/rec-1") return baseRecording;
       if (url.includes("/timeline"))
         return {
           hours: Array.from({ length: 24 }, (_, h) => ({
             hour: h,
-            hasData: h === 8,
+            // The seeded recording occupies its local-start hour. Mark that
+            // bucket so the click test exercises a populated hour regardless
+            // of host TZ.
+            hasData: h === baseRecLocalStartHour,
           })),
         };
       if (url.includes("/calendar")) return { days: [] };
-      if (url.includes("?date=")) return [otherRec]; // recordings list for the date contains rec-2 at 08-09
+      if (isListUrl(url)) return [otherRec];
       return [];
     });
 
@@ -152,7 +181,7 @@ describe("PlaybackPage (Phase 17)", () => {
     await waitFor(() => screen.getByTestId("timeline-bar"));
     await waitFor(() => expect(capturedTimelineProps).not.toBeNull());
 
-    capturedTimelineProps.onSeek(8);
+    capturedTimelineProps.onSeek(baseRecLocalStartHour);
     await waitFor(() => {
       expect(pushMock).toHaveBeenCalledWith("/app/recordings/rec-2");
     });
@@ -160,14 +189,7 @@ describe("PlaybackPage (Phase 17)", () => {
 
   it("REC-02 empty hour no-op: timeline click on hour with no recording does NOT call router.push", async () => {
     setApiFetchSequence((url) => {
-      if (
-        url.startsWith("/api/recordings/rec-1") &&
-        !url.includes("/timeline") &&
-        !url.includes("/calendar") &&
-        !url.includes("?date=")
-      ) {
-        return baseRecording;
-      }
+      if (url === "/api/recordings/rec-1") return baseRecording;
       if (url.includes("/timeline"))
         return {
           hours: Array.from({ length: 24 }, (_, h) => ({
@@ -176,7 +198,7 @@ describe("PlaybackPage (Phase 17)", () => {
           })),
         };
       if (url.includes("/calendar")) return { days: [] };
-      if (url.includes("?date=")) return []; // no recordings on the date
+      if (isListUrl(url)) return [];
       return [];
     });
 
@@ -184,7 +206,10 @@ describe("PlaybackPage (Phase 17)", () => {
     await waitFor(() => expect(capturedTimelineProps).not.toBeNull());
 
     pushMock.mockClear();
-    capturedTimelineProps.onSeek(15);
+    // Pick an hour that is NOT the recording's local start hour to guarantee
+    // the empty-hour code path runs.
+    const emptyHour = (baseRecLocalStartHour + 7) % 24;
+    capturedTimelineProps.onSeek(emptyHour);
     // give the effect a tick
     await new Promise((r) => setTimeout(r, 10));
     // No navigation should occur — neither from the empty-hour click nor from the date-change effect
@@ -198,21 +223,29 @@ describe("PlaybackPage (Phase 17)", () => {
       id: "rec-other",
       startedAt: "2026-04-19T10:00:00.000Z",
     };
-    // Two phases of apiFetch: first returns rec-1 + empty timeline/list for 2026-04-18
-    // Then once selectedDate flips to 2026-04-19 we return [otherRec] for the date list
+    // Two phases of apiFetch: first returns rec-1 + empty timeline/list for the
+    // base recording's local day, then once selectedDate flips +1 day we
+    // return [otherRec] for the new local day. The discriminator is the
+    // local-day key parsed out of `startUtc=`.
+    const baseLocalDayKey = (() => {
+      const d = new Date(baseRecording.startedAt);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    })();
+    const nextDay = (() => {
+      const d = new Date(baseRecording.startedAt);
+      d.setDate(d.getDate() + 1);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    })();
+
     setApiFetchSequence((url) => {
-      if (
-        url.startsWith("/api/recordings/rec-1") &&
-        !url.includes("/timeline") &&
-        !url.includes("/calendar") &&
-        !url.includes("?date=")
-      ) {
-        return baseRecording;
-      }
+      if (url === "/api/recordings/rec-1") return baseRecording;
       if (url.includes("/timeline")) return { hours: [] };
       if (url.includes("/calendar")) return { days: [] };
-      if (url.includes("?date=2026-04-19")) return [otherRec];
-      if (url.includes("?date=2026-04-18")) return [baseRecording];
+      if (isListUrl(url)) {
+        const dayKey = localDayKeyFromListUrl(url);
+        if (dayKey === nextDay) return [otherRec];
+        if (dayKey === baseLocalDayKey) return [baseRecording];
+      }
       return [];
     });
 

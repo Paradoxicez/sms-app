@@ -32,6 +32,7 @@ import {
   PlaylistSegment,
   skipLeadingNonKeyframeSegments,
 } from './download-playlist.util';
+import { resolveDayWindow, resolveMonthWindow } from './timeline-window.util';
 
 @ApiTags('Recordings')
 @Controller('api/recordings')
@@ -154,37 +155,65 @@ export class RecordingsController {
   async listRecordings(
     @Param('cameraId') cameraId: string,
     @Query('date') date?: string,
+    @Query('startUtc') startUtc?: string,
+    @Query('endUtc') endUtc?: string,
   ) {
     const orgId = this.cls.get('ORG_ID');
-    return this.recordingsService.listRecordings(cameraId, orgId, date);
+    const window = resolveDayWindow(date, startUtc, endUtc);
+    return this.recordingsService.listRecordings(cameraId, orgId, window);
   }
 
+  // Timeline / calendar / list endpoints accept an explicit UTC window
+  // (`startUtc`/`endUtc`) computed by the client from the user's selected
+  // local-day or local-month. The legacy `date`/`year`+`month` params are
+  // still accepted for backward compatibility but are interpreted as UTC
+  // boundaries (which silently mis-buckets recordings for any non-UTC user
+  // — see debug session recordings-detail-timeline-timezone-mismatch.md).
+  // New callers should always pass `startUtc`/`endUtc`.
   @Get('camera/:cameraId/timeline')
   async getTimeline(
     @Param('cameraId') cameraId: string,
-    @Query('date') date: string,
+    @Query('date') date?: string,
+    @Query('startUtc') startUtc?: string,
+    @Query('endUtc') endUtc?: string,
   ) {
-    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      throw new BadRequestException('Query param "date" is required in YYYY-MM-DD format');
-    }
     const orgId = this.cls.get('ORG_ID');
-    const hours = await this.manifestService.getSegmentsForDate(cameraId, orgId, date);
+    const window = resolveDayWindow(date, startUtc, endUtc);
+    if (!window) {
+      throw new BadRequestException(
+        'Either (startUtc + endUtc) ISO timestamps or "date" in YYYY-MM-DD format is required',
+      );
+    }
+    const hours = await this.manifestService.getSegmentsForDate(
+      cameraId,
+      orgId,
+      window.start,
+      window.end,
+    );
     return { hours };
   }
 
   @Get('camera/:cameraId/calendar')
   async getCalendar(
     @Param('cameraId') cameraId: string,
-    @Query('year') yearStr: string,
-    @Query('month') monthStr: string,
+    @Query('year') yearStr?: string,
+    @Query('month') monthStr?: string,
+    @Query('startUtc') startUtc?: string,
+    @Query('endUtc') endUtc?: string,
   ) {
-    const year = parseInt(yearStr, 10);
-    const month = parseInt(monthStr, 10);
-    if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
-      throw new BadRequestException('Query params "year" and "month" are required (month 1-12)');
-    }
     const orgId = this.cls.get('ORG_ID');
-    const days = await this.manifestService.getDaysWithRecordings(cameraId, orgId, year, month);
+    const window = resolveMonthWindow(yearStr, monthStr, startUtc, endUtc);
+    if (!window) {
+      throw new BadRequestException(
+        'Either (startUtc + endUtc) ISO timestamps or ("year" + "month" 1-12) is required',
+      );
+    }
+    const days = await this.manifestService.getDaysWithRecordings(
+      cameraId,
+      orgId,
+      window.start,
+      window.end,
+    );
     return { days };
   }
 

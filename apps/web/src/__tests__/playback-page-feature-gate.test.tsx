@@ -93,18 +93,20 @@ describe("PlaybackPage feature gate (Phase 17)", () => {
     }));
     // Mirror playback-page.test.tsx setup: resolve baseRecording for the [id] fetch,
     // empty timeline/calendar/list so the page can render past loading state.
+    // Post-fix the per-day list URL uses `startUtc=...` instead of `?date=...`
+    // (debug session recordings-detail-timeline-timezone-mismatch.md).
     (apiFetch as any).mockImplementation((url: string) => {
-      if (
-        url.startsWith("/api/recordings/rec-1") &&
-        !url.includes("/timeline") &&
-        !url.includes("/calendar") &&
-        !url.includes("?date=")
-      ) {
+      if (url === "/api/recordings/rec-1") {
         return Promise.resolve(baseRecording);
       }
       if (url.includes("/timeline")) return Promise.resolve({ hours: [] });
       if (url.includes("/calendar")) return Promise.resolve({ days: [] });
-      if (url.includes("?date=")) return Promise.resolve([baseRecording]);
+      if (
+        url.startsWith("/api/recordings/camera/") &&
+        url.includes("startUtc=")
+      ) {
+        return Promise.resolve([baseRecording]);
+      }
       return Promise.resolve(null);
     });
 
