@@ -143,6 +143,17 @@ export function CameraMarker({
     [status, isRecording, maintenanceMode, name],
   );
 
+  // Stabilize the position tuple reference across re-renders. react-leaflet's
+  // updateMarker uses strict reference equality (props.position !== prevProps.position)
+  // to decide whether to call marker.setLatLng(). Inside a MarkerClusterGroup,
+  // setLatLng triggers _moveChild's remove+re-add cycle which re-absorbs the
+  // just-clicked leaf back into its cluster bubble. Memoizing on [latitude, longitude]
+  // ensures the array reference only changes when coordinates actually change.
+  const position = useMemo<[number, number]>(
+    () => [latitude, longitude],
+    [latitude, longitude],
+  );
+
   const closePopup = useCallback(() => {
     markerRef.current?.closePopup();
   }, []);
@@ -187,7 +198,7 @@ export function CameraMarker({
   return (
     <Marker
       ref={markerRef}
-      position={[latitude, longitude]}
+      position={position}
       icon={icon}
       // Forward the status into Leaflet marker options so the cluster
       // iconCreateFunction can read worst-child status (D-16).
