@@ -3,6 +3,7 @@
 // deleted? rotate flow?) — service strips any ingestMode key submitted.
 // .strict() below additionally rejects unknown keys at the zod layer.
 import { z } from 'zod';
+import { TAG_MAX_LENGTH, TAG_MAX_PER_CAMERA } from '../tag-normalize';
 
 const STREAM_URL_ALLOWED_PREFIXES = ['rtsp://', 'rtmps://', 'rtmp://', 'srt://'] as const;
 
@@ -25,7 +26,17 @@ export const UpdateCameraSchema = z
       })
       .optional()
       .nullable(),
-    tags: z.array(z.string()).optional(),
+    // Phase 22 D-04 / D-05: identical bounds to CreateCamera — same helpers.
+    tags: z
+      .array(
+        z
+          .string()
+          .trim()
+          .min(1, 'Tag must not be empty')
+          .max(TAG_MAX_LENGTH, `Tag must be ${TAG_MAX_LENGTH} characters or fewer`),
+      )
+      .max(TAG_MAX_PER_CAMERA, `Maximum ${TAG_MAX_PER_CAMERA} tags per camera`)
+      .optional(),
     thumbnail: z.string().url().optional().nullable(),
     streamProfileId: z.string().uuid().optional().nullable(),
     // Camera move within the org — the Edit dialog's Site selector PATCHes

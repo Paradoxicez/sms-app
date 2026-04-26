@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TAG_MAX_LENGTH, TAG_MAX_PER_CAMERA } from '../tag-normalize';
 
 const STREAM_URL_ALLOWED_PREFIXES = ['rtsp://', 'rtmps://', 'rtmp://', 'srt://'] as const;
 
@@ -15,7 +16,20 @@ export const BulkImportCameraSchema = z
         lng: z.number(),
       })
       .optional(),
-    tags: z.array(z.string()).optional(),
+    // Phase 22 D-10: bulk-import keeps comma/semicolon parsing client-side
+    // (in apps/web/.../bulk-import-dialog.tsx); server-side enforcement is
+    // identical to single-camera writes — same TAG_MAX_LENGTH +
+    // TAG_MAX_PER_CAMERA from tag-normalize.ts.
+    tags: z
+      .array(
+        z
+          .string()
+          .trim()
+          .min(1, 'Tag must not be empty')
+          .max(TAG_MAX_LENGTH, `Tag must be ${TAG_MAX_LENGTH} characters or fewer`),
+      )
+      .max(TAG_MAX_PER_CAMERA, `Maximum ${TAG_MAX_PER_CAMERA} tags per camera`)
+      .optional(),
     streamProfileId: z.string().uuid().optional(),
   })
   .superRefine((row, ctx) => {

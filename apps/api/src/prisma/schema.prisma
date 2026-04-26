@@ -209,6 +209,11 @@ model Camera {
   description     String?
   location        Json?
   tags            String[]       @default([])
+  // Phase 22 D-06: lowercase shadow column kept in sync via the
+  // cameraTagNormalization Prisma extension (tenancy.module.ts factory).
+  // Backed by the GIN index `camera_tagsnormalized_idx` below; powers
+  // case-insensitive `?tags[]=` filter via `hasSome` on lowercased input.
+  tagsNormalized  String[]       @default([])
   thumbnail       String?
   status          String         @default("offline")
   needsTranscode  Boolean        @default(false)
@@ -238,6 +243,10 @@ model Camera {
   @@index([status])
   @@index([maintenanceMode])
   @@index([ingestMode])
+  // Phase 22 D-06: explicit `map:` locks the SQL index name regardless of
+  // Prisma's auto-derivation rules — `camera_tagsnormalized_idx` is the
+  // canonical name asserted in 22-VALIDATION + Plan 22-01 acceptance.
+  @@index([tagsNormalized(ops: ArrayOps)], type: Gin, map: "camera_tagsnormalized_idx")
 }
 
 model StreamProfile {
