@@ -308,3 +308,89 @@ B,rtsp://h/b`;
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// Group 4: Drop-zone drag-and-drop (regression guard for
+// bulk-import-drop-zone-not-working — the drop zone must accept dropped files
+// the same way the file picker does, AND must call preventDefault on dragover
+// so the browser doesn't reject the drop / open the file natively)
+// ---------------------------------------------------------------------------
+
+describe('BulkImportDialog drop-zone drag-and-drop', () => {
+  function findDropZone(): HTMLElement {
+    // The drop zone is the upload-step button containing "Drop file here".
+    const text = screen.getByText(/drop file here/i);
+    const btn = text.closest('button');
+    if (!btn) throw new Error('Drop-zone button not found');
+    return btn;
+  }
+
+  it('dropping a CSV file on the drop zone parses it and advances to the preview step', async () => {
+    apiFetchMock.mockImplementation(async (path: string) => {
+      if (path === '/api/projects') return [{ id: 'p1', name: 'Proj' }];
+      if (path.includes('/sites')) return [{ id: 's1', name: 'Site' }];
+      return undefined as never;
+    });
+
+    render(
+      <BulkImportDialog open onOpenChange={() => {}} onSuccess={() => {}} />,
+    );
+
+    const csv = `name,streamUrl
+DropCam,rtsp://h/d`;
+    const file = new File([csv], 'cameras.csv', { type: 'text/csv' });
+
+    const dropZone = findDropZone();
+    // Simulate the drag sequence: dragover then drop. fireEvent.drop accepts a
+    // dataTransfer object on the second arg; the handler reads dataTransfer.files.
+    fireEvent.dragOver(dropZone, { dataTransfer: { files: [file] } });
+    fireEvent.drop(dropZone, { dataTransfer: { files: [file] } });
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Confirm Import/i })).toBeInTheDocument();
+    });
+    expect(screen.getByDisplayValue('DropCam')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('rtsp://h/d')).toBeInTheDocument();
+  });
+
+  it('dragover on the drop zone calls preventDefault (otherwise the browser rejects the drop)', () => {
+    render(
+      <BulkImportDialog open onOpenChange={() => {}} onSuccess={() => {}} />,
+    );
+
+    const dropZone = findDropZone();
+    // fireEvent returns false when the event was canceled via preventDefault.
+    // This is the load-bearing assertion: without preventDefault on dragover,
+    // onDrop never fires regardless of how the handler is written.
+    const notCanceled = fireEvent.dragOver(dropZone, { dataTransfer: { files: [] } });
+    expect(notCanceled).toBe(false);
+  });
+
+  it('dragover toggles the drag-over visual state on the drop zone', () => {
+    render(
+      <BulkImportDialog open onOpenChange={() => {}} onSuccess={() => {}} />,
+    );
+
+    const dropZone = findDropZone();
+    expect(dropZone.getAttribute('data-drag-over')).toBeNull();
+
+    fireEvent.dragEnter(dropZone, { dataTransfer: { files: [] } });
+    expect(dropZone.getAttribute('data-drag-over')).toBe('true');
+
+    fireEvent.dragLeave(dropZone, { dataTransfer: { files: [] } });
+    expect(dropZone.getAttribute('data-drag-over')).toBeNull();
+  });
+
+  it('dropping with no files is a no-op (does not crash, stays on upload step)', () => {
+    render(
+      <BulkImportDialog open onOpenChange={() => {}} onSuccess={() => {}} />,
+    );
+
+    const dropZone = findDropZone();
+    fireEvent.drop(dropZone, { dataTransfer: { files: [] } });
+
+    // Still on upload step — no preview table, no Confirm Import button.
+    expect(screen.queryByRole('button', { name: /Confirm Import/i })).toBeNull();
+    expect(screen.getByText(/drop file here/i)).toBeInTheDocument();
+  });
+});

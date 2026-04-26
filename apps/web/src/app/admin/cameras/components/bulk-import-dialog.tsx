@@ -81,6 +81,27 @@ function normalizeHeader(h: string): string {
   return h.toLowerCase().replace(/[\s_-]/g, '');
 }
 
+// Excel-Thai exports default to Windows-874 (CP874/TIS-620), not UTF-8.
+// Strict UTF-8 decode of those bytes produces U+FFFD per Thai byte;
+// fall back to windows-874 so Thai content round-trips intact.
+function decodeFileBytes(buf: ArrayBuffer): string {
+  const view = new Uint8Array(buf);
+  if (view.length >= 3 && view[0] === 0xef && view[1] === 0xbb && view[2] === 0xbf) {
+    return new TextDecoder('utf-8').decode(view.subarray(3));
+  }
+  if (view.length >= 2 && view[0] === 0xff && view[1] === 0xfe) {
+    return new TextDecoder('utf-16le').decode(view.subarray(2));
+  }
+  if (view.length >= 2 && view[0] === 0xfe && view[1] === 0xff) {
+    return new TextDecoder('utf-16be').decode(view.subarray(2));
+  }
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(view);
+  } catch {
+    return new TextDecoder('windows-874').decode(view);
+  }
+}
+
 function mapHeaders(headers: string[]) {
   const normalized = headers.map(normalizeHeader);
 
@@ -330,6 +351,9 @@ export function BulkImportDialog({
   // Phase 19.1 D-14: retain the server response post-import so the result panel
   // can render the PushUrlsDownloadButton. Cleared on dialog close.
   const [importedCameras, setImportedCameras] = useState<ImportedCamera[]>([]);
+  // Drag-and-drop visual state — true while a file is hovering over the drop zone.
+  // Cleared on drop or dragleave so the dashed border returns to its idle color.
+  const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadSites = useCallback(async () => {
@@ -353,10 +377,12 @@ export function BulkImportDialog({
     }
   }, [selectedSiteId]);
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  /**
+   * Shared file-ingest path used by BOTH the file picker (onChange) and the
+   * drop zone (onDrop). Branches on extension: .xlsx/.xls go through SheetJS
+   * with an ArrayBuffer; .csv/.json read as text and parse line-by-line.
+   */
+  function handleFile(file: File) {
     // Max file size check
     if (file.size > 5 * 1024 * 1024) {
       toast.error('File too large. Maximum 5MB.');
@@ -379,9 +405,15 @@ export function BulkImportDialog({
     } else {
       const reader = new FileReader();
       reader.onload = () => {
-        const text = reader.result as string;
-        let parsed: CameraRow[] = [];
+        let text: string;
+        try {
+          text = decodeFileBytes(reader.result as ArrayBuffer);
+        } catch {
+          toast.error("Failed to decode file. Save as 'CSV UTF-8 (Comma delimited)' and retry.");
+          return;
+        }
 
+        let parsed: CameraRow[] = [];
         try {
           if (file.name.endsWith('.json')) {
             parsed = parseJSON(text);
@@ -398,10 +430,54 @@ export function BulkImportDialog({
 
         processRows(parsed);
       };
-      reader.readAsText(file);
+      reader.readAsArrayBuffer(file);
     }
+  }
 
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    handleFile(file);
     e.target.value = '';
+  }
+
+  /**
+   * Drop-zone handlers — wire dragover/dragenter/dragleave/drop on the
+   * drop-zone element. `preventDefault()` on dragover is REQUIRED; without it
+   * the browser's default "reject the drop" behavior runs and `onDrop` never
+   * fires (in the worst case the browser opens the file natively, navigating
+   * away from the page). We also call preventDefault on drop itself so the
+   * browser doesn't try to render the file. dragenter is needed in addition
+   * to dragover because some browsers (Firefox) only fire dragenter on the
+   * initial entry, and we want the highlight on the first frame.
+   * See `.planning/debug/bulk-import-drop-zone-not-working.md`.
+   */
+  function handleDragOver(e: React.DragEvent<HTMLButtonElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isDragOver) setIsDragOver(true);
+  }
+
+  function handleDragEnter(e: React.DragEvent<HTMLButtonElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  }
+
+  function handleDragLeave(e: React.DragEvent<HTMLButtonElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  }
+
+  function handleDrop(e: React.DragEvent<HTMLButtonElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    handleFile(file);
   }
 
   function processRows(parsed: CameraRow[]) {
@@ -564,7 +640,16 @@ export function BulkImportDialog({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex w-full flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-muted-foreground/25 p-12 text-center transition-colors hover:border-primary/50 hover:bg-muted/50"
+              onDragOver={handleDragOver}
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              data-drag-over={isDragOver ? 'true' : undefined}
+              className={`flex w-full flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-12 text-center transition-colors hover:border-primary/50 hover:bg-muted/50 ${
+                isDragOver
+                  ? 'border-primary bg-muted/50'
+                  : 'border-muted-foreground/25'
+              }`}
             >
               <Upload className="h-10 w-10 text-muted-foreground" />
               <div>
