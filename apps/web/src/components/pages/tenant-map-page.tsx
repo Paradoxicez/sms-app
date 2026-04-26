@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { MapPin } from 'lucide-react';
+import { MapPin, PlusCircle } from 'lucide-react';
 
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
@@ -22,6 +22,107 @@ import { ViewStreamSheet } from '@/app/admin/cameras/components/view-stream-shee
 import type { CameraRow } from '@/app/admin/cameras/components/cameras-columns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+
+/**
+ * Phase 22 Plan 10 — Map toolbar tag MultiSelect filter (D-20).
+ *
+ * A standalone, jsdom-friendly disclosure (no portal Popover). The trigger
+ * button is labeled "Tags"; clicking it reveals a checkbox list of distinct
+ * org tags. Multi-select with OR semantics; matching is case-insensitive at
+ * the page-level filter (`filteredCameras`). State is owned by the page and
+ * passed in — D-21 mandates this filter is INDEPENDENT from the table filter.
+ */
+function MapTagFilter({
+  options,
+  selected,
+  onToggle,
+  onClear,
+}: {
+  options: string[];
+  selected: Set<string>;
+  onToggle: (tag: string) => void;
+  onClear: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const sorted = useMemo(
+    () => [...options].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase())),
+    [options],
+  );
+
+  return (
+    <div className="relative">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-8 border-dashed"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <PlusCircle className="mr-2 size-4" />
+        Tags
+        {selected.size > 0 && (
+          <Badge
+            variant="secondary"
+            className="ml-2 rounded-sm px-1 font-normal"
+          >
+            {selected.size}
+          </Badge>
+        )}
+      </Button>
+      {open && (
+        <div
+          role="listbox"
+          aria-label="Filter by tag"
+          className="absolute right-0 z-[1100] mt-1 w-[240px] rounded-md border bg-popover p-2 text-sm shadow-md"
+        >
+          {sorted.length === 0 ? (
+            <div className="px-2 py-1.5 text-muted-foreground">
+              No tags yet. Add tags from the camera form.
+            </div>
+          ) : (
+            <div className="max-h-[240px] overflow-y-auto">
+              {sorted.map((tag) => {
+                const isSelected = selected.has(tag);
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    role="option"
+                    aria-selected={isSelected}
+                    aria-label={tag}
+                    onClick={() => onToggle(tag)}
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted"
+                  >
+                    <Checkbox checked={isSelected} aria-label={`Select ${tag}`} />
+                    <span>{tag}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {selected.size > 0 && (
+            <>
+              <div className="my-1 h-px bg-border" />
+              <button
+                type="button"
+                onClick={() => {
+                  onClear();
+                }}
+                className="flex w-full items-center justify-center rounded-md py-1.5 text-sm text-muted-foreground hover:bg-muted"
+              >
+                Clear filters
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /** Collect all camera IDs from a tree node and its descendants */
 function collectCameraIds(node: TreeNode): string[] {
@@ -110,6 +211,41 @@ export default function TenantMapPage() {
     return collectCameraIds(filterNode);
   }, [filterNode]);
 
+  // Phase 22 Plan 10 — Tag filter state (D-20). State is local to this page
+  // (NOT shared with /admin/cameras filter — D-21). Selection is a Set of
+  // ORIGINAL-CASING tag strings; matching is case-insensitive (Pitfall 3).
+  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
+  const [distinctTags, setDistinctTags] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch<{ tags?: string[] }>('/api/cameras/tags/distinct')
+      .then((data) => {
+        if (cancelled) return;
+        setDistinctTags(data?.tags ?? []);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setDistinctTags([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const toggleTag = useCallback((tag: string) => {
+    setSelectedTags((prev) => {
+      const next = new Set(prev);
+      if (next.has(tag)) next.delete(tag);
+      else next.add(tag);
+      return next;
+    });
+  }, []);
+
+  const clearSelectedTags = useCallback(() => {
+    setSelectedTags(new Set());
+  }, []);
+
   useEffect(() => {
     async function loadSession() {
       try {
@@ -140,6 +276,11 @@ export default function TenantMapPage() {
         maintenanceEnteredAt: (c.maintenanceEnteredAt as string | null) ?? null,
         lastOnlineAt: (c.lastOnlineAt as string | null) ?? null,
         retentionDays: (c.retentionDays as number | null) ?? null,
+        // Phase 22 Plan 10 — Pitfall 6: API tags + description must be
+        // explicitly threaded into the MapCamera shape (the mapper is a
+        // whitelist, not a pass-through).
+        tags: (c.tags as string[] | undefined) ?? [],
+        description: (c.description as string | null | undefined) ?? null,
       }));
       setCameras(mapped);
     } catch {
@@ -267,9 +408,31 @@ export default function TenantMapPage() {
     );
   }
 
+  // Phase 22 Plan 10 — Apply tag filter to cameras AFTER mapping. OR semantics:
+  // a camera passes if ANY of its tags (case-insensitive) is in the selection.
+  const filteredCameras = useMemo<MapCamera[]>(() => {
+    if (selectedTags.size === 0) return cameras;
+    const lowered = new Set(
+      Array.from(selectedTags).map((t) => t.toLowerCase()),
+    );
+    return cameras.filter((c) => {
+      const tags = c.tags ?? [];
+      return tags.some((t) => lowered.has(t.toLowerCase()));
+    });
+  }, [cameras, selectedTags]);
+
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold">Map View</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-xl font-semibold">Map View</h1>
+        {/* Phase 22 Plan 10 — Map toolbar tag MultiSelect filter (D-20). */}
+        <MapTagFilter
+          options={distinctTags}
+          selected={selectedTags}
+          onToggle={toggleTag}
+          onClear={clearSelectedTags}
+        />
+      </div>
 
       {error && (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
@@ -333,7 +496,7 @@ export default function TenantMapPage() {
           )}
 
           <CameraMap
-            cameras={cameras}
+            cameras={filteredCameras}
             viewerCounts={viewerCounts}
             filteredCameraIds={filteredCameraIds}
             placementActive={placement.state.mode !== 'idle'}

@@ -20,6 +20,9 @@ interface CameraMarkerProps {
   maintenanceEnteredAt: string | null;
   lastOnlineAt: string | null;
   retentionDays: number | null;
+  /** Phase 22 Plan 10 — popup tags row + description block (D-19). */
+  tags?: string[];
+  description?: string | null;
   onViewStream?: (id: string) => void;
   onSetLocation?: (id: string, name: string) => void;
   onDragEnd?: (id: string, name: string, lat: number, lng: number) => void;
@@ -128,6 +131,8 @@ export function CameraMarker({
   maintenanceEnteredAt,
   lastOnlineAt,
   retentionDays,
+  tags,
+  description,
   onViewStream,
   onSetLocation,
   onDragEnd,
@@ -220,6 +225,8 @@ export function CameraMarker({
           maintenanceEnteredAt={maintenanceEnteredAt}
           lastOnlineAt={lastOnlineAt}
           retentionDays={retentionDays}
+          tags={tags}
+          description={description}
           previewActive={popupOpen}
           onViewStream={handleViewStream}
           onSetLocation={handleSetLocation}
