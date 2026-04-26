@@ -514,3 +514,96 @@ describe('CameraFormDialog inline duplicate detection — quick 260426-lg5', () 
     ).toBeInTheDocument();
   });
 });
+
+describe('CameraFormDialog dirty-tracking PATCH — quick 260426-nqr', () => {
+  function captureFetch() {
+    const fn = apiFetch as unknown as ApiFetchMock;
+    fn.mockImplementation(async (path: string, options?: RequestInit) => {
+      // Echo PATCH body back so tests can inspect what was actually sent.
+      if (options?.method === 'PATCH' && /\/api\/cameras\/[^/]+$/.test(path)) {
+        return {};
+      }
+      if (path === '/api/projects') return [{ id: 'proj-1', name: 'Project 1' }];
+      if (path === '/api/stream-profiles') {
+        return [{ id: 'p1', name: 'Default', isDefault: true }];
+      }
+      if (path === '/api/cameras') return [];
+      if (path.startsWith('/api/projects/') && path.endsWith('/sites')) {
+        return [{ id: 'site-1', name: 'Site 1' }];
+      }
+      return [];
+    });
+    return fn;
+  }
+
+  it('edit mode: changing only Name → PATCH body has exactly { name } and nothing else', async () => {
+    const fn = captureFetch();
+    renderDialog({
+      camera: {
+        id: 'c1',
+        name: 'Old Name',
+        streamUrl: 'rtsp://h/s',
+        description: 'desc',
+        location: { lat: 1, lng: 2 },
+        tags: ['a', 'b'],
+        streamProfileId: 'p1',
+        site: { id: 'site-1', name: 'Site 1', project: { id: 'proj-1', name: 'Project 1' } },
+      },
+    });
+
+    // Wait for initial pre-fill to settle.
+    await waitFor(() => {
+      expect((screen.getByLabelText(/^Name/) as HTMLInputElement).value).toBe('Old Name');
+    });
+
+    await typeName('New Name');
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /Save Camera|Save Changes/ }),
+      ).not.toBeDisabled();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Save Camera|Save Changes/ }));
+
+    await waitFor(() => {
+      const patchCall = fn.mock.calls.find(
+        (c) => (c[1] as RequestInit | undefined)?.method === 'PATCH',
+      );
+      expect(patchCall).toBeDefined();
+      const body = JSON.parse((patchCall![1] as RequestInit).body as string);
+      expect(body).toEqual({ name: 'New Name' });
+    });
+  });
+
+  it('edit mode: no changes + Save → no PATCH fires, dialog closes via onOpenChange(false)', async () => {
+    const fn = captureFetch();
+    const onOpenChange = vi.fn();
+    const onSuccess = vi.fn();
+    renderDialog({
+      camera: {
+        id: 'c1',
+        name: 'Same',
+        streamUrl: 'rtsp://h/s',
+        streamProfileId: 'p1',
+        site: { id: 'site-1', name: 'Site 1', project: { id: 'proj-1', name: 'Project 1' } },
+      },
+      onOpenChange,
+      onSuccess,
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /Save Camera|Save Changes/ }),
+      ).not.toBeDisabled();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Save Camera|Save Changes/ }));
+
+    await waitFor(() => {
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+      expect(onSuccess).toHaveBeenCalled();
+    });
+    const patchCalls = fn.mock.calls.filter(
+      (c) => (c[1] as RequestInit | undefined)?.method === 'PATCH',
+    );
+    expect(patchCalls).toHaveLength(0);
+  });
+});
