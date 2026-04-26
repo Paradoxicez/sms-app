@@ -214,6 +214,33 @@ export class CamerasController {
     return this.camerasService.createCamera(this.getOrgId(), siteId, result.data);
   }
 
+  // Phase 22 Plan 22-05 (D-09, D-28): GET /cameras/tags/distinct
+  //
+  // Declared BEFORE @Get('cameras/:id') (~ line 259 below) so NestJS's
+  // path-to-regexp picks the literal `cameras/tags/distinct` segment over
+  // a `:id` capture that would otherwise match with id='tags' and a stray
+  // `/distinct` 404. Same pattern as `cameras/snapshot/refresh-all` and
+  // `cameras/bulk-import`.
+  //
+  // Backs the chip-combobox autocomplete (Plan 22-07) and the table+map
+  // filter MultiSelect (Plans 22-08, 22-10). Tenant-scoped via the existing
+  // AuthGuard at the controller level + the service's set_config-prologue
+  // RLS prologue inside the $queryRaw transaction (T-22-02 mitigation).
+  @Get('cameras/tags/distinct')
+  @ApiOperation({
+    summary:
+      'List distinct tags for the current org (alphabetized, case-insensitive de-dup, first-seen casing). Cached 60s.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Distinct tags wrapped in `{ tags: string[] }`',
+  })
+  async getDistinctTags(): Promise<{ tags: string[] }> {
+    const orgId = this.getOrgId();
+    const tags = await this.camerasService.findDistinctTags(orgId);
+    return { tags };
+  }
+
   @Get('cameras')
   @ApiOperation({ summary: 'List all cameras' })
   @ApiResponse({ status: 200, description: 'List of cameras' })

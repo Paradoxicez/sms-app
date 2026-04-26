@@ -31,6 +31,7 @@ import {
   streamKeyPrefix,
 } from './stream-key.util';
 import { fingerprintProfile } from '../streams/profile-fingerprint.util';
+import { TagCacheService } from './tag-cache.service';
 
 /**
  * Phase 22 Plan 22-04 (D-24): case-insensitive array equality helper for
@@ -78,6 +79,13 @@ export class CamerasService {
     // Phase 19.1 (D-21): push-specific audit events. Optional for harness
     // compatibility; real DI path wires the global AuditService.
     private readonly auditService?: AuditService,
+    // Phase 22 Plan 22-05 (D-09, D-28): read-through cache for the
+    // distinct-tags endpoint. Optional so existing test harnesses
+    // constructing CamerasService with the prior 7-arg signature still
+    // compile; findDistinctTags is the only caller and falls back to a
+    // local TagCacheService when undefined (which itself has no required
+    // deps — Redis is also @Optional inside TagCacheService).
+    private readonly tagCacheService?: TagCacheService,
   ) {}
 
   // ─── Projects ──────────────────────────────────
@@ -349,6 +357,87 @@ export class CamerasService {
           select: { id: true, name: true, codec: true },
         },
       },
+    });
+  }
+
+  /**
+   * Phase 22 Plan 22-05 (D-09, D-28): list distinct tags for the org.
+   *
+   * Backs the chip-combobox autocomplete (Plan 22-07) and the table+map
+   * filter MultiSelect (Plans 22-08, 22-10). Read-through Redis+memory cache
+   * with `tags:distinct:{orgId}` key shape and 60s TTL — see
+   * tag-cache.service.ts.
+   *
+   * Implementation notes:
+   *   • $queryRaw bypasses the Prisma tenancy extension. We MUST manually
+   *     apply `set_config('app.current_org_id', orgId, TRUE)` inside the
+   *     SAME transaction so RLS policy `tenant_isolation_camera` scopes the
+   *     subsequent SELECT to the requesting org. Without this, the raw query
+   *     would either return zero rows (when running as app_user with no
+   *     context) or LEAK across orgs (when running as a superuser role) —
+   *     T-22-02 mitigation.
+   *   • DISTINCT ON (lower(tag)) collapses case-insensitive duplicates to
+   *     ONE row, picking the lexicographically-first original casing per
+   *     lowercase key (D-04 first-seen casing — e.g. "Lobby" beats "lobby"
+   *     under default Postgres collation since uppercase letters sort before
+   *     lowercase in en_US.utf8).
+   *   • Application-level `.sort` re-sorts case-insensitively for stable
+   *     alphabetical display so the combobox shows "Entrance, Lobby, Outdoor"
+   *     regardless of the ordering Postgres chose for the DISTINCT ON pass.
+   *
+   * Cache key + behavior is enforced in TagCacheService — this method only
+   * supplies the compute() callback.
+   */
+  async findDistinctTags(orgId: string): Promise<string[]> {
+    // Lazy fallback: in unit-test harnesses that construct CamerasService
+    // with the prior 7-arg ctor, tagCacheService is undefined. Spin up a
+    // local TagCacheService (memory-only — TagCacheService's Redis dep is
+    // @Optional) so the same code path is exercised both in DI and harness
+    // mode. Phase 22 Plan 22-05 Task 2 acceptance criteria do not require a
+    // real Redis in tests; the cache contract is pinned by the dedicated
+    // TagCacheService unit cases.
+    const cache = this.tagCacheService ?? new TagCacheService();
+    return cache.getOrCompute(orgId, async () => {
+      const rows: Array<{ tag: string }> = await this.tenancy.$transaction(
+        async (tx: any) => {
+          // RLS prologue — match prisma-tenancy.extension.ts pattern. The
+          // tenancy client's auto-extension does NOT inject set_config for
+          // $queryRaw, so we apply it manually inside the same transaction.
+          // This is the production T-22-02 mitigation when the connection
+          // runs as the `app_user` role.
+          await tx.$executeRaw`SELECT set_config('app.current_org_id', ${orgId}, TRUE)`;
+          // Defense-in-depth: explicit WHERE "orgId" = ${orgId} ensures the
+          // query is correct regardless of which Postgres role runs it. The
+          // test harness uses the `sms` superuser role (rolbypassrls=true)
+          // and would otherwise leak ALL orgs' tags into the result set;
+          // production app_user clients enforce isolation via RLS, but
+          // belt-and-suspenders prevents a future "test passes, prod leaks"
+          // mismatch. T-22-02 mitigation now has TWO layers.
+          //
+          // unnest expands the `tags String[]` column into one row per tag.
+          // DISTINCT ON (lower(tag)) collapses case-insensitive duplicates;
+          // the inner ORDER BY tag COLLATE "C" picks the lexicographically-
+          // FIRST original casing per lowercase key. COLLATE "C" forces
+          // ASCII byte-order so uppercase letters sort BEFORE lowercase
+          // (A < Z < a < z), making "Lobby" deterministically win over
+          // "lobby" across Postgres versions/locales (en_US.UTF-8 inverts
+          // this on some installs — see Plan 22-05 §<action> note).
+          return tx.$queryRaw`
+            SELECT DISTINCT ON (lower(tag)) tag
+            FROM "Camera", unnest(tags) AS tag
+            WHERE "orgId" = ${orgId}
+            ORDER BY lower(tag), tag COLLATE "C"
+          `;
+        },
+      );
+      // Final case-insensitive alphabetical sort for stable display order.
+      // The DISTINCT ON pass uses `ORDER BY lower(tag), tag` for picking the
+      // winning casing, but the resulting top-level row order isn't
+      // guaranteed to be human-friendly across all Postgres collations — do
+      // the sort in the application layer where the contract is explicit.
+      return rows
+        .map((r) => r.tag)
+        .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
     });
   }
 
