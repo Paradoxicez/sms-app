@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Self-Service, Resilience & UI Polish
 status: executing
-stopped_at: Phase 22 context gathered
-last_updated: "2026-04-26T10:41:37.291Z"
+stopped_at: Phase 22 UI-SPEC approved
+last_updated: "2026-04-26T11:06:02.243Z"
 last_activity: "2026-04-26 - Completed quick task 260426-nqr: Camera Edit form dirty-tracking PATCH + extended deriveActionLabel for single-field cases"
 progress:
   total_phases: 11
@@ -108,6 +108,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-26T10:41:37.285Z
-Stopped at: Phase 22 context gathered
-Resume file: .planning/phases/22-camera-metadata-utilization-surface-tags-description-across-/22-CONTEXT.md
+Last session: 2026-04-26T11:06:02.236Z
+Stopped at: Phase 22 UI-SPEC approved
+Resume file: .planning/phases/22-camera-metadata-utilization-surface-tags-description-across-/22-UI-SPEC.md
