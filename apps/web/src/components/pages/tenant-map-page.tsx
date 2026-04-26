@@ -416,7 +416,7 @@ export default function TenantMapPage() {
       Array.from(selectedTags).map((t) => t.toLowerCase()),
     );
     return cameras.filter((c) => {
-      const tags = c.tags ?? [];
+      const tags: string[] = c.tags ?? [];
       return tags.some((t) => lowered.has(t.toLowerCase()));
     });
   }, [cameras, selectedTags]);
