@@ -381,6 +381,20 @@ export default function TenantMapPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [placement.state.mode]);
 
+  // Phase 22 Plan 10 — Apply tag filter to cameras AFTER mapping. OR semantics:
+  // a camera passes if ANY of its tags (case-insensitive) is in the selection.
+  // MUST stay above the early returns below or hook order changes between renders.
+  const filteredCameras = useMemo<MapCamera[]>(() => {
+    if (selectedTags.size === 0) return cameras;
+    const lowered = new Set(
+      Array.from(selectedTags).map((t) => t.toLowerCase()),
+    );
+    return cameras.filter((c) => {
+      const tags: string[] = c.tags ?? [];
+      return tags.some((t) => lowered.has(t.toLowerCase()));
+    });
+  }, [cameras, selectedTags]);
+
   // Feature loading state
   if (featureLoading) {
     return (
@@ -407,19 +421,6 @@ export default function TenantMapPage() {
       </div>
     );
   }
-
-  // Phase 22 Plan 10 — Apply tag filter to cameras AFTER mapping. OR semantics:
-  // a camera passes if ANY of its tags (case-insensitive) is in the selection.
-  const filteredCameras = useMemo<MapCamera[]>(() => {
-    if (selectedTags.size === 0) return cameras;
-    const lowered = new Set(
-      Array.from(selectedTags).map((t) => t.toLowerCase()),
-    );
-    return cameras.filter((c) => {
-      const tags: string[] = c.tags ?? [];
-      return tags.some((t) => lowered.has(t.toLowerCase()));
-    });
-  }, [cameras, selectedTags]);
 
   return (
     <div className="space-y-6">
