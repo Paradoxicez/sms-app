@@ -57,6 +57,14 @@ const CAMERA_MEANINGFUL_KEYS = [
   "siteId",
   "ingestMode",
   "needsTranscode",
+  // quick 260426-nqr: extended for single-field rules below. Without these,
+  // PATCHes that only carry one of these keys would fall through to the
+  // generic update fallback (or be treated as no-op when paired with
+  // `name`/`streamProfileId` since meaningfulCameraKeys would silently drop
+  // them and incorrectly trigger the rename / change-profile rule).
+  "tags",
+  "description",
+  "location",
 ] as const
 
 function normalizePath(path: string): string {
@@ -142,6 +150,66 @@ const RULES: Rule[] = [
       return keys.length === 1 && keys[0] === "streamProfileId"
     },
     build: () => "Changed stream profile",
+  },
+  // quick 260426-nqr: 6 single-field rules. Order matters — these MUST
+  // precede rule 9 (generic update) so the single-key check fires first
+  // when only one meaningful key is present.
+  // 8a. Update tags — only `tags` is present.
+  {
+    match: (e) => {
+      if (e.signature !== "PATCH /api/cameras/:id") return false
+      const keys = meaningfulCameraKeys(e.details)
+      return keys.length === 1 && keys[0] === "tags"
+    },
+    build: () => "Updated tags",
+  },
+  // 8b. Update description — only `description` is present.
+  {
+    match: (e) => {
+      if (e.signature !== "PATCH /api/cameras/:id") return false
+      const keys = meaningfulCameraKeys(e.details)
+      return keys.length === 1 && keys[0] === "description"
+    },
+    build: () => "Updated description",
+  },
+  // 8c. Update location — only `location` is present.
+  {
+    match: (e) => {
+      if (e.signature !== "PATCH /api/cameras/:id") return false
+      const keys = meaningfulCameraKeys(e.details)
+      return keys.length === 1 && keys[0] === "location"
+    },
+    build: () => "Updated location",
+  },
+  // 8d. Move to another site — only `siteId` is present.
+  {
+    match: (e) => {
+      if (e.signature !== "PATCH /api/cameras/:id") return false
+      const keys = meaningfulCameraKeys(e.details)
+      return keys.length === 1 && keys[0] === "siteId"
+    },
+    build: () => "Moved to another site",
+  },
+  // 8e. Update stream URL — only `streamUrl` is present.
+  {
+    match: (e) => {
+      if (e.signature !== "PATCH /api/cameras/:id") return false
+      const keys = meaningfulCameraKeys(e.details)
+      return keys.length === 1 && keys[0] === "streamUrl"
+    },
+    build: () => "Updated stream URL",
+  },
+  // 8f. Toggle auto-transcode — only `needsTranscode` is present (read bool).
+  {
+    match: (e) => {
+      if (e.signature !== "PATCH /api/cameras/:id") return false
+      const keys = meaningfulCameraKeys(e.details)
+      return keys.length === 1 && keys[0] === "needsTranscode"
+    },
+    build: (e) =>
+      e.details?.needsTranscode === true
+        ? "Toggled auto-transcode ON"
+        : "Toggled auto-transcode OFF",
   },
   // 9. Generic update — multiple meaningful keys present.
   {
