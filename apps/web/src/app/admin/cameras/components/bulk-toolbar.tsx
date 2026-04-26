@@ -1,9 +1,12 @@
 "use client"
 
+import { useMemo } from "react"
 import { Radio, Circle, Wrench, Trash2, X, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { CameraRow } from "./cameras-columns"
+import { BulkAddTagPopover } from "./bulk-add-tag-popover"
+import { BulkRemoveTagPopover } from "./bulk-remove-tag-popover"
 
 /**
  * Phase 20 D-03/D-04 — Sticky bulk-action toolbar for the cameras table.
@@ -18,9 +21,19 @@ import type { CameraRow } from "./cameras-columns"
  *   - Delete ({N}) is destructive; Clear × stays enabled during processing
  *   - role="toolbar" + aria-label="Bulk actions"; counter has aria-live="polite"
  *
+ * Phase 22 Plan 22-11 D-11/D-12/D-13 — bulk Add tag / Remove tag:
+ *   - 'Add tag' (variant=outline) inserted after Maintenance, before Delete.
+ *   - 'Remove tag' rendered next to Add only when ≥1 selected camera has ≥1 tag.
+ *   - selectionTagUnion is computed here (case-insensitive dedup, first-seen
+ *     casing wins) and passed to BulkRemoveTagPopover so T-22-14 holds: the
+ *     Remove popover does not perform any extra fetch — its suggestions come
+ *     from rows already in the user's UI.
+ *
  * The component is presentational — parent owns rowSelection state, dispatches
  * bulkAction, and renders MaintenanceReasonDialog + Delete AlertDialog. The
- * pre-filter step (Research A6/A7) happens in the handler, not here.
+ * pre-filter step (Research A6/A7) happens in the handler, not here. The tag
+ * popovers self-contain their fetch + toast lifecycle; the parent only wires
+ * `onTagBulkSuccess` to refetch the table + clear selection.
  */
 export interface BulkToolbarProps {
   selected: CameraRow[]
@@ -31,6 +44,14 @@ export interface BulkToolbarProps {
   onExitMaintenance: () => void
   onDelete: () => void
   onClear: () => void
+  /**
+   * Phase 22 Plan 22-11 — called after a successful bulk tag add/remove. The
+   * parent should refetch the cameras list and clear `rowSelection`. Optional
+   * so existing call-sites + tests don't break; missing wiring just means the
+   * tag popovers won't refetch on success (still safe — the API mutation
+   * already succeeded).
+   */
+  onTagBulkSuccess?: () => void
 }
 
 export function BulkToolbar({
@@ -42,12 +63,33 @@ export function BulkToolbar({
   onExitMaintenance,
   onDelete,
   onClear,
+  onTagBulkSuccess,
 }: BulkToolbarProps) {
+  // Phase 22 Plan 22-11 — selectionTagUnion is computed BEFORE the early-return
+  // because hooks cannot be called conditionally. The dependency array uses the
+  // selected array reference; parent memoizes this via useMemo so we do not
+  // recompute on every parent render.
+  const selectionTagUnion = useMemo(() => {
+    const seen = new Map<string, string>() // lowercase key → first-seen casing
+    for (const cam of selected) {
+      for (const tag of cam.tags ?? []) {
+        const k = tag.toLowerCase()
+        if (!seen.has(k)) seen.set(k, tag)
+      }
+    }
+    return Array.from(seen.values()).sort((a, b) =>
+      a.toLowerCase().localeCompare(b.toLowerCase()),
+    )
+  }, [selected])
+
   if (selected.length === 0) return null
 
   const count = selected.length
   const hasNotInMaintenance = selected.some((c) => !c.maintenanceMode)
   const hasInMaintenance = selected.some((c) => c.maintenanceMode)
+  const hasAnyTagsInSelection = selectionTagUnion.length > 0
+  const cameraIds = selected.map((c) => c.id)
+  const handleTagBulkSuccess = onTagBulkSuccess ?? (() => {})
 
   return (
     <div
@@ -109,6 +151,25 @@ export function BulkToolbar({
           Exit Maintenance
         </Button>
       )}
+
+      {/*
+        Phase 22 Plan 22-11 — Add / Remove tag popovers (D-11, D-12, D-13).
+        Inserted between Maintenance and Delete per UI-SPEC §"Surface-by-Surface
+        Contract Summary" line 362. 'Remove tag' is conditional on the selection
+        actually containing tags (D-12 — hide when there's nothing to remove).
+      */}
+      <BulkAddTagPopover
+        cameraIds={cameraIds}
+        onSuccess={handleTagBulkSuccess}
+      />
+      {hasAnyTagsInSelection && (
+        <BulkRemoveTagPopover
+          cameraIds={cameraIds}
+          selectionTagUnion={selectionTagUnion}
+          onSuccess={handleTagBulkSuccess}
+        />
+      )}
+
       <Button
         variant="destructive"
         size="sm"
