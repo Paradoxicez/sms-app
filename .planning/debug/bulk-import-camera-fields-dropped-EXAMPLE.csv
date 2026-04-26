@@ -1,0 +1,7 @@
+name,streamUrl,ingestMode,description,tags,latitude,longitude
+Front Gate,rtsp://192.168.1.10:554/stream1,pull,Main entrance fish-eye camera,outdoor;entrance;hd,13.7563,100.5018
+Back Yard,rtsp://192.168.1.11:554/stream1,pull,Backyard PTZ,outdoor;ptz,13.7564,100.5019
+Lobby,rtmp://rtmp.example.com/live/lobby,pull,Reception area,indoor;hd,13.7565,100.5020
+Loading Dock,srt://192.168.1.12:10080,pull,Service entrance,outdoor;loading,13.7566,100.5021
+CCTV กล้องหน้าบ้าน 2,rtsp://192.168.1.13:554/stream1,pull,กล้องวงจรปิดหน้าบ้าน,กลางแจ้ง;ทางเข้า,13.7567,100.5022
+Conference Encoder,,push,Mobile encoder feed (URL generated on save),indoor;mobile,,
