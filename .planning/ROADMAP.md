@@ -244,18 +244,18 @@ Plans:
 **Goal:** Stop Camera.tags and Camera.description from being write-only metadata. Surface both fields across UI display (Tags column + view-stream-sheet Notes + name tooltip + map popup), backend query (?tags[]= filter, distinct-tags autocomplete, bulk Add/Remove), and integration surface (tags in webhook payload, audit-log diff, Dev Portal docs).
 **Requirements**: 28 locked decisions (D-01..D-28) from 22-CONTEXT.md (no REQ-IDs in REQUIREMENTS.md — Phase 22 uses decision codes as requirement anchors)
 **Depends on:** Phase 21
-**Plans:** 12/12 plans drafted
+**Plans:** 5/12 plans executed
 
 Plans:
-- [ ] 22-01-PLAN.md — Schema (Camera.tagsNormalized + GIN index) + Prisma extension + tag-normalize helpers + Wave 0 test scaffolding (D-01..D-06)
-- [ ] 22-02-PLAN.md — Backend tags filter on GET /cameras (case-insensitive OR via tagsNormalized hasSome) + GIN perf advisory test (D-06, D-07)
-- [ ] 22-03-PLAN.md — Webhook payload: add tags: string[] to camera.online/offline (D-22, D-23)
-- [ ] 22-04-PLAN.md — UPDATE audit details.diff for tags/description (changed fields only) + sanitizer preservation test (D-24, D-25)
+- [x] 22-01-PLAN.md — Schema (Camera.tagsNormalized + GIN index) + Prisma extension + tag-normalize helpers + Wave 0 test scaffolding (D-01..D-06)
+- [x] 22-02-PLAN.md — Backend tags filter on GET /cameras (case-insensitive OR via tagsNormalized hasSome) + GIN perf advisory test (D-06, D-07)
+- [x] 22-03-PLAN.md — Webhook payload: add tags: string[] to camera.online/offline (D-22, D-23)
+- [x] 22-04-PLAN.md — UPDATE audit details.diff for tags/description (changed fields only) + sanitizer preservation test (D-24, D-25)
 - [ ] 22-05-PLAN.md — Distinct-tags endpoint GET /cameras/tags/distinct + Redis cache (60s TTL) with in-memory fallback (D-09, D-28)
 - [ ] 22-06-PLAN.md — Bulk tag endpoint POST /cameras/bulk/tags (Add/Remove) + per-camera audit row + cache invalidation (D-11..D-13, D-26)
 - [ ] 22-07-PLAN.md — TagInputCombobox composite (chip + autocomplete) + camera-form-dialog integration (D-08, D-09)
 - [ ] 22-08-PLAN.md — TagsCell composite + Tags column in DataTable + Tags MultiSelect filter + name tooltip (table + card) (D-14, D-15, D-06, D-07, D-17)
-- [ ] 22-09-PLAN.md — view-stream-sheet Notes section (conditional, read-only) (D-16)
+- [x] 22-09-PLAN.md — view-stream-sheet Notes section (conditional, read-only) (D-16)
 - [ ] 22-10-PLAN.md — Map popup tags row + description block + map toolbar tag MultiSelect filter (D-19, D-20, D-21)
 - [ ] 22-11-PLAN.md — Bulk Add tag / Bulk Remove tag popovers in bulk toolbar (D-11, D-12, D-13)
 - [ ] 22-12-PLAN.md — Developer Portal docs: ?tags[]= filter param + tags webhook payload field (D-23, D-27)
