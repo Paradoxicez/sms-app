@@ -8,6 +8,7 @@ import {
 } from '../helpers/tenancy';
 import { CamerasService } from '../../src/cameras/cameras.service';
 import { TagCacheService } from '../../src/cameras/tag-cache.service';
+import { createTagNormalizationExtension } from '../../src/cameras/camera-tag.extension';
 
 /**
  * Phase 22 Plan 22-06 — POST /cameras/bulk/tags Add/Remove + per-camera audit (D-11, D-12, D-13, D-26).
@@ -54,9 +55,17 @@ describe('Phase 22 Plan 22-06 — bulkTagAction service method (D-11, D-12, D-26
 
     auditService = { log: vi.fn().mockResolvedValue(undefined) };
     tagCache = new TagCacheService();
+    // Apply the camera-tag extension to the tenancy client so per-row
+    // .update() / .create() calls auto-mirror `tags` → `tagsNormalized`.
+    // Production wires this in cameras.module.ts (TENANCY_CLIENT provider);
+    // tests get the same treatment by wrapping testPrisma directly so we
+    // can pin Pitfall 5 — the extension fires on bulk-tags writes (Test 8).
+    const tenancyWithExtension = createTagNormalizationExtension(
+      testPrisma as any,
+    );
     service = new CamerasService(
-      testPrisma as any, // tenancy
-      testPrisma as any, // prisma
+      tenancyWithExtension as any, // tenancy (with tag extension)
+      testPrisma as any, // prisma (raw — for direct seed/cleanup queries)
       undefined as any, // streamsService
       undefined as any, // probeQueue
       undefined, // systemPrisma
