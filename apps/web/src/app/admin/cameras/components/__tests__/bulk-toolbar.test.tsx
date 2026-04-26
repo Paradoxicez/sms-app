@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 
 import { BulkToolbar } from '../bulk-toolbar';
@@ -298,5 +298,199 @@ describe('BulkToolbar — interactions', () => {
     render(<BulkToolbar selected={[cam()]} processing={false} {...handlers} />);
     fireEvent.click(screen.getByRole('button', { name: /clear selection/i }));
     expect(handlers.onClear).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * Phase 22 Plan 22-11 — bulk Add tag / Remove tag toolbar buttons (D-11, D-12, D-13).
+ *
+ * Reference:
+ * - 22-UI-SPEC.md §"Bulk toolbar — Add / Remove tag" (lines 172–195)
+ * - 22-UI-SPEC.md §"Surface-by-Surface Contract Summary" line 362 (insertion point)
+ *
+ * Wiring contract:
+ *   - 'Add tag' visible whenever selection ≥ 1.
+ *   - 'Remove tag' visible only when ≥1 selected camera has ≥1 tag.
+ *   - selectionTagUnion is computed by the toolbar from selected.tags arrays
+ *     (case-insensitive dedup, first-seen casing wins).
+ *   - On submit-success the popovers call onTagBulkSuccess (parent refetches +
+ *     clears selection).
+ *   - No <AlertDialog> is mounted by the toolbar (D-13 non-destructive).
+ */
+describe('Phase 22: tag bulk actions', () => {
+  const realFetch = global.fetch;
+
+  beforeEach(() => {
+    // Default fetch stub for distinct-tags + bulk POST.
+    // @ts-expect-error — assignment to global.fetch is fine in tests.
+    global.fetch = vi.fn((url: string, init?: RequestInit) => {
+      if (typeof url === 'string' && url.includes('/cameras/tags/distinct')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ tags: ['lobby', 'outdoor'] }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        );
+      }
+      if (typeof url === 'string' && url.includes('/cameras/bulk/tags')) {
+        const body = init?.body
+          ? JSON.parse(typeof init.body === 'string' ? init.body : '{}')
+          : { cameraIds: [] };
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({ updatedCount: body.cameraIds?.length ?? 0 }),
+            {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            },
+          ),
+        );
+      }
+      return Promise.resolve(new Response('null', { status: 404 }));
+    });
+  });
+
+  afterEach(() => {
+    global.fetch = realFetch;
+    vi.restoreAllMocks();
+  });
+
+  it('Test 1: shows "Add tag" button whenever selection is non-empty', () => {
+    const handlers = allHandlers();
+    render(
+      <BulkToolbar
+        selected={[
+          cam({ id: 'a', tags: [] }),
+          cam({ id: 'b', tags: [] }),
+        ]}
+        processing={false}
+        onTagBulkSuccess={vi.fn()}
+        {...handlers}
+      />,
+    );
+    expect(
+      screen.getByRole('button', { name: /^add tag$/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('Test 2: hides "Remove tag" button when no selected camera has any tag', () => {
+    const handlers = allHandlers();
+    render(
+      <BulkToolbar
+        selected={[
+          cam({ id: 'a', tags: [] }),
+          cam({ id: 'b', tags: [] }),
+        ]}
+        processing={false}
+        onTagBulkSuccess={vi.fn()}
+        {...handlers}
+      />,
+    );
+    expect(
+      screen.queryByRole('button', { name: /^remove tag$/i }),
+    ).toBeNull();
+  });
+
+  it('Test 3: shows "Remove tag" button when ≥1 selected camera has ≥1 tag', () => {
+    const handlers = allHandlers();
+    render(
+      <BulkToolbar
+        selected={[
+          cam({ id: 'a', tags: ['x'] }),
+          cam({ id: 'b', tags: [] }),
+        ]}
+        processing={false}
+        onTagBulkSuccess={vi.fn()}
+        {...handlers}
+      />,
+    );
+    expect(
+      screen.getByRole('button', { name: /^remove tag$/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('Test 4: selectionTagUnion is the case-insensitive union (first-seen casing wins, sorted)', async () => {
+    const handlers = allHandlers();
+    render(
+      <BulkToolbar
+        selected={[
+          cam({ id: 'a', tags: ['a', 'b'] }),
+          cam({ id: 'b', tags: ['B', 'c'] }),
+        ]}
+        processing={false}
+        onTagBulkSuccess={vi.fn()}
+        {...handlers}
+      />,
+    );
+    // Open the Remove tag popover — its TagInputCombobox suggestions are the
+    // selectionTagUnion. The combobox renders suggestion <button role="option">
+    // rows when its input has focus.
+    fireEvent.click(screen.getByRole('button', { name: /^remove tag$/i }));
+    // Find the input inside the popover's TagInputCombobox group and focus it
+    // so the dropdown opens with all suggestions visible.
+    const group = await screen.findByRole('group', { name: /remove tag/i });
+    const input = group.querySelector('input') as HTMLInputElement;
+    expect(input).toBeTruthy();
+    fireEvent.focus(input);
+    const options = await screen.findAllByRole('option');
+    const optionLabels = options.map((o) => o.textContent?.trim());
+    // First-seen casing: 'B' from camera b is dropped because 'b' from camera a
+    // came first. Sorted alphabetically (case-insensitive) by tag-input-combobox.
+    // Suggestions are passed in already-sorted by the toolbar.
+    expect(optionLabels).toContain('a');
+    expect(optionLabels).toContain('b');
+    expect(optionLabels).toContain('c');
+    // 'B' MUST NOT appear — case-insensitive dedup picks first-seen casing.
+    expect(optionLabels).not.toContain('B');
+  });
+
+  it('Test 5: onTagBulkSuccess fires after a successful Add tag submit', async () => {
+    const handlers = allHandlers();
+    const onTagBulkSuccess = vi.fn();
+    render(
+      <BulkToolbar
+        selected={[cam({ id: 'a', tags: [] }), cam({ id: 'b', tags: [] })]}
+        processing={false}
+        onTagBulkSuccess={onTagBulkSuccess}
+        {...handlers}
+      />,
+    );
+    // Open Add tag popover
+    fireEvent.click(screen.getByRole('button', { name: /^add tag$/i }));
+    const group = await screen.findByRole('group', { name: /add tag/i });
+    const input = group.querySelector('input') as HTMLInputElement;
+    expect(input).toBeTruthy();
+    // Type a tag and Enter to commit it as the single-tag value
+    fireEvent.change(input, { target: { value: 'newtag' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    // Click the Add tag CTA inside the popover. There are two buttons matching
+    // /^add tag$/i — the trigger and the CTA. The CTA is the second one (inside
+    // the popover content). Use getAllByRole + last() to pick it.
+    const addTagButtons = await screen.findAllByRole('button', {
+      name: /^add tag$/i,
+    });
+    const cta = addTagButtons[addTagButtons.length - 1];
+    fireEvent.click(cta);
+    await waitFor(() => {
+      expect(onTagBulkSuccess).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('Test 6: no AlertDialog is mounted by the toolbar before/after Add or Remove (D-13)', async () => {
+    const handlers = allHandlers();
+    render(
+      <BulkToolbar
+        selected={[cam({ id: 'a', tags: ['existing'] })]}
+        processing={false}
+        onTagBulkSuccess={vi.fn()}
+        {...handlers}
+      />,
+    );
+    // Before any clicks — no alertdialog
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    // Click Add tag trigger — no alertdialog (only the Popover content opens)
+    fireEvent.click(screen.getByRole('button', { name: /^add tag$/i }));
+    await screen.findByRole('group', { name: /add tag/i });
+    expect(screen.queryByRole('alertdialog')).toBeNull();
   });
 });
