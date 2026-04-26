@@ -4,7 +4,12 @@ import { AuditQueryDto } from './dto/audit-query.dto';
 
 const SENSITIVE_KEYS_PATTERN = /password|secret|token|apiKey|keyHash/i;
 
-function sanitizeDetails(details: any): any {
+// Phase 22 Plan 22-04 (D-24): exported so tests can pin the contract that
+// the `diff` key (used by Camera UPDATE for tags/description before/after)
+// is NOT in SENSITIVE_KEYS_PATTERN and survives sanitization. The matcher
+// is key-based (NOT value-based) — string values that look like sensitive
+// names ("apiKey", "secret") are intentionally NOT redacted, only key names.
+export function sanitizeDetails(details: any): any {
   if (!details || typeof details !== 'object') return details;
   if (Array.isArray(details)) return details.map(sanitizeDetails);
 
