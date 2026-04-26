@@ -62,7 +62,8 @@ export default function PlaybackPage() {
   const dateStr = selectedDate ? formatDateStr(selectedDate) : undefined;
 
   const { hours, loading: timelineLoading } = useRecordingTimeline(cameraId, dateStr);
-  const { recordings, loading: listLoading } = useRecordingsList(cameraId, dateStr);
+  const { recordings, loading: listLoading, refetch: refetchRecordings } =
+    useRecordingsList(cameraId, dateStr);
   const { days } = useRecordingCalendar(
     cameraId,
     displayedMonth?.getFullYear() ?? 0,
@@ -110,6 +111,24 @@ export default function PlaybackPage() {
       if (rowId !== id) router.push(`/app/recordings/${rowId}`);
     },
     [id, router],
+  );
+
+  const handleListDeleted = useCallback(
+    (deletedId: string) => {
+      // Only act when the user deleted the recording they're currently watching.
+      // For non-current deletes, the refetch in RecordingsList already updated the list.
+      if (deletedId !== id) return;
+      // `recordings` here is the post-refetch list (RecordingsList awaits refetch
+      // before invoking onDeleted). The .filter is a defensive safety net in case
+      // the deleted row hasn't been pruned yet.
+      const next = recordings.find((r) => r.id !== deletedId);
+      if (next) {
+        router.push(`/app/recordings/${next.id}`);
+      } else {
+        router.push('/app/recordings');
+      }
+    },
+    [id, recordings, router],
   );
 
   const hlsSrc = useMemo(() => `/api/recordings/${id}/manifest`, [id]);
@@ -206,6 +225,8 @@ export default function PlaybackPage() {
         currentRecordingId={id}
         selectedDate={selectedDate}
         onRowClick={handleListRowClick}
+        onDeleted={handleListDeleted}
+        refetch={refetchRecordings}
       />
     </div>
   );
