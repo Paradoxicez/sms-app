@@ -147,6 +147,33 @@ export function ViewStreamContent({
         <IdChipRow cameraId={camera.id} />
       </SheetHeader>
 
+      {/*
+       * Phase 22 D-16 — Notes section (read-only).
+       *
+       * Surfaces `camera.description` between the SheetHeader and the Tabs so
+       * users see the camera context where they naturally look for it. Edit
+       * affordance lives in the camera form (camera-form.tsx) — this block is
+       * intentionally read-only per D-16. Conditional render guard hides the
+       * section when description is empty / null / whitespace-only so we never
+       * leak an empty header. React auto-escapes the string and
+       * `whitespace-pre-line` preserves user newlines via CSS (NOT
+       * dangerouslySetInnerHTML), mitigating T-22-11 (XSS).
+       */}
+      {camera.description && camera.description.trim().length > 0 && (
+        <section
+          className="mb-6 px-4 pt-4"
+          aria-labelledby="camera-notes-heading"
+        >
+          <h3
+            id="camera-notes-heading"
+            className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2"
+          >
+            Notes
+          </h3>
+          <p className="text-sm whitespace-pre-line">{camera.description}</p>
+        </section>
+      )}
+
       <Tabs defaultValue="preview" className="flex-1 flex flex-col overflow-hidden">
         <div className="flex items-center justify-between mx-4 mt-2">
           <TabsList>

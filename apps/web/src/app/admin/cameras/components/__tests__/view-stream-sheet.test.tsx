@@ -343,3 +343,98 @@ describe("Container reserves width (D-19)", () => {
     expect(container?.className).toContain("gap-2")
   })
 })
+
+describe("Phase 22: Notes section (D-16)", () => {
+  it("renders Notes heading + body when description is non-empty (preserves newlines via whitespace-pre-line)", () => {
+    renderSheet({
+      ...baseCamera,
+      description: "First line\nSecond line",
+    })
+    // Heading present
+    expect(
+      screen.getByRole("heading", { level: 3, name: "Notes" })
+    ).toBeInTheDocument()
+    // Both lines present in document (whitespace-pre-line preserves the newline visually
+    // but in DOM the textContent stays as a single string with the \n char).
+    const body = screen.getByText((text) =>
+      text.includes("First line") && text.includes("Second line")
+    )
+    expect(body).toBeInTheDocument()
+    // The body element uses whitespace-pre-line so newlines render visually.
+    expect(body.className).toContain("whitespace-pre-line")
+  })
+
+  it("does NOT render Notes section when description is empty string", () => {
+    renderSheet({ ...baseCamera, description: "" })
+    expect(
+      screen.queryByRole("heading", { level: 3, name: "Notes" })
+    ).not.toBeInTheDocument()
+  })
+
+  it("does NOT render Notes section when description is null", () => {
+    renderSheet({ ...baseCamera, description: null })
+    expect(
+      screen.queryByRole("heading", { level: 3, name: "Notes" })
+    ).not.toBeInTheDocument()
+  })
+
+  it("does NOT render Notes section when description is whitespace-only", () => {
+    renderSheet({ ...baseCamera, description: "   \n  " })
+    expect(
+      screen.queryByRole("heading", { level: 3, name: "Notes" })
+    ).not.toBeInTheDocument()
+  })
+
+  it("Notes block appears BEFORE the Tabs (document order)", () => {
+    renderSheet({
+      ...baseCamera,
+      description: "Some camera notes here",
+    })
+    const heading = screen.getByRole("heading", { level: 3, name: "Notes" })
+    const tabsList = screen.getByRole("tablist")
+    // Notes heading must precede the tablist in document order.
+    expect(
+      heading.compareDocumentPosition(tabsList) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
+  })
+
+  it("Notes section has no edit button (read-only — D-16)", () => {
+    renderSheet({
+      ...baseCamera,
+      description: "Some camera notes here",
+    })
+    const heading = screen.getByRole("heading", { level: 3, name: "Notes" })
+    // Walk up to the section that contains the heading.
+    const section = heading.closest("section")
+    expect(section).not.toBeNull()
+    const editButtons = Array.from(
+      section?.querySelectorAll("button") ?? []
+    ).filter((b) => /edit/i.test(b.textContent ?? "") || /edit/i.test(b.getAttribute("aria-label") ?? ""))
+    expect(editButtons.length).toBe(0)
+  })
+
+  it("Notes heading uses uppercase tracking-wide text-muted-foreground per UI-SPEC", () => {
+    renderSheet({
+      ...baseCamera,
+      description: "Some camera notes here",
+    })
+    const heading = screen.getByRole("heading", { level: 3, name: "Notes" })
+    expect(heading.className).toContain("text-xs")
+    expect(heading.className).toContain("font-medium")
+    expect(heading.className).toContain("uppercase")
+    expect(heading.className).toContain("tracking-wide")
+    expect(heading.className).toContain("text-muted-foreground")
+  })
+
+  it("Notes section has mb-6 spacing (24px lg-spacing per UI-SPEC §Spacing)", () => {
+    renderSheet({
+      ...baseCamera,
+      description: "Some camera notes here",
+    })
+    const heading = screen.getByRole("heading", { level: 3, name: "Notes" })
+    const section = heading.closest("section")
+    expect(section).not.toBeNull()
+    expect(section?.className).toContain("mb-6")
+  })
+})
