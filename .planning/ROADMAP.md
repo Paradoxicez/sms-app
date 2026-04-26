@@ -244,7 +244,7 @@ Plans:
 **Goal:** Stop Camera.tags and Camera.description from being write-only metadata. Surface both fields across UI display (Tags column + view-stream-sheet Notes + name tooltip + map popup), backend query (?tags[]= filter, distinct-tags autocomplete, bulk Add/Remove), and integration surface (tags in webhook payload, audit-log diff, Dev Portal docs).
 **Requirements**: 28 locked decisions (D-01..D-28) from 22-CONTEXT.md (no REQ-IDs in REQUIREMENTS.md — Phase 22 uses decision codes as requirement anchors)
 **Depends on:** Phase 21
-**Plans:** 10/12 plans executed
+**Plans:** 12/12 plans complete
 
 Plans:
 - [x] 22-01-PLAN.md — Schema (Camera.tagsNormalized + GIN index) + Prisma extension + tag-normalize helpers + Wave 0 test scaffolding (D-01..D-06)
@@ -257,5 +257,5 @@ Plans:
 - [x] 22-08-PLAN.md — TagsCell composite + Tags column in DataTable + Tags MultiSelect filter + name tooltip (table + card) (D-14, D-15, D-06, D-07, D-17)
 - [x] 22-09-PLAN.md — view-stream-sheet Notes section (conditional, read-only) (D-16)
 - [x] 22-10-PLAN.md — Map popup tags row + description block + map toolbar tag MultiSelect filter (D-19, D-20, D-21)
-- [ ] 22-11-PLAN.md — Bulk Add tag / Bulk Remove tag popovers in bulk toolbar (D-11, D-12, D-13)
-- [ ] 22-12-PLAN.md — Developer Portal docs: ?tags[]= filter param + tags webhook payload field (D-23, D-27)
+- [x] 22-11-PLAN.md — Bulk Add tag / Bulk Remove tag popovers in bulk toolbar (D-11, D-12, D-13)
+- [x] 22-12-PLAN.md — Developer Portal docs: ?tags[]= filter param + tags webhook payload field (D-23, D-27)
