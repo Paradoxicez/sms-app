@@ -121,6 +121,37 @@ export default function ApiWorkflowGuidePage() {
       </section>
 
       <section className="space-y-3">
+        <h2 className="text-xl font-semibold">Filter cameras by tags</h2>
+        <p className="text-sm text-muted-foreground">
+          Use the <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">tags[]</code> query parameter on
+          {" "}<code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">GET /api/cameras</code> to filter the
+          camera list by tag. Multiple values combine with OR semantics &mdash; a camera matches if it has at least one
+          of the requested tags. Matching is case-insensitive.
+        </p>
+        <CodeBlock language="bash" code={`curl -X GET "${baseUrl}/api/cameras?tags[]=lobby&tags[]=entrance" \\
+  -H "X-API-Key: YOUR_API_KEY"`} />
+        <p className="text-sm text-muted-foreground">
+          Example response (200 OK):
+        </p>
+        <CodeBlock language="json" code={`[
+  {
+    "id": "CAMERA_ID",
+    "name": "Front Lobby",
+    "tags": ["Lobby"],
+    "status": "online"
+  }
+]`} />
+        <p className="text-sm text-muted-foreground">
+          Tag values in the response preserve the original casing entered by the user. For example, a camera tagged
+          {" "}<code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">&quot;Lobby&quot;</code> will match
+          {" "}<code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">?tags[]=lobby</code> and the response
+          will return <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">&quot;Lobby&quot;</code> verbatim.
+          Empty tag values (e.g. <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">?tags[]=</code>) are
+          ignored.
+        </p>
+      </section>
+
+      <section className="space-y-3">
         <h2 className="text-xl font-semibold">Error Handling</h2>
         <p className="text-sm text-muted-foreground">
           Common error responses you may encounter:
