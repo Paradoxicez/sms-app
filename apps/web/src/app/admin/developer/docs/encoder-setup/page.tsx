@@ -9,8 +9,8 @@ export default function EncoderSetupGuidePage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold">Overview</h2>
         <p className="text-sm text-muted-foreground">
-          This guide shows how to configure encoders and supported NVRs to push streams to the RTMP push URL
-          generated for each camera. Use this when you&apos;ve selected Push mode in the camera form.
+          This guide shows how to configure OBS Studio and supported NVRs (Hikvision, Dahua) to push streams to the
+          RTMP push URL generated for each camera. Use this when you&apos;ve selected Push mode in the camera form.
         </p>
       </section>
 
@@ -19,7 +19,7 @@ export default function EncoderSetupGuidePage() {
         <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-2">
           <li>
             <strong>RTMP only, not RTMPS</strong> &mdash; disable TLS in your encoder. The platform does not currently
-            accept RTMPS (SRS v6 limitation).
+            accept RTMPS.
           </li>
           <li>
             <strong>Passthrough profile requires H.264 video + AAC audio</strong> &mdash; if your encoder outputs
@@ -57,55 +57,6 @@ Stream Key: {streamKey}`} />
           <li><strong>Audio Codec:</strong> AAC</li>
           <li><strong>Keyframe Interval:</strong> 2s</li>
         </ul>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-xl font-semibold">FFmpeg (CLI)</h2>
-        <p className="text-sm text-muted-foreground">
-          Use FFmpeg to push a file or live source to the platform. The example below re-streams a local file at its
-          original frame rate, transcodes video to H.264 and audio to AAC, and pushes via RTMP/FLV:
-        </p>
-        <CodeBlock language="bash" code={`ffmpeg -re -i input.mp4 \\
-  -c:v libx264 -preset veryfast -tune zerolatency \\
-  -c:a aac -b:a 128k \\
-  -f flv rtmp://stream.example.com:1935/push/{streamKey}`} />
-        <p className="text-sm text-muted-foreground">
-          For the <strong>Passthrough</strong> profile, <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">-c:v libx264</code> and
-          {" "}<code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">-c:a aac</code> are required &mdash; any other codec combination
-          will cause an immediate disconnect on the server side.
-        </p>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-xl font-semibold">Wirecast</h2>
-        <p className="text-sm text-muted-foreground">
-          Open <strong>Output &rarr; Output Settings &rarr; Add</strong> and choose <strong>RTMP Server</strong>:
-        </p>
-        <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
-          <li><strong>URL:</strong> <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">rtmp://stream.example.com:1935/push</code></li>
-          <li><strong>Stream:</strong> <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">{"{streamKey}"}</code></li>
-        </ul>
-        <p className="text-sm text-muted-foreground">
-          H.264 video and AAC audio are Wirecast defaults, so no extra codec configuration is required for the
-          Passthrough profile.
-        </p>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-xl font-semibold">vMix</h2>
-        <p className="text-sm text-muted-foreground">
-          Open <strong>Settings &rarr; Outputs/NDI/SRT &rarr; Stream</strong>, set Quality + Destination, then choose
-          {" "}<strong>Custom RTMP Server</strong>:
-        </p>
-        <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
-          <li>
-            <strong>URL:</strong> <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">rtmp://stream.example.com:1935/push/{"{streamKey}"}</code>
-          </li>
-        </ul>
-        <p className="text-sm text-muted-foreground">
-          H.264 video and AAC audio are vMix defaults, so the stream will be Passthrough-compatible without further
-          tuning.
-        </p>
       </section>
 
       <section className="space-y-3">
@@ -167,7 +118,7 @@ Stream Key: {streamKey}`} />
               <tr className="border-b">
                 <td className="py-2 pr-4">Connection refused</td>
                 <td className="py-2">
-                  Check firewall on port 1935. Verify the host in <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">SRS_PUBLIC_HOST</code> is reachable from your encoder network.
+                  Check firewall on port 1935. Verify the RTMP ingest host is reachable from your encoder network.
                 </td>
               </tr>
               <tr className="border-b">
