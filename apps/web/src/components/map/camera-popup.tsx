@@ -20,6 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { TagsCell } from '@/app/admin/cameras/components/tags-cell';
 
 interface CameraPopupProps {
   id: string;
@@ -32,6 +33,10 @@ interface CameraPopupProps {
   maintenanceEnteredAt?: string | null;
   lastOnlineAt?: string | null;
   retentionDays?: number | null;
+  /** Phase 22 Plan 10 — popup tags row (D-19). Empty/undefined → row hidden. */
+  tags?: string[];
+  /** Phase 22 Plan 10 — popup description block (D-19). null/empty → hidden. */
+  description?: string | null;
   /**
    * Gates the HLS preview load. When false, no <video>/HLS player is mounted
    * and SRS does not see an `on_play`. The map sets this from Leaflet's
@@ -60,6 +65,34 @@ const STATUS_DOT: Record<string, string> = {
   connecting: 'bg-blue-500',
   reconnecting: 'bg-amber-500',
 };
+
+// Phase 22 Plan 10 — Description block with Show more / Show less disclosure.
+// Heuristic: render the toggle only when the description exceeds ~100 chars,
+// matching UI-SPEC line 109 (`text-primary hover:underline`). Initial state is
+// `line-clamp-2`; clicking expands to full text and swaps the link copy.
+function PopupDescription({ description }: { description: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const showToggle = description.length > 100;
+  return (
+    <div data-testid="popup-description" className="mt-1">
+      <p
+        data-testid="popup-description-text"
+        className={`text-sm whitespace-pre-line ${expanded ? '' : 'line-clamp-2'}`}
+      >
+        {description}
+      </p>
+      {showToggle && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-1 text-sm text-primary hover:underline"
+        >
+          {expanded ? 'Show less' : 'Show more'}
+        </button>
+      )}
+    </div>
+  );
+}
 
 // Memoized so viewerCount broadcasts do not tear down + re-attach HLS.
 // Without this, every camera:viewers event caused a remount → new SRS
@@ -147,6 +180,8 @@ export function CameraPopup({
   maintenanceEnteredAt,
   lastOnlineAt,
   retentionDays,
+  tags,
+  description,
   previewActive = true,
   onViewStream,
   onSetLocation,
@@ -206,6 +241,20 @@ export function CameraPopup({
           </span>
         )}
       </div>
+
+      {/* Phase 22 Plan 10 — Tags row (D-19). Hidden when empty. */}
+      {tags && tags.length > 0 && (
+        <div data-testid="popup-tags-row" className="mt-1">
+          <TagsCell tags={tags} maxVisible={4} />
+        </div>
+      )}
+
+      {/* Phase 22 Plan 10 — Description block (D-19). Hidden when null/empty.
+          Heuristic disclosure: only shows Show more / Show less when the body
+          exceeds 100 chars (UI-SPEC §"Map popup description block"). */}
+      {description && description.trim().length > 0 && (
+        <PopupDescription description={description} />
+      )}
 
       {/* Preview container 240×135 (16:9) with thin border. Status overlays are
           SIBLINGS to PreviewVideo. CRITICAL: PreviewVideo receives only {id, status}

@@ -25,6 +25,9 @@ export interface MapCamera {
   maintenanceEnteredAt?: string | null;
   lastOnlineAt?: string | null;
   retentionDays?: number | null;
+  // Phase 22 Plan 10 — surfaced in popup tags row + map toolbar tag filter (D-19/D-20).
+  tags?: string[];
+  description?: string | null;
 }
 
 interface CameraMapProps {
