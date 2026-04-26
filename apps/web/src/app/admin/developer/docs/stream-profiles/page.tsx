@@ -26,7 +26,7 @@ export default function StreamProfilesGuidePage() {
           <li>You want the lowest possible CPU usage on the server</li>
           <li>The camera&apos;s native resolution and FPS are acceptable for your use case</li>
         </ul>
-        <CodeBlock language="text" code={`Camera (H.264 1080p 30fps) --> FFmpeg (-c copy) --> SRS --> HLS --> Browser
+        <CodeBlock language="text" code={`Camera (H.264 1080p 30fps) --> FFmpeg (-c copy) --> stream engine --> HLS --> Browser
 CPU usage: minimal (~1-2% per stream)`} />
       </section>
 
@@ -40,7 +40,7 @@ CPU usage: minimal (~1-2% per stream)`} />
           <li>You need to reduce resolution or FPS to save bandwidth</li>
           <li>You want consistent output across cameras with different native settings</li>
         </ul>
-        <CodeBlock language="text" code={`Camera (H.265 4K 30fps) --> FFmpeg (transcode to H.264 720p 15fps) --> SRS --> HLS --> Browser
+        <CodeBlock language="text" code={`Camera (H.265 4K 30fps) --> FFmpeg (transcode to H.264 720p 15fps) --> stream engine --> HLS --> Browser
 CPU usage: significant (~15-30% per stream depending on resolution)`} />
       </section>
 

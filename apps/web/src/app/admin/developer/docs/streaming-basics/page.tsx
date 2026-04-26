@@ -46,18 +46,18 @@ export default function StreamingBasicsGuidePage() {
         <p className="text-sm text-muted-foreground">
           Here is how a camera feed travels from the camera to the viewer&apos;s browser:
         </p>
-        <CodeBlock language="text" code={`Camera --> RTSP --> FFmpeg --> RTMP --> SRS --> HLS --> Browser
+        <CodeBlock language="text" code={`Camera --> RTSP --> FFmpeg --> RTMP --> stream engine --> HLS --> Browser
 
 1. Camera: Outputs RTSP stream with H.264 or H.265 video
 2. FFmpeg: Pulls the RTSP stream, optionally transcodes, outputs RTMP
-3. SRS: Receives RTMP, generates HLS segments and m3u8 playlist
+3. Stream engine: Receives RTMP, generates HLS segments and m3u8 playlist
 4. Browser: Fetches m3u8 playlist and segments via HTTP, plays video`} />
         <p className="text-sm text-muted-foreground">
           Each component in the pipeline has a specific role:
         </p>
         <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
-          <li><strong>FFmpeg</strong> bridges the gap between RTSP (camera protocol) and RTMP (SRS ingest protocol). It can also transcode H.265 to H.264 when needed.</li>
-          <li><strong>SRS (Simple Realtime Server)</strong> is the stream engine that converts RTMP input to HLS output. It handles segment generation, playlist management, and client connections.</li>
+          <li><strong>FFmpeg</strong> bridges the gap between RTSP (camera protocol) and RTMP (stream engine ingest protocol). It can also transcode H.265 to H.264 when needed.</li>
+          <li><strong>Stream engine</strong> receives the RTMP feed and produces HLS &mdash; handling segment generation, playlist management, and client connections.</li>
         </ul>
       </section>
 
@@ -104,7 +104,7 @@ export default function StreamingBasicsGuidePage() {
         <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
           <li><strong>Typical HLS latency:</strong> 5-10 seconds (segment duration + buffering + network)</li>
           <li><strong>Segment duration:</strong> The platform uses 2-second segments by default, keeping the minimum latency around 4-6 seconds</li>
-          <li><strong>WebRTC alternative:</strong> For sub-second latency, SRS supports WebRTC (WHEP) playback. This is available for use cases where near-real-time viewing is critical.</li>
+          <li><strong>WebRTC alternative:</strong> For sub-second latency, the stream engine supports WebRTC (WHEP) playback. This is available for use cases where near-real-time viewing is critical.</li>
         </ul>
         <p className="text-sm text-muted-foreground">
           For most surveillance use cases, 5-10 seconds of latency is acceptable. If you need real-time interaction
@@ -129,19 +129,19 @@ export default function StreamingBasicsGuidePage() {
               </tr>
               <tr className="border-b">
                 <td className="py-2 pr-4 font-mono">RTMP</td>
-                <td className="py-2">Real-Time Messaging Protocol. Used internally to push video from FFmpeg to SRS.</td>
+                <td className="py-2">Real-Time Messaging Protocol. Used internally to push video from FFmpeg to the stream engine.</td>
               </tr>
               <tr className="border-b">
                 <td className="py-2 pr-4 font-mono">HLS</td>
                 <td className="py-2">HTTP Live Streaming. Segment-based delivery protocol that works in all browsers.</td>
               </tr>
               <tr className="border-b">
-                <td className="py-2 pr-4 font-mono">SRS</td>
-                <td className="py-2">Simple Realtime Server. The stream engine that converts RTMP to HLS and manages client connections.</td>
+                <td className="py-2 pr-4 font-mono">Stream engine</td>
+                <td className="py-2">Component that converts RTMP input to HLS output, manages segments and client connections.</td>
               </tr>
               <tr className="border-b">
                 <td className="py-2 pr-4 font-mono">FFmpeg</td>
-                <td className="py-2">Multimedia framework for pulling RTSP streams, transcoding video, and pushing to SRS.</td>
+                <td className="py-2">Multimedia framework for pulling RTSP streams, transcoding video, and pushing to the stream engine.</td>
               </tr>
               <tr className="border-b">
                 <td className="py-2 pr-4 font-mono">Transcode</td>
@@ -157,7 +157,7 @@ export default function StreamingBasicsGuidePage() {
               </tr>
               <tr className="border-b">
                 <td className="py-2 pr-4 font-mono">AES-128</td>
-                <td className="py-2">Encryption standard used by SRS to encrypt HLS segments. Prevents unauthorized playback.</td>
+                <td className="py-2">Encryption standard used by the stream engine to encrypt HLS segments. Prevents unauthorized playback.</td>
               </tr>
             </tbody>
           </table>

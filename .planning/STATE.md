@@ -5,7 +5,7 @@ milestone_name: Self-Service, Resilience & UI Polish
 status: executing
 stopped_at: Phase 22 UI-SPEC approved
 last_updated: "2026-04-26T12:59:47.262Z"
-last_activity: 2026-04-26 -- Completed quick task 260426-sjz: Add Push & Encoder Setup docs guide and fix 3 broken setup-guide links
+last_activity: 2026-04-26 -- Completed quick task 260426-udl: Trim encoder-setup docs to OBS+NVR only and replace SRS with stream engine in tenant docs
 progress:
   total_phases: 11
   completed_phases: 10
@@ -107,6 +107,7 @@ None yet.
 | 260426-nqr | Camera Edit form dirty-tracking PATCH (send only changed fields) + extend deriveActionLabel for tags/description/location/siteId/streamUrl/needsTranscode single-field rules | 2026-04-26 | 18dd74f | | [260426-nqr-camera-edit-form-dirty-tracking-patch-se](./quick/260426-nqr-camera-edit-form-dirty-tracking-patch-se/) |
 | 260426-ox9 | Migrate per-camera Recordings detail table to shared DataTable + add Download/Delete row actions (DataTableRowActions, AlertDialog, refetch + deleted-current handler) | 2026-04-26 | 4f1a136 | | [260426-ox9-add-download-delete-row-actions-to-per-c](./quick/260426-ox9-add-download-delete-row-actions-to-per-c/) |
 | 260426-sjz | Add Push & Encoder Setup docs guide (6th developer-portal menu) + fix 4 broken `/docs/push-setup` links | 2026-04-26 | 0a4d597 | | [260426-sjz-add-push-encoder-setup-docs-guide-and-fi](./quick/260426-sjz-add-push-encoder-setup-docs-guide-and-fi/) |
+| 260426-udl | Trim encoder-setup docs to OBS+NVR only (drop FFmpeg/Wirecast/vMix) + replace SRS / Simple Realtime Server with "stream engine" in tenant docs | 2026-04-26 | 6bf8952 | | [260426-udl-trim-encoder-setup-docs-to-obs-nvr-only-](./quick/260426-udl-trim-encoder-setup-docs-to-obs-nvr-only-/) |
 
 ## Session Continuity
 

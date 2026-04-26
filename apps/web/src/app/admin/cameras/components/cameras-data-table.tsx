@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   type ColumnFiltersState,
   type OnChangeFn,
@@ -154,6 +154,27 @@ export function CamerasDataTable({
     onRowSelectionChange: effectiveSelectionChange,
   })
 
+  // Phase 22 Plan 22-08 (D-06, D-07) — populate the Tags MultiSelect from
+  // the org-scoped distinct-tags endpoint (Plan 22-05). Cached server-side
+  // for 60s; client refetches on mount only. A failure leaves the trigger
+  // mounted with an empty option list — typing freetext still works in the
+  // form combobox elsewhere.
+  const [distinctTags, setDistinctTags] = useState<string[]>([])
+  useEffect(() => {
+    let cancelled = false
+    fetch("/api/cameras/tags/distinct", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : { tags: [] }))
+      .then((data: { tags?: string[] }) => {
+        if (!cancelled) setDistinctTags(data.tags ?? [])
+      })
+      .catch(() => {
+        if (!cancelled) setDistinctTags([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const projectOptions = useMemo(
     () =>
       [...new Set(cameras.map((c) => c.site?.project?.name).filter(Boolean))].map(
@@ -191,6 +212,14 @@ export function CamerasDataTable({
       columnId: "site",
       title: "Site",
       options: siteOptions,
+    },
+    // Phase 22 Plan 22-08 (D-06, D-07) — Tags MultiSelect. Uses the same
+    // FacetedFilterConfig contract as the Project / Site filters; the
+    // column's filterFn (case-insensitive OR) lives in cameras-columns.tsx.
+    {
+      columnId: "tags",
+      title: "Tags",
+      options: distinctTags.map((t) => ({ label: t, value: t })),
     },
   ]
 
