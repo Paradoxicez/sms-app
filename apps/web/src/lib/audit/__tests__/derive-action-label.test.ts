@@ -99,6 +99,111 @@ describe("deriveActionLabel", () => {
     ).toEqual({ label: "Changed stream profile" })
   })
 
+  // quick 260426-nqr: 7 single-field rules + 1 multi-field regression guard.
+  it("labels PATCH /api/cameras/:id with only tags as 'Updated tags'", () => {
+    expect(
+      deriveActionLabel(
+        entry({
+          method: "PATCH",
+          path: `/api/cameras/${CAMERA_UUID}`,
+          action: "update",
+          details: { tags: ["outdoor", "entrance"] },
+        }),
+      ),
+    ).toEqual({ label: "Updated tags" })
+  })
+
+  it("labels PATCH /api/cameras/:id with only description as 'Updated description'", () => {
+    expect(
+      deriveActionLabel(
+        entry({
+          method: "PATCH",
+          path: `/api/cameras/${CAMERA_UUID}`,
+          action: "update",
+          details: { description: "Lobby south corner" },
+        }),
+      ),
+    ).toEqual({ label: "Updated description" })
+  })
+
+  it("labels PATCH /api/cameras/:id with only location as 'Updated location'", () => {
+    expect(
+      deriveActionLabel(
+        entry({
+          method: "PATCH",
+          path: `/api/cameras/${CAMERA_UUID}`,
+          action: "update",
+          details: { location: { lat: 13.7, lng: 100.5 } },
+        }),
+      ),
+    ).toEqual({ label: "Updated location" })
+  })
+
+  it("labels PATCH /api/cameras/:id with only siteId as 'Moved to another site'", () => {
+    expect(
+      deriveActionLabel(
+        entry({
+          method: "PATCH",
+          path: `/api/cameras/${CAMERA_UUID}`,
+          action: "update",
+          details: { siteId: "11111111-2222-3333-4444-555555555555" },
+        }),
+      ),
+    ).toEqual({ label: "Moved to another site" })
+  })
+
+  it("labels PATCH /api/cameras/:id with only streamUrl as 'Updated stream URL'", () => {
+    expect(
+      deriveActionLabel(
+        entry({
+          method: "PATCH",
+          path: `/api/cameras/${CAMERA_UUID}`,
+          action: "update",
+          details: { streamUrl: "rtsp://new-host/stream" },
+        }),
+      ),
+    ).toEqual({ label: "Updated stream URL" })
+  })
+
+  it("labels PATCH /api/cameras/:id with needsTranscode:true as 'Toggled auto-transcode ON'", () => {
+    expect(
+      deriveActionLabel(
+        entry({
+          method: "PATCH",
+          path: `/api/cameras/${CAMERA_UUID}`,
+          action: "update",
+          details: { needsTranscode: true },
+        }),
+      ),
+    ).toEqual({ label: "Toggled auto-transcode ON" })
+  })
+
+  it("labels PATCH /api/cameras/:id with needsTranscode:false as 'Toggled auto-transcode OFF'", () => {
+    expect(
+      deriveActionLabel(
+        entry({
+          method: "PATCH",
+          path: `/api/cameras/${CAMERA_UUID}`,
+          action: "update",
+          details: { needsTranscode: false },
+        }),
+      ),
+    ).toEqual({ label: "Toggled auto-transcode OFF" })
+  })
+
+  it("labels PATCH /api/cameras/:id with multiple new fields (tags + description) as 'Updated camera' (multi-field fallback preserved)", () => {
+    expect(
+      deriveActionLabel(
+        entry({
+          method: "PATCH",
+          path: `/api/cameras/${CAMERA_UUID}`,
+          action: "update",
+          details: { tags: ["a"], description: "b" },
+        }),
+      ),
+    ).toEqual({ label: "Updated camera" })
+  })
+
   it("labels PATCH /api/cameras/:id with multiple fields as 'Updated camera'", () => {
     expect(
       deriveActionLabel(
