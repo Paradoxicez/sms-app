@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Upload, Check, X, AlertCircle, Download, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
@@ -74,6 +74,9 @@ export interface CameraRow {
   // D-16 (Phase 19): within-file duplicate tracking
   duplicate?: boolean;
   duplicateReason?: 'within-file' | 'against-db';
+  // Quick 260426-lg5: which cell to highlight with the amber border so the
+  // visual treatment matches the single-camera Add Camera form.
+  duplicateField?: 'name' | 'streamUrl' | 'both' | 'within-file';
   // D-12 (Phase 19.1): per-row push/pull discriminator. Optional — absent column
   // in the CSV defaults every row to 'pull' for backward compatibility.
   ingestMode?: 'pull' | 'push';
@@ -274,23 +277,56 @@ export function validateRow(row: CameraRow): Record<string, string> {
 export function annotateDuplicates(
   rows: CameraRow[],
   existingUrls?: Set<string>,
+  existingNames?: Set<string>,
 ): CameraRow[] {
   const seen = new Map<string, number>(); // trimmed streamUrl → first row index
   return rows.map((row, idx) => {
     if (row.ingestMode === 'push') {
-      return { ...row, duplicate: false, duplicateReason: undefined };
+      return {
+        ...row,
+        duplicate: false,
+        duplicateReason: undefined,
+        duplicateField: undefined,
+      };
     }
     const url = row.streamUrl.trim();
-    if (!url) return { ...row, duplicate: false, duplicateReason: undefined };
-    if (existingUrls?.has(url)) {
-      return { ...row, duplicate: true, duplicateReason: 'against-db' as const };
+    const nameKey = row.name.trim().toLowerCase();
+    const urlInDb = !!url && existingUrls?.has(url);
+    const nameInDb = !!nameKey && existingNames?.has(nameKey);
+    if (urlInDb || nameInDb) {
+      const duplicateField =
+        urlInDb && nameInDb ? 'both' : urlInDb ? 'streamUrl' : 'name';
+      return {
+        ...row,
+        duplicate: true,
+        duplicateReason: 'against-db' as const,
+        duplicateField,
+      };
+    }
+    if (!url) {
+      return {
+        ...row,
+        duplicate: false,
+        duplicateReason: undefined,
+        duplicateField: undefined,
+      };
     }
     const firstIdx = seen.get(url);
     if (firstIdx !== undefined && firstIdx !== idx) {
-      return { ...row, duplicate: true, duplicateReason: 'within-file' as const };
+      return {
+        ...row,
+        duplicate: true,
+        duplicateReason: 'within-file' as const,
+        duplicateField: 'within-file' as const,
+      };
     }
     seen.set(url, idx);
-    return { ...row, duplicate: false, duplicateReason: undefined };
+    return {
+      ...row,
+      duplicate: false,
+      duplicateReason: undefined,
+      duplicateField: undefined,
+    };
   });
 }
 
@@ -376,6 +412,9 @@ export function BulkImportDialog({
   // annotateDuplicates marks rows whose streamUrl is in this Set as
   // duplicateReason: 'against-db'. Push URLs are server-generated and excluded.
   const [existingUrls, setExistingUrls] = useState<Set<string>>(new Set());
+  // Quick 260426-lg5 B+C: cache existing camera names (lowercase trimmed) so
+  // bulk-import can flag against-db name conflicts symmetric to Add Camera form.
+  const [existingNames, setExistingNames] = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [step, setStep] = useState<'upload' | 'preview' | 'result'>('upload');
@@ -411,7 +450,7 @@ export function BulkImportDialog({
     // not user-supplied, so excluding them avoids spurious flags.
     try {
       const cameras = await apiFetch<
-        Array<{ id: string; streamUrl: string; ingestMode?: string }>
+        Array<{ id: string; name: string; streamUrl: string; ingestMode?: string }>
       >('/api/cameras');
       setExistingUrls(
         new Set(
@@ -420,10 +459,32 @@ export function BulkImportDialog({
             .map((c) => c.streamUrl),
         ),
       );
+      setExistingNames(
+        new Set(cameras.map((c) => c.name.trim().toLowerCase())),
+      );
     } catch {
       setExistingUrls(new Set());
+      setExistingNames(new Set());
     }
   }, [selectedSiteId]);
+
+  // Quick 260426-lg5 fix: prefetch sites + existing URLs when dialog opens.
+  // Calling loadSites() inside processRows raced — annotateDuplicates ran
+  // with empty existingUrls so against-db flagging never fired.
+  useEffect(() => {
+    if (open) loadSites();
+  }, [open, loadSites]);
+
+  // Re-annotate rows when existingUrls resolves so flags appear without
+  // requiring re-upload (covers slow-network race where upload completes
+  // before fetch resolves).
+  useEffect(() => {
+    setRows((prev) =>
+      prev.length === 0
+        ? prev
+        : annotateDuplicates(prev, existingUrls, existingNames),
+    );
+  }, [existingUrls, existingNames]);
 
   /**
    * Shared file-ingest path used by BOTH the file picker (onChange) and the
@@ -544,7 +605,7 @@ export function BulkImportDialog({
       errors: validateRow(row),
     }));
 
-    setRows(annotateDuplicates(validated, existingUrls));
+    setRows(annotateDuplicates(validated, existingUrls, existingNames));
     setStep('preview');
     loadSites();
   }
@@ -557,12 +618,18 @@ export function BulkImportDialog({
         next.errors = validateRow(next);
         return next;
       });
-      return annotateDuplicates(updated, existingUrls);
+      return annotateDuplicates(updated, existingUrls, existingNames);
     });
   }
 
   function handleRemoveRow(index: number) {
-    setRows((prev) => annotateDuplicates(prev.filter((_, i) => i !== index), existingUrls));
+    setRows((prev) =>
+      annotateDuplicates(
+        prev.filter((_, i) => i !== index),
+        existingUrls,
+        existingNames,
+      ),
+    );
   }
 
   const validCount = rows.filter((r) => Object.keys(r.errors).length === 0 && !r.duplicate).length;
@@ -807,7 +874,10 @@ export function BulkImportDialog({
                               className={`h-7 text-xs ${
                                 row.errors.name
                                   ? 'border-destructive focus-visible:ring-destructive/50'
-                                  : ''
+                                  : row.duplicateField === 'name' ||
+                                      row.duplicateField === 'both'
+                                    ? 'border-amber-500 focus-visible:ring-amber-500/50'
+                                    : ''
                               }`}
                             />
                           </TableCell>
@@ -820,7 +890,11 @@ export function BulkImportDialog({
                               className={`h-7 font-mono text-xs ${
                                 row.errors.streamUrl
                                   ? 'border-destructive focus-visible:ring-destructive/50'
-                                  : ''
+                                  : row.duplicateField === 'streamUrl' ||
+                                      row.duplicateField === 'both' ||
+                                      row.duplicateField === 'within-file'
+                                    ? 'border-amber-500 focus-visible:ring-amber-500/50'
+                                    : ''
                               }`}
                             />
                           </TableCell>
@@ -862,32 +936,35 @@ export function BulkImportDialog({
                               placeholder="100.50"
                             />
                           </TableCell>
-                          <TableCell className="text-center">
+                          <TableCell>
                             {hasErrors ? (
                               <Tooltip>
                                 <TooltipTrigger>
-                                  <X className="mx-auto h-4 w-4 text-destructive" aria-hidden="true" />
+                                  <span className="inline-flex items-center gap-1 rounded-full border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-[11px] font-medium text-destructive">
+                                    <X className="h-3 w-3" aria-hidden="true" />
+                                    Error
+                                  </span>
                                 </TooltipTrigger>
                                 <TooltipContent>
                                   {Object.values(row.errors).join(', ')}
                                 </TooltipContent>
                               </Tooltip>
                             ) : row.duplicate ? (
-                              <Tooltip>
-                                <TooltipTrigger>
-                                  <Copy
-                                    className="mx-auto h-4 w-4 text-amber-600 dark:text-amber-500"
-                                    aria-hidden="true"
-                                  />
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  {row.duplicateReason === 'against-db'
-                                    ? 'Already imported in this organization'
-                                    : 'Duplicate of existing camera'}
-                                </TooltipContent>
-                              </Tooltip>
+                              <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                                <Copy className="h-3 w-3" aria-hidden="true" />
+                                {row.duplicateField === 'name'
+                                  ? 'Name in DB'
+                                  : row.duplicateField === 'streamUrl'
+                                    ? 'URL in DB'
+                                    : row.duplicateField === 'both'
+                                      ? 'Already in DB'
+                                      : 'Duplicate row'}
+                              </span>
                             ) : (
-                              <Check className="mx-auto h-4 w-4 text-primary" aria-hidden="true" />
+                              <span className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                                <Check className="h-3 w-3" aria-hidden="true" />
+                                New
+                              </span>
                             )}
                           </TableCell>
                           <TableCell>
@@ -908,21 +985,26 @@ export function BulkImportDialog({
             </div>
 
             {/* Summary */}
-            <div className="flex items-center gap-4 text-sm">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
               <span className="text-primary font-medium inline-flex items-center gap-1">
                 <Check className="h-3.5 w-3.5" aria-hidden="true" />
-                {validCount} valid
+                {validCount} new
               </span>
               {duplicateCount > 0 && (
                 <span className="text-amber-600 dark:text-amber-500 font-medium inline-flex items-center gap-1">
                   <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-                  {duplicateCount} duplicate
+                  {duplicateCount} already in DB
                 </span>
               )}
               {errorCount > 0 && (
                 <span className="flex items-center gap-1 text-destructive font-medium">
                   <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
                   {errorCount} errors
+                </span>
+              )}
+              {validCount === 0 && duplicateCount > 0 && errorCount === 0 && (
+                <span className="text-xs text-muted-foreground">
+                  All rows already exist — nothing new to import
                 </span>
               )}
             </div>
@@ -946,12 +1028,18 @@ export function BulkImportDialog({
             >
               Back
             </Button>
-            <Button
-              onClick={handleImport}
-              disabled={!canImport || importing}
-            >
-              {importing ? 'Importing...' : 'Confirm Import'}
-            </Button>
+            {validCount === 0 && errorCount === 0 && duplicateCount > 0 ? (
+              <Button onClick={() => onOpenChange(false)}>Close</Button>
+            ) : (
+              <Button
+                onClick={handleImport}
+                disabled={!canImport || importing || validCount === 0}
+              >
+                {importing
+                  ? 'Importing...'
+                  : `Confirm Import${validCount > 0 ? ` (${validCount})` : ''}`}
+              </Button>
+            )}
           </DialogFooter>
         )}
 
