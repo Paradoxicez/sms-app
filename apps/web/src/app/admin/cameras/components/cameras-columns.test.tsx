@@ -352,18 +352,25 @@ describe("Stream Profile column (quick 260425-uw0)", () => {
     expect(screen.getByText("—")).toBeInTheDocument()
   })
 
-  it("is positioned between resolution and createdAt columns", () => {
+  it("is positioned between resolution and createdAt columns (Tags column inserted between Stream Profile and Created in Phase 22 Plan 22-08)", () => {
     const columns = createCamerasColumns(noopCallbacks) as unknown as AnyCol[]
     const resIdx = columns.findIndex((c) => c.id === "resolution")
     const profIdx = columns.findIndex((c) => c.id === "streamProfile")
+    const tagsIdx = columns.findIndex((c) => c.id === "tags")
     const createdIdx = columns.findIndex(
       (c) => c.accessorKey === "createdAt",
     )
     expect(resIdx).toBeGreaterThan(-1)
     expect(profIdx).toBeGreaterThan(-1)
+    expect(tagsIdx).toBeGreaterThan(-1)
     expect(createdIdx).toBeGreaterThan(-1)
+    // Resolution → Stream Profile is unchanged from quick 260425-uw0.
     expect(profIdx).toBe(resIdx + 1)
-    expect(createdIdx).toBe(profIdx + 1)
+    // Phase 22 Plan 22-08 inserts the Tags column between Stream Profile and
+    // Created. Pinning this ordering makes future column-shuffles surface as
+    // a regression here.
+    expect(tagsIdx).toBe(profIdx + 1)
+    expect(createdIdx).toBe(tagsIdx + 1)
   })
 
   it("accessorFn returns profile name for sorting (empty string when null)", () => {

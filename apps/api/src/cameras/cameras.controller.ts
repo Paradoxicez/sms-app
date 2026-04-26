@@ -35,6 +35,7 @@ import { CreateSiteSchema } from './dto/create-site.dto';
 import { CreateCameraSchema } from './dto/create-camera.dto';
 import { UpdateCameraSchema } from './dto/update-camera.dto';
 import { BulkImportSchema } from './dto/bulk-import.dto';
+import { bulkTagsDtoSchema } from './dto/bulk-tags.dto';
 import { enterMaintenanceBodySchema } from './dto/maintenance.dto';
 import { serializeCamera } from './serialize-camera.util';
 
@@ -212,6 +213,81 @@ export class CamerasController {
       throw new BadRequestException(result.error.flatten());
     }
     return this.camerasService.createCamera(this.getOrgId(), siteId, result.data);
+  }
+
+  // Phase 22 Plan 22-05 (D-09, D-28): GET /cameras/tags/distinct
+  //
+  // Declared BEFORE @Get('cameras/:id') (~ line 259 below) so NestJS's
+  // path-to-regexp picks the literal `cameras/tags/distinct` segment over
+  // a `:id` capture that would otherwise match with id='tags' and a stray
+  // `/distinct` 404. Same pattern as `cameras/snapshot/refresh-all` and
+  // `cameras/bulk-import`.
+  //
+  // Backs the chip-combobox autocomplete (Plan 22-07) and the table+map
+  // filter MultiSelect (Plans 22-08, 22-10). Tenant-scoped via the existing
+  // AuthGuard at the controller level + the service's set_config-prologue
+  // RLS prologue inside the $queryRaw transaction (T-22-02 mitigation).
+  @Get('cameras/tags/distinct')
+  @ApiOperation({
+    summary:
+      'List distinct tags for the current org (alphabetized, case-insensitive de-dup, first-seen casing). Cached 60s.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Distinct tags wrapped in `{ tags: string[] }`',
+  })
+  async getDistinctTags(): Promise<{ tags: string[] }> {
+    const orgId = this.getOrgId();
+    const tags = await this.camerasService.findDistinctTags(orgId);
+    return { tags };
+  }
+
+  // Phase 22 Plan 22-06 (D-11, D-12, D-13, D-26): POST /cameras/bulk/tags
+  //
+  // Declared BEFORE @Get('cameras/:id') / @Patch('cameras/:id') / etc. so
+  // NestJS path-to-regexp picks the literal `cameras/bulk/tags` segment
+  // over a `:id` capture (same precedent as `cameras/tags/distinct` and
+  // `cameras/snapshot/refresh-all`).
+  //
+  // Single-tag-per-action by design: { cameraIds, action: 'add'|'remove',
+  // tag }. Per-camera transactional update fires the camera-tag extension
+  // for `tagsNormalized` mirroring; per-camera audit row records the
+  // before/after diff per D-26; cache invalidation post-write keeps the
+  // distinct-tags autocomplete fresh.
+  //
+  // Tenant scope: AuthGuard (controller level) + service-layer
+  // defense-in-depth orgId filter on tenancy.findMany. T-22-01 mitigation.
+  @Post('cameras/bulk/tags')
+  @ApiOperation({
+    summary:
+      'Bulk add or remove a tag across many cameras. Idempotent (case-insensitive). Returns updatedCount of cameras whose tags actually changed.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: '`{ updatedCount: number }` — cameras whose tags changed.',
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Validation error (empty cameraIds, tag too long, invalid action, etc.)',
+  })
+  async bulkTags(
+    @Body() body: unknown,
+    @Req() req: Request,
+  ): Promise<{ updatedCount: number }> {
+    const parsed = bulkTagsDtoSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    const orgId = this.getOrgId();
+    // AuthGuard attaches req.user; the service signature accepts an
+    // optional userEmail so we pass through whatever the session offers.
+    const user = (req as any).user;
+    const triggeredBy = {
+      userId: user?.id as string,
+      userEmail: user?.email as string | undefined,
+    };
+    return this.camerasService.bulkTagAction(orgId, triggeredBy, parsed.data);
   }
 
   @Get('cameras')

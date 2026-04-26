@@ -31,6 +31,9 @@ import {
   streamKeyPrefix,
 } from './stream-key.util';
 import { fingerprintProfile } from '../streams/profile-fingerprint.util';
+import { TagCacheService } from './tag-cache.service';
+import { BulkTagsDto } from './dto/bulk-tags.dto';
+import { normalizeForDisplay } from './tag-normalize';
 
 /**
  * Phase 22 Plan 22-04 (D-24): case-insensitive array equality helper for
@@ -78,6 +81,13 @@ export class CamerasService {
     // Phase 19.1 (D-21): push-specific audit events. Optional for harness
     // compatibility; real DI path wires the global AuditService.
     private readonly auditService?: AuditService,
+    // Phase 22 Plan 22-05 (D-09, D-28): read-through cache for the
+    // distinct-tags endpoint. Optional so existing test harnesses
+    // constructing CamerasService with the prior 7-arg signature still
+    // compile; findDistinctTags is the only caller and falls back to a
+    // local TagCacheService when undefined (which itself has no required
+    // deps — Redis is also @Optional inside TagCacheService).
+    private readonly tagCacheService?: TagCacheService,
   ) {}
 
   // ─── Projects ──────────────────────────────────
@@ -350,6 +360,215 @@ export class CamerasService {
         },
       },
     });
+  }
+
+  /**
+   * Phase 22 Plan 22-05 (D-09, D-28): list distinct tags for the org.
+   *
+   * Backs the chip-combobox autocomplete (Plan 22-07) and the table+map
+   * filter MultiSelect (Plans 22-08, 22-10). Read-through Redis+memory cache
+   * with `tags:distinct:{orgId}` key shape and 60s TTL — see
+   * tag-cache.service.ts.
+   *
+   * Implementation notes:
+   *   • $queryRaw bypasses the Prisma tenancy extension. We MUST manually
+   *     apply `set_config('app.current_org_id', orgId, TRUE)` inside the
+   *     SAME transaction so RLS policy `tenant_isolation_camera` scopes the
+   *     subsequent SELECT to the requesting org. Without this, the raw query
+   *     would either return zero rows (when running as app_user with no
+   *     context) or LEAK across orgs (when running as a superuser role) —
+   *     T-22-02 mitigation.
+   *   • DISTINCT ON (lower(tag)) collapses case-insensitive duplicates to
+   *     ONE row, picking the lexicographically-first original casing per
+   *     lowercase key (D-04 first-seen casing — e.g. "Lobby" beats "lobby"
+   *     under default Postgres collation since uppercase letters sort before
+   *     lowercase in en_US.utf8).
+   *   • Application-level `.sort` re-sorts case-insensitively for stable
+   *     alphabetical display so the combobox shows "Entrance, Lobby, Outdoor"
+   *     regardless of the ordering Postgres chose for the DISTINCT ON pass.
+   *
+   * Cache key + behavior is enforced in TagCacheService — this method only
+   * supplies the compute() callback.
+   */
+  async findDistinctTags(orgId: string): Promise<string[]> {
+    // Lazy fallback: in unit-test harnesses that construct CamerasService
+    // with the prior 7-arg ctor, tagCacheService is undefined. Spin up a
+    // local TagCacheService (memory-only — TagCacheService's Redis dep is
+    // @Optional) so the same code path is exercised both in DI and harness
+    // mode. Phase 22 Plan 22-05 Task 2 acceptance criteria do not require a
+    // real Redis in tests; the cache contract is pinned by the dedicated
+    // TagCacheService unit cases.
+    const cache = this.tagCacheService ?? new TagCacheService();
+    return cache.getOrCompute(orgId, async () => {
+      const rows: Array<{ tag: string }> = await this.tenancy.$transaction(
+        async (tx: any) => {
+          // RLS prologue — match prisma-tenancy.extension.ts pattern. The
+          // tenancy client's auto-extension does NOT inject set_config for
+          // $queryRaw, so we apply it manually inside the same transaction.
+          // This is the production T-22-02 mitigation when the connection
+          // runs as the `app_user` role.
+          await tx.$executeRaw`SELECT set_config('app.current_org_id', ${orgId}, TRUE)`;
+          // Defense-in-depth: explicit WHERE "orgId" = ${orgId} ensures the
+          // query is correct regardless of which Postgres role runs it. The
+          // test harness uses the `sms` superuser role (rolbypassrls=true)
+          // and would otherwise leak ALL orgs' tags into the result set;
+          // production app_user clients enforce isolation via RLS, but
+          // belt-and-suspenders prevents a future "test passes, prod leaks"
+          // mismatch. T-22-02 mitigation now has TWO layers.
+          //
+          // unnest expands the `tags String[]` column into one row per tag.
+          // DISTINCT ON (lower(tag)) collapses case-insensitive duplicates;
+          // the inner ORDER BY tag COLLATE "C" picks the lexicographically-
+          // FIRST original casing per lowercase key. COLLATE "C" forces
+          // ASCII byte-order so uppercase letters sort BEFORE lowercase
+          // (A < Z < a < z), making "Lobby" deterministically win over
+          // "lobby" across Postgres versions/locales (en_US.UTF-8 inverts
+          // this on some installs — see Plan 22-05 §<action> note).
+          return tx.$queryRaw`
+            SELECT DISTINCT ON (lower(tag)) tag
+            FROM "Camera", unnest(tags) AS tag
+            WHERE "orgId" = ${orgId}
+            ORDER BY lower(tag), tag COLLATE "C"
+          `;
+        },
+      );
+      // Final case-insensitive alphabetical sort for stable display order.
+      // The DISTINCT ON pass uses `ORDER BY lower(tag), tag` for picking the
+      // winning casing, but the resulting top-level row order isn't
+      // guaranteed to be human-friendly across all Postgres collations — do
+      // the sort in the application layer where the contract is explicit.
+      return rows
+        .map((r) => r.tag)
+        .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+    });
+  }
+
+  /**
+   * Phase 22 Plan 22-06 (D-11, D-12, D-13, D-26) — bulk Add/Remove tag op.
+   *
+   * Single-tag-per-action: caller supplies cameraIds + action + tag; we
+   * append (add) or filter (remove) the tag against each camera's current
+   * tags array.
+   *
+   * Implementation contract (per 22-RESEARCH.md §"Pattern: Bulk tag op"):
+   *   • Per-camera transactional update — NOT updateMany or $executeRaw.
+   *     This guarantees the camera-tag.extension fires on each row so the
+   *     `tagsNormalized` shadow column stays in sync (Pitfall 5; Plan 22-01
+   *     intentionally hooks only single-row APIs).
+   *   • RLS / cross-org safety — tenancy.camera.findMany returns ONLY
+   *     cameras owned by the caller's org in production (RLS policy
+   *     `tenant_isolation_camera`). The test harness uses the `sms`
+   *     superuser role (rolbypassrls=true) so we add a defense-in-depth
+   *     filter `where: { id: in, orgId }` to mirror Plan 22-05's two-layer
+   *     T-22-02 mitigation (set_config + explicit WHERE). Cameras passed
+   *     in dto.cameraIds but not owned by the caller are silently skipped
+   *     (do not exist in the candidate set → updatedCount=0 for them).
+   *   • Idempotent dedup (D-04 case-insensitive) — Add is a no-op when any
+   *     casing of the target tag already exists; Remove is a no-op when no
+   *     casing matches. No-op cameras are NOT counted and emit NO audit row.
+   *   • Per-camera audit row (D-26) — one AuditLog write per actually-
+   *     mutated camera with `details.diff.tags = { before, after }`. Audit
+   *     failures are swallowed via the same try/catch + logger.warn pattern
+   *     used by updateCamera (D-24) so a record-of-record blip never blocks
+   *     the user-facing request.
+   *   • Cache invalidation — the org's distinct-tags cache is dropped after
+   *     the loop completes so the next /cameras/tags/distinct request
+   *     surfaces the new tag (or stops surfacing the removed one) without
+   *     waiting for the 60s TTL.
+   *
+   * Returns: { updatedCount } — number of cameras whose tags array actually
+   * changed. Skipped (idempotent / unowned / no-op-remove) cameras are not
+   * counted.
+   */
+  async bulkTagAction(
+    orgId: string,
+    triggeredBy: { userId: string; userEmail?: string },
+    dto: BulkTagsDto,
+  ): Promise<{ updatedCount: number }> {
+    const target = dto.tag.trim();
+    if (!target) throw new BadRequestException('Tag must not be empty');
+
+    // Defense-in-depth: filter by orgId in addition to RLS so the test
+    // harness (sms superuser) does not accidentally cross orgs (T-22-01).
+    // The tenancy client's RLS policy enforces the same constraint in
+    // production, but two layers prevent a "test passes, prod leaks"
+    // mismatch. Same pattern as Plan 22-05 findDistinctTags.
+    const cameras = await this.tenancy.camera.findMany({
+      where: { id: { in: dto.cameraIds }, orgId },
+      select: { id: true, tags: true, orgId: true },
+    });
+
+    let updatedCount = 0;
+    const targetLower = target.toLowerCase();
+
+    for (const cam of cameras) {
+      const before: string[] = (cam.tags as string[] | null) ?? [];
+      let after: string[];
+
+      if (dto.action === 'add') {
+        const lowerSet = new Set(before.map((t) => t.toLowerCase()));
+        if (lowerSet.has(targetLower)) continue; // idempotent dedup — no change
+        // normalizeForDisplay enforces TAG_MAX_PER_CAMERA bound and strips
+        // any incidental whitespace duplicates (cheap belt for inputs that
+        // somehow predate Plan 22-01's DTO bounds).
+        after = normalizeForDisplay([...before, target]);
+      } else {
+        // remove
+        after = before.filter((t) => t.toLowerCase() !== targetLower);
+        if (after.length === before.length) continue; // no-op — tag absent
+      }
+
+      // Per-camera update — extension fires on this single-row .update()
+      // call to mirror tags → tagsNormalized (Pitfall 5).
+      await this.tenancy.camera.update({
+        where: { id: cam.id },
+        data: { tags: after },
+      });
+      updatedCount += 1;
+
+      // D-26: per-camera audit row with structured diff. Failures are
+      // logged but never block — same pattern as updateCamera (D-24).
+      if (this.auditService) {
+        try {
+          await this.auditService.log({
+            orgId,
+            userId: triggeredBy.userId,
+            action: 'camera.metadata.update',
+            resource: 'camera',
+            resourceId: cam.id,
+            method: 'POST',
+            path: '/api/cameras/bulk/tags',
+            details: {
+              bulkAction: dto.action,
+              tag: target,
+              diff: { tags: { before, after } },
+            },
+          });
+        } catch (err) {
+          this.logger.warn(
+            `Audit bulk-tags diff failed for ${cam.id}: ${(err as Error).message}`,
+          );
+        }
+      }
+    }
+
+    // Invalidate distinct-tags cache so autocomplete / table filter /
+    // map filter surface the new state on the next request. Same lazy
+    // fallback as findDistinctTags — when DI is bypassed (some unit test
+    // harnesses), we still call invalidate on a local instance so the
+    // contract is exercised end-to-end.
+    if (updatedCount > 0) {
+      const cache = this.tagCacheService ?? new TagCacheService();
+      try {
+        await cache.invalidate(orgId);
+      } catch (err) {
+        this.logger.warn(
+          `Tag cache invalidate failed for org ${orgId}: ${(err as Error).message}`,
+        );
+      }
+    }
+
+    return { updatedCount };
   }
 
   async findCameraById(id: string) {

@@ -221,3 +221,138 @@ describe('CameraPopup (Phase 18 — map thumbnail popup redesign)', () => {
     expect(preview.className).toMatch(/aspect-\[16\/9\]/);
   });
 });
+
+/**
+ * Phase 22 Plan 10 — Tags row + description block on the map popup.
+ *
+ * Spec references:
+ *   - 22-UI-SPEC.md §"Map popup tag row" (line 61) — placement: after subtitle, before preview-container
+ *   - 22-UI-SPEC.md §"Map popup description block" (line 367) — line-clamp-2 + Show more disclosure
+ *   - 22-VALIDATION.md row 22-W2-MAP-POPUP — D-19 — popup tags row + description
+ */
+describe('Phase 22: tags + description', () => {
+  it('renders tag badges when camera.tags is non-empty', () => {
+    render(
+      <CameraPopup
+        id="c1"
+        name="Lobby"
+        status="online"
+        tags={['Outdoor', 'Perimeter']}
+      />,
+    );
+    expect(screen.getByText('Outdoor')).toBeInTheDocument();
+    expect(screen.getByText('Perimeter')).toBeInTheDocument();
+  });
+
+  it('hides tags row when camera.tags is empty', () => {
+    const { container } = render(
+      <CameraPopup id="c1" name="Lobby" status="online" tags={[]} />,
+    );
+    // No tag-row container should be rendered when tags empty.
+    expect(container.querySelector('[data-testid="popup-tags-row"]')).toBeNull();
+  });
+
+  it('renders description block when description is non-empty', () => {
+    render(
+      <CameraPopup
+        id="c1"
+        name="Lobby"
+        status="online"
+        description="Front door cam"
+      />,
+    );
+    expect(screen.getByText('Front door cam')).toBeInTheDocument();
+  });
+
+  it('hides description block when description is null or empty', () => {
+    const { container, rerender } = render(
+      <CameraPopup id="c1" name="Lobby" status="online" description={null} />,
+    );
+    expect(
+      container.querySelector('[data-testid="popup-description"]'),
+    ).toBeNull();
+    rerender(
+      <CameraPopup id="c1" name="Lobby" status="online" description="" />,
+    );
+    expect(
+      container.querySelector('[data-testid="popup-description"]'),
+    ).toBeNull();
+  });
+
+  it('description paragraph has line-clamp-2 in the initial collapsed state', () => {
+    render(
+      <CameraPopup
+        id="c1"
+        name="Lobby"
+        status="online"
+        description="A reasonably long description that may wrap across multiple lines in the popup body when rendered inside the leaflet popup container that has limited width."
+      />,
+    );
+    const desc = screen.getByTestId('popup-description-text');
+    expect(desc.className).toMatch(/line-clamp-2/);
+  });
+
+  it('shows "Show more" disclosure on long description and toggles to "Show less" after click', async () => {
+    const user = userEvent.setup();
+    const long =
+      'This description is intentionally long enough — well past the 100-character heuristic — so the disclosure must render and toggle the line-clamp state appropriately when the user interacts with it.';
+    render(
+      <CameraPopup
+        id="c1"
+        name="Lobby"
+        status="online"
+        description={long}
+      />,
+    );
+    const more = screen.getByRole('button', { name: 'Show more' });
+    expect(more).toBeInTheDocument();
+    await user.click(more);
+    // After expansion, line-clamp-2 must NOT be present and link reads Show less
+    const desc = screen.getByTestId('popup-description-text');
+    expect(desc.className).not.toMatch(/line-clamp-2/);
+    expect(screen.getByRole('button', { name: 'Show less' })).toBeInTheDocument();
+  });
+
+  it('clicking "Show less" collapses back to line-clamp-2 + restores "Show more"', async () => {
+    const user = userEvent.setup();
+    const long =
+      'This description is intentionally long enough — well past the 100-character heuristic — so the disclosure must render and toggle the line-clamp state appropriately when the user interacts with it.';
+    render(
+      <CameraPopup
+        id="c1"
+        name="Lobby"
+        status="online"
+        description={long}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Show more' }));
+    await user.click(screen.getByRole('button', { name: 'Show less' }));
+    const desc = screen.getByTestId('popup-description-text');
+    expect(desc.className).toMatch(/line-clamp-2/);
+    expect(screen.getByRole('button', { name: 'Show more' })).toBeInTheDocument();
+  });
+
+  it('positions tags row after subtitle and before details button (DOM order)', () => {
+    const { container } = render(
+      <CameraPopup
+        id="c1"
+        name="Lobby"
+        status="online"
+        viewerCount={2}
+        tags={['Lobby']}
+        description="Hello"
+      />,
+    );
+    const subtitle = screen.getByTestId('subtitle');
+    const tagsRow = screen.getByTestId('popup-tags-row');
+    const detailsBtn = screen.getByRole('button', { name: /View details for Lobby/i });
+    // DOM order: subtitle precedes tagsRow, tagsRow precedes detailsBtn
+    expect(
+      subtitle.compareDocumentPosition(tagsRow) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      tagsRow.compareDocumentPosition(detailsBtn) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    void container;
+  });
+});

@@ -397,6 +397,13 @@ export default function TenantCamerasPage() {
         onExitMaintenance={handleBulkExitMaintenance}
         onDelete={handleBulkDelete}
         onClear={() => setRowSelection({})}
+        // Phase 22 Plan 22-11 — refetch + clear selection after a successful
+        // bulk Add/Remove tag. The popovers self-contain their fetch + toast
+        // lifecycle and only call back on success.
+        onTagBulkSuccess={() => {
+          setRowSelection({});
+          void fetchCameras();
+        }}
       />
 
       <CamerasDataTable

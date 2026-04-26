@@ -28,6 +28,7 @@ import { DataTableColumnHeader } from "@/components/ui/data-table"
 import { DataTableRowActions, type RowAction } from "@/components/ui/data-table"
 import { StatusPills } from "@/app/admin/cameras/components/camera-status-badge"
 import { CodecStatusCell } from "@/app/admin/cameras/components/codec-status-cell"
+import { TagsCell } from "@/app/admin/cameras/components/tags-cell"
 import { normalizeCodecInfo } from "@/lib/codec-info"
 import {
   getStreamProfileModeName,
@@ -170,9 +171,34 @@ export function createCamerasColumns(
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Name" />
       ),
-      cell: ({ row }) => (
-        <span className="font-medium">{row.getValue("name")}</span>
-      ),
+      // Phase 22 D-17 + D-18: when description is non-empty, wrap the name in
+      // a Tooltip whose content uses `max-w-[320px]` + `line-clamp-6` per the
+      // UI-SPEC tooltip contract. When description is empty/null, render the
+      // bare span so no tooltip primitives mount (a11y + perf).
+      // Radix default delay is intentional — DO NOT pass `delayDuration` (D-18).
+      cell: ({ row }) => {
+        const camera = row.original
+        const description = camera.description?.trim()
+        const nameSpan = (
+          <span
+            className="font-medium"
+            tabIndex={description ? 0 : -1}
+          >
+            {row.getValue<string>("name")}
+          </span>
+        )
+        if (!description) return nameSpan
+        return (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger render={nameSpan} />
+              <TooltipContent className="max-w-[320px] whitespace-pre-line">
+                <span className="line-clamp-6 inline-block">{description}</span>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )
+      },
     },
     {
       id: "project",
@@ -265,6 +291,29 @@ export function createCamerasColumns(
             </Badge>
           </div>
         )
+      },
+    },
+    // Phase 22 Plan 22-08 — Tags column (D-14, D-15). Inserted AFTER Stream
+    // Profile and BEFORE Created per UI-SPEC ordering. Uses the shared
+    // TagsCell composite which is reused by Plan 22-10 (map popup).
+    //
+    // filterFn: case-insensitive OR semantics — `value` is the array of tag
+    // strings selected in the Tags MultiSelect filter (wired in
+    // cameras-data-table.tsx). Empty selection → no filter applied (return
+    // true). Otherwise: at least one row tag must case-insensitively match
+    // any selected filter value.
+    {
+      id: "tags",
+      accessorKey: "tags",
+      header: "Tags",
+      enableSorting: false,
+      cell: ({ row }) => <TagsCell tags={row.original.tags ?? []} />,
+      filterFn: (row, id, value: string[]) => {
+        if (!value || value.length === 0) return true
+        const rowTags = (row.getValue(id) as string[] | undefined) ?? []
+        if (rowTags.length === 0) return false
+        const lowered = new Set(rowTags.map((t) => t.toLowerCase()))
+        return value.some((v) => lowered.has(v.toLowerCase()))
       },
     },
     {

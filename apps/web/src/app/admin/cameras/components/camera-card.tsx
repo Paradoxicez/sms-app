@@ -22,6 +22,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import {
   CameraStatusDot,
   CameraStatusPill,
 } from "@/app/admin/cameras/components/camera-status-badge"
@@ -174,7 +180,39 @@ export function CameraCard({
       <div className="p-3 flex items-center gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            <span className="text-sm font-medium truncate">{camera.name}</span>
+            {/*
+              Phase 22 Plan 22-08 (D-17 + D-18). When the description is
+              non-empty, surface it as a tooltip on the name. The tooltip
+              uses `max-w-[320px]` + `line-clamp-6` per D-18 styling and
+              keeps Radix's default delay (no `delayDuration` override).
+              When description is null/empty, the bare span renders so no
+              tooltip primitives mount.
+            */}
+            {camera.description?.trim() ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <span
+                        className="text-sm font-medium truncate"
+                        tabIndex={0}
+                      >
+                        {camera.name}
+                      </span>
+                    }
+                  />
+                  <TooltipContent className="max-w-[320px] whitespace-pre-line">
+                    <span className="line-clamp-6 inline-block">
+                      {camera.description}
+                    </span>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : (
+              <span className="text-sm font-medium truncate">
+                {camera.name}
+              </span>
+            )}
             <CameraStatusDot status={camera.status} />
           </div>
           <p className="text-xs text-muted-foreground truncate">

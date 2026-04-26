@@ -218,6 +218,8 @@ export default function CameraMapInner({
             maintenanceEnteredAt={camera.maintenanceEnteredAt ?? null}
             lastOnlineAt={camera.lastOnlineAt ?? null}
             retentionDays={camera.retentionDays ?? null}
+            tags={camera.tags}
+            description={camera.description ?? null}
             onViewStream={onViewStream}
             onSetLocation={onSetLocation}
             onDragEnd={onDragEnd}

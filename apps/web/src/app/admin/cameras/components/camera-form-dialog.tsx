@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/select';
 import { IngestModeToggle, type IngestMode } from './ingest-mode-toggle';
 import { CreatedUrlReveal } from './created-url-reveal';
+import { TagInputCombobox } from './tag-input-combobox';
 
 interface Project {
   id: string;
@@ -71,7 +72,12 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
   const [siteId, setSiteId] = useState('');
   const [lat, setLat] = useState('');
   const [lng, setLng] = useState('');
-  const [tags, setTags] = useState('');
+  // Phase 22 Plan 22-07: tags is now `string[]` (was comma-string). The
+  // TagInputCombobox owns the chip array; backend already accepts string[].
+  const [tags, setTags] = useState<string[]>([]);
+  // Phase 22 D-09: cache distinct tags fetched on dialog open. Failure → toast
+  // and empty list (combobox still allows freetext).
+  const [distinctTags, setDistinctTags] = useState<string[]>([]);
   const [description, setDescription] = useState('');
   const [streamProfileId, setStreamProfileId] = useState('');
   const [projects, setProjects] = useState<Project[]>([]);
@@ -109,7 +115,7 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
     description: string;
     lat: string;
     lng: string;
-    tags: string;
+    tags: string[];
     streamProfileId: string;
     siteId: string;
   } | null>(null);
@@ -151,6 +157,15 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
       apiFetch<Array<{ id: string; name: string; streamUrl: string }>>('/api/cameras')
         .then(setExistingCameras)
         .catch(() => setExistingCameras([]));
+      // Phase 22 D-09: distinct-tags fetch for combobox autocomplete (cached
+      // for the lifetime of this dialog open). Plan 22-05 endpoint shape:
+      // { tags: string[] } already alphabetized + first-seen casing per D-04.
+      apiFetch<{ tags: string[] }>('/api/cameras/tags/distinct')
+        .then((data) => setDistinctTags(data?.tags ?? []))
+        .catch(() => {
+          toast.error("Couldn't load tag suggestions. Try again.");
+          setDistinctTags([]);
+        });
 
       if (camera) {
         setName(camera.name || '');
@@ -158,7 +173,7 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
         setDescription(camera.description || '');
         setLat(camera.location?.lat != null ? String(camera.location.lat) : '');
         setLng(camera.location?.lng != null ? String(camera.location.lng) : '');
-        setTags(camera.tags?.join(', ') || '');
+        setTags(camera.tags ?? []);
         setStreamProfileId(camera.streamProfileId || '');
         if (camera.site?.project?.id) setProjectId(camera.site.project.id);
         if (camera.site?.id) setSiteId(camera.site.id);
@@ -172,7 +187,7 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
           description: camera.description || '',
           lat: camera.location?.lat != null ? String(camera.location.lat) : '',
           lng: camera.location?.lng != null ? String(camera.location.lng) : '',
-          tags: camera.tags?.join(', ') || '',
+          tags: camera.tags ?? [],
           streamProfileId: camera.streamProfileId || '',
           siteId: camera.site?.id || '',
         };
@@ -231,7 +246,8 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
     setSiteId('');
     setLat('');
     setLng('');
-    setTags('');
+    setTags([]);
+    setDistinctTags([]);
     setDescription('');
     setStreamProfileId('');
     setStreamProfileError(null);
@@ -302,13 +318,13 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
           body.description = trimmedDesc === '' ? null : trimmedDesc;
         }
 
-        // tags: comma-string → normalized array, then deep-equal vs initial array
-        const currentTagsArr = tags.split(',').map((t) => t.trim()).filter(Boolean);
-        const initialTagsArr = init.tags.split(',').map((t) => t.trim()).filter(Boolean);
+        // Phase 22 Plan 22-07: tags is now a string[] from TagInputCombobox.
+        // Diff order-sensitive against the initial snapshot (also string[]).
+        // Server-side normalization (Plan 22-01 extension) handles trim/dedup/limits.
         const tagsChanged =
-          currentTagsArr.length !== initialTagsArr.length ||
-          currentTagsArr.some((t, i) => t !== initialTagsArr[i]);
-        if (tagsChanged) body.tags = currentTagsArr;
+          tags.length !== init.tags.length ||
+          tags.some((t, i) => t !== init.tags[i]);
+        if (tagsChanged) body.tags = tags;
 
         // streamProfileId: '' clear → null
         if (streamProfileId !== init.streamProfileId) {
@@ -368,8 +384,10 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
       if (lat && lng) {
         body.location = { lat: parseFloat(lat), lng: parseFloat(lng) };
       }
-      if (tags.trim()) {
-        body.tags = tags.split(',').map((t) => t.trim()).filter(Boolean);
+      // Phase 22 Plan 22-07: tags is already a string[] from TagInputCombobox.
+      // Backend normalization (Plan 22-01) handles trim/dedup/limits server-side.
+      if (tags.length > 0) {
+        body.tags = tags;
       }
       body.streamProfileId = streamProfileId || null;
 
@@ -641,11 +659,19 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
 
               <div className="space-y-2">
                 <Label htmlFor="cam-tags">Tags</Label>
-                <Input
-                  id="cam-tags"
+                {/* Phase 22 Plan 22-07 D-08: chip combobox replaces the
+                    historical comma-separated <Input>. Suggestions come from
+                    /api/cameras/tags/distinct (Plan 22-05 endpoint), cached for
+                    the lifetime of this dialog open per D-09. Free-text adds
+                    are still allowed; server-side normalization handles
+                    trim/dedup/limits at write time. */}
+                <TagInputCombobox
+                  inputId="cam-tags"
                   value={tags}
-                  onChange={(e) => setTags(e.target.value)}
-                  placeholder="outdoor, entrance, parking"
+                  onChange={setTags}
+                  suggestions={distinctTags}
+                  multi
+                  freeText
                 />
               </div>
 

@@ -73,16 +73,26 @@ export default function WebhooksGuidePage() {
         </p>
         <CodeBlock language="json" code={`{
   "event": "camera.offline",
-  "cameraId": "cam_abc123",
-  "cameraName": "Front Entrance",
+  "cameraId": "CAMERA_ID",
   "status": "offline",
   "previousStatus": "online",
   "timestamp": "2026-01-15T10:30:45Z",
+  "tags": ["Outdoor", "Perimeter"],
   "metadata": {
     "lastFrameAt": "2026-01-15T10:30:30Z",
     "disconnectReason": "connection_timeout"
   }
 }`} />
+        <p className="text-sm text-muted-foreground">
+          The <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">tags</code> array reflects the
+          camera&apos;s tags at the moment of dispatch and preserves the original casing entered by the user.
+          Subscribers can use this to filter events client-side &mdash; for example, trigger an alert only when a
+          camera tagged <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">&quot;perimeter&quot;</code>
+          {" "}goes offline. A camera with no tags emits <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">&quot;tags&quot;: []</code>
+          {" "}(the field is always present). The <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">tags</code>
+          {" "}field is included on <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">camera.online</code>
+          {" "}and <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">camera.offline</code> events.
+        </p>
       </section>
 
       <section className="space-y-3">
