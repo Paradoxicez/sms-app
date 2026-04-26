@@ -1,16 +1,5 @@
-"use client";
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { Skeleton } from "@/components/ui/skeleton";
+import { redirect } from "next/navigation";
 
-export default function Redirect() {
-  const router = useRouter();
-  useEffect(() => {
-    router.replace("/app/developer");
-  }, [router]);
-  return (
-    <div className="p-8">
-      <Skeleton className="h-8 w-32" />
-    </div>
-  );
+export default function AdminDeveloperRootPage() {
+  redirect("/admin/developer/docs");
 }

@@ -1,1 +1,5 @@
-export { default } from "@/components/pages/tenant-developer-page";
+import { redirect } from "next/navigation";
+
+export default function DeveloperRootPage() {
+  redirect("/app/developer/docs");
+}
