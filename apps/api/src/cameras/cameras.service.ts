@@ -32,6 +32,27 @@ import {
 } from './stream-key.util';
 import { fingerprintProfile } from '../streams/profile-fingerprint.util';
 
+/**
+ * Phase 22 Plan 22-04 (D-24): case-insensitive array equality helper for
+ * tag diff computation. Per D-04, `tags` preserves first-seen casing on the
+ * canonical column and is mirrored lowercase to `tagsNormalized`. A user
+ * editing a tag's casing only (e.g., "Lobby" → "LOBBY") is a no-op for the
+ * indexed shadow column AND for the audit diff — we don't surface a change
+ * that has no semantic effect on filtering or display semantics.
+ *
+ * Implementation: compare two arrays as case-insensitive multisets via
+ * lower-cased membership. O(n) — Set lookup beats nested loops for the
+ * realistic n ≤ 20 (TAG_MAX_PER_CAMERA) bound.
+ */
+function arraysEqualCaseInsensitive(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  const aLower = new Set(a.map((x) => x.toLowerCase()));
+  for (const item of b) {
+    if (!aLower.has(item.toLowerCase())) return false;
+  }
+  return true;
+}
+
 @Injectable()
 export class CamerasService {
   private readonly logger = new Logger(CamerasService.name);
@@ -412,6 +433,61 @@ export class CamerasService {
             cameraId: id,
           });
           restartTriggered = result.affectedCameras > 0;
+        }
+      }
+    }
+
+    // Phase 22 D-24: emit a structured `details.diff` for tag/description
+    // changes alongside the AuditInterceptor's automatic row.
+    //
+    // The interceptor records `details = sanitizeBody(request.body)` for the
+    // PATCH — that captures WHAT was sent but not WHAT CHANGED. D-24 wants a
+    // before/after diff so admins can see exactly what flipped without
+    // reverse-engineering the request body against the old DB state.
+    //
+    // Rules (per <interfaces> in 22-04-PLAN.md):
+    //   • Only fields actually present in the PATCH body are considered
+    //     (Object.prototype.hasOwnProperty discriminates undefined from absent).
+    //   • Tags compare case-insensitively (D-04: case-only changes are no-ops).
+    //   • Description compares with `??null` to treat undefined and null as
+    //     equivalent (the column is nullable; clearing description → null).
+    //   • If neither field actually changed, NO audit row is emitted (Test 4).
+    //   • The sanitizer (audit.service.ts:7-22) preserves the `diff` key —
+    //     this is pinned by tests/audit/sanitizer-diff.test.ts.
+    if (this.auditService) {
+      const diff: Record<string, { before: any; after: any }> = {};
+      if (Object.prototype.hasOwnProperty.call(dto, 'tags')) {
+        const beforeTags = (pre as any).tags ?? [];
+        const afterTags = (updated as any).tags ?? [];
+        if (!arraysEqualCaseInsensitive(beforeTags, afterTags)) {
+          diff.tags = { before: beforeTags, after: afterTags };
+        }
+      }
+      if (Object.prototype.hasOwnProperty.call(dto, 'description')) {
+        const beforeDesc = (pre as any).description ?? null;
+        const afterDesc = (updated as any).description ?? null;
+        if (beforeDesc !== afterDesc) {
+          diff.description = { before: beforeDesc, after: afterDesc };
+        }
+      }
+      if (Object.keys(diff).length > 0) {
+        const userId =
+          'userId' in triggeredBy ? triggeredBy.userId : undefined;
+        try {
+          await this.auditService.log({
+            orgId: pre.orgId,
+            userId,
+            action: 'camera.metadata.update',
+            resource: 'camera',
+            resourceId: id,
+            method: 'PATCH',
+            path: `/api/cameras/${id}`,
+            details: { diff },
+          });
+        } catch (err) {
+          this.logger.warn(
+            `Audit metadata.update diff failed for ${id}: ${(err as Error).message}`,
+          );
         }
       }
     }
