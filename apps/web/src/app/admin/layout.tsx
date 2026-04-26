@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/nav/app-sidebar";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { adminNavGroups } from "@/components/nav/nav-config";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSidebarResize } from "@/hooks/use-sidebar-resize";
@@ -77,7 +78,6 @@ export default function AdminLayout({
     <SidebarProvider>
       <AppSidebar
         navGroups={adminNavGroups}
-        portalBadge="Platform"
         userName={user?.name}
         userEmail={user?.email}
         accountHref="/admin/account"
@@ -86,6 +86,12 @@ export default function AdminLayout({
       <SidebarInset>
         <header className="flex h-14 items-center gap-2 border-b px-4">
           <SidebarTrigger />
+          <div className="ml-auto flex items-center gap-3">
+            <span className="rounded bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+              Platform
+            </span>
+            <NotificationBell />
+          </div>
         </header>
         <div className="flex-1 p-4 md:p-8">
           {children}

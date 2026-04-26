@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/nav/app-sidebar";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { tenantNavGroups, filterNavGroups } from "@/components/nav/nav-config";
 import { useCurrentRole } from "@/hooks/use-current-role";
 import { useFeatures } from "@/hooks/use-features";
@@ -123,8 +124,6 @@ export default function AppLayout({
     <SidebarProvider>
       <AppSidebar
         navGroups={filteredGroups}
-        portalBadge={truncate(activeOrgName ?? "Workspace")}
-        portalBadgeTitle={activeOrgName ?? undefined}
         userName={user?.name}
         userEmail={user?.email}
         accountHref="/app/account"
@@ -133,6 +132,15 @@ export default function AppLayout({
       <SidebarInset>
         <header className="flex h-14 items-center gap-2 border-b px-4">
           <SidebarTrigger />
+          <div className="ml-auto flex items-center gap-3">
+            <span
+              className="truncate rounded bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
+              title={activeOrgName ?? undefined}
+            >
+              {truncate(activeOrgName ?? "Workspace")}
+            </span>
+            <NotificationBell />
+          </div>
         </header>
         <div className="flex-1 p-4 md:p-8">
           {children}

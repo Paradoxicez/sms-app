@@ -54,7 +54,6 @@ function renderSidebar(props?: Partial<Parameters<typeof AppSidebar>[0]>) {
     <SidebarProvider defaultOpen={true}>
       <AppSidebar
         navGroups={testNavGroups}
-        portalBadge="Test"
         userName="John Doe"
         userEmail="john@example.com"
         {...props}
@@ -96,11 +95,6 @@ describe("AppSidebar", () => {
     renderSidebar();
     const rail = document.querySelector('[data-sidebar="rail"]');
     expect(rail).toBeInTheDocument();
-  });
-
-  it("renders portal badge", () => {
-    renderSidebar();
-    expect(screen.getByText("Test")).toBeInTheDocument();
   });
 
   it("renders user name in footer when expanded", () => {
