@@ -244,6 +244,74 @@ describe('Bulk Camera Import', () => {
     const results = jsonInput.map((row) => BulkImportCameraSchema.safeParse(row));
     expect(results.every((r) => r.success)).toBe(true);
   });
+
+  // ─── Default StreamProfile assignment (regression guard for ─────
+  //     bulk-import-default-profile-not-assigned) ─────────────────
+
+  it('assigns the org default StreamProfile to every imported row when none is supplied', async () => {
+    const defaultProfile = await testPrisma.streamProfile.create({
+      data: { orgId, name: 'Org Default', isDefault: true },
+    });
+
+    const result = await service.bulkImport(orgId, {
+      cameras: [
+        { name: 'DefCam1', streamUrl: 'rtsp://10.0.9.1/s1' },
+        { name: 'DefCam2', streamUrl: 'rtsp://10.0.9.2/s2' },
+      ],
+      siteId,
+    });
+
+    expect(result.imported).toBe(2);
+
+    const persisted = await testPrisma.camera.findMany({
+      where: { siteId, name: { in: ['DefCam1', 'DefCam2'] } },
+      orderBy: { name: 'asc' },
+    });
+    expect(persisted).toHaveLength(2);
+    expect(persisted[0].streamProfileId).toBe(defaultProfile.id);
+    expect(persisted[1].streamProfileId).toBe(defaultProfile.id);
+  });
+
+  it('per-row streamProfileId wins over the org default', async () => {
+    const defaultProfile = await testPrisma.streamProfile.create({
+      data: { orgId, name: 'Org Default', isDefault: true },
+    });
+    const customProfile = await testPrisma.streamProfile.create({
+      data: { orgId, name: 'Custom', isDefault: false },
+    });
+
+    const result = await service.bulkImport(orgId, {
+      cameras: [
+        { name: 'OverrideCam', streamUrl: 'rtsp://10.0.9.3/s3', streamProfileId: customProfile.id },
+        { name: 'DefaultCam', streamUrl: 'rtsp://10.0.9.4/s4' },
+      ],
+      siteId,
+    });
+
+    expect(result.imported).toBe(2);
+
+    const override = await testPrisma.camera.findFirst({ where: { siteId, name: 'OverrideCam' } });
+    const defaulted = await testPrisma.camera.findFirst({ where: { siteId, name: 'DefaultCam' } });
+    expect(override?.streamProfileId).toBe(customProfile.id);
+    expect(defaulted?.streamProfileId).toBe(defaultProfile.id);
+  });
+
+  it('leaves streamProfileId null when the org has no default profile (no throw)', async () => {
+    // No StreamProfile rows for this org — runtime fallback in PoliciesService.resolve
+    // handles playback; UI just shows blank. Throwing here would block bulk import for
+    // orgs that never set a default, which is worse than the current state.
+    const result = await service.bulkImport(orgId, {
+      cameras: [{ name: 'NoDefaultCam', streamUrl: 'rtsp://10.0.9.5/s5' }],
+      siteId,
+    });
+
+    expect(result.imported).toBe(1);
+
+    const persisted = await testPrisma.camera.findFirst({
+      where: { siteId, name: 'NoDefaultCam' },
+    });
+    expect(persisted?.streamProfileId).toBeNull();
+  });
 });
 
 async function cleanupCameraData(prisma: any) {
@@ -395,6 +463,9 @@ describe('bulkImport server-side dedup — Phase 19 (D-10b)', () => {
       camera: {
         findMany: async () => [], // pretend nothing exists yet
         count: async () => 0,
+      },
+      streamProfile: {
+        findFirst: async () => null,
       },
       $transaction: async (_cb: any) => {
         // Throw a Prisma P2002 as if the unique constraint fired between

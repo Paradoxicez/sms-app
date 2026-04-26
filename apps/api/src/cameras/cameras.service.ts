@@ -812,6 +812,15 @@ export class CamerasService {
     // (nanoid 21) so the DB never sees a null streamKey on an ingestMode
     // ='push' row — only the @@unique([streamKey]) constraint can collide.
     const pushHost = process.env.SRS_PUBLIC_HOST ?? 'localhost';
+    // Resolve the org's default StreamProfile once, outside the create loop —
+    // the single-camera form pre-selects this client-side, but bulk import has
+    // no per-row picker so the default must be applied server-side. Per-row
+    // streamProfileId still wins; null result here just means the row falls
+    // back to PoliciesService.resolve's runtime fallback (quick-260426-07r).
+    const orgDefaultProfile = await this.tenancy.streamProfile.findFirst({
+      where: { orgId, isDefault: true },
+      select: { id: true },
+    });
     let cameras: any[];
     try {
       cameras = await this.tenancy.$transaction(async (tx: any) => {
@@ -833,6 +842,8 @@ export class CamerasService {
               description: cam.description,
               location: cam.location ?? undefined,
               tags: cam.tags ?? [],
+              streamProfileId:
+                cam.streamProfileId ?? orgDefaultProfile?.id ?? null,
               status: 'offline',
               needsTranscode: false,
             },

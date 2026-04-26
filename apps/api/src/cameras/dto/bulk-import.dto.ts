@@ -16,6 +16,7 @@ export const BulkImportCameraSchema = z
       })
       .optional(),
     tags: z.array(z.string()).optional(),
+    streamProfileId: z.string().uuid().optional(),
   })
   .superRefine((row, ctx) => {
     if (row.ingestMode === 'pull') {

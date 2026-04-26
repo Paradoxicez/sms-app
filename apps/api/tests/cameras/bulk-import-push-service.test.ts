@@ -17,6 +17,9 @@ function buildService() {
       findMany: vi.fn().mockResolvedValue([]),
       count: vi.fn().mockResolvedValue(0),
     },
+    streamProfile: {
+      findFirst: vi.fn().mockResolvedValue(null),
+    },
     $transaction: vi.fn(async (cb: any) => cb(tx)),
   };
   const probeQueue = { add: vi.fn().mockResolvedValue(undefined) };
