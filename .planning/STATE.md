@@ -4,8 +4,8 @@ milestone: v1.2
 milestone_name: Self-Service, Resilience & UI Polish
 status: executing
 stopped_at: Phase 22 UI-SPEC approved
-last_updated: "2026-04-26T12:38:12.713Z"
-last_activity: 2026-04-26 -- Phase 22 planning complete
+last_updated: "2026-04-26T12:59:47.262Z"
+last_activity: 2026-04-26 -- Phase 22 execution started
 progress:
   total_phases: 11
   completed_phases: 10
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-18)
 
 **Core value:** Developers can get a secure HLS playback URL for any registered camera via a single API call, and embed it on their website immediately.
-**Current focus:** Phase 21.1 — Active-job collision fix for hot-reload restart (gap closure)
+**Current focus:** Phase 22 — camera-metadata-utilization-surface-tags-description-across-
 
 ## Current Position
 
-Phase: 21.1
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-04-26 -- Phase 22 planning complete
+Phase: 22 (camera-metadata-utilization-surface-tags-description-across-) — EXECUTING
+Plan: 1 of 12
+Status: Executing Phase 22
+Last activity: 2026-04-26 -- Phase 22 execution started
 
 Progress: [░░░░░░░░░░] 0% (v1.2: 0/5 phases)
 

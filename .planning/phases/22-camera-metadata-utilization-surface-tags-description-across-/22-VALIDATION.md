@@ -86,14 +86,14 @@ These test files MUST exist (as stubs at minimum) before Wave 1 can begin execut
 - [ ] `apps/api/tests/audit/sanitizer-diff.test.ts` — unit: `sanitizeDetails` preserves diff values
 - [ ] `apps/api/tests/status/notify-dispatch.test.ts` — extend if exists, create otherwise; assert webhook payload has `tags` field
 
-### Web tests (4 new + 3 extend)
+### Web tests (4 new + 4 extend)
 
 - [ ] `apps/web/src/app/admin/cameras/components/__tests__/tag-input-combobox.test.tsx` — component: chip behavior (D-08)
 - [ ] `apps/web/src/app/admin/cameras/components/__tests__/tags-cell.test.tsx` — component: ≤3 + overflow tooltip (D-14)
 - [ ] `apps/web/src/app/admin/cameras/components/__tests__/cameras-columns-tooltip.test.tsx` — component: name tooltip (D-17)
 - [ ] `apps/web/src/components/pages/__tests__/tenant-map-page-tag-filter.test.tsx` — component: map toolbar filter (D-20)
 - [ ] EXTEND `apps/web/src/app/admin/cameras/components/__tests__/view-stream-sheet.test.tsx` — Notes block (D-16)
-- [ ] EXTEND `apps/web/src/components/map/__tests__/camera-popup.test.tsx` — popup tags + description (D-19)
+- [ ] EXTEND `apps/web/src/components/map/camera-popup.test.tsx` — popup tags + description (D-19) — **sibling-pattern path; NOT under `__tests__/` (matches the project convention used by `camera-marker.test.tsx` and `camera-map-inner.test.tsx`)**
 - [ ] EXTEND `apps/web/src/app/admin/cameras/components/__tests__/cameras-data-table.test.tsx` — tag filter (D-06 UI)
 - [ ] EXTEND `apps/web/src/app/admin/cameras/components/__tests__/bulk-toolbar.test.tsx` — bulk tag buttons (D-11 UI)
 
@@ -115,7 +115,7 @@ These test files MUST exist (as stubs at minimum) before Wave 1 can begin execut
 
 - [ ] All decisions have `<automated>` verify or Wave 0 dependencies — **20/20 mapped above**
 - [ ] Sampling continuity: no 3 consecutive tasks without automated verify — **OK (every task has a test command)**
-- [ ] Wave 0 covers all MISSING references — **14 test files listed (10 API + 4 Web new + 3 Web extend)**
+- [ ] Wave 0 covers all MISSING references — **15 test files listed (10 API + 4 Web new + 4 Web extend)**
 - [ ] No watch-mode flags — **`-x` flag (no watch) used in all commands**
 - [ ] Feedback latency < 60s — **~45s per task commit**
 - [ ] `nyquist_compliant: true` set in frontmatter — **PENDING (set after Wave 0 lands)**
