@@ -30,7 +30,7 @@ async function bootstrap() {
 
   // Swagger API documentation
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('SMS Platform API')
+    .setTitle('StreamBridge API')
     .setDescription(
       'Surveillance Management System — Developer API for managing cameras, streams, playback sessions, and webhooks.',
     )
@@ -48,7 +48,7 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3003;
   await app.listen(port);
-  console.log(`SMS Platform API running on http://localhost:${port}`);
+  console.log(`StreamBridge API running on http://localhost:${port}`);
 }
 
 bootstrap();
