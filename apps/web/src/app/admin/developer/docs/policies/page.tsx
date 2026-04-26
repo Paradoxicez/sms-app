@@ -41,12 +41,12 @@ export default function PoliciesGuidePage() {
           leaves <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">maxViewers</code> as null, the TTL comes from the camera level while maxViewers is inherited
           from the nearest parent that defines it.
         </p>
-        <CodeBlock language="text" code={`System Policy:    ttl=120  maxViewers=10  domains=[]     rateLimitPerMin=60
-Project Policy:   ttl=300  maxViewers=null domains=null   rateLimitPerMin=null
-Site Policy:      ttl=null maxViewers=5   domains=null   rateLimitPerMin=null
-Camera Policy:    ttl=60   maxViewers=null domains=null   rateLimitPerMin=null
+        <CodeBlock language="text" code={`System Policy:    ttl=7200 maxViewers=10  domains=[]     rateLimit=100
+Project Policy:   ttl=300  maxViewers=null domains=null   rateLimit=null
+Site Policy:      ttl=null maxViewers=5   domains=null   rateLimit=null
+Camera Policy:    ttl=60   maxViewers=null domains=null   rateLimit=null
 
-Resolved:         ttl=60   maxViewers=5   domains=[]     rateLimitPerMin=60
+Resolved:         ttl=60   maxViewers=5   domains=[]     rateLimit=100
                   ^camera  ^site          ^system         ^system`} />
       </section>
 
@@ -66,14 +66,14 @@ Resolved:         ttl=60   maxViewers=5   domains=[]     rateLimitPerMin=60
               <tr className="border-b">
                 <td className="py-2 pr-4 font-mono">ttl</td>
                 <td className="py-2 pr-4">number (seconds)</td>
-                <td className="py-2 pr-4">120</td>
-                <td className="py-2">How long a playback session remains valid</td>
+                <td className="py-2 pr-4">7200</td>
+                <td className="py-2">How long a playback session remains valid (7200 seconds = 2 hours)</td>
               </tr>
               <tr className="border-b">
                 <td className="py-2 pr-4 font-mono">maxViewers</td>
                 <td className="py-2 pr-4">number</td>
-                <td className="py-2 pr-4">0 (unlimited)</td>
-                <td className="py-2">Maximum concurrent viewers per camera. 0 means no limit.</td>
+                <td className="py-2 pr-4">10</td>
+                <td className="py-2">Maximum concurrent viewers per camera</td>
               </tr>
               <tr className="border-b">
                 <td className="py-2 pr-4 font-mono">domains</td>
@@ -88,9 +88,9 @@ Resolved:         ttl=60   maxViewers=5   domains=[]     rateLimitPerMin=60
                 <td className="py-2">Whether to allow requests with no Referer header (direct URL access, mobile apps)</td>
               </tr>
               <tr className="border-b">
-                <td className="py-2 pr-4 font-mono">rateLimitPerMin</td>
+                <td className="py-2 pr-4 font-mono">rateLimit</td>
                 <td className="py-2 pr-4">number</td>
-                <td className="py-2 pr-4">60</td>
+                <td className="py-2 pr-4">100</td>
                 <td className="py-2">Maximum API requests per minute per API key</td>
               </tr>
             </tbody>
@@ -113,12 +113,12 @@ Resolved:         ttl=60   maxViewers=5   domains=[]     rateLimitPerMin=60
     "maxViewers": 20,
     "domains": ["*.myapp.com", "staging.myapp.com"],
     "allowNoReferer": false,
-    "rateLimitPerMin": 120
+    "rateLimit": 120
   }'`} />
         <p className="text-sm text-muted-foreground">
           To check what policy is resolved for a specific camera:
         </p>
-        <CodeBlock language="bash" code={`curl -X GET ${baseUrl}/api/cameras/cam_abc123/resolved-policy \\
+        <CodeBlock language="bash" code={`curl -X GET ${baseUrl}/api/policies/resolve/cam_abc123 \\
   -H "X-API-Key: sk_live_your_api_key_here"`} />
       </section>
     </DocPage>
