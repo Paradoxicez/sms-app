@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 
 import type { NavGroup } from "./nav-config";
 import { SidebarFooterContent } from "./sidebar-footer";
-import { NotificationBell } from "@/components/notifications/notification-bell";
 import { StreamBridgeLogo } from "@/components/brand/streambridge-logo";
 import {
   Sidebar,
@@ -28,8 +27,6 @@ import {
 
 export interface AppSidebarProps {
   navGroups: NavGroup[];
-  portalBadge: string;
-  portalBadgeTitle?: string;
   userName?: string;
   userEmail?: string;
   accountHref?: string;
@@ -53,35 +50,20 @@ function isActiveRoute(
 /*  Header sub-component (needs useSidebar context)                   */
 /* ------------------------------------------------------------------ */
 
-function SidebarHeaderContent({
-  portalBadge,
-  portalBadgeTitle,
-}: {
-  portalBadge: string;
-  portalBadgeTitle?: string;
-}) {
+function SidebarHeaderContent() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
 
   return (
-    <SidebarHeader className="h-14 flex-row items-center justify-between px-4">
-      <div className="flex items-center gap-2 overflow-hidden">
-        {collapsed ? (
-          <StreamBridgeLogo variant="icon" theme="light" className="h-6 w-6" />
-        ) : (
-          <>
-            <StreamBridgeLogo variant="icon" theme="light" className="h-6 w-6 shrink-0" />
-            <span className="text-base font-bold text-foreground">StreamBridge</span>
-            <span
-              className="truncate rounded bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
-              title={portalBadgeTitle}
-            >
-              {portalBadge}
-            </span>
-          </>
-        )}
-      </div>
-      {!collapsed && <NotificationBell />}
+    <SidebarHeader className="h-14 flex-row items-center gap-2 px-4">
+      {collapsed ? (
+        <StreamBridgeLogo variant="icon" theme="light" className="h-6 w-6" />
+      ) : (
+        <>
+          <StreamBridgeLogo variant="icon" theme="light" className="h-6 w-6 shrink-0" />
+          <span className="text-base font-bold text-foreground">StreamBridge</span>
+        </>
+      )}
     </SidebarHeader>
   );
 }
@@ -92,8 +74,6 @@ function SidebarHeaderContent({
 
 export function AppSidebar({
   navGroups,
-  portalBadge,
-  portalBadgeTitle,
   userName,
   userEmail,
   accountHref,
@@ -103,10 +83,7 @@ export function AppSidebar({
 
   return (
     <Sidebar variant="sidebar" collapsible="icon">
-      <SidebarHeaderContent
-        portalBadge={portalBadge}
-        portalBadgeTitle={portalBadgeTitle}
-      />
+      <SidebarHeaderContent />
       <SidebarSeparator />
       <SidebarContent>
         {navGroups.map((group) => (

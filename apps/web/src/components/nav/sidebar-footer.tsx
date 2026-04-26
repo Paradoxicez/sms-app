@@ -18,6 +18,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useSidebar } from "@/components/ui/sidebar";
 
+// Sync with apps/web/package.json on release
+const APP_VERSION = "0.1.0";
+
 /* ------------------------------------------------------------------ */
 /*  Types                                                             */
 /* ------------------------------------------------------------------ */
@@ -66,7 +69,13 @@ export function SidebarFooterContent({
   }
 
   return (
-    <DropdownMenu>
+    <>
+      {state === "expanded" && (
+        <div className="px-3 pb-1 text-[11px] font-medium text-muted-foreground/60">
+          v{APP_VERSION}
+        </div>
+      )}
+      <DropdownMenu>
       <DropdownMenuTrigger
         className={cn(
           "flex w-full items-center rounded-md hover:bg-muted",
@@ -133,5 +142,6 @@ export function SidebarFooterContent({
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+    </>
   );
 }
