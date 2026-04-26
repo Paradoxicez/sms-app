@@ -100,6 +100,19 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
 
   const isEditMode = !!camera;
   const pendingSiteIdRef = useRef<string | undefined>(undefined);
+  // quick 260426-nqr: snapshot of the form values captured at edit-mode open
+  // so handleSubmit can diff current vs initial and PATCH only changed keys.
+  // Null in create mode (acts as guard so the dirty-tracker is skipped).
+  const initialValuesRef = useRef<{
+    name: string;
+    streamUrl: string;
+    description: string;
+    lat: string;
+    lng: string;
+    tags: string;
+    streamProfileId: string;
+    siteId: string;
+  } | null>(null);
 
   // D-15: live prefix validation. Re-runs on every keystroke; O(1) regex cost.
   // Pull mode only — push mode does not carry a client-supplied streamUrl.
@@ -150,11 +163,26 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
         if (camera.site?.project?.id) setProjectId(camera.site.project.id);
         if (camera.site?.id) setSiteId(camera.site.id);
         pendingSiteIdRef.current = undefined;
+        // quick 260426-nqr: capture initial form values snapshot AFTER all
+        // state setters above. handleSubmit's edit branch diffs current state
+        // against this snapshot to PATCH only changed keys.
+        initialValuesRef.current = {
+          name: camera.name || '',
+          streamUrl: camera.streamUrl || '',
+          description: camera.description || '',
+          lat: camera.location?.lat != null ? String(camera.location.lat) : '',
+          lng: camera.location?.lng != null ? String(camera.location.lng) : '',
+          tags: camera.tags?.join(', ') || '',
+          streamProfileId: camera.streamProfileId || '',
+          siteId: camera.site?.id || '',
+        };
       } else {
         if (defaultProjectId) {
           setProjectId(defaultProjectId);
           pendingSiteIdRef.current = defaultSiteId;
         }
+        // quick 260426-nqr: create mode → no snapshot, dirty-tracker skipped.
+        initialValuesRef.current = null;
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -214,6 +242,9 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
     setIngestMode('pull');
     setPhase('form');
     setCreatedUrl('');
+    // quick 260426-nqr: clear the initial-values snapshot so reopening with
+    // the same camera re-snapshots from the next pre-fill cycle.
+    initialValuesRef.current = null;
   }
 
   // Phase 19.1 D-08: switching mode clears any streamUrl state so the
@@ -248,26 +279,66 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
     setError(null);
 
     try {
-      const body: Record<string, unknown> = {
-        name: name.trim(),
-      };
-      if (description.trim()) body.description = description.trim();
-      if (lat && lng) {
-        body.location = { lat: parseFloat(lat), lng: parseFloat(lng) };
-      }
-      if (tags.trim()) {
-        body.tags = tags.split(',').map((t) => t.trim()).filter(Boolean);
-      }
-      body.streamProfileId = streamProfileId || null;
+      if (isEditMode && initialValuesRef.current && camera) {
+        // quick 260426-nqr: dirty-tracking PATCH. Diff current state against
+        // the snapshot captured at open and ship only changed keys so the
+        // audit `details` reflect what actually changed (unblocks the
+        // single-field rules in deriveActionLabel).
+        const init = initialValuesRef.current;
+        const body: Record<string, unknown> = {};
 
-      if (isEditMode) {
-        // D-01 (Phase 19.1): ingestMode is immutable post-create — do NOT send
-        // it in the PATCH payload. streamUrl is pull-only (push URL is managed
-        // server-side via rotate-key), so skip it for push cameras.
+        const trimmedName = name.trim();
+        if (trimmedName !== init.name) body.name = trimmedName;
+
+        // streamUrl: pull mode only (push mode is server-managed; D-01 immutable).
         if (ingestMode === 'pull') {
-          body.streamUrl = streamUrl.trim();
+          const trimmedUrl = streamUrl.trim();
+          if (trimmedUrl !== init.streamUrl) body.streamUrl = trimmedUrl;
         }
-        if (siteId) body.siteId = siteId;
+
+        // description: '' clears a previously-set value → null
+        const trimmedDesc = description.trim();
+        if (trimmedDesc !== init.description) {
+          body.description = trimmedDesc === '' ? null : trimmedDesc;
+        }
+
+        // tags: comma-string → normalized array, then deep-equal vs initial array
+        const currentTagsArr = tags.split(',').map((t) => t.trim()).filter(Boolean);
+        const initialTagsArr = init.tags.split(',').map((t) => t.trim()).filter(Boolean);
+        const tagsChanged =
+          currentTagsArr.length !== initialTagsArr.length ||
+          currentTagsArr.some((t, i) => t !== initialTagsArr[i]);
+        if (tagsChanged) body.tags = currentTagsArr;
+
+        // streamProfileId: '' clear → null
+        if (streamProfileId !== init.streamProfileId) {
+          body.streamProfileId = streamProfileId || null;
+        }
+
+        // siteId: UUID string compare
+        if (siteId && siteId !== init.siteId) body.siteId = siteId;
+
+        // location: send full {lat,lng} if either changed; null if both cleared
+        // and both were previously set. Partial fill (only one filled) is
+        // skipped — backend would reject a half-coordinate.
+        const latChanged = lat !== init.lat;
+        const lngChanged = lng !== init.lng;
+        if (latChanged || lngChanged) {
+          if (lat === '' && lng === '' && init.lat !== '' && init.lng !== '') {
+            body.location = null;
+          } else if (lat !== '' && lng !== '') {
+            body.location = { lat: parseFloat(lat), lng: parseFloat(lng) };
+          }
+        }
+
+        if (Object.keys(body).length === 0) {
+          // Nothing changed — silent close, no PATCH fired.
+          resetForm();
+          onOpenChange(false);
+          onSuccess();
+          return;
+        }
+
         // Phase 21 D-06: capture restartTriggered so we can surface a toast
         // when the server-side reassign trigger fires (server emits
         // restartTriggered=true when streamProfileId changed AND fingerprints
@@ -282,7 +353,27 @@ export function CameraFormDialog({ open, onOpenChange, onSuccess, camera, defaul
         if (response?.restartTriggered) {
           toast.info('Stream restarting with new profile');
         }
-      } else if (ingestMode === 'push') {
+
+        resetForm();
+        onOpenChange(false);
+        onSuccess();
+        return;
+      }
+
+      // CREATE mode: unchanged behavior — POST the full body it always did.
+      const body: Record<string, unknown> = {
+        name: name.trim(),
+      };
+      if (description.trim()) body.description = description.trim();
+      if (lat && lng) {
+        body.location = { lat: parseFloat(lat), lng: parseFloat(lng) };
+      }
+      if (tags.trim()) {
+        body.tags = tags.split(',').map((t) => t.trim()).filter(Boolean);
+      }
+      body.streamProfileId = streamProfileId || null;
+
+      if (ingestMode === 'push') {
         // Create-push: server generates streamKey + streamUrl. No streamUrl in payload.
         body.ingestMode = 'push';
         const response = await apiFetch<{
