@@ -1,176 +1,141 @@
-# Project Research Summary
+# Project Research Summary — v1.3 Production Ready
 
-**Project:** SMS Platform v1.1 UI Overhaul
-**Domain:** Surveillance Management SaaS -- Frontend component architecture overhaul
-**Researched:** 2026-04-17
-**Confidence:** HIGH
+**Project:** SMS Platform v1.3 — Production Ready (pull-only Docker Compose deploy surface)
+**Researched:** 2026-04-27
+**Confidence:** HIGH (deployment patterns) / MEDIUM (folder-name conventions, MinIO post-archive guidance)
+
+> **Scope.** Application features are already shipped in v1.0–v1.2. v1.3 adds production-deployment surface only: registry, multi-stage Dockerfiles, reverse proxy, migration runner, CI/CD, compose patterns, operator runbook. All four researchers (STACK, FEATURES, ARCHITECTURE, PITFALLS) operated under this scope guard, and their conclusions converge cleanly.
 
 ## Executive Summary
 
-The v1.1 milestone is a pure frontend overhaul of the SMS Platform dashboard. The core problem is 20 hand-rolled table implementations with no shared abstraction, a custom sidebar that ignores the already-installed shadcn Sidebar component, native date inputs clashing with the design system, and no quick-action patterns for camera management. The research confirms that nearly everything needed is already installed -- the existing stack (Next.js 15, React 19, shadcn/ui with base-ui primitives, hls.js, Leaflet, react-day-picker) covers all features. Only one new npm dependency is required: `@tanstack/react-table` v8.21.x for headless table logic.
+v1.3 is a **packaging milestone**, not a product milestone. The user's bar — "fresh Linux box → set domain + secrets → `docker compose up -d` → working HTTPS app in <10 minutes with zero source on the prod box" — maps onto the Plausible / Outline / Coolify self-hosted-SaaS pattern. All four researchers converged independently on the same minimal architecture: **Caddy 2.11.x reverse proxy** for auto-TLS, **`node:22-bookworm-slim`** runtime base for both api and web, **separate one-shot `migrate` init container** for Prisma, **GHCR for image hosting**, **single-arch `linux/amd64`**, **same-origin routing** behind one hostname, and a dedicated **`deploy/`** folder at repo root that never contaminates the dev workflow.
 
-The recommended approach is to build a reusable `DataTable<T>` component system first, then migrate all 20 tables to it before tackling complex features like camera card views with HLS preview, project tree viewer, or map enhancements. The sidebar migration to shadcn's collapsible `SidebarProvider` must happen early because it is a layout-level change that affects every page -- doing it late means retrofitting. The build order is strictly dependency-driven: foundations first, simple table migrations second (to validate the DataTable API), complex feature pages third, tree viewer and map enhancements last.
+**Recommended approach: opinionated and narrow.** Pick the simplest tool that closes each pitfall, write that tool's pattern down, operators copy-paste rather than improvise. Caddy over Traefik because Traefik's Docker-socket auto-discovery is a security liability that buys nothing for a fixed 6-service compose. Bookworm-slim over Alpine/distroless because FFmpeg + sharp + bash-based healthchecks are non-negotiable. Dedicated `migrate` service over api entrypoint script because it eliminates a class of race conditions at zero cost. The **MinIO upstream archive on 2026-04-25** (two days before research) is the sole external risk introduced into v1.3 — addressed by pinning to last known-good community tag and documenting AIStor migration; do NOT reopen object-storage selection in v1.3.
 
-The top risks are: (1) multiple simultaneous HLS players crashing the browser tab from memory exhaustion -- each hls.js instance buffers video indefinitely unless explicitly capped, (2) sidebar collapse breaking existing layout math that assumes a fixed 240px width, and (3) TanStack Table column definitions failing to cross the Next.js server/client component boundary. All three have well-documented prevention strategies identified in the pitfalls research. The base-ui vs Radix composition pattern mismatch is a recurring trap that affects every phase adding UI components.
+The dominant risk is **carry-over tech debt** that production amplifies silently: StreamProcessor undefined `cameraId` bug (open since 2026-04-21), ~23 pre-existing API test failures that block "tag → green CI → push image" gate, and — most acutely — `prisma db push --accept-data-loss` in dev with hand-rolled SQL files NOT in Prisma's migration layout. PITFALLS and ARCHITECTURE both flagged this last one as **Phase 0, non-negotiable**: convert to proper Prisma migrations BEFORE any Dockerfile work, or `migrate deploy` against a fresh prod DB will leave RLS unconfigured and silently break multi-tenancy.
 
-## Key Findings
+## Locked Decisions (all 4 researchers agree)
 
-### Recommended Stack
+| Decision | Verdict |
+|----------|---------|
+| Reverse proxy | **Caddy 2.11.2** (`caddy:2.11.2-alpine`) |
+| Runtime base image | **`node:22-bookworm-slim`** (digest-pinned) |
+| Migration strategy | **Separate one-shot `migrate` init service** with `restart: "no"` + `service_completed_successfully` |
+| Folder name | **`deploy/`** at repo root |
+| Multi-arch | **`linux/amd64` only** for v1.3 |
+| Image registry | **GHCR public** (`ghcr.io/<org>/sms-{api,web}:tag`) |
+| Secrets transport | **`.env` file** (chmod 600, gitignored) — NOT Docker `secrets:`, NOT Vault |
+| PID 1 | **`init: true`** in compose for FFmpeg zombie reaping |
+| Logging | **JSON-file driver** with rotation (10m × 5) |
+| Migration baseline cutover | **Phase 0 prerequisite, BEFORE Dockerfile work** |
+| Dev Dockerfile rename | `apps/api/Dockerfile` → `Dockerfile.dev`; new prod `Dockerfile` co-located |
+| Network topology | Two networks: `edge` (caddy/web/api/srs) + `internal: true` (postgres/redis/minio/migrate) |
+| SRS admin port 1985 | **Bind to `127.0.0.1`** only (SSH tunnel for access) |
+| Routing | **Same-origin** via Caddy (eliminates cookie/CORS pitfalls) |
 
-The existing stack requires no changes. The codebase already has Next.js 15, React 19, shadcn/ui (base-nova style with base-ui primitives), Tailwind CSS 4.2, hls.js, Leaflet, react-day-picker v9, Socket.IO, recharts, react-hook-form + zod, and 33 installed shadcn/ui components.
+## Open Questions (resolve in requirements phase)
 
-**New dependencies (minimal):**
-- `@tanstack/react-table` v8.21.x: Headless table logic (sorting, filtering, pagination, row selection) -- the standard shadcn Data Table integration. Do NOT use v9 alpha.
-- `react-resizable-panels` via `npx shadcn@latest add resizable`: Split panel for tree viewer. Added through shadcn CLI, not direct npm install.
+1. **MinIO post-archive disposition** — pin last `minio/minio` community tag OR adopt `bitnami/minio:2025.4.22` fork? Decide before publishing compose.
+2. **Cosign keyless signing** — ship in v1.3 or defer? Build provenance attestation should ship anyway (~3 lines, free).
+3. **`bin/sms` operator CLI scope** — v1.3 launch subset (suggest: `backup`, `restore`, `update`, `create-admin`); defer rest.
+4. **`/health` endpoint shallow vs deep** — verify v1.2 presence; if missing, fold into Phase 0.
+5. **Phase 22 ↔ 17 metadata gap** — confirm ship-anyway in Phase 0 (~4 LOC).
+6. **DNS pattern** — single hostname (`app.streambridge.io`) for v1.3 simplicity, or wildcard? Recommend single.
 
-**shadcn components to add via CLI (not npm):**
-- `pagination`, `checkbox`, `toggle-group`, `resizable`
+## Critical Blockers (must ship in v1.3 GA)
 
-**What NOT to add:** ag-grid (heavy, clashes with shadcn), react-beautiful-dnd (deprecated), react-arborist (overkill for 3-level tree), framer-motion (already have tw-animate-css), MUI/Ant Design (wrong design system).
+1. **StreamProcessor undefined `cameraId` defensive guard** (Pitfall 14) — production amplifies silent stuck-camera bug.
+2. **~23 pre-existing API test failures** (Pitfall 15) — auth/crypto ESM, recording manifest fMP4, srs callback mocks, cluster. Blocks CI gate model.
+3. **`hls_use_fmp4` cold-boot fix** (Pitfall 4) — without it, single-command cold deploy is impossible.
+4. **Phase 22 ↔ Phase 17 metadata gap** (Pitfall 16) — recommend ship anyway, ~4 LOC.
 
-### Expected Features
+## Recommended Phase Order (8 phases)
 
-**Must have (table stakes):**
-- Unified DataTable with sort, filter, pagination, row selection -- foundation for 7+ features
-- Quick action "..." menus on all table rows (currently only Projects page has this)
-- Collapsible sidebar using already-installed shadcn Sidebar component
-- Unified DatePicker/DateRangePicker replacing native date inputs
-- Camera table with quick actions (Edit, View Stream, Disable, Record, Embed Code)
-- Dedicated recordings page with cross-camera filters and bulk delete
-- Stream profiles as table (replacing card grid for consistency)
-- Login redesign with "remember me"
+### Phase 0: Tech-debt cleanup + dev-workflow guardrails (PREREQUISITE)
+**Why first:** Cannot ship pull-only deploy on top of `db:push` + raw SQL; cannot gate CI on green tests if 23 are red; cannot rely on prod restart cycles if FFmpeg children leak.
+**Delivers:** Convert raw SQL → Prisma migration history; StreamProcessor undefined cameraId guard + tests + metric; triage 23 test failures; fix `hls_use_fmp4` cold-boot in `settings.service.ts:127` + `srs-origin.conf.ts:46`; add `/health` (api, if missing) + `/api/health` (web); set `outputFileTracingRoot` in `next.config.ts`; Phase 22 ↔ 17 metadata wiring.
+**Closes:** Pitfalls 1, 2, 4, 14, 15, 16.
+**Research flag:** Yes (Prisma baseline cutover + 23-test triage non-trivial).
 
-**Should have (differentiators):**
-- Camera card/table view toggle with live HLS preview thumbnails
-- View Stream page consolidating preview + policies + embed + activity
-- Project tree viewer (split panel: tree left, DataTable right)
-- Download recording clips via presigned MinIO URLs
+### Phase 1: Deploy folder structure + dev-workflow preservation
+**Delivers:** `deploy/` skeleton; rename `apps/api/Dockerfile` → `Dockerfile.dev`; root `.dockerignore`; `pnpm dev` smoke test confirms no contamination.
+**Closes:** Pitfall 18 (dev contamination), Pitfall 8 (.env leak).
 
-**Defer (v1.2+):**
-- Map tree viewer with drag-drop marker placement
-- Map camera preview popup on hover
-- Dark mode
+### Phase 2: Multi-stage Dockerfiles (api + web) + image hardening
+**Delivers:** Production `apps/api/Dockerfile` (4 stages: deps → builder → prod-deps → runtime, non-root, FFmpeg + tini), `apps/web/Dockerfile` (Next.js standalone, non-root). `.dockerignore` per app. Local `docker run` smoke test.
+**Closes:** Pitfalls 2, 3, 8, 12.
 
-### Architecture Approach
+### Phase 3: Production compose + Prisma migrate init + networking + volumes
+**Delivers:** `deploy/docker-compose.yml` (image refs only); two-network split with `internal: true`; host-port-strip on stateful services; SRS 1985 → `127.0.0.1`; `sms-migrate` init service; named volumes (`postgres_data`, `minio_data`, `caddy_data`, `hls_data` shared SRS↔api); `srs.conf.production` with `SRS_CALLBACK_HOST=http://api:3003`; `.env.production.example`; `init-secrets.sh`; MinIO pinned to last community tag.
+**Closes:** Pitfalls 1, 5, 6, 9, 13.
 
-The architecture follows a component composition pattern: a generic `DataTable<T>` system (7 files) that every page consumes by providing typed column definitions and data. Column definitions live in separate `"use client"` files to avoid the Next.js server/client boundary issue. Quick actions use Sheet (slide-in panel) for edit forms and AlertDialog for destructive confirmations. The sidebar migrates from a custom 178-line NavShell to shadcn's SidebarProvider with cookie-persisted collapse state. Real-time camera status updates flow through the existing `useCameraStatus` Socket.IO hook into TanStack Table's reactive `data` prop -- no new real-time infrastructure needed.
+### Phase 4: Caddy reverse proxy + auto-TLS
+**Delivers:** `deploy/Caddyfile` (same-origin: `/api/*` → api:3003, `/socket.io/*` → api:3003, default → web:3000); Caddy service with `caddy_data` + `caddy_config` named volumes; staging-CA toggle docs; `DOMAIN-SETUP.md` with DNS + port 80 pre-flight.
+**Closes:** Pitfalls 7, 10, 17.
 
-**Major components:**
-1. `data-table/` (7 files) -- Reusable table system: core table, toolbar, pagination, column header, row actions, faceted filter, view options
-2. `date-picker/` (2 files) -- DatePicker and DateRangePicker wrapping existing Calendar + Popover
-3. `nav/app-sidebar.tsx` -- Collapsible sidebar wrapping shadcn SidebarProvider with role-based nav filtering
-4. `tree-viewer/` (3 files) -- Split panel with recursive tree navigation and DataTable content
-5. `camera-card/` (3 files) -- Card view with viewport-aware HLS preview, lazy loading
+### Phase 5: GitHub Actions CI/CD → GHCR
+**Delivers:** `.github/workflows/build-images.yml` (matrix `app: [api, web]`, GH Cache v2, single-arch amd64); `release.yml` (GH Release with image tags); semver + `latest` + `sha-` tags via `metadata-action@v5`; build provenance attestation; first test tag → verify push; flip default `IMAGE_TAG` in compose to GHCR ref.
+**Closes:** Pitfalls 11, 12.
 
-### Critical Pitfalls
+### Phase 6: First-run bootstrap + operator scripts + backup/restore
+**Delivers:** `bin/sms create-admin` CLI; MinIO bucket auto-create; default Stream Profile seed; `bootstrap.sh` / `update.sh` / `backup.sh` / `restore.sh`; `deploy/README.md` 5-step quickstart; `BACKUP-RESTORE.md` + `TROUBLESHOOTING.md`.
+**Research flag:** Yes (Better Auth super-admin seed via CLI has v1.0/v1.2 lifecycle nuance).
 
-1. **Multiple HLS players crash the browser** -- Cap concurrent players at 4-6, use IntersectionObserver for viewport-only playback, set aggressive buffer limits (`backBufferLength: 0`, `maxBufferLength: 4`), disable Web Workers in grid mode. Design this into the card component from day one.
+### Phase 7: Smoke test on a clean VM (gates v1.3 GA)
+**Delivers:** Provision DigitalOcean/Hetzner droplet; sparse-checkout `deploy/`; configure DNS; run `bootstrap.sh`; verify HTTPS + login + camera register + RTSP→HLS + recording archive + WebSocket; capture timing < 10 min; `nmap -p 9001,1985,5432` → all closed; document drift.
 
-2. **Sidebar collapse breaks existing layout** -- Current layout assumes fixed 240px sidebar. Leaflet maps and Recharts charts do not auto-resize. Must dispatch `window resize` event on sidebar transition end, replace `calc()` expressions with CSS custom properties, and place SidebarProvider in root layout.
+### Phase 8 (deferrable to v1.3.x): Observability profile + Cosign + extras
+**Delivers:** `--profile observability` (Prometheus + Grafana + Loki + SRS dashboards); Cosign keyless via GHA OIDC; SBOM via buildx attestation; `bin/sms doctor`; backup rotation (GFS) + offsite mc mirror; Watchtower opt-in.
 
-3. **TanStack Table columns fail server/client boundary** -- Column definitions contain JSX render functions that cannot serialize across the Next.js boundary. Define columns in separate `"use client"` files, never pass as props from Server Components.
+## Stack Additions
 
-4. **base-ui vs Radix pattern mismatch** -- Project uses base-ui (`render` prop) but most shadcn tutorials show Radix (`asChild`). Every new component must use the base-ui variant. Establish a component addition checklist in Phase 1.
+| Component | Choice | Version |
+|-----------|--------|---------|
+| Image registry | GHCR | `ghcr.io` |
+| Reverse proxy | Caddy | `caddy:2.11.2-alpine` |
+| Node runtime base | Debian Bookworm slim | `node:22-bookworm-slim` (digest-pinned) |
+| Prisma migrate runner | Same image as api | Prisma 6.19 `migrate deploy` |
+| Compose spec | Docker Compose v2 | ≥ 2.27 |
+| CI build | docker/build-push-action | v7.1.0 |
+| CI metadata | docker/metadata-action | v5 |
+| CI cache | type=gha (GH Cache v2) | v6.19+ |
+| Auth (CI) | `${{ secrets.GITHUB_TOKEN }}` | no PAT |
+| Logging | JSON-file driver | with rotation `10m × 5` |
+| Image budget (api) | ≤ 450 MB (FFmpeg dominates) | — |
+| Image budget (web) | ≤ 220 MB (Next standalone) | — |
 
-5. **Bulk operations without optimistic UI** -- Deleting 50 recordings with synchronous UI blocking causes users to double-click or navigate away. Use optimistic removal with undo toast, background job pattern for actual deletion.
+## Anti-Features (Out of Scope for v1.3)
 
-## Implications for Roadmap
-
-Based on research, suggested phase structure:
-
-### Phase 1: Foundation Components
-**Rationale:** DataTable is consumed by 13+ pages. DatePicker is used in 2+ filter bars. Building these first prevents rework. Also establishes the base-ui component addition checklist.
-**Delivers:** Reusable DataTable system (7 files), DatePicker/DateRangePicker (2 files), shared empty-state component, component addition checklist for base-ui.
-**Addresses:** Unified data tables (table stakes), unified datepicker (table stakes)
-**Avoids:** Table pattern divergence (Pitfall 3), base-ui/Radix confusion (Pitfall 6)
-
-### Phase 2: Sidebar Overhaul
-**Rationale:** Layout-level change that affects every page. Must happen before individual page modifications to avoid merge conflicts and ensure all subsequent work builds on the collapsible layout.
-**Delivers:** Collapsible sidebar with icon mode, cookie persistence, keyboard shortcut (Cmd+B), mobile sheet behavior. Removes old NavShell.
-**Addresses:** Collapsible sidebar (table stakes)
-**Avoids:** Sidebar breaks layout (Pitfall 2). Dispatch resize events for maps/charts.
-
-### Phase 3: Simple Table Migrations
-**Rationale:** 10 low-complexity pages validate the DataTable API before tackling complex cases. If the interface needs adjustment, fix it while only 10 pages use it.
-**Delivers:** 10 pages migrated to DataTable with consistent sorting, filtering, pagination, and "..." row action menus. Pages: projects, sites, policies, API keys, webhooks, orgs, packages, users, cluster nodes, team.
-**Addresses:** Quick action menus (table stakes), column sorting (table stakes), pagination (table stakes)
-**Avoids:** Prop-drilling action handlers (Architecture anti-pattern 3)
-
-### Phase 4: Complex Feature Pages
-**Rationale:** Camera table, stream profiles, and recordings are the highest-value pages requiring more complex DataTable usage (faceted filters, card view toggle, server-side pagination, bulk actions). Backend API additions for cross-camera recordings can be built in parallel.
-**Delivers:** Camera table with faceted status filter + full quick actions, camera card view toggle with HLS preview, stream profiles as table, recordings page with cross-camera filters + date range picker + bulk delete, audit log with server-side pagination.
-**Addresses:** Camera quick actions (table stakes), recordings page filters (table stakes), camera card view (differentiator), stream profiles table (differentiator), bulk delete (table stakes)
-**Avoids:** HLS multi-player memory crash (Pitfall 1), bulk operation UX stall (Pitfall 7), mixed client/server pagination (Architecture anti-pattern 1)
-**Backend work needed:** `GET /api/recordings` with cross-camera filters, `DELETE /api/recordings/bulk`, `GET /api/recordings/:id/download-url`
-
-### Phase 5: Tree Viewer
-**Rationale:** Most complex new UI pattern with smallest dependency footprint (only Projects and Map pages). Requires resizable panels, recursive tree component, and careful performance design for 500+ nodes.
-**Delivers:** Split-panel tree viewer (Project > Site > Camera hierarchy), projects page with tree navigation + DataTable, tree search/filter.
-**Addresses:** Project tree viewer (differentiator)
-**Avoids:** Tree performance without virtualization (Pitfall 5), tree selection state in URL (Architecture anti-pattern 5)
-
-### Phase 6: View Stream, Map Enhancements, Login
-**Rationale:** Self-contained features with no downstream dependencies. Can be built in any order. Map drag-drop and preview popup may be deferred to v1.2 based on timeline.
-**Delivers:** View Stream page (preview + policies + embed + activity), login redesign with remember-me, optionally map drag-drop markers and camera preview popup.
-**Addresses:** View Stream page (differentiator), login redesign (table stakes), download clips (differentiator)
-**Avoids:** Leaflet drag-drop snap-back (Pitfall 4), login autofill regression (UX pitfall)
-
-### Phase Ordering Rationale
-
-- **Foundations before migrations:** DataTable and DatePicker are consumed everywhere. Building them first ensures consistent API across all consumers.
-- **Sidebar before page work:** Every page component must work within the collapsible layout. Changing the sidebar after modifying pages means double-testing everything.
-- **Simple migrations before complex:** 10 easy pages validate the DataTable design. Cheaper to fix the API with 10 consumers than 17.
-- **Complex features before tree viewer:** Camera table/recordings are higher user value. Tree viewer is a new pattern with performance risks.
-- **View Stream and map last:** No other features depend on these. Can be cut from v1.1 if timeline is tight.
-
-### Research Flags
-
-Phases likely needing deeper research during planning:
-- **Phase 4 (Complex Feature Pages):** HLS card view performance requires prototyping the IntersectionObserver + hls.js lifecycle. Recordings page needs backend API design for cross-camera filters with server-side pagination.
-- **Phase 5 (Tree Viewer):** Virtualization strategy needs prototyping at 500+ nodes with Socket.IO updates. May need React Arborist or TanStack Virtual.
-
-Phases with standard patterns (skip research-phase):
-- **Phase 1 (Foundation):** Well-documented shadcn + TanStack Table pattern with official examples.
-- **Phase 2 (Sidebar):** The shadcn Sidebar component is already installed with full documentation. Configuration only.
-- **Phase 3 (Simple Migrations):** Mechanical application of Phase 1 patterns. No novel work.
-- **Phase 6 (View Stream, Login):** Standard page composition with existing components.
+| Feature | Reason |
+|---------|--------|
+| Helm charts / Kubernetes operators | PROJECT.md constraint: "single-server Docker Compose" |
+| Argo CD / Flux GitOps | K8s-only; over-engineered for fixed-topology compose |
+| Service mesh (Istio/Linkerd) | Same-server traffic; no benefit |
+| Multi-region deployment | PROJECT.md constraint |
+| Web first-run wizard | Permanent attack surface; CLI-driven seed instead |
+| Blue-green at app level | Single-server doesn't support; rolling sufficient |
+| HashiCorp Vault | Over-engineered for self-hosted single-server |
+| Datadog / New Relic | Vendor lock-in; expensive for self-hosted |
+| OpenTelemetry traces / Jaeger / Tempo | Defer to v2+ |
+| Cosign keyless signing | Defer to v1.3.x (build attestation ships in v1.3) |
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Only 1 new npm dependency needed. All technologies already installed and validated in v1.0. Official shadcn documentation prescribes TanStack Table integration. |
-| Features | HIGH | Feature set derived from VMS industry analysis and direct codebase inspection of 20 existing table files. Competitor analysis (Milestone, Eagle Eye, Verkada) validates priorities. |
-| Architecture | HIGH | Component hierarchy based on direct codebase audit of 33 shadcn components, 14 page components, and 11 hooks. Build order driven by dependency graph, not guesswork. |
-| Pitfalls | HIGH | All critical pitfalls sourced from GitHub issues with reproduction steps, official hls.js documentation, and TanStack Table issue tracker. base-ui migration pitfall confirmed by shadcn community discussions. |
+| Stack | **HIGH** | Every version pinned via official sources within 24h; cross-verified against project files |
+| Features | **HIGH** (cats 1–7, 10) / **MEDIUM** (8–9) | Anti-features and first-run conventions lean on competitor patterns |
+| Architecture | **HIGH** (Caddy/Prisma/Next.js) / **MEDIUM** (folder name) | Folder-name reasoned convention, not RFC |
+| Pitfalls | **HIGH** | Most verified against project's own RETROSPECTIVE.md / CLAUDE.md / dev compose |
 
-**Overall confidence:** HIGH
+**Overall: HIGH.** Four independent researchers converged on the same major decisions.
 
-### Gaps to Address
-
-- **Backend API for cross-camera recordings:** The current API is per-camera only. Phase 4 requires `GET /api/recordings` with cross-camera filters and server-side pagination. This endpoint needs design during Phase 4 planning.
-- **HLS card view performance budget:** Exact cap (4 vs 6 vs 9 concurrent players) needs empirical testing with the actual camera streams. Prototype early in Phase 4.
-- **Tree virtualization threshold:** Research suggests virtualization is needed at 500+ nodes. The actual dataset size per customer (projects x sites x cameras) determines whether React Arborist or a simple recursive Collapsible component is sufficient. Assess during Phase 5 planning.
-- **@dnd-kit necessity:** Whether drag-from-list-to-map is needed (requires @dnd-kit) or click-to-place + draggable markers (zero deps) is sufficient. UX decision deferred to Phase 6.
-
-## Sources
-
-### Primary (HIGH confidence)
-- [shadcn Data Table docs](https://ui.shadcn.com/docs/components/base/data-table) -- TanStack Table integration pattern
-- [shadcn Sidebar docs](https://ui.shadcn.com/docs/components/radix/sidebar) -- Collapsible modes, cookie persistence
-- [TanStack Table + Next.js App Router issue #5165](https://github.com/TanStack/table/issues/5165) -- Server/client boundary problem
-- [hls.js memory leak issues #1220, #5402](https://github.com/video-dev/hls.js/issues/5402) -- Multi-player memory growth
-- [HLS.js cautionary tale -- Mux](https://www.mux.com/blog/an-hls-js-cautionary-tale-qoe-and-video-player-memory) -- backBufferLength problem
-- [base-ui useRender documentation](https://base-ui.com/react/utils/use-render) -- Render prop API reference
-- Codebase inspection: 20 table files, 33 shadcn components, 14 page components, 11 hooks
-
-### Secondary (MEDIUM confidence)
-- [OpenStatus data-table reference](https://data-table.openstatus.dev/) -- shadcn + TanStack Table patterns
-- [Easton Blog -- shadcn Sidebar layout](https://eastondev.com/blog/en/posts/dev/20260327-shadcn-ui-sidebar-layout/) -- SidebarProvider placement
-- [basecn migration guide](https://basecn.dev/docs/get-started/migrating-from-radix-ui) -- asChild to render prop conversion
-- [VMS UX Best Practices -- Hicron](https://hicronsoftware.com/blog/vms-user-friendly-design/) -- VMS design principles
-- [Enterprise Data Table Patterns -- Pencil & Paper](https://www.pencilandpaper.io/articles/ux-pattern-analysis-enterprise-data-tables) -- Table UX research
+## Detailed research files
+- `.planning/research/STACK.md`
+- `.planning/research/FEATURES.md`
+- `.planning/research/ARCHITECTURE.md`
+- `.planning/research/PITFALLS.md`
 
 ---
-*Research completed: 2026-04-17*
+*Research completed: 2026-04-27*
 *Ready for roadmap: yes*
