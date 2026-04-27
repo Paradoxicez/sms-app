@@ -96,7 +96,13 @@ Plans:
   2. The repo contains a `deploy/` directory at the root with placeholder subfolders (e.g. `deploy/scripts/`, `deploy/docs/`) that subsequent phases populate; `apps/` remains dev-focused
   3. `apps/api/Dockerfile` is renamed to `apps/api/Dockerfile.dev` (used by the existing dev compose); a root `.dockerignore` prevents `.env*`, `node_modules`, `.planning/`, `*.log`, and build artifacts from being copied into any image build context
   4. `git ls-files deploy/` returns the new skeleton; CI lint/build still passes
-**Plans**: TBD
+**Plans:** 5 plans
+Plans:
+- [ ] 24-01-PLAN.md — Create deploy/ skeleton (deploy/README.md stub + deploy/scripts/.gitkeep) (Wave 1)
+- [ ] 24-02-PLAN.md — git mv apps/api/Dockerfile → apps/api/Dockerfile.dev (Wave 1)
+- [ ] 24-03-PLAN.md — Create root .dockerignore with comprehensive Pitfall-8 patterns (Wave 1)
+- [ ] 24-04-PLAN.md — Create scripts/dev-smoke.sh (root monorepo smoke test for pnpm dev) (Wave 1)
+- [ ] 24-05-PLAN.md — Add CLAUDE.md ## Deploy Folder Convention guardrail + D-22 BLOCKING manual checklist (Wave 2, has user checkpoint)
 
 ### Phase 25: Multi-Stage Dockerfiles + Image Hardening
 **Goal**: Both production images build locally from a clean checkout, run as non-root with proper PID 1 handling, contain only the runtime dependencies they need (FFmpeg + tini for api; Next.js standalone for web), and fit within the size budget set by research (≤450MB api, ≤220MB web). The images are reproducible and ready for CI to push to GHCR.
