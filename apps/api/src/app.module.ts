@@ -8,6 +8,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { TenancyModule } from './tenancy/tenancy.module';
 import { AdminModule } from './admin/admin.module';
+import { HealthModule } from './health/health.module';
 import { UsersModule } from './users/users.module';
 import { FeaturesModule } from './features/features.module';
 import { CamerasModule } from './cameras/cameras.module';
@@ -41,6 +42,7 @@ import { ResilienceModule } from './resilience/resilience.module';
     AuthModule,
     TenancyModule,
     AdminModule,
+    HealthModule,
     UsersModule,
     FeaturesModule,
     CamerasModule,
