@@ -166,7 +166,7 @@ Developers can get a secure HLS playback URL for any registered camera via a sin
 ## Current State
 
 **Shipped:** v1.2 Self-Service, Resilience & UI Polish (2026-04-27) — 11 phases, 64 plans, 115 tasks
-**In progress:** v1.3 Production Ready — Phase 23 complete (2026-04-27), 7 phases remain (24-30)
+**In progress:** v1.3 Production Ready — Phases 23-24 complete (2026-04-27), 6 phases remain (25-30)
 **Stack:** NestJS 11 + Next.js 15 + PostgreSQL 16 + Prisma 6 + Redis 7 + SRS v6 + FFmpeg 7 + MinIO + Better Auth
 
 **v1.2 highlights:**
@@ -186,7 +186,15 @@ Developers can get a secure HLS playback URL for any registered camera via a sin
 - ✅ Migration baseline — single `0_init` Prisma migration with consolidated RLS replaces 8 hand-rolled SQL files; `db:reset` + `db:check-drift` scripts (DEBT-05)
 - ⏳ CI gate (`.github/workflows/test.yml`) — workflow file shipped; first run + branch protection deferred until `gh repo create` (item #3 in 23-HUMAN-UAT.md)
 
-**v1.3 work remaining (Phases 24-30):** Production deployment surface (multi-stage Docker, reverse proxy + TLS, GHCR push, operator UX, smoke test on clean VM)
+**Phase 24 highlights (Deploy Folder Structure + Dev Workflow Guardrails, 2026-04-27):**
+- ✅ `deploy/` skeleton at repo root (`deploy/README.md` stub + `deploy/scripts/.gitkeep`) — placeholder for Phases 25-30 to fill in compose, Caddyfile, scripts, prod docs
+- ✅ `apps/api/Dockerfile` → `apps/api/Dockerfile.dev` (R100 byte-identical rename via `git mv`) — frees `apps/api/Dockerfile` for Phase 25's production multi-stage build
+- ✅ Root `.dockerignore` (12 grouped categories: Secrets, VCS, Deps, Build, Coverage, Planning, Data, IDE, Logs, Examples) with `!.env.example` whitelist correctly ordered after `.env.*` exclusion — closes Pitfall 8 BLOCKER for GA
+- ✅ `scripts/dev-smoke.sh` — boots `pnpm dev`, probes api `:3003` + web `:3000`, status-tolerant (accepts 2xx-4xx for auth-guarded routes), traps EXIT for cleanup; manual-run gate per D-15
+- ✅ CLAUDE.md `## Deploy Folder Convention` (5-rule guardrail, GSD-marker-wrapped) — durable convention lock that future Phase 25-30 subagents read at session boot
+- 🔧 D-12 planning bug auto-corrected during D-22 verification: `dev-smoke.sh` `WEB_PORT` default `3002 → 3000` (CONTEXT.md mis-sourced web port from CORS allowlist instead of `apps/web/package.json` `--port 3000`); commit `05eef0a`
+
+**v1.3 work remaining (Phases 25-30):** Production deployment surface (multi-stage Docker, reverse proxy + TLS, GHCR push, operator UX, smoke test on clean VM)
 
 ## Evolution
 
@@ -206,4 +214,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-27 after v1.2 milestone completion (Self-Service, Resilience & UI Polish — 11 phases, 64 plans, 115 tasks). All 22 v1.2 REQ-IDs satisfied; 1 audit-found enhancement (Phase 22→17 metadata) deferred to v1.3 backlog along with production-deployment scope. ROADMAP collapsed; REQUIREMENTS.md retired. Next: `/gsd-new-milestone` to scope v1.3 Production Ready.*
+*Last updated: 2026-04-27 after Phase 24 completion (Deploy Folder Structure + Dev Workflow Guardrails — 5 plans, structural-only, no REQ-IDs). Phases 23-24 of v1.3 complete; 6 phases remain (25-30: multi-stage Docker, reverse proxy + TLS, GHCR push, operator UX, smoke test on clean VM). Next: `/gsd-discuss-phase 25` then `/gsd-plan-phase 25` for production multi-stage Dockerfiles.*
