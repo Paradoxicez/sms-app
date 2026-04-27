@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Production Ready
 status: executing
-stopped_at: Phase 23 context gathered
-last_updated: "2026-04-27T10:17:38.185Z"
+stopped_at: Completed 23-06-PLAN.md
+last_updated: "2026-04-27T11:06:32.768Z"
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 6
-  completed_plans: 0
-  percent: 0
+  completed_plans: 3
+  percent: 50
 ---
 
 # Project State
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-04-27)
 
 Milestone: v1.3 — Production Ready
 Phase: 23 (Tech Debt Cleanup + Phase 0 Prerequisites) — EXECUTING
-Status: Executing Phase 23
-Plan: 1 of 6
+Status: Ready to execute
+Plan: 2 of 6
 
 Progress: [░░░░░░░░░░] 0% (v1.3: 0/8 phases, 0/0 plans)
 
@@ -49,6 +49,7 @@ Progress: [░░░░░░░░░░] 0% (v1.3: 0/8 phases, 0/0 plans)
 | v1.3 Production Ready | 8 (23-30) | TBD | Planning Complete | — |
 
 *Updated after each plan completion*
+| Phase 23 P06 | 25m | 3 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -67,6 +68,9 @@ Recent decisions affecting current work:
 - [v1.3 Research]: Dedicated sms-migrate init service over api entrypoint (eliminates race conditions at zero cost)
 - [v1.3 Research]: Single-arch linux/amd64 only (multi-arch deferred to DEPLOY-32 v1.3.x)
 - [v1.3 Research]: GHCR public registry, .env file (chmod 600) for secrets — NOT Docker secrets, NOT Vault
+- [Phase 23]: Plan 23-06: Deleted dead test camera-dedup.test.ts alongside legacy migration dir (Rule 3 auto-fix) — readFileSync at module load would crash vitest after deletion; the dedup migration was a one-time legacy cleanup with no replay path on fresh DBs
+- [Phase 23]: Plan 23-06 BLOCKING gate verified by orchestrator (5-step recipe exit 0; 36 RLS policies / 29 tables; resume signal migrate-deploy-verified) — destructive deletion authorized only after fresh-Postgres cold deploy proved the squashed 0_init valid
+- [Phase 23]: Plan 23-01 hotfix on main (commit ae20337) — added migration_lock.toml + shadowDatabaseUrl + db:check-drift env loading; landed during Plan 23-06's blocking pause; merges cleanly with worktree branch (no file overlap)
 
 ### Roadmap Evolution
 
@@ -120,6 +124,6 @@ None yet (Phase 23 plans not authored — run `/gsd-plan-phase 23` to begin).
 
 ## Session Continuity
 
-Last session: 2026-04-27T06:22:25.455Z
-Stopped at: Phase 23 context gathered
-Resume file: .planning/phases/23-tech-debt-cleanup-phase-0-prerequisites/23-CONTEXT.md
+Last session: 2026-04-27T11:06:32.765Z
+Stopped at: Completed 23-06-PLAN.md
+Resume file: None

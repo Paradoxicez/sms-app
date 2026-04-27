@@ -47,53 +47,17 @@ psql "$ADMIN_URL" -tAc "SELECT 1 FROM pg_database WHERE datname='$TEST_DB_NAME'"
 echo "[setup-test-db] Resetting public schema in '$TEST_DB_NAME'..."
 psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -c "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;"
 
-# Phase 19 / D-10c: Pre-push Camera dedup (camera_stream_url_unique).
-#
-# The dedup SQL must land BEFORE `prisma db push` creates the new
-# @@unique([orgId, streamUrl]) index — otherwise constraint creation fails on
-# any existing duplicate rows. On a freshly dropped schema there is no
-# "Camera" table yet, so we guard with an information_schema check via a
-# DO-block. This keeps the step robust to both fresh-drop and
-# operator-seeded-snapshot flows (and stays idempotent on re-runs).
-echo "[setup-test-db] Pre-push dedup (camera_stream_url_unique)..."
-psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
-DO $$
-BEGIN
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'Camera') THEN
-    DELETE FROM "Camera" c
-    USING "Camera" c2
-    WHERE c."orgId" = c2."orgId"
-      AND c."streamUrl" = c2."streamUrl"
-      AND c."createdAt" > c2."createdAt";
-  END IF;
-END $$;
-SQL
+# Phase 23 DEBT-05: setup-test-db now uses Prisma migration history as the
+# single source of truth. The 0_init migration contains every RLS policy +
+# grant the old chain applied. The schema was DROP CASCADE'd above (line 48),
+# so `migrate deploy` re-applies the squashed 0_init cleanly on every run.
+echo "[setup-test-db] Applying Prisma migrations to '$TEST_DB_NAME'..."
+DATABASE_URL="$TEST_DATABASE_URL" pnpm --dir "$API_DIR" exec prisma migrate deploy
 
-echo "[setup-test-db] Pushing Prisma schema to '$TEST_DB_NAME'..."
-# (dedup SQL for camera_stream_url_unique has already run above — see the
-# "Pre-push dedup" step directly before this echo.)
-DATABASE_URL="$TEST_DATABASE_URL" pnpm --dir "$API_DIR" exec prisma db push --skip-generate --accept-data-loss
-
-# Apply RLS the same way the dev DB receives it. We need three things:
-#   1. app_user role + table/sequence grants (rls.policies.sql)
-#   2. RLS on Member/Invitation/UPO/AuditLog/Notification/NotificationPreference
-#      (rls.policies.sql — already includes positive-signal bypass)
-#   3. RLS on Camera/Project/Site/StreamProfile/PlaybackSession/Policy/ApiKey/
-#      WebhookSubscription/OrgSettings/Recording/RecordingSegment/RecordingSchedule
-#      (rls_apply_all/migration.sql — older NULL-bypass)
-#   4. Replace older bypasses with positive-signal version
-#      (rls_superuser_bypass_positive_signal/migration.sql, idempotent DROP IF EXISTS)
-#
-# The schema was just dropped+recreated, so grants must be re-applied (default
-# privileges are tied to the schema and are gone after DROP SCHEMA CASCADE).
-echo "[setup-test-db] Applying RLS policies + grants to '$TEST_DB_NAME'..."
-psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f "$API_DIR/src/prisma/rls.policies.sql"
-psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f "$API_DIR/src/prisma/migrations/rls_apply_all/migration.sql"
-psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f "$API_DIR/src/prisma/migrations/rls_superuser_bypass_positive_signal/migration.sql"
-
-# Backfill grants for tables that may have been created without inheriting the
-# default privileges (Postgres default-privilege rules apply only when the
-# granting role matches the table owner at creation time).
+# Defensive grant backfill — Postgres default-privilege rules apply only when
+# the granting role matches the table owner at creation time. The 0_init
+# migration grants on existing tables, but if a future change leaves new tables
+# ungranted we want the test DB to keep working. Idempotent.
 psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -c "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_user; GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_user;"
 
 echo "[setup-test-db] Done."
