@@ -64,7 +64,7 @@ describe('SRS Callback Controller', () => {
     };
 
     // Full positional signature: status, gateway, playback, recordings,
-    // cameras, streams, audit, archiveMetrics, snapshot.
+    // cameras, streams, audit, archiveMetrics, streamGuardMetrics, snapshot.
     controller = new SrsCallbackController(
       mockStatusService,
       mockStatusGateway,
@@ -74,6 +74,7 @@ describe('SRS Callback Controller', () => {
       mockStreamsService,
       undefined, // auditService — optional, not asserted in this file
       undefined, // archiveMetrics — optional, not asserted in this file
+      undefined, // streamGuardMetrics — Phase 23 DEBT-01, not asserted in this file
       mockSnapshotService,
     );
   });
