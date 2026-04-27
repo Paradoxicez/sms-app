@@ -58,3 +58,47 @@ describe('Config Generation', () => {
     });
   });
 });
+
+describe('generateOriginSrsConfig — Phase 23 DEBT-03 cold-boot regression lock', () => {
+  // Regression gate: SRS v6 rejects `hls_use_fmp4` (v7+ feature) and crashes on
+  // cold-boot when present. memory:project_srs_v6_limits records the prior
+  // incident. This test locks the absence of the directive in the SRS origin
+  // template; future PRs that re-introduce it fail CI.
+  let generateOriginSrsConfig: (settings: {
+    hlsFragment: number;
+    hlsWindow: number;
+    hlsEncryption: boolean;
+    rtmpPort: number;
+    httpPort: number;
+    apiPort: number;
+  }) => string;
+
+  beforeAll(async () => {
+    const mod = await import('../../src/cluster/templates/srs-origin.conf');
+    generateOriginSrsConfig = mod.generateOriginSrsConfig;
+  });
+
+  it('does NOT contain hls_use_fmp4 directive (SRS v6 rejects this; v7+ only)', () => {
+    const cfg = generateOriginSrsConfig({
+      hlsFragment: 2,
+      hlsWindow: 10,
+      hlsEncryption: false,
+      rtmpPort: 1935,
+      httpPort: 8080,
+      apiPort: 1985,
+    });
+    expect(cfg).not.toContain('hls_use_fmp4');
+  });
+
+  it('does NOT contain hls_use_fmp4 with HLS encryption enabled (verify branch coverage)', () => {
+    const cfg = generateOriginSrsConfig({
+      hlsFragment: 2,
+      hlsWindow: 10,
+      hlsEncryption: true,
+      rtmpPort: 1935,
+      httpPort: 8080,
+      apiPort: 1985,
+    });
+    expect(cfg).not.toContain('hls_use_fmp4');
+  });
+});
