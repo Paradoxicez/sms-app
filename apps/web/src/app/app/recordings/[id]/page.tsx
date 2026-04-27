@@ -202,6 +202,8 @@ export default function PlaybackPage() {
         cameraName={recording.camera?.name ?? 'Recording'}
         siteName={recording.camera?.site?.name}
         projectName={recording.camera?.site?.project?.name}
+        tags={recording.camera?.tags}
+        description={recording.camera?.description}
         selectedDate={selectedDate}
         displayedMonth={displayedMonth ?? selectedDate}
         daysWithRecordings={days}
