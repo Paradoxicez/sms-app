@@ -137,22 +137,31 @@ Developers can get a secure HLS playback URL for any registered camera via a sin
 | RTMP push with platform-generated stream keys + SRS forward hook | Avoid FFmpeg pull for encoders that prefer push | ✓ Good — Phase 19.1 inserted between 19 and 20 |
 | Active-job collision via Redis pub/sub (Phase 21.1) | Phase 21 surface contract was correct but runtime restart cycle silently dropped on locked jobs | ✓ Good — gap closure phase pattern works |
 
-## Next Milestone: v1.3 Production Ready (Planned)
+## Current Milestone: v1.3 Production Ready
 
-**Goal:** Take the v1.2 feature-complete platform from dev stack to production deployment.
+**Goal:** Ship the v1.2 feature-complete platform to production via a pull-only deploy model — GitHub Container Registry hosts the images, a single `docker-compose.yml` lives in the GitHub repo, and a fresh server can `git clone` (or even just `wget` the compose file), set a domain + secrets, and `docker compose up -d` with auto-TLS and zero source-code on the prod box.
 
-**Candidate scope (TBD via `/gsd-new-milestone`):**
-- Multi-stage Dockerfile for `apps/api` (build → runtime, no `start:dev`)
-- Dockerfile for `apps/web` (Next.js standalone output)
-- `docker-compose.production.yml` overrides + env management + secret handling
-- Reverse proxy + TLS (nginx/caddy/traefik)
-- DB migration strategy on container start (Prisma)
-- Health checks + restart policies + graceful shutdown alignment
-- Logging / monitoring (SRS Prometheus exporter already available)
-- Tech-debt cleanup carried over from v1.2:
+**Target features:**
+
+- **Pull-only deploy model** — Pre-built images on `ghcr.io/<org>/sms-{api,web}:<tag>`. Production server never sees app source; only compose file + env file + cert volume.
+- **Multi-stage Dockerfile** — `apps/api` (build → runtime, drops dev deps + tooling, runs `node dist/main`), `apps/web` (Next.js standalone output).
+- **Auto-TLS reverse proxy** — Likely Caddy (auto Let's Encrypt + 1-line config per site) or Traefik. Operator only sets domain.
+- **Minimal-config secrets** — `.env.production.example` documents every required var; operator copies + fills (DB password, NEXTAUTH_SECRET, MinIO creds, domain). No Vault/Secrets Manager for v1.3.
+- **DB migration strategy** — Prisma `migrate deploy` on container boot (vs `db:push` in dev), zero-downtime semantics for additive changes.
+- **Health checks + restart policies** — Docker `HEALTHCHECK` directives, `/health` endpoints, graceful shutdown aligned with Phase 15 `ResilienceService`.
+- **Logging + monitoring** — Structured JSON logs to stdout; SRS Prometheus exporter wired; optional log driver for aggregation.
+- **GitHub Actions CI/CD** — Build + push to ghcr on tag; manual or auto-deploy via SSH or webhook.
+- **Folder separation** — `deploy/` (or `ops/`) directory at repo root holds prod-only artifacts (compose, Caddyfile, .env example, scripts, README) so `apps/` stays dev-focused.
+- **Tech-debt cleanup carried over from v1.2:**
   - StreamProcessor undefined cameraId defensive guard
   - Pre-existing API test failures (~23: auth/crypto ESM, recording manifest fMP4, srs callback mocks, cluster)
   - Phase 22 ↔ Phase 17 metadata gap — surface camera tags + description on recording playback page
+
+**Key constraints:**
+- Single-server self-hosted (per PROJECT.md), not Kubernetes.
+- Production runs on Linux (currently dev'd on macOS) — image base + FFmpeg behavior must validate on Linux.
+- Operator-friendly: minimum config, auto SSL renewal, single command deploy/update.
+- Dev workflow must remain intact — adding `deploy/` should not contaminate `pnpm dev` or `pnpm build`.
 
 ## Current State
 
