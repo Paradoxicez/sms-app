@@ -96,12 +96,12 @@ Plans:
   2. The repo contains a `deploy/` directory at the root with placeholder subfolders (e.g. `deploy/scripts/`, `deploy/docs/`) that subsequent phases populate; `apps/` remains dev-focused
   3. `apps/api/Dockerfile` is renamed to `apps/api/Dockerfile.dev` (used by the existing dev compose); a root `.dockerignore` prevents `.env*`, `node_modules`, `.planning/`, `*.log`, and build artifacts from being copied into any image build context
   4. `git ls-files deploy/` returns the new skeleton; CI lint/build still passes
-**Plans:** 5 plans
+**Plans:** 4/5 plans executed
 Plans:
-- [ ] 24-01-PLAN.md — Create deploy/ skeleton (deploy/README.md stub + deploy/scripts/.gitkeep) (Wave 1)
-- [ ] 24-02-PLAN.md — git mv apps/api/Dockerfile → apps/api/Dockerfile.dev (Wave 1)
-- [ ] 24-03-PLAN.md — Create root .dockerignore with comprehensive Pitfall-8 patterns (Wave 1)
-- [ ] 24-04-PLAN.md — Create scripts/dev-smoke.sh (root monorepo smoke test for pnpm dev) (Wave 1)
+- [x] 24-01-PLAN.md — Create deploy/ skeleton (deploy/README.md stub + deploy/scripts/.gitkeep) (Wave 1)
+- [x] 24-02-PLAN.md — git mv apps/api/Dockerfile → apps/api/Dockerfile.dev (Wave 1)
+- [x] 24-03-PLAN.md — Create root .dockerignore with comprehensive Pitfall-8 patterns (Wave 1)
+- [x] 24-04-PLAN.md — Create scripts/dev-smoke.sh (root monorepo smoke test for pnpm dev) (Wave 1)
 - [ ] 24-05-PLAN.md — Add CLAUDE.md ## Deploy Folder Convention guardrail + D-22 BLOCKING manual checklist (Wave 2, has user checkpoint)
 
 ### Phase 25: Multi-Stage Dockerfiles + Image Hardening
@@ -186,7 +186,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 23. Tech Debt Cleanup + Phase 0 Prerequisites | 6/6 | Complete    | 2026-04-27 |
-| 24. Deploy Folder Structure + Dev Workflow Guardrails | 0/TBD | Not started | - |
+| 24. Deploy Folder Structure + Dev Workflow Guardrails | 4/5 | In Progress|  |
 | 25. Multi-Stage Dockerfiles + Image Hardening | 0/TBD | Not started | - |
 | 26. Production Compose + Migrate Init + Networking + Volumes | 0/TBD | Not started | - |
 | 27. Caddy Reverse Proxy + Auto-TLS | 0/TBD | Not started | - |
