@@ -166,6 +166,7 @@ Developers can get a secure HLS playback URL for any registered camera via a sin
 ## Current State
 
 **Shipped:** v1.2 Self-Service, Resilience & UI Polish (2026-04-27) — 11 phases, 64 plans, 115 tasks
+**In progress:** v1.3 Production Ready — Phase 23 complete (2026-04-27), 7 phases remain (24-30)
 **Stack:** NestJS 11 + Next.js 15 + PostgreSQL 16 + Prisma 6 + Redis 7 + SRS v6 + FFmpeg 7 + MinIO + Better Auth
 
 **v1.2 highlights:**
@@ -177,12 +178,15 @@ Developers can get a secure HLS playback URL for any registered camera via a sin
 - **Camera metadata utilization** — Tags + description surfaced across DataTable column + Tags MultiSelect filter + view-stream-sheet Notes + map popup + webhook payload + audit diff + Dev Portal docs; `tagsNormalized` shadow column with GIN index for case-insensitive `hasSome` search; bulk Add/Remove tag endpoint with per-camera audit + cache invalidation.
 - **DataTable + dashboard polish** — Team / Organizations / Cluster Nodes / Platform Audit migrations; tenant dashboard 6-card stat strip + IssuesPanel; super-admin 7 endpoints + 4 widgets (PlatformIssuesPanel / ClusterNodesPanel / StorageForecastCard / RecentAuditHighlights); map teardrop SVG marker + 16:9 popup preview.
 
-**Tech debt carried into v1.3:**
-- StreamProcessor undefined cameraId defensive guard (open 2026-04-21)
-- Pre-existing API test failures (~23): auth/crypto ESM, recording manifest fMP4, srs callback mocks, cluster
-- Phase 22 ↔ Phase 17 metadata gap — recording playback page does not surface camera tags + description
-- Wave-0 / Nyquist methodology drift across 6/11 phases (no shipped behavior impact)
-- Production deployment surface (multi-stage Docker, reverse proxy + TLS, secret management) — primary v1.3 scope
+**Tech debt status (resolved by Phase 23, 2026-04-27):**
+- ✅ StreamProcessor undefined cameraId guard — `StreamGuardMetricsService` exposes refusal counter on `/api/srs/callbacks/metrics` (DEBT-01)
+- ✅ Test suite green — 828 passed / 0 failed / 121 todo / 11 skipped; 121 todos tracked in `.planning/todos/v1.4-test-backfill.md` for v1.4 backfill (DEBT-02)
+- ✅ SRS hls_use_fmp4 cold-boot — regression-lock tests added to both emit paths (DEBT-03)
+- ✅ Phase 22 ↔ Phase 17 metadata gap — `/app/recordings/[id]` surfaces camera tags + description (DEBT-04)
+- ✅ Migration baseline — single `0_init` Prisma migration with consolidated RLS replaces 8 hand-rolled SQL files; `db:reset` + `db:check-drift` scripts (DEBT-05)
+- ⏳ CI gate (`.github/workflows/test.yml`) — workflow file shipped; first run + branch protection deferred until `gh repo create` (item #3 in 23-HUMAN-UAT.md)
+
+**v1.3 work remaining (Phases 24-30):** Production deployment surface (multi-stage Docker, reverse proxy + TLS, GHCR push, operator UX, smoke test on clean VM)
 
 ## Evolution
 
