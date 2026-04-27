@@ -57,7 +57,7 @@
 Goal: Take v1.2's feature-complete platform and ship it to production via a pull-only deploy model. Pre-built images on GHCR, single `docker-compose.yml` in repo, Caddy auto-TLS, Prisma migrate init container, operator scripts. Fresh Linux VM → set domain + secrets → `docker compose up -d` → working HTTPS app in <10 minutes with zero source on the prod box.
 
 - [x] **Phase 23: Tech Debt Cleanup + Phase 0 Prerequisites** — Convert raw SQL to Prisma migration history, StreamProcessor undefined cameraId guard, 23-test triage, hls_use_fmp4 cold-boot fix, Phase 22→17 metadata wiring (completed 2026-04-27)
-- [ ] **Phase 24: Deploy Folder Structure + Dev Workflow Guardrails** — Rename Dockerfile→Dockerfile.dev, create `deploy/` skeleton, root `.dockerignore`, dev smoke test
+- [x] **Phase 24: Deploy Folder Structure + Dev Workflow Guardrails** — Rename Dockerfile→Dockerfile.dev, create `deploy/` skeleton, root `.dockerignore`, dev smoke test (completed 2026-04-27)
 - [ ] **Phase 25: Multi-Stage Dockerfiles + Image Hardening** — Production api Dockerfile (4 stages, FFmpeg+tini, non-root), web Dockerfile (Next.js standalone), per-app .dockerignore
 - [ ] **Phase 26: Production Compose + Migrate Init + Networking + Volumes** — `deploy/docker-compose.yml` with image refs, two-network split, sms-migrate init service, MinIO bucket auto-create + Stream Profile seed
 - [ ] **Phase 27: Caddy Reverse Proxy + Auto-TLS** — `deploy/Caddyfile` (same-origin), Caddy service with persistent volumes, DOMAIN-SETUP.md
@@ -96,13 +96,13 @@ Plans:
   2. The repo contains a `deploy/` directory at the root with placeholder subfolders (e.g. `deploy/scripts/`, `deploy/docs/`) that subsequent phases populate; `apps/` remains dev-focused
   3. `apps/api/Dockerfile` is renamed to `apps/api/Dockerfile.dev` (used by the existing dev compose); a root `.dockerignore` prevents `.env*`, `node_modules`, `.planning/`, `*.log`, and build artifacts from being copied into any image build context
   4. `git ls-files deploy/` returns the new skeleton; CI lint/build still passes
-**Plans:** 4/5 plans executed
+**Plans:** 5/5 plans complete
 Plans:
 - [x] 24-01-PLAN.md — Create deploy/ skeleton (deploy/README.md stub + deploy/scripts/.gitkeep) (Wave 1)
 - [x] 24-02-PLAN.md — git mv apps/api/Dockerfile → apps/api/Dockerfile.dev (Wave 1)
 - [x] 24-03-PLAN.md — Create root .dockerignore with comprehensive Pitfall-8 patterns (Wave 1)
 - [x] 24-04-PLAN.md — Create scripts/dev-smoke.sh (root monorepo smoke test for pnpm dev) (Wave 1)
-- [ ] 24-05-PLAN.md — Add CLAUDE.md ## Deploy Folder Convention guardrail + D-22 BLOCKING manual checklist (Wave 2, has user checkpoint)
+- [x] 24-05-PLAN.md — Add CLAUDE.md ## Deploy Folder Convention guardrail + D-22 BLOCKING manual checklist (Wave 2, has user checkpoint)
 
 ### Phase 25: Multi-Stage Dockerfiles + Image Hardening
 **Goal**: Both production images build locally from a clean checkout, run as non-root with proper PID 1 handling, contain only the runtime dependencies they need (FFmpeg + tini for api; Next.js standalone for web), and fit within the size budget set by research (≤450MB api, ≤220MB web). The images are reproducible and ready for CI to push to GHCR.
@@ -186,7 +186,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 23. Tech Debt Cleanup + Phase 0 Prerequisites | 6/6 | Complete    | 2026-04-27 |
-| 24. Deploy Folder Structure + Dev Workflow Guardrails | 4/5 | In Progress|  |
+| 24. Deploy Folder Structure + Dev Workflow Guardrails | 5/5 | Complete   | 2026-04-27 |
 | 25. Multi-Stage Dockerfiles + Image Hardening | 0/TBD | Not started | - |
 | 26. Production Compose + Migrate Init + Networking + Volumes | 0/TBD | Not started | - |
 | 27. Caddy Reverse Proxy + Auto-TLS | 0/TBD | Not started | - |
