@@ -10,7 +10,8 @@
     "lint": "echo 'lint not configured yet'"
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=22.0.0",
+    "pnpm": ">=10"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^2.1.9",
