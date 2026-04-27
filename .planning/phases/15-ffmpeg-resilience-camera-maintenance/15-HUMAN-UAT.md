@@ -1,20 +1,20 @@
 ---
-status: partial
+status: passed
 phase: 15-ffmpeg-resilience-camera-maintenance
 source: [15-VERIFICATION.md]
 started: 2026-04-19T09:10:00Z
-updated: 2026-04-19T10:50:00Z
+updated: 2026-04-27T00:00:00Z
 ---
 
 ## Current Test
 
-[live-stack UAT complete against Bedrock org + real Axis RTSP camera — 4 passed, 1 partial (blocked by pre-existing SRS config bug), 1 pending visual; 1 Phase 15 regression discovered & fixed]
+[live-stack UAT complete against Bedrock org + real Axis RTSP camera — 5 passed, 1 superseded (T4 replaced by Phase 20 StatusPills); 1 Phase 15 regression discovered & fixed; SRS hls_use_fmp4 blocker resolved out-of-scope]
 
 ## Tests
 
 ### 1. SRS Docker restart → all cameras auto-reconnect within ~60s
 expected: `docker compose restart srs` → within 60s all online/connecting/reconnecting/degraded cameras (maintenanceMode=false) return to status=online after staggered 0-30s jitter; log shows `SrsRestartDetector: SRS restart detected: pid X -> Y` followed by N × `enqueued {cam} (delay=Nms)`
-result: partial — blocked by pre-existing `hls_use_fmp4` config bug (see Gaps). Phase 15 behavior confirmed observable on live stack:
+result: passed (2026-04-27 re-verification by user) — SRS `hls_use_fmp4` blocker resolved out-of-scope; full pid-delta detection + bulk re-enqueue with jitter observed end-to-end. Phase 15 behavior confirmed observable on live stack:
 - `SrsRestartDetector: baseline pid=1 initialized` at API boot ✓
 - Poll cycle active every 5s; when SRS unreachable: `SrsRestartDetector: getSummaries failed — fetch failed` logged (no false-positive pid delta, defensive as designed) ✓
 - `CameraHealthService: dead stream detected for camera <id> (ffmpeg=false, srs=false)` + `enqueued recovery for <id>` fired at 60s tick when SRS went down ✓
@@ -37,7 +37,7 @@ result: passed — observed end-to-end on live stack:
 
 ### 4. Composite 3-icon Status column visual alignment
 expected: Cameras page shows 3 icons with invisible slot preserved for wrench; Thai tooltips match UI-SPEC.
-result: pending — requires browser + running web app. DOM class assertion (`invisible`) verified in `cameras-columns.test.tsx` (9/9 pass). Pixel-level alignment + tooltip portal rendering need visual verification.
+result: superseded — Phase 20 D-12..D-16 replaced the 3-icon composite (CameraStatusDot + Circle + Wrench) with expressive `StatusPills` (LIVE/REC/MAINT/OFFLINE, English-only per D-16). The invisible-Wrench-slot pattern and Thai tooltips no longer exist in the rendered DOM. New visual UAT for the pill UI is tracked in 20-VERIFICATION.md.
 
 ### 5. Enter maintenance on a running camera → stream stops, webhook NOT dispatched
 expected: Row-actions → `เข้าโหมดซ่อมบำรุง` → AlertDialog (destructive variant) → confirm → stream stops; status=offline; wrench amber; toast; NO webhook delivered; AuditLog row created.
@@ -63,11 +63,12 @@ result: passed:
 ## Summary
 
 total: 6
-passed: 4
+passed: 5
 issues: 0
-pending: 1
+pending: 0
 skipped: 0
-blocked: 1
+blocked: 0
+superseded: 1
 
 ## Gaps
 

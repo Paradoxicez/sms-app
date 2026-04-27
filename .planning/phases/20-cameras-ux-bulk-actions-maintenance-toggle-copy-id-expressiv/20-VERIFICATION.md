@@ -1,32 +1,28 @@
 ---
 phase: 20-cameras-ux-bulk-actions-maintenance-toggle-copy-id-expressiv
 verified: 2026-04-24T22:55:00Z
-status: human_needed
-score: 22/22 must-haves verified
+human_verified: 2026-04-27T00:00:00Z
+status: passed
+score: 22/22 must-haves verified + 5/5 manual visual UAT passed
 human_verification:
   - test: "Pulse animation timing feels right on LIVE + REC pills"
-    expected: "Pulses read as 'alive indicator', not distracting throb; OS 'Reduce Motion' setting halts pulse while state remains legible"
-    why_human: "Visual aesthetics / timing perception is subjective (VALIDATION.md manual-only item, D-15)"
+    result: passed (2026-04-27)
   - test: "Width transition feels smooth on Stream/Record pill buttons"
-    expected: "Toggling active → idle does not jank; neighboring tab-row elements do not reflow (min-w-[340px] reservation holds)"
-    why_human: "150ms ease-out subjective feel (VALIDATION.md manual-only item, D-19)"
+    result: passed (2026-04-27)
   - test: "Tooltip delay on ID chip feels right"
-    expected: "Tooltip with full UUID appears ~500ms after hover; dismisses cleanly"
-    why_human: "Hover-intent latency is subjective (VALIDATION.md manual-only item, D-18)"
+    result: passed (2026-04-27)
   - test: "Sticky bulk toolbar z-index interplay with Sheet portal"
-    expected: "Toolbar pinned during scroll; sits BEHIND sheet overlay when View Stream opened; re-pins after sheet closes"
-    why_human: "Z-index layering is visual (VALIDATION.md manual-only item, D-04)"
+    result: passed (2026-04-27)
   - test: "Failed-row AlertTriangle hover tooltip shows error reason verbatim"
-    expected: "Tooltip contains exact API error string, wraps correctly within viewport"
-    why_human: "Tooltip render timing + text wrap depends on viewport (VALIDATION.md manual-only item, D-06a)"
+    result: passed (2026-04-27)
 ---
 
 # Phase 20: Cameras UX Bulk Actions, Maintenance Toggle, Copy ID, Expressive Status/Stream Controls — Verification Report
 
 **Phase Goal:** Polish the tenant Cameras page with 5 UX improvements (bulk toolbar, asymmetric maintenance, copy ID/cURL, monospace ID chip, expressive status pills + expandable stream/record buttons), with client-side `Promise.allSettled` fan-out against existing per-camera endpoints and one thin backend change adding optional `{ reason?: string }` body to `POST /api/cameras/:id/maintenance`.
-**Verified:** 2026-04-24T22:55:00Z
-**Status:** human_needed (all automated checks passed; five manual-only visual/feel verifications remain per VALIDATION.md)
-**Re-verification:** No — initial verification
+**Verified:** 2026-04-24T22:55:00Z (automated) / 2026-04-27T00:00:00Z (human UAT closed)
+**Status:** passed (all 22 automated checks + 5 manual-only visual/feel verifications confirmed by user UAT round)
+**Re-verification:** Yes — human UAT round 2026-04-27 closed the five manual-only items
 
 ## Goal Achievement
 
@@ -166,9 +162,9 @@ No plan frontmatter declares `requirements: [...]` for Phase 20 — confirmed by
 
 No blocker or warning-severity anti-patterns. All empty-return paths are contracted behaviors.
 
-### Human Verification Required
+### Human Verification — CLOSED (2026-04-27)
 
-5 items require human testing (subjective visual/feel judgements, per VALIDATION.md "Manual-Only Verifications" table):
+User-confirmed UAT round closed all 5 manual-only items. Originally categorized as subjective visual/feel judgements per VALIDATION.md "Manual-Only Verifications" table — now passed:
 
 ### 1. LIVE/REC pill pulse feel
 
@@ -204,7 +200,7 @@ No blocker or warning-severity anti-patterns. All empty-return paths are contrac
 
 **No implementation gaps detected.** All 22 must-haves from the phase goal + CONTEXT.md decisions are implemented, wired end-to-end, and covered by passing tests (171 web + 18 API = 189 Phase-20-specific tests green). Typecheck clean. No anti-pattern stubs. No hollow data flows.
 
-The status is `human_needed` rather than `passed` solely because VALIDATION.md explicitly categorizes five visual/feel properties (pulse aesthetics, width-transition smoothness, tooltip hover-intent delay, z-index layering during sheet portal, error-tooltip viewport wrap) as manual-only verifications — these cannot be asserted programmatically and must be spot-checked by a human operator before phase closure.
+Status promoted to `passed` on 2026-04-27 after the user-confirmed UAT round closed all five manual-only visual/feel items (pulse aesthetics, width-transition smoothness, tooltip hover-intent delay, z-index layering during sheet portal, error-tooltip viewport wrap) that VALIDATION.md flagged as not assertable programmatically.
 
 Verification acknowledges the orchestrator's notes:
 - Plan 20-03 Task 3 final commit was made by the orchestrator after the executor's stream watchdog timed out. I re-verified all 26 tenant-cameras-page tests + all 10 cameras-data-table tests + all 34 bulk-actions tests + all 25 bulk-toolbar tests — every file parses cleanly and passes on the current merged tree.
@@ -213,5 +209,5 @@ Verification acknowledges the orchestrator's notes:
 
 ---
 
-*Verified: 2026-04-24T22:55:00Z*
-*Verifier: Claude (gsd-verifier)*
+*Verified: 2026-04-24T22:55:00Z (automated) / 2026-04-27T00:00:00Z (human UAT)*
+*Verifier: Claude (gsd-verifier) + user UAT confirmation*

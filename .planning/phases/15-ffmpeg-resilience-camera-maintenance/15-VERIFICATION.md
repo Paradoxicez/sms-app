@@ -1,35 +1,30 @@
 ---
 phase: 15-ffmpeg-resilience-camera-maintenance
 verified: 2026-04-19T09:07:00Z
-status: human_needed
-score: 5/5 must-haves verified (automated)
+human_verified: 2026-04-27T00:00:00Z
+status: passed
+score: 5/5 must-haves verified (automated) + 5/5 human UAT passed (T4 superseded by Phase 20)
 human_verification:
   - test: "SRS Docker restart → all cameras auto-reconnect within ~60s"
-    expected: "docker compose restart srs → within 60s all online/connecting/reconnecting/degraded cameras (maintenanceMode=false) return to status=online after staggered 0-30s jitter; log shows 'SrsRestartDetector: SRS restart detected: pid X -> Y' followed by N × 'enqueued {cam} (delay=Nms)'"
-    why_human: "Requires a running SRS container + live FFmpeg processes + real pid-delta observation. Cannot be fully simulated in unit tests (tests use fake queue mocks)."
+    result: passed (2026-04-27)
   - test: "Server SIGTERM → clean FFmpeg shutdown within 10s grace"
-    expected: "docker compose stop api → logs show 'Shutting down N FFmpeg processes (signal=SIGTERM)' → either 'All FFmpegs exited cleanly within grace' OR 'SIGKILLed stragglers: ...' → container exits in ≤10s (not the default Docker 30s SIGKILL timeout) → docker compose start api → 'Boot recovery: re-enqueuing N streams' → cameras reconnect within ~60s"
-    why_human: "Requires Docker lifecycle observation and log inspection; grace-window behavior was unit-tested with vi.useFakeTimers but real SIGTERM handling from Docker cannot be unit-asserted."
+    result: passed (2026-04-27)
   - test: "Webhook + notification fires on camera status change (with 30s debounce)"
-    expected: "Force an online→offline transition (kill FFmpeg or block RTSP source) on a non-maintenance camera → wait 30s → in-app notification appears in the NotificationsGateway + webhook subscribers receive camera.offline POST body with cameraId/status/previousStatus/timestamp. During the 30s window, any additional status flaps should REPLACE (not duplicate) the pending dispatch."
-    why_human: "Requires running BullMQ worker + live webhook subscriber + NotificationsGateway UI. The debounce-by-replacement mechanism is unit-tested but end-to-end delivery has not been observed in automated coverage."
+    result: passed (2026-04-27)
   - test: "Composite 3-icon Status column visual alignment — recording dots line up across rows whether maintenance active or not"
-    expected: "Cameras page shows Status column with CameraStatusDot + recording Circle + Wrench. Row in maintenance has amber wrench visible; row NOT in maintenance has wrench slot reserved (invisible) — recording dots remain horizontally aligned with the amber-wrench row's recording dot. Tooltip on hover shows Thai copy matching UI-SPEC §Composite Status Column Tooltips (ออนไลน์/ออฟไลน์/สัญญาณไม่เสถียร/กำลังเชื่อมต่อ/กำลังเชื่อมต่อใหม่/กำลังบันทึก/ไม่ได้บันทึก/อยู่ในโหมดซ่อมบำรุง — ไม่แจ้งเตือน)."
-    why_human: "Visual alignment + tooltip rendering requires DOM layout + browser-level Tooltip portal behavior. Class-level tests assert 'invisible' is applied but not pixel-level row alignment."
+    result: superseded (Phase 20 D-12..D-16 replaced 3-icon composite with StatusPills; English-only labels per D-16 supersede Thai tooltips)
   - test: "Enter maintenance on a running camera → stream stops, webhook NOT dispatched"
-    expected: "Click row-actions → 'เข้าโหมดซ่อมบำรุง' → AlertDialog with destructive-variant button + bold 'หยุดสตรีม' body → confirm → stream stops within seconds; status transitions to offline; wrench icon turns amber; toast 'กล้อง \"...\" อยู่ในโหมดซ่อมบำรุงแล้ว' appears; NO webhook is delivered to subscribers (check webhook receiver logs for absence of camera.offline). AuditLog row with action=create, resource=camera, path=/api/cameras/{id}/maintenance is persisted."
-    why_human: "Cross-system behavior (UI → API → DB → StatusGateway + audit + suppressed webhook) requires full-stack integration verification."
+    result: passed (2026-04-27)
   - test: "Exit maintenance → status stays offline, no auto-restart"
-    expected: "On a camera already in maintenance, click 'ออกจากโหมดซ่อมบำรุง' → dialog has default-variant (non-destructive) button + bold 'สตรีมจะยังไม่เริ่มใหม่โดยอัตโนมัติ' body → confirm → wrench becomes invisible; maintenanceEnteredAt/By remain populated in DB (historical); status stays offline; no FFmpeg process starts automatically. Operator must click Start Stream manually to resume."
-    why_human: "Requires DB inspection + observing that no FFmpeg child process spawned after exit."
+    result: passed (2026-04-27)
 ---
 
 # Phase 15: FFmpeg Resilience & Camera Maintenance — Verification Report
 
 **Phase Goal:** Camera streams recover automatically from failures and operators can put cameras in maintenance mode
-**Verified:** 2026-04-19T09:07:00Z
-**Status:** human_needed
-**Re-verification:** No — initial verification
+**Verified:** 2026-04-19T09:07:00Z (automated) / 2026-04-27T00:00:00Z (human UAT closed)
+**Status:** passed
+**Re-verification:** Yes — human UAT round confirmed 5 active scenarios pass; T4 superseded by Phase 20 StatusPills
 
 ## Goal Achievement
 
@@ -141,24 +136,24 @@ All 7 requirement IDs accounted for and satisfied. No orphaned requirements.
 - **SrsRestartDetector in-memory pid baseline:** Accepted limitation per D-07; boot-recovery is the safety net if API restarts during an SRS restart (both pids reset).
 - **Card-grid does NOT expose maintenance toggle:** Documented as intentional in 15-04 SUMMARY per UI-SPEC §Row Action Dropdown Entry table-only rule.
 
-### Human Verification Required
+### Human Verification — CLOSED (2026-04-27)
 
-See `human_verification` section in frontmatter. Six end-to-end scenarios require a running stack + visual or cross-system observation:
+User-confirmed UAT round on 2026-04-27 closed all six scenarios:
 
-1. SRS Docker restart auto-reconnect (with staggered jitter)
-2. Server SIGTERM clean shutdown + boot re-enqueue
-3. Webhook + notification end-to-end after 30s debounce
-4. Composite Status column visual alignment + tooltip Thai copy
-5. Enter-maintenance UX end-to-end (stream stops, webhook suppressed, audit persisted)
-6. Exit-maintenance UX end-to-end (status stays offline, no auto-restart)
+1. SRS Docker restart auto-reconnect (with staggered jitter) — **passed**
+2. Server SIGTERM clean shutdown + boot re-enqueue — **passed**
+3. Webhook + notification end-to-end after 30s debounce — **passed**
+4. Composite Status column visual alignment + tooltip Thai copy — **superseded** (Phase 20 D-12..D-16 replaced 3-icon composite with StatusPills; English-only labels supersede Thai tooltips)
+5. Enter-maintenance UX end-to-end (stream stops, webhook suppressed, audit persisted) — **passed**
+6. Exit-maintenance UX end-to-end (status stays offline, no auto-restart) — **passed**
 
 ### Gaps Summary
 
 No gaps. All 5 roadmap Success Criteria have supporting code + tests verifiably present and wired in the codebase. All 7 requirement IDs are mapped to plans and implemented. Total test coverage: 46 backend tests + 9 UI tests = **55 new tests** added across 9 files, all green.
 
-Status is `human_needed` (not `passed`) because the observable truths — "streams reconnect automatically", "webhook fires on status change", "stream stops on maintenance enter", etc. — are end-to-end cross-system behaviors that cannot be fully proven by unit tests alone. The unit tests prove the individual primitives are correct; human UAT proves the orchestrated flow.
+Status promoted from `human_needed` → `passed` on 2026-04-27 after user-confirmed UAT round covered the orchestrated end-to-end flows that unit tests could not assert (stream auto-reconnect, webhook delivery, maintenance suppression, graceful shutdown). T4 (3-icon composite + Thai tooltips) is closed as `superseded` rather than `passed` because Phase 20 D-12..D-16 replaced the underlying UI; new visual UAT for the StatusPills replacement is tracked in 20-VERIFICATION.md.
 
 ---
 
-_Verified: 2026-04-19T09:07:00Z_
-_Verifier: Claude (gsd-verifier)_
+_Verified: 2026-04-19T09:07:00Z (automated) / 2026-04-27T00:00:00Z (human UAT)_
+_Verifier: Claude (gsd-verifier) + user UAT confirmation_
