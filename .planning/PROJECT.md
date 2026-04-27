@@ -57,27 +57,36 @@ Developers can get a secure HLS playback URL for any registered camera via a sin
 - ✓ SRS cluster scaling with edge nodes — v1.0
 - ✓ Role-based dual-portal (admin/tenant) — v1.0
 
+- ✓ User account self-service — change name, avatar, password — v1.2 (Phase 16)
+- ✓ Plan/usage viewer — view current plan + usage/limits (read-only) — v1.2 (Phase 16)
+- ✓ FFmpeg full resilience — SRS-restart pid-delta detection, 60s health check, graceful shutdown + boot recovery, 30s debounce notify/webhook — v1.2 (Phase 15)
+- ✓ Camera maintenance mode — flag-flip suppresses notify/webhook, asymmetric row menu (Enter dialog / Exit direct), reason capture (≤200 chars) — v1.2 (Phase 15+20)
+- ✓ Hot-reload stream profile to running cameras — within 30s via Redis pub/sub for active+locked BullMQ jobs — v1.2 (Phase 21+21.1)
+- ✓ DataTable migrations: Team, Organizations, Cluster Nodes, Platform Audit — v1.2 (Phase 14)
+- ✓ Bug fixes: super-admin user creation in system org (RLS context tx), API Key raw-copy + hard-delete — v1.2 (Phase 14)
+- ✓ Recording playback page with HLS player + 24h timeline scrubber + heatmap — v1.2 (Phase 17)
+- ✓ Dashboard polish — 6 stat cards + IssuesPanel (tenant) + 7 super-admin endpoints + 4 widgets — v1.2 (Phase 18)
+- ✓ Map polish — teardrop SVG marker + recording/maintenance badges + 16:9 popup preview + Tags MultiSelect filter — v1.2 (Phase 18+22)
+- ✓ Expressive Status pills — LIVE/REC/MAINT/OFFLINE replacing 3-icon composite — v1.2 (Phase 20)
+- ✓ Bulk camera actions — Start Stream / Recording / Maintenance / Delete via `chunkedAllSettled` (concurrency=5) + partial-failure badges — v1.2 (Phase 20)
+- ✓ Camera input validation + multi-protocol — 4-protocol allowlist (RTSP/RTMP/RTMPS/SRT), async codec probe pipeline, 3-layer duplicate prevention — v1.2 (Phase 19)
+- ✓ RTMP push ingest with platform-generated stream keys — v1.2 (Phase 19.1)
+- ✓ Camera metadata utilization — tags + description surfaced across DataTable, view-stream-sheet, map popup, webhook payload, audit diff, Dev Portal docs — v1.2 (Phase 22)
+
 ### Active
 
-- [ ] User account self-service — change name, avatar, email, password
-- [ ] Plan/usage viewer — view current plan, usage/limits, contact admin for upgrade
-- [ ] FFmpeg full resilience — auto-reconnect (SRS restart + camera drop), health check loop, notification on status change
-- [ ] DataTable migration: Admin org > Team page
-- [ ] DataTable migration: Super admin > Organizations page
-- [ ] DataTable migration: Super admin > Cluster Nodes page
-- [ ] DataTable migration: Super admin > Platform Audit page
-- [ ] Fix: Super admin cannot create users for system org
-- [ ] Fix: API Key copy returns masked key instead of real key
-- [ ] Fix: API Key delete not working
-- [ ] Recording playback page with timeline
-- [ ] Dashboard improvements — org admin + super admin, add necessary data, remove unnecessary
-- [ ] Map UI — improve thumbnail popup and pin/marker design
-- [ ] Camera status column — 3 status icons: online/offline (live), recording, maintenance
-- [ ] Camera maintenance mode action
+(None — milestone v1.2 shipped 2026-04-27. Run `/gsd-new-milestone` to scope v1.3 Production Ready.)
 
 ### Deferred to Future
 
-(None)
+- User self-service: change email (requires re-verify) — USER-04 (deferred from v1.2)
+- FFmpeg stderr parsing for proactive degradation detection — RESIL-05 (deferred from v1.2)
+- Timeline zoom levels (6h, 1h views) — REC-04 (deferred from v1.2)
+- Cross-camera timeline view for incident investigation — REC-05 (deferred from v1.2)
+- Scheduled maintenance windows (auto-enter/exit) — CAM-04 (deferred from v1.2)
+- Phase 22 ↔ Phase 17 metadata gap — surface camera tags + description on `/app/recordings/[id]` playback page (v1.2 audit found unwired surface)
+- StreamProcessor undefined cameraId defensive guard — open since 2026-04-21
+- Pre-existing API test failures (~23) — auth/crypto ESM imports, recording manifest fMP4, srs callback mocks, cluster service tests
 
 ### Out of Scope
 
@@ -118,40 +127,53 @@ Developers can get a secure HLS playback URL for any registered camera via a sin
 | Research SRS before finalizing API | Don't design APIs that the stream engine can't support natively | ✓ Good — discovered RTSP removal, FFmpeg wrapper pattern |
 | Better Auth over Passport.js | Built-in orgs, RBAC, sessions, invitations — reduces Phase 1 scope significantly | ✓ Good — org/member/role management built-in |
 | External FFmpeg over SRS ingest | Dynamic camera management without SRS config reload | ✓ Good — BullMQ process pool with reconnection |
-| fMP4 HLS over MPEG-TS | Better codec support, modern format | ⚠️ Revisit — first-boot gap required static config fix |
+| fMP4 HLS over MPEG-TS | Better codec support, modern format | ⚠️ Revisit — first-boot gap required static config fix; SRS v6 falls back to MPEG-TS |
+| BullMQ jobId unification (`camera:{id}:ffmpeg`) | Dedupe enqueue paths from 4 sources | ✓ Good — single source of truth (Phase 15) |
+| Maintenance gate at StatusService chokepoint | Single suppression point for notify/webhook + 30s debounce | ✓ Good — gate + replacement-by-jobId pattern (Phase 15) |
+| Hot-reload via Redis pub/sub for active+locked BullMQ jobs | BullMQ remove-then-add silently no-ops on locked jobs | ✓ Good — closes Phase 21 runtime gap (Phase 21.1) |
+| Client-side `chunkedAllSettled` (concurrency=5) over server bulk endpoints | Reuse per-camera endpoints, simpler audit, no new server contract | ✓ Good — Phase 20 bulk actions ship without backend bloat |
+| Expressive LIVE/REC/MAINT/OFFLINE pills replace 3-icon composite | Single readable signal vs 3 icons + tooltips | ✓ Good — supersedes Phase 15 D-12..D-16 (Phase 20) |
+| Camera.tags as denormalized String[] with `tagsNormalized` shadow + GIN | Avoid Tag entity over-engineering; case-insensitive search | ✓ Good — Phase 22 ships across 4 surfaces |
+| RTMP push with platform-generated stream keys + SRS forward hook | Avoid FFmpeg pull for encoders that prefer push | ✓ Good — Phase 19.1 inserted between 19 and 20 |
+| Active-job collision via Redis pub/sub (Phase 21.1) | Phase 21 surface contract was correct but runtime restart cycle silently dropped on locked jobs | ✓ Good — gap closure phase pattern works |
 
-## Current Milestone: v1.2 Self-Service, Resilience & UI Polish
+## Next Milestone: v1.3 Production Ready (Planned)
 
-**Goal:** เปิดให้ user จัดการบัญชีเอง, ทำ FFmpeg resilience เต็มรูปแบบ, แก้ UI ที่หลุดจาก v1.1, และปรับปรุง UX หลายจุด
+**Goal:** Take the v1.2 feature-complete platform from dev stack to production deployment.
 
-**Target features:**
-- User account self-service (name, avatar, email, password)
-- Plan/usage viewer (view-only)
-- FFmpeg full resilience (SRS restart + camera drop + health check + notification)
-- DataTable migration for missed pages (Team, Organizations, Cluster Nodes, Platform Audit)
-- Bug fixes (system org user creation, API key copy/delete)
-- Recording playback page with timeline
-- Dashboard improvements (org admin + super admin)
-- Map UI improvements (thumbnail popup, pin design)
-- Camera status icons (online/offline, recording, maintenance) + maintenance mode action
+**Candidate scope (TBD via `/gsd-new-milestone`):**
+- Multi-stage Dockerfile for `apps/api` (build → runtime, no `start:dev`)
+- Dockerfile for `apps/web` (Next.js standalone output)
+- `docker-compose.production.yml` overrides + env management + secret handling
+- Reverse proxy + TLS (nginx/caddy/traefik)
+- DB migration strategy on container start (Prisma)
+- Health checks + restart policies + graceful shutdown alignment
+- Logging / monitoring (SRS Prometheus exporter already available)
+- Tech-debt cleanup carried over from v1.2:
+  - StreamProcessor undefined cameraId defensive guard
+  - Pre-existing API test failures (~23: auth/crypto ESM, recording manifest fMP4, srs callback mocks, cluster)
+  - Phase 22 ↔ Phase 17 metadata gap — surface camera tags + description on recording playback page
 
 ## Current State
 
-**Shipped:** v1.1 UI Overhaul (2026-04-18)
+**Shipped:** v1.2 Self-Service, Resilience & UI Polish (2026-04-27) — 11 phases, 64 plans, 115 tasks
 **Stack:** NestJS 11 + Next.js 15 + PostgreSQL 16 + Prisma 6 + Redis 7 + SRS v6 + FFmpeg 7 + MinIO + Better Auth
-**v1.1 delivered:**
-- DataTable component system (sorting, faceted filters, pagination) — used by 13+ pages
-- Collapsible sidebar with cookie persistence + split-screen login redesign
-- All admin tables migrated to unified DataTable (Audit Log, Users, API Keys, Webhooks, Stream Profiles)
-- Camera management: DataTable + card view with live HLS preview + View Stream sheet
-- Recordings page with cross-camera DataTable, bulk delete, presigned download
-- Hierarchy tree viewer (Project > Site > Camera) + resizable split-panel + map drag-to-relocate markers
 
-**v1.2 progress (in flight):**
-- Phase 16 complete (2026-04-19) — User self-service: `/app/account` + `/admin/account` pages, avatar upload/remove via MinIO, password change with revokeOtherSessions, tenant Plan & Usage read-only view. Validated USER-01/02/03. Human UAT 9/9 passed.
-- Phase 19 complete (2026-04-22) — Camera input validation + RTMP/RTMPS pull-model support: 4-protocol DTO allowlist (T-19-01 HIGH mitigated), protocol-branch `-rtsp_transport` flag, async probe pipeline (BullMQ `probe:{cameraId}` dedup, 3 triggers: create / on-publish / retry), `CodecInfo` tagged-union (pending/success/failed/no-data) with sanitized error reasons, 4-state `CodecStatusCell` + inline retry icon, 3-layer duplicate prevention (client validateRow + service pre-check + Prisma `@@unique([orgId, streamUrl])`), live form validation mirroring backend, bulk-import within-file dedup + 3rd duplicate icon + toast cascade. 9 plans / 5 waves / 43 commits. RTMP **push** model (platform-generated stream keys) split to Phase 19.1 per supplementary discuss.
-- Phase 20 complete (2026-04-25) — Cameras UX bulk actions + maintenance toggle + copy ID + expressive status: 22 locked decisions D-01..D-22 from CONTEXT.md. Multi-select + sticky `BulkToolbar` (Start Stream / Start Recording / Maintenance / Delete) with `chunkedAllSettled` fan-out (concurrency=5, pre-filter helpers per Research A6/A7), asymmetric row-menu Maintenance (Enter → reason dialog ≤200 chars / Exit → direct DELETE), Copy Camera ID + Copy cURL with literal `<YOUR_API_KEY>` placeholder (no real key fetch), monospace ID chip + copy affordance in ViewStreamSheet header, expressive LIVE/REC/MAINT/OFFLINE status pills replacing 3-icon column (motion-reduce paired pulse, byte-for-byte token reuse from map popup), expandable Start Stream / Start Record pill buttons with `min-w-[340px]` reservation. Backend: `POST /api/cameras/:id/maintenance` accepts optional `{ reason?: string }` body — captured in audit log via existing `request.body` snapshot, no schema change. 4 plans / 2 waves / 17 commits. Human UAT 5/5 passed. Out-of-scope fix during UAT: shared tooltip primitive z-index `z-50 → z-[1200]` (was clipping behind Sheet `z-[1100]`); BulkToolbar extended to `/app/projects` page via shared `useCameraBulkActions` hook + `<CameraBulkActions>` component (initial scope only covered `/app/cameras`).
-- Phase 21 + 21.1 complete (2026-04-25) — Hot-reload stream profile changes to running cameras: D-01..D-11 (Phase 21) shipped audit-log-correct surface (jobId pattern `camera:{id}:ffmpeg`, dedup-by-jobId, gracefulRestart helper, 409 DELETE protection, audit-at-enqueue, UI toasts, B-1 collision guard). Manual UAT 2026-04-25 surfaced runtime defect: `enqueueProfileRestart`'s remove-then-add silently no-ops on active+locked BullMQ jobs (BKR06 + SD640: 11 PATCHes → 11 audit rows but FFmpeg PID 14013 unchanged). Phase 21.1 closes this with D-12..D-15: Redis pub/sub channel `camera:{id}:restart` between publisher (`enqueueProfileRestart`) and subscriber (`StreamProcessor.process()` via `ioredis.duplicate()`), 4 mitigations bundled (M1 try/finally + unsubscribe+quit; M2 fingerprint safety net on subscribe-ready; M3 in-process `restartingCameras: Set<string>` dedup; M4 hybrid test layer = 3 mock units + 1 real-Redis integration). 21.1 = 3 plans / 2 waves / 9 commits. Verifier 12/12 must-haves passed. BKR06 11-PATCH integration test reproduces the original failure mode and asserts 11/11 `gracefulRestart` invocations within 1.6s wall-time against real Redis. D-13 strict scope: only `enqueueProfileRestart` modified — `startStream`, `stopStream`, `notifyQueue`, B-1 guard all byte-identical. D-15 rollout: standard `docker compose restart api` flow uses Phase 15 `ResilienceService.onApplicationShutdown` + `BootRecoveryService.onApplicationBootstrap` — no migration code, no admin endpoint, no maintenance window.
+**v1.2 highlights:**
+- **FFmpeg resilience** — SRS-restart pid-delta detection + bulk re-enqueue (jitter 0–30s), 60s health-check tick, graceful shutdown + boot re-enqueue, hot-reload Stream Profile to running cameras within 30s via Redis pub/sub for active+locked BullMQ jobs.
+- **Camera maintenance + bulk UX** — Maintenance gate at StatusService suppresses notify/webhook with 30s debounce, asymmetric row-menu (Enter dialog with ≤200-char reason / Exit direct), expressive LIVE/REC/MAINT/OFFLINE pills, multi-select bulk toolbar (concurrency=5, partial-failure badges).
+- **Recording playback** — `/app/recordings/[id]` route with HLS player + 24h timeline scrubber + hour-availability heatmap + cross-org enumeration closure (T-17-V4).
+- **User self-service** — `/app/account` + `/admin/account` (Profile + Security + Plan & Usage tenant), MinIO avatars bucket with sharp-backed 256×256 WebP transcode, password change with `revokeOtherSessions`.
+- **Multi-protocol ingest** — 4-protocol DTO allowlist (RTSP/RTMP/RTMPS/SRT), async codec probe pipeline (BullMQ `probe:{id}` dedup, 3 triggers: create / on-publish / retry), 3-layer duplicate prevention, RTMP push with platform-generated stream keys + SRS forward hook.
+- **Camera metadata utilization** — Tags + description surfaced across DataTable column + Tags MultiSelect filter + view-stream-sheet Notes + map popup + webhook payload + audit diff + Dev Portal docs; `tagsNormalized` shadow column with GIN index for case-insensitive `hasSome` search; bulk Add/Remove tag endpoint with per-camera audit + cache invalidation.
+- **DataTable + dashboard polish** — Team / Organizations / Cluster Nodes / Platform Audit migrations; tenant dashboard 6-card stat strip + IssuesPanel; super-admin 7 endpoints + 4 widgets (PlatformIssuesPanel / ClusterNodesPanel / StorageForecastCard / RecentAuditHighlights); map teardrop SVG marker + 16:9 popup preview.
+
+**Tech debt carried into v1.3:**
+- StreamProcessor undefined cameraId defensive guard (open 2026-04-21)
+- Pre-existing API test failures (~23): auth/crypto ESM, recording manifest fMP4, srs callback mocks, cluster
+- Phase 22 ↔ Phase 17 metadata gap — recording playback page does not surface camera tags + description
+- Wave-0 / Nyquist methodology drift across 6/11 phases (no shipped behavior impact)
+- Production deployment surface (multi-stage Docker, reverse proxy + TLS, secret management) — primary v1.3 scope
 
 ## Evolution
 
@@ -171,4 +193,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-25 after Phase 21.1 completion (Active-job collision fix for hot-reload restart — gap closure for Phase 21). D-12..D-15 implemented: Redis pub/sub signaling between publisher/subscriber, 4 mitigations bundled, hybrid test layer (3 mock units + 1 real-Redis integration reproducing BKR06 11-PATCH UAT scenario). 12/12 must-haves verified. 703 API + 485 web tests green; 19 new tests added by 21.1. D-13 strict scope honored — only `enqueueProfileRestart` modified, all other call sites byte-identical including B-1 collision guard.*
+*Last updated: 2026-04-27 after v1.2 milestone completion (Self-Service, Resilience & UI Polish — 11 phases, 64 plans, 115 tasks). All 22 v1.2 REQ-IDs satisfied; 1 audit-found enhancement (Phase 22→17 metadata) deferred to v1.3 backlog along with production-deployment scope. ROADMAP collapsed; REQUIREMENTS.md retired. Next: `/gsd-new-milestone` to scope v1.3 Production Ready.*

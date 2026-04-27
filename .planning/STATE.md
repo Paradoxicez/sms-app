@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Self-Service, Resilience & UI Polish
-status: executing
-stopped_at: Phase 22 UI-SPEC approved
-last_updated: "2026-04-26T17:28:47.804Z"
-last_activity: 2026-04-27 - Completed quick task 260427-2sd: Move org badge + bell to top header bar, add version label above sidebar user profile
+status: shipped
+stopped_at: v1.2 milestone closed
+last_updated: "2026-04-27T05:00:00.000Z"
+last_activity: 2026-04-27 — v1.2 milestone archived; PROJECT.md evolved; ROADMAP collapsed
 progress:
   total_phases: 11
   completed_phases: 11
@@ -18,35 +18,35 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-18)
+See: .planning/PROJECT.md (updated 2026-04-27)
 
 **Core value:** Developers can get a secure HLS playback URL for any registered camera via a single API call, and embed it on their website immediately.
-**Current focus:** Phase 22 — camera-metadata-utilization-surface-tags-description-across-
+**Current focus:** Planning v1.3 Production Ready — run `/gsd-new-milestone` to scope.
 
 ## Current Position
 
-Phase: 22
-Plan: Not started
-Status: Executing Phase 22
-Last activity: 2026-04-27 - Completed quick task 260427-0r1: Delete Developer Portal Overview page
+Milestone: v1.2 — shipped 2026-04-27
+Phase: — (between milestones)
+Status: Awaiting v1.3 milestone scoping
 
-Progress: [░░░░░░░░░░] 0% (v1.2: 0/5 phases)
+Progress: [██████████] 100% (v1.2 complete: 11/11 phases, 64/64 plans)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 132 (v1.0: 53, v1.1: 15)
-- Average duration: ~5 min/plan
-- Total execution time: ~3.2 hours
+- Total plans completed: 196 (v1.0: 53, v1.1: 15, v1.2: 64 across 11 phases)
+- v1.2 timeline: 2026-04-18 → 2026-04-27 (10 days from Phase 14 to milestone close)
+- v1.2 commits: ~600+ across feat/fix/docs/refactor/chore
 
 **By Milestone:**
 
-| Milestone | Phases | Plans | Status |
-|-----------|--------|-------|--------|
-| v1.0 MVP | 8 | 53 | Complete |
-| v1.1 UI Overhaul | 6 | 15 | Complete |
-| v1.2 Self-Service | 5 | TBD | In progress |
+| Milestone | Phases | Plans | Status | Shipped |
+|-----------|--------|-------|--------|---------|
+| v1.0 MVP | 8 | 53 | Complete | 2026-04-16 |
+| v1.1 UI Overhaul | 6 | 15 | Complete | 2026-04-18 |
+| v1.2 Self-Service, Resilience & UI Polish | 11 | 64 | Complete | 2026-04-27 |
+| v1.3 Production Ready | TBD | TBD | Planned | — |
 
 *Updated after each plan completion*
 
