@@ -7,6 +7,7 @@ import { FfmpegService } from './ffmpeg/ffmpeg.service';
 import { StreamProcessor } from './processors/stream.processor';
 import { StreamProbeProcessor } from './processors/stream-probe.processor';
 import { StreamProfileService } from './stream-profile.service';
+import { StreamGuardMetricsService } from './stream-guard-metrics.service';
 import { StreamProfileController } from './stream-profile.controller';
 import { FfprobeService } from '../cameras/ffprobe.service';
 import { SrsModule } from '../srs/srs.module';
@@ -33,6 +34,11 @@ import { REDIS_CLIENT } from '../api-keys/api-keys.service';
     StreamsService,
     FfmpegService,
     StreamProcessor,
+    // Phase 23 DEBT-01: in-memory refusal counter consumed by StreamProcessor
+    // (via @Optional() DI) and surfaced on /api/srs/callbacks/metrics by
+    // SrsCallbackController. Exported below so SrsModule's controller can DI
+    // it without re-providing.
+    StreamGuardMetricsService,
     StreamProbeProcessor,
     StreamProfileService,
     FfprobeService, // needed by StreamProbeProcessor; FfprobeService has no
@@ -57,6 +63,9 @@ import { REDIS_CLIENT } from '../api-keys/api-keys.service';
     StreamsService,
     FfmpegService,
     StreamProfileService,
+    // Phase 23 DEBT-01: SrsCallbackController DI-resolves this through the
+    // existing forwardRef(() => StreamsModule) import in SrsModule.
+    StreamGuardMetricsService,
     BullModule, // exports the registered queues so CamerasModule can
                 // @InjectQueue('stream-probe') from CamerasService.
   ],

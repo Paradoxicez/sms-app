@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Logger, Post, forwardRef } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Logger, Optional, Post, forwardRef } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { StatusService } from '../status/status.service';
@@ -6,6 +6,7 @@ import { StatusGateway } from '../status/status.gateway';
 import { PlaybackService } from '../playback/playback.service';
 import { RecordingsService } from '../recordings/recordings.service';
 import { ArchiveMetricsService } from '../recordings/archive-metrics.service';
+import { StreamGuardMetricsService } from '../streams/stream-guard-metrics.service';
 import { onHlsCallbackSchema } from '../recordings/dto/on-hls-callback.dto';
 import { CamerasService } from '../cameras/cameras.service';
 import { SnapshotService } from '../cameras/snapshot.service';
@@ -47,6 +48,12 @@ export class SrsCallbackController {
     // Optional to keep pre-existing unit tests that construct the controller
     // without this arg compiling; runtime DI always supplies it.
     private readonly archiveMetrics?: ArchiveMetricsService,
+    // Phase 23 DEBT-01: stream guard refusal counter visibility — surfaced via
+    // the same /metrics endpoint alongside `archives`. Explicit @Optional() per
+    // the documented Nest DI contract (see 23-RESEARCH.md finding 5). Existing
+    // controller deps using `?`-only without @Optional() are intentionally
+    // untouched in this phase.
+    @Optional() private readonly streamGuardMetrics?: StreamGuardMetricsService,
     // Quick task 260425-w7v: card-view snapshot refresh on offline→online.
     // Optional + guarded with `?.` at call sites so existing unit tests that
     // construct the controller positionally remain compatible. forwardRef on
@@ -59,6 +66,9 @@ export class SrsCallbackController {
   getMetrics() {
     return {
       archives: this.archiveMetrics?.snapshot() ?? null,
+      // Phase 23 DEBT-01: stream guard refusal observability. `null` when the
+      // service is unavailable in DI (matches the archives convention).
+      streamGuard: this.streamGuardMetrics?.snapshot() ?? null,
     };
   }
 

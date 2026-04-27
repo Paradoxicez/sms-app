@@ -8,6 +8,7 @@ import { StatusService } from '../../status/status.service';
 import { REDIS_CLIENT } from '../../api-keys/api-keys.service';
 import { SystemPrismaService } from '../../prisma/system-prisma.service';
 import { fingerprintProfile } from '../profile-fingerprint.util';
+import { StreamGuardMetricsService } from '../stream-guard-metrics.service';
 
 export const MAX_BACKOFF_MS = 300_000; // 5 minutes
 const BASE_BACKOFF_MS = 1_000; // 1 second
@@ -54,6 +55,11 @@ export class StreamProcessor extends WorkerHost {
     // for those existing tests which do not exercise the active-job path.
     @Optional() @Inject(REDIS_CLIENT) private readonly redis?: Redis,
     @Optional() private readonly systemPrisma?: SystemPrismaService,
+    // Phase 23 DEBT-01: optional metrics injection. Existing test files
+    // (stream-processor.test.ts, stream-processor-guard.test.ts) construct
+    // positionally with 2-4 args — keeping this @Optional() preserves their
+    // build per CLAUDE.md memory `verify_subagent_writes`.
+    @Optional() private readonly streamGuardMetrics?: StreamGuardMetricsService,
   ) {
     super();
   }
@@ -70,6 +76,14 @@ export class StreamProcessor extends WorkerHost {
     // + jobId dedup). Refuse such jobs at the choke point: log and return without
     // throwing so the job is marked complete and does NOT retry into a storm.
     if (!cameraId || !inputUrl) {
+      // Phase 23 DEBT-01: record refusal BEFORE the existing log/return so the
+      // metric is in lockstep with the existing observability. The reason
+      // discriminator is `!cameraId` first (undefined or empty cameraId is the
+      // primary stuck-camera repro per memory note 260421-g9o); a non-empty
+      // cameraId with empty inputUrl falls through to 'empty_inputUrl'.
+      const reason: 'undefined_cameraId' | 'empty_inputUrl' =
+        !cameraId ? 'undefined_cameraId' : 'empty_inputUrl';
+      this.streamGuardMetrics?.recordRefusal(reason);
       this.logger.error(
         `Refusing job with empty data: cameraId=${cameraId ?? '<undefined>'}, inputUrl=${inputUrl ? 'set' : 'empty'}, jobId=${job.id}`,
       );
