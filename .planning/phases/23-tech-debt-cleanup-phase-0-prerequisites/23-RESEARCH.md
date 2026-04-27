@@ -738,27 +738,31 @@ describe('generateOriginSrsConfig — Phase 23 DEBT-03 cold-boot guard', () => {
 | A5 | The "test" job-name is the right `contexts` string for branch protection. (`jobs.test` in `test.yml` produces a check named `test`.) | Example 2 | If GitHub renders the check as `Test / test` (workflow / job), the contexts string must match exactly. Verifiable from the first workflow run's check listing in the PR. |
 | A6 | `camera_push_fields/migration.sql` (the `UPDATE "Camera" SET "ingestMode" = 'pull' WHERE "ingestMode" IS NULL` data backfill) is safe to fold into `0_init` even though it's a DML statement. On a fresh DB it's a no-op (zero rows); on a re-applied DB it's idempotent (only NULL rows). | Pattern 3 | If wrong, planner moves the UPDATE to a separate `1_seed_ingestmode` migration. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Admin recording playback page (D-20).**
    - What we know: `apps/web/src/app/app/recordings/[id]/page.tsx` exists; `apps/web/src/app/admin/recordings/page.tsx` is the list view, not a detail view.
    - What's unclear: Does admin need its own per-recording detail page in v1.3, or does admin link out to the tenant-side `/app/recordings/[id]`?
    - Recommendation: Surface in PLAN-CHECK; if no admin detail page exists, scope D-20 to the single tenant page only, and note as a Phase 17 gap (not a Phase 23 concern).
+  - **RESOLVED:** Plan 23-04 scopes to tenant /app/recordings/[id] only per researcher A2; admin out of scope this phase.
 
 2. **`rls.policies.sql` fate.**
    - What we know: Referenced by `setup-test-db.sh:90`; defines `app_user` role + grants.
    - What's unclear: Is keeping it standalone (separately greppable) more valuable than folding it into `0_init`?
    - Recommendation: Fold (single source of truth). Update setup-test-db.sh to use `migrate deploy`. Document the role grant explicitly in `0_init/migration.sql` header comment.
+  - **RESOLVED:** Folded into 0_init via Plan 23-01 Task 1; deleted via Plan 23-06 Task 3.
 
 3. **pnpm major version alignment.**
    - What we know: Local devs on 9.9.0; CONTEXT D-22 specifies pnpm 10 in CI.
    - What's unclear: Does the dev team want to standardize on pnpm 10 NOW (root package.json `engines.pnpm: ">=10"` + corepack instructions) or pin CI back to 9?
    - Recommendation: Standardize on 10 — pnpm 10.x is the current line, and Phase 24+ Dockerfile work (per STACK.md) already assumes pnpm 10.
+  - **RESOLVED:** engines.pnpm: ">=10" added to root package.json via Plan 23-05 Task 2.
 
 4. **CLAUDE.md edit scope.**
    - What we know: CLAUDE.md "Conventions" section documents the `db:push → build → restart → verify` workflow.
    - What's unclear: Should the edit be a minimal swap (replace `db:push` with `db:reset`) or a fuller rewrite explaining the new migration history concept?
    - Recommendation: Minimal swap + a 2-line note: "DEBT-05 replaced db:push with db:reset; the migration history is the source of truth — schema changes require `prisma migrate dev --name <change>` not `db:push`." Phase 23 PR description carries the full rationale.
+  - **RESOLVED:** Minimal swap (db:push → db:reset) only; surrounding observability paragraph untouched, per Plan 23-01 Task 3.
 
 ## Environment Availability
 
