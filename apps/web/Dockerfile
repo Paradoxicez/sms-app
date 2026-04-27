@@ -62,7 +62,7 @@ FROM node:22-bookworm-slim AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
  && rm -rf /var/lib/apt/lists/* \
- && groupadd -r app \
+ && groupadd -r -g 1001 app \
  && useradd -r -g app -u 1001 app
 
 WORKDIR /app
