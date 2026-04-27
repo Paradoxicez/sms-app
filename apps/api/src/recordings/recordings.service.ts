@@ -513,6 +513,8 @@ export class RecordingsService {
           select: {
             id: true,
             name: true,
+            tags: true,         // Phase 23 DEBT-04: surface parent camera metadata on
+            description: true,  // recording playback page (closes Phase 22-17 gap)
             site: {
               select: {
                 id: true,
