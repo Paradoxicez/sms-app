@@ -14,7 +14,7 @@ Requirements for v1.3 milestone. Each maps to roadmap phases.
 - [ ] **DEBT-02**: Triage all pre-existing API test failures (~23) — fix-now / skip-with-issue / delete; CI locks on red so future failures cannot land
 - [ ] **DEBT-03**: SRS config template stops emitting `hls_use_fmp4` directive on cold boot (`settings.service.ts:127` + `cluster/templates/srs-origin.conf.ts:46`); cold-boot SRS smoke test passes
 - [ ] **DEBT-04**: Recording playback page (`/app/recordings/[id]`) surfaces parent camera `tags` + `description` (closes Phase 22 ↔ Phase 17 audit gap)
-- [ ] **DEBT-05**: Hand-rolled SQL files in `apps/api/src/prisma/migrations/*` converted to Prisma migration history; `prisma migrate deploy` against fresh DB produces v1.2-equivalent schema (including RLS policies)
+- [x] **DEBT-05**: Hand-rolled SQL files in `apps/api/src/prisma/migrations/*` converted to Prisma migration history; `prisma migrate deploy` against fresh DB produces v1.2-equivalent schema (including RLS policies)
 
 ### Image Pipeline
 
@@ -121,7 +121,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DEBT-02 | Phase 23 | Pending |
 | DEBT-03 | Phase 23 | Pending |
 | DEBT-04 | Phase 23 | Pending |
-| DEBT-05 | Phase 23 | Pending |
+| DEBT-05 | Phase 23 | Complete |
 | DEPLOY-01 | Phase 25 | Pending |
 | DEPLOY-02 | Phase 25 | Pending |
 | DEPLOY-03 | Phase 28 | Pending |
