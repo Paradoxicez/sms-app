@@ -68,6 +68,8 @@ describe('RecordingsService.getRecording (Phase 17 — REC-01, T-17-V4)', () => 
       camera: {
         id: 'cam-1',
         name: 'Front Door',
+        tags: [],
+        description: null,
         site: {
           id: 'site-1',
           name: 'HQ',
@@ -87,6 +89,8 @@ describe('RecordingsService.getRecording (Phase 17 — REC-01, T-17-V4)', () => 
             select: expect.objectContaining({
               id: true,
               name: true,
+              tags: true,
+              description: true,
               site: expect.any(Object),
             }),
           }),
@@ -97,6 +101,75 @@ describe('RecordingsService.getRecording (Phase 17 — REC-01, T-17-V4)', () => 
     expect(result.camera.name).toBe('Front Door');
     expect(result.camera.site.name).toBe('HQ');
     expect(result.camera.site.project.name).toBe('Office');
+  });
+
+  it('includes camera.tags + camera.description in response (Phase 23 DEBT-04)', async () => {
+    // Arrange: camera with non-empty tags + description (the populated state)
+    const mockRec = {
+      id: 'rec-1',
+      cameraId: 'cam-1',
+      orgId: 'org-1',
+      status: 'complete',
+      startedAt: new Date('2026-04-10T08:00:00Z'),
+      stoppedAt: new Date('2026-04-10T09:00:00Z'),
+      _count: { segments: 5 },
+      camera: {
+        id: 'cam-1',
+        name: 'Front Door',
+        tags: ['entrance', 'outdoor'],
+        description: 'North entrance camera',
+        site: {
+          id: 'site-1',
+          name: 'HQ',
+          project: { id: 'proj-1', name: 'Main' },
+        },
+      },
+    };
+    tenancyClient.recording.findFirst.mockResolvedValue(mockRec);
+
+    const result = await service.getRecording('rec-1', 'org-1');
+
+    expect(result.camera.tags).toEqual(['entrance', 'outdoor']);
+    expect(result.camera.description).toBe('North entrance camera');
+    // Confirm Prisma include extension was applied
+    expect(tenancyClient.recording.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.objectContaining({
+          camera: expect.objectContaining({
+            select: expect.objectContaining({
+              tags: true,
+              description: true,
+            }),
+          }),
+        }),
+      }),
+    );
+  });
+
+  it('handles empty tags array and null description (Phase 23 DEBT-04)', async () => {
+    const mockRec = {
+      id: 'rec-2',
+      cameraId: 'cam-2',
+      orgId: 'org-1',
+      _count: { segments: 0 },
+      camera: {
+        id: 'cam-2',
+        name: 'Test',
+        tags: [],
+        description: null,
+        site: {
+          id: 'site-1',
+          name: 'HQ',
+          project: { id: 'proj-1', name: 'Main' },
+        },
+      },
+    };
+    tenancyClient.recording.findFirst.mockResolvedValue(mockRec);
+
+    const result = await service.getRecording('rec-2', 'org-1');
+
+    expect(result.camera.tags).toEqual([]);
+    expect(result.camera.description).toBeNull();
   });
 
   it('cross-org 404: getRecording with id from another org throws NotFoundException (not Forbidden, not the recording)', async () => {
