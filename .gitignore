@@ -30,3 +30,11 @@ coverage/
 
 # Logs
 *.log
+
+# GSD internals (worktrees + quick scratch + Claude Code session state)
+.claude/
+apps/web/.planning/
+
+# Local bulk-import examples (may contain real credentials/URLs — do not commit)
+bulk-import-*-EXAMPLE.csv
+bulk-import-*-EXAMPLE.xlsx
