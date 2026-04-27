@@ -77,7 +77,13 @@ Goal: Take v1.2's feature-complete platform and ship it to production via a pull
   3. SRS container boots from cold (no pre-existing fMP4 m3u8 on disk) with no error in logs and serves first HLS segment within 30s of camera publish
   4. `/app/recordings/[id]` recording playback page surfaces the parent camera's tags (badge row) and description (line-clamped block); v1.2 audit gap closed
   5. CI workflow on every push to main runs `pnpm test` and locks merge on red — future failures cannot land
-**Plans**: TBD
+**Plans:** 5 plans
+Plans:
+- [ ] 23-01-PLAN.md — DEBT-05: Squash hand-rolled SQL into single 0_init migration; replace db:push with db:reset; add db:check-drift; update setup-test-db.sh + CLAUDE.md (Wave 1)
+- [ ] 23-02-PLAN.md — DEBT-01: StreamGuardMetricsService + processor wiring + /metrics endpoint extension + unit/integration tests (Wave 1)
+- [ ] 23-03-PLAN.md — DEBT-03: Regression-lock tests for hls_use_fmp4 absence in both SRS emit paths (Wave 2)
+- [ ] 23-04-PLAN.md — DEBT-04: Recording playback page surfaces parent camera tags + description (closes Phase 22↔17 gap) (Wave 2)
+- [ ] 23-05-PLAN.md — DEBT-02 + CI gate: .github/workflows/test.yml (postgres 16 + drift check) + engines.pnpm + branch protection + v1.4 backlog (Wave 3, has user checkpoint)
 *Note: `/health` endpoint already exists in api (`apps/api/src/admin/admin.controller.ts:14` + audit interceptor skip); not in scope for this phase.*
 
 ### Phase 24: Deploy Folder Structure + Dev Workflow Guardrails
@@ -172,7 +178,7 @@ Goal: Take v1.2's feature-complete platform and ship it to production via a pull
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 23. Tech Debt Cleanup + Phase 0 Prerequisites | 0/TBD | Not started | - |
+| 23. Tech Debt Cleanup + Phase 0 Prerequisites | 0/5 | Plans authored | - |
 | 24. Deploy Folder Structure + Dev Workflow Guardrails | 0/TBD | Not started | - |
 | 25. Multi-Stage Dockerfiles + Image Hardening | 0/TBD | Not started | - |
 | 26. Production Compose + Migrate Init + Networking + Volumes | 0/TBD | Not started | - |

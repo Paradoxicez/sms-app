@@ -1,8 +1,8 @@
 ---
 phase: 23
 slug: tech-debt-cleanup-phase-0-prerequisites
-status: draft
-nyquist_compliant: false
+status: ready
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-04-27
 ---
@@ -41,18 +41,26 @@ created: 2026-04-27
 
 > Populated by `gsd-planner` when plans are written. Each task in a PLAN.md must reference a row here or carry its own `<automated>` block. The mapping below is the planner's required input.
 
-| Req ID | Behavior | Test Type | Automated Command | File Exists | Status |
-|--------|----------|-----------|-------------------|-------------|--------|
-| DEBT-01 | StreamProcessor guard refuses empty `cameraId` AND records metric | unit | `pnpm --filter @sms-platform/api test -- stream-processor-guard` | ✅ extend `apps/api/tests/streams/stream-processor-guard.test.ts` | ⬜ pending |
-| DEBT-01 | `StreamGuardMetricsService.snapshot()` shape + status enum | unit | `pnpm --filter @sms-platform/api test -- stream-guard-metrics` | ❌ W0 — `apps/api/tests/streams/stream-guard-metrics.test.ts` | ⬜ pending |
-| DEBT-01 | Real BullMQ worker + empty job → no FFmpeg spawn + metric incremented | integration | `pnpm --filter @sms-platform/api test -- stream-guard.integration` | ❌ W0 — `apps/api/tests/integration/stream-guard.integration.test.ts` | ⬜ pending |
-| DEBT-02 | CI runs vitest + drift on every push + PR | smoke (CI) | `gh run list --workflow=test.yml --limit 1 --json conclusion -q '.[0].conclusion'` returns `success` | ❌ W0 — `.github/workflows/test.yml` | ⬜ pending |
-| DEBT-03 | `generateOriginSrsConfig` does not contain `hls_use_fmp4` | unit | `pnpm --filter @sms-platform/api test -- config-generation` | ✅ extend `apps/api/tests/cluster/config-generation.test.ts` | ⬜ pending |
-| DEBT-03 | `SettingsService.generateSrsConfig` does not contain `hls_use_fmp4` | unit | `pnpm --filter @sms-platform/api test -- srs-config` | ❌ W0 — `apps/api/tests/settings/srs-config.test.ts` | ⬜ pending |
-| DEBT-04 | `getRecording()` API response includes `camera.tags` + `camera.description` | unit | `pnpm --filter @sms-platform/api test -- get-recording` | ✅ extend `apps/api/tests/recordings/get-recording.test.ts` | ⬜ pending |
-| DEBT-04 | Playback page renders TagsCell when tags non-empty + line-clamped description | unit (component) OR manual | `pnpm --filter @sms-platform/web test -- playback-page-header` if web vitest exists, else manual smoke | ❌ W0 — `apps/web/src/app/app/recordings/[id]/components/__tests__/playback-page-header.test.tsx` (component) OR manual | ⬜ pending |
-| DEBT-05 | `prisma migrate deploy` against fresh DB succeeds | integration | bash one-liner: `createdb sms_phase23_check && DATABASE_URL=postgresql://...sms_phase23_check pnpm --filter @sms-platform/api exec prisma migrate deploy && dropdb sms_phase23_check` | ❌ W0 — manual verify step in PLAN; `db:check-drift` is the steady-state gate | ⬜ pending |
-| DEBT-05 | `db:check-drift` returns exit 0 against current schema.prisma | smoke | `pnpm --filter @sms-platform/api db:check-drift` | ✅ once `db:check-drift` script lands, the script IS the test | ⬜ pending |
+| Req ID | Task ID | Behavior | Test Type | Automated Command | File Exists | Status |
+|--------|---------|----------|-----------|-------------------|-------------|--------|
+| DEBT-01 | 23-02-02 | StreamProcessor guard refuses empty `cameraId` AND records metric | unit | `pnpm --filter @sms-platform/api test -- stream-processor-guard --run` | ✅ extend `apps/api/tests/streams/stream-processor-guard.test.ts` | ⬜ pending |
+| DEBT-01 | 23-02-01 (W0: 23-02-00) | `StreamGuardMetricsService.snapshot()` shape + status enum | unit | `pnpm --filter @sms-platform/api test -- stream-guard-metrics --run` | ❌ W0 (Task 23-02-00) creates `apps/api/tests/streams/stream-guard-metrics.test.ts`; Task 23-02-01 fills it | ⬜ pending |
+| DEBT-01 | 23-02-04 (W0: 23-02-00) | Real BullMQ worker + empty job → no FFmpeg spawn + metric incremented | integration | `pnpm --filter @sms-platform/api test -- stream-guard.integration --run` | ❌ W0 (Task 23-02-00) creates `apps/api/tests/integration/stream-guard.integration.test.ts`; Task 23-02-04 fills it | ⬜ pending |
+| DEBT-01 | 23-02-03 | `/api/srs/callbacks/metrics` returns `streamGuard` field | smoke (build) | `pnpm --filter @sms-platform/api build` | ✅ build is the gate; runtime smoke documented in plan | ⬜ pending |
+| DEBT-02 | 23-05-03, 23-05-04 | CI runs vitest + drift on every push + PR | smoke (CI) | `gh run list --workflow=test.yml --limit 1 --json conclusion -q '.[0].conclusion'` returns `success` | ❌ Task 23-05-03 creates `.github/workflows/test.yml`; Task 23-05-04 verifies first run | ⬜ pending |
+| DEBT-02 | 23-05-05 (USER) | Branch protection on main requires `test` check | manual | `gh api /repos/<owner>/<repo>/branches/main/protection -q '.required_status_checks.contexts'` returns `["test"]` | ❌ checkpoint:human-action — user runs gh api or Settings UI | ⬜ pending |
+| DEBT-02 | 23-05-01 | 121 it.todo backlog tracked for v1.4 | smoke (file) | `test -f .planning/todos/v1.4-test-backfill.md` | ❌ Task 23-05-01 creates the file | ⬜ pending |
+| DEBT-03 | 23-03-01 | `generateOriginSrsConfig` does not contain `hls_use_fmp4` | unit | `pnpm --filter @sms-platform/api test -- config-generation --run` | ✅ extend `apps/api/tests/cluster/config-generation.test.ts` | ⬜ pending |
+| DEBT-03 | 23-03-02 | `SettingsService.generateSrsConfig` does not contain `hls_use_fmp4` | unit | `pnpm --filter @sms-platform/api test -- srs-config --run` | ❌ Task 23-03-02 creates `apps/api/tests/settings/srs-config.test.ts` | ⬜ pending |
+| DEBT-04 | 23-04-01 | `getRecording()` API response includes `camera.tags` + `camera.description` | unit | `pnpm --filter @sms-platform/api test -- get-recording --run` | ✅ extend `apps/api/tests/recordings/get-recording.test.ts` | ⬜ pending |
+| DEBT-04 | 23-04-02 | `RecordingCameraInclude` type includes tags + description; web build green | smoke (build) | `pnpm --filter @sms-platform/web build` | ✅ build is the gate | ⬜ pending |
+| DEBT-04 | 23-04-03 | Playback page renders TagsCell + line-clamped description | manual | open `/app/recordings/<id>` for camera with tags+desc; observe header zone | ❌ manual smoke (apps/web has no vitest config); SUMMARY records the verification | ⬜ pending |
+| DEBT-05 | 23-01-04 [BLOCKING] | `prisma migrate deploy` against fresh DB succeeds + `db:check-drift` exit 0 | integration | `createdb sms_phase23_check && DATABASE_URL=postgresql://localhost/sms_phase23_check pnpm --filter @sms-platform/api exec prisma migrate deploy && pnpm --filter @sms-platform/api db:check-drift && dropdb sms_phase23_check` (all exit 0) | ❌ Task 23-01-04 manual verification (cannot fully automate without throwaway DB; CI's db:check-drift is the steady-state gate) | ⬜ pending |
+| DEBT-05 | 23-01-02 | `db:check-drift` script exists in apps/api/package.json | smoke | `node -e "if(!require('./apps/api/package.json').scripts['db:check-drift']) process.exit(1)"` | ✅ Task 23-01-02 creates the script | ⬜ pending |
+| DEBT-05 | 23-01-03 | `setup-test-db.sh` uses `prisma migrate deploy`, no references to deleted RLS files | smoke | `! grep -E 'rls\.policies\.sql\|rls_apply_all\|prisma db push' apps/api/scripts/setup-test-db.sh && grep -q 'prisma migrate deploy' apps/api/scripts/setup-test-db.sh` | ✅ Task 23-01-03 edits script | ⬜ pending |
+| DEBT-05 | 23-01-05 | All 8 hand-rolled migration directories + 2 standalone RLS files deleted | smoke | `[ "$(ls apps/api/src/prisma/migrations | wc -l | tr -d ' ')" = "1" ] && test ! -e apps/api/src/prisma/rls.policies.sql && test ! -e apps/api/src/prisma/rls-phase5.sql` | ✅ Task 23-01-05 deletes them | ⬜ pending |
+| DEBT-05 | 23-01-01 | Squashed `0_init/migration.sql` exists with schema + RLS + grants | smoke | `grep -q 'CREATE TABLE "Camera"' apps/api/src/prisma/migrations/20260427000000_init/migration.sql && grep -q 'CREATE POLICY' apps/api/src/prisma/migrations/20260427000000_init/migration.sql && grep -q 'app_user' apps/api/src/prisma/migrations/20260427000000_init/migration.sql` | ❌ Task 23-01-01 creates the file | ⬜ pending |
+| DEBT-05 | 23-01-06 | CLAUDE.md Prisma workflow rule reflects db:reset swap | smoke | `grep -q 'db:reset' CLAUDE.md && ! grep -E 'pnpm --filter @sms-platform/api db:push[^:]' CLAUDE.md` | ✅ Task 23-01-06 edits CLAUDE.md | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -93,4 +101,4 @@ created: 2026-04-27
 - [ ] Feedback latency < 45s for the full suite
 - [ ] `nyquist_compliant: true` set in frontmatter once planner confirms every task in every plan has either an `<automated>` block or appears in this map
 
-**Approval:** pending
+**Approval:** ready (planner — 2026-04-27)
