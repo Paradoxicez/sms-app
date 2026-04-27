@@ -166,7 +166,7 @@ Developers can get a secure HLS playback URL for any registered camera via a sin
 ## Current State
 
 **Shipped:** v1.2 Self-Service, Resilience & UI Polish (2026-04-27) — 11 phases, 64 plans, 115 tasks
-**In progress:** v1.3 Production Ready — Phases 23-24 complete (2026-04-27), 6 phases remain (25-30)
+**In progress:** v1.3 Production Ready — Phases 23-25 complete (2026-04-27), 5 phases remain (26-30)
 **Stack:** NestJS 11 + Next.js 15 + PostgreSQL 16 + Prisma 6 + Redis 7 + SRS v6 + FFmpeg 7 + MinIO + Better Auth
 
 **v1.2 highlights:**
@@ -194,7 +194,17 @@ Developers can get a secure HLS playback URL for any registered camera via a sin
 - ✅ CLAUDE.md `## Deploy Folder Convention` (5-rule guardrail, GSD-marker-wrapped) — durable convention lock that future Phase 25-30 subagents read at session boot
 - 🔧 D-12 planning bug auto-corrected during D-22 verification: `dev-smoke.sh` `WEB_PORT` default `3002 → 3000` (CONTEXT.md mis-sourced web port from CORS allowlist instead of `apps/web/package.json` `--port 3000`); commit `05eef0a`
 
-**v1.3 work remaining (Phases 25-30):** Production deployment surface (multi-stage Docker, reverse proxy + TLS, GHCR push, operator UX, smoke test on clean VM)
+**Phase 25 highlights (Multi-Stage Dockerfiles + Image Hardening, 2026-04-27):**
+- ✅ `apps/api/Dockerfile` — 4-stage prod build (deps → builder → prod-deps → runtime) on `node:22-bookworm-slim`; ffmpeg 5.1.x + tini 0.19.0 + curl + openssl + ca-certs; non-root `app:app` uid 1001 / gid 1001; HEALTHCHECK curl `/api/health`; `ENTRYPOINT ["/usr/bin/tini","--"]`; `CMD ["node","dist/main"]`
+- ✅ `apps/web/Dockerfile` — 3-stage Next.js standalone (deps → builder → runtime); curl-only runtime (NO tini per D-07); non-root uid 1001 / gid 1001; HEALTHCHECK curl `/api/health`; `CMD ["node","apps/web/server.js"]`
+- ✅ Per-app `.dockerignore` (api: keeps `src/prisma/migrations/` for Phase 26 init service; web: keeps `.next/standalone`, `.next/static`, `public/`); root `.dockerignore` baseline from Phase 24 inherited
+- ✅ NestJS `HealthController` + `HealthModule` at `/api/health` (separate from guarded `/api/admin/health`); Next.js App Router handler at `apps/web/src/app/api/health/route.ts` (in-process, not rewritten); both return `{ok:true}` for liveness
+- ✅ `apps/web/next.config.ts` — `outputFileTracingRoot: path.join(__dirname,'../../')` for pnpm monorepo standalone (precondition for `apps/web/server.js` runtime path)
+- ✅ Multi-arch verified: api content size **400.77 MB arm64 / 419.83 MB amd64** (≤450 budget); web content size **100.11 MB arm64 / 99.99 MB amd64** (≤220 budget); ROADMAP §Phase 25 SC #1-4: 4/4 PASS on both platforms; threat model T-25-08..T-25-21: 10/10
+- 🔧 In-plan hotfix: `apps/api/Dockerfile:91` `groupadd -r app` → `groupadd -r -g 1001 app` to align with web pattern (commit `bb36ade`); cosmetic CIS-style gid pinning, security gate (uid=1001 non-root) was already satisfied
+- 📐 Image digests recorded in `25-VERIFICATION.md` as Phase 28 native amd64 CI regression baseline (±5% target)
+
+**v1.3 work remaining (Phases 26-30):** Compose orchestration + migrate-init + named volumes (26), reverse proxy + TLS (27), GHCR push + CI provenance (28), operator UX scripts + admin CLI (29), smoke test on clean VM (30)
 
 ## Evolution
 
@@ -214,4 +224,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-27 after Phase 24 completion (Deploy Folder Structure + Dev Workflow Guardrails — 5 plans, structural-only, no REQ-IDs). Phases 23-24 of v1.3 complete; 6 phases remain (25-30: multi-stage Docker, reverse proxy + TLS, GHCR push, operator UX, smoke test on clean VM). Next: `/gsd-discuss-phase 25` then `/gsd-plan-phase 25` for production multi-stage Dockerfiles.*
+*Last updated: 2026-04-27 after Phase 25 completion (Multi-Stage Dockerfiles + Image Hardening — 6 plans, DEPLOY-01 + DEPLOY-02 validated multi-arch). Phases 23-25 of v1.3 complete; 5 phases remain (26-30: compose orchestration, reverse proxy + TLS, GHCR push, operator UX, smoke test on clean VM). Next: `/gsd-discuss-phase 26` then `/gsd-plan-phase 26` for production compose + migrate-init + networking + named volumes.*
