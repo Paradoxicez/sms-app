@@ -1,33 +1,28 @@
 ---
 phase: 14-bug-fixes-datatable-migrations
 verified: 2026-04-18T12:30:00Z
-status: human_needed
-score: 5/5
-gaps: []
+human_verified: 2026-04-19
+status: passed
+score: 5/5 must-haves verified (automated) + 5/5 human UAT passed
 human_verification:
   - test: "Create a user for the system organization as super admin"
-    expected: "User is created without RLS errors, appears in the team table"
-    why_human: "Requires running backend with database to test RLS policy evaluation"
+    result: passed (2026-04-19, see 14-HUMAN-UAT.md)
   - test: "Create a new API key and copy it from the create dialog"
-    expected: "The full raw key (starting with sms_) is copied to clipboard, not the masked version"
-    why_human: "Requires browser clipboard API and visual confirmation of key display"
+    result: passed (2026-04-19)
   - test: "Delete an API key from the table"
-    expected: "Key is permanently removed from the database (hard delete), usage records cascade deleted"
-    why_human: "Requires running backend with database to verify cascade behavior"
+    result: passed (2026-04-19)
   - test: "Navigate to Team page and verify DataTable features"
-    expected: "Table shows members with Name, Email, Role, Joined columns. Role faceted filter works. Own row has no action menu. Other rows have Remove action."
-    why_human: "Visual and interactive verification of DataTable sorting, filtering, pagination"
+    result: passed (2026-04-19)
   - test: "Navigate to Organizations, Cluster Nodes, and Platform Audit pages"
-    expected: "All three pages use consistent DataTable with appropriate faceted filters (status for orgs, role/status for cluster, action+org for audit). MetricBar renders in cluster CPU/Memory columns."
-    why_human: "Visual verification of DataTable consistency, MetricBar rendering, and dynamic org filter"
+    result: passed (2026-04-19)
 ---
 
 # Phase 14: Bug Fixes & DataTable Migrations Verification Report
 
 **Phase Goal:** All known bugs are fixed and remaining admin pages use the unified DataTable component
-**Verified:** 2026-04-18T12:30:00Z
-**Status:** human_needed
-**Re-verification:** No -- initial verification
+**Verified:** 2026-04-18T12:30:00Z (automated) / 2026-04-19 (human UAT closed)
+**Status:** passed
+**Re-verification:** Yes — human UAT confirmed 5/5 passed in 14-HUMAN-UAT.md
 
 ## Goal Achievement
 

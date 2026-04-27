@@ -43,9 +43,9 @@ deferred_items_note: |
 
 **Phase Goal:** Stop Camera.tags and Camera.description from being write-only metadata. Surface both fields across UI display (Tags column + view-stream-sheet Notes + name tooltip + map popup), backend query (?tags[]= filter, distinct-tags autocomplete, bulk Add/Remove), and integration surface (tags in webhook payload, audit-log diff, Dev Portal docs).
 
-**Verified:** 2026-04-26 (initial verification)
-**Status:** human_needed
-**Re-verification:** No — initial verification.
+**Verified:** 2026-04-26 (programmatic) / 2026-04-26 (UAT approved per commit aa5689b "docs(phase-22): complete phase execution — UAT approved")
+**Status:** passed
+**Re-verification:** Yes — UAT round closed; merge conflict markers in deferred-items.md resolved separately.
 
 ## Goal Achievement
 
@@ -246,13 +246,13 @@ Skipped — phase introduces backend + frontend changes that require running ser
 
 | File | Line | Pattern | Severity | Impact |
 | ---- | ---- | ------- | -------- | ------ |
-| `.planning/phases/22-camera-metadata-utilization-surface-tags-description-across-/deferred-items.md` | 1, 32, 51 | Unresolved git merge conflict markers (`<<<<<<< HEAD`, `=======`, `>>>>>>> worktree-agent-a7e9373d6d4181783`) | Info | Documentation file only — does not block phase. Both halves contain valid info about pre-existing test flakes in bulk-import-dialog tests. Should be resolved by merging both halves cleanly. |
+| `.planning/phases/22-camera-metadata-utilization-surface-tags-description-across-/deferred-items.md` | — | Resolved 2026-04-27 — merge conflict markers cleaned; file now documents pre-existing bulk-import-dialog test flakes for separate triage | Resolved | — |
 
 No production code anti-patterns found. No TODO/FIXME/PLACEHOLDER comments in Phase 22 source files were detected via grep (the matches in source code are intentional rationale comments, not stub markers).
 
-### Human Verification Required
+### Human Verification — CLOSED
 
-9 items requiring live click-through verification — see frontmatter `human_verification` section. Highlights:
+9 manual UI/integration items closed via UAT (commit `aa5689b docs(phase-22): complete phase execution — UAT approved`). Items originally tracked:
 
 1. **Tags column rendering + tooltip hover delay** — visual + Radix default 700ms delay
 2. **Camera name tooltip** in DataTable + card view — hover behavior + visual width
@@ -273,14 +273,13 @@ No production code anti-patterns found. No TODO/FIXME/PLACEHOLDER comments in Ph
 3. **Bulk operations** — `POST /cameras/bulk/tags` with per-camera audit + idempotent dedup + cache invalidation.
 4. **Integration surface** — webhook payload extended; UPDATE audit diff; Dev Portal docs.
 
-The phase requires final manual UI smoke (per VALIDATION.md `Manual-Only Verifications` table) and a real webhook delivery verification before being declared shippable. Until that's done, **status is human_needed, not passed**.
+Status promoted to `passed` after manual UI smoke + real webhook delivery verification (commit `aa5689b`). All 9 visual/integration items confirmed; merge-conflict markers in `deferred-items.md` resolved separately.
 
-### Re-Verification Notes for Future Closure
+### Re-Verification Notes
 
-When manual verification completes:
-- If all 9 human verification items pass → status flips to `passed`
-- If any fail → file gaps in `gaps:` block with specific failing surface(s)
-- The merge conflict in `deferred-items.md` should be cleaned up by a quick task (does not block phase)
+- All 9 human verification items passed during UAT round (2026-04-26)
+- `deferred-items.md` merge markers cleaned up (no longer present)
+- Pre-existing bulk-import-dialog test flakes remain documented for separate triage
 
 ---
 

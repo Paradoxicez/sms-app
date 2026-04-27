@@ -1,8 +1,10 @@
 ---
 phase: 21-hot-reload-stream-profile-changes-to-running-cameras
 verified: 2026-04-25T00:00:00Z
-status: gaps_found
-score: 5/6 must-haves verified (surface_complete; runtime restart cycle gap)
+gap_closed_by: 21.1
+gap_closed_at: 2026-04-25T14:10:04Z
+status: passed
+score: 6/6 must-haves verified (5 in Phase 21 + 1 runtime restart cycle closed by Phase 21.1)
 re_verification:
   is_re_verification: false
 gaps:
@@ -36,9 +38,9 @@ human_verification: []  # All UI behaviors documented in 21-VALIDATION.md "Manua
 
 **Phase Goal:** When a `StreamProfile` is edited (PATCH `/stream-profiles/:id`) or a `Camera.streamProfileId` is changed (PATCH `/cameras/:id`) while affected cameras are live, the running FFmpeg processes are automatically killed and respawned with the new settings within 30 seconds — eliminating the audit-found gap where stale profile values persist on running streams until manual restart or 60s health-check failure. DELETE on a stream profile still in use returns HTTP 409 with the camera list. Edit dialogs surface info-level toasts when restarts fire. New audit action `camera.profile_hot_reload` records each downstream restart per affected camera.
 
-**Verified:** 2026-04-25
-**Status:** gaps_found
-**Re-verification:** No — initial verification
+**Verified:** 2026-04-25 (Phase 21 surface) / 2026-04-25T14:10:04Z (Phase 21.1 runtime gap closure)
+**Status:** passed (gap closed by Phase 21.1, 12/12 must-haves verified)
+**Re-verification:** Yes — Phase 21.1 closed `GAP-21-DEFECT-ACTIVE-JOB-COLLISION` with active-job restart pub/sub mechanism in streams.service.ts
 
 ---
 
