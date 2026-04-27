@@ -1,0 +1,69 @@
+# .dockerignore — root build context exclusions for the SMS Platform monorepo.
+# Closes Pitfall 8 (BLOCKER for GA): .env / secrets / planning state must NEVER
+# enter a docker build context, because COPY . . layers are visible via
+# `docker history` and trivially extractable from any pulled image.
+#
+# Phase 24 lands this baseline. Phase 25 may add per-app `.dockerignore` files
+# under apps/api/ and apps/web/ — Docker BuildKit applies the closest
+# `.dockerignore` to each build context, so this file remains the project-wide
+# default for any root-level `docker build`.
+#
+# Pattern ordering note: the negation pattern `!.env.example` MUST appear AFTER
+# `.env*` because BuildKit applies rules in order. Reordering the Secrets group
+# below would silently re-leak the real .env file.
+
+# === Secrets (HIGHEST PRIORITY — BLOCKER for GA) ===
+.env
+.env.*
+!.env.example
+
+# === Version control ===
+.git
+.gitignore
+.gitattributes
+
+# === Dependencies ===
+node_modules
+**/node_modules
+
+# === Build artifacts ===
+dist
+**/dist
+.next
+**/.next
+out
+**/out
+*.tsbuildinfo
+**/*.tsbuildinfo
+
+# === Test / coverage ===
+coverage
+**/coverage
+
+# === Planning / GSD state ===
+.planning
+apps/*/.planning
+
+# === Local bind-mounted data (dev compose HLS bind mount, snapshots, etc.) ===
+docker-data
+
+# === IDE / editor ===
+.vscode
+.idea
+*.swp
+*.swo
+
+# === OS metadata ===
+.DS_Store
+Thumbs.db
+
+# === Claude / agent state ===
+.claude
+
+# === Logs ===
+*.log
+**/*.log
+
+# === Local bulk-import examples (may contain real customer URLs / creds) ===
+bulk-import-*-EXAMPLE.csv
+bulk-import-*-EXAMPLE.xlsx
