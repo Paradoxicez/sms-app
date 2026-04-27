@@ -2,26 +2,33 @@
 status: passed
 phase: 25-multi-stage-dockerfiles-image-hardening
 generated: 2026-04-27T17:33:27Z
+hotfix_round: 2026-04-27T19:05:00Z
 platforms: linux/amd64, linux/arm64
 must_haves_met: 4/4
+hotfix_commit: bb36ade
 ---
 
 # Phase 25 Verification Report (Multi-Arch)
 
 **Generated:** 2026-04-27T17:33:27Z
-**Status:** PASS (with one documented deviation: api gid=999 vs spec gid=1001 — non-security; see "Notable Findings" below)
+**Hotfix re-verification:** 2026-04-27T19:05:00Z (commit `bb36ade`)
+**Status:** PASS (no open deviations after hotfix; see "Hotfix Round" below)
 **Platforms verified:** `linux/arm64` (native on Mac M-series) + `linux/amd64` (qemu emulation)
 
 This report is the multi-arch variant of the D-19 11-step manual verification checklist. The user explicitly requested both `linux/amd64` and `linux/arm64` evidence so that Phase 28 CI workflows (which target amd64 production hardware) and any future ARM v1.4 deferrals (Hetzner CAX) have a documented baseline.
 
 ## Image Artifacts
 
-| Image                  | Platform     | docker images Size | docker inspect Content Size | Bytes        | Budget       | Within budget?    | Digest                                                                  |
-| ---------------------- | ------------ | ------------------ | --------------------------- | ------------ | ------------ | ----------------- | ----------------------------------------------------------------------- |
-| sms-api:phase25-arm64  | linux/arm64  | 1.86 GB (unpacked) | **400.77 MB**               | 420,244,986  | 450 MB       | YES (-49 MB)      | `sha256:7bee96e0e0b69bdcd5c30eb89f4d78b2d0027e87b0582e9e9b8d175c0a8d7ba7` |
-| sms-api:phase25-amd64  | linux/amd64  | 440 MB             | **419.84 MB**               | 440,234,402  | 450 MB       | YES (-30 MB)      | `sha256:16e7fef8d67c6b0d4371d23bebbc01cf537654a8a98f2767757656c28fcd05d0` |
+Values reflect post-hotfix (`bb36ade`) state for the api images. Web images unchanged from initial run.
+
+| Image                  | Platform     | docker images Size | docker inspect Content Size | Bytes        | Budget       | Within budget?    | Digest (post-hotfix)                                                      |
+| ---------------------- | ------------ | ------------------ | --------------------------- | ------------ | ------------ | ----------------- | ------------------------------------------------------------------------- |
+| sms-api:phase25-arm64  | linux/arm64  | 1.86 GB (unpacked) | **400.77 MB**               | 420,243,210  | 450 MB       | YES (-49 MB)      | `sha256:46011c648047a59e0ecfdda03dd81866417f04ba0f275245ed2650f286f5c8b1` |
+| sms-api:phase25-amd64  | linux/amd64  | 440 MB             | **419.83 MB**               | 440,230,304  | 450 MB       | YES (-30 MB)      | `sha256:6162e2fa25a7d59f6fac3f627e7430dc0cb8a8f30926b8f7efdbf48a125e1966` |
 | sms-web:phase25-arm64  | linux/arm64  | 465 MB (unpacked)  | **100.11 MB**               | 104,977,652  | 220 MB       | YES (-119 MB)     | `sha256:2f6fe895e8bffb7b1a8e5241838827542be822d2c7750eb110c86612e576fbe3` |
 | sms-web:phase25-amd64  | linux/amd64  | 105 MB             | **99.99 MB**                | 104,847,573  | 220 MB       | YES (-120 MB)     | `sha256:760cd8dd6d74d16257e51be59731abaa7ca11da9e11e657c31b6ec771584e071` |
+
+**Hotfix size delta:** Pre-hotfix api content size was 420,244,986 / 440,234,402 bytes (arm64 / amd64). Post-hotfix is 420,243,210 / 440,230,304 bytes. Difference is ≤4 KB per platform — explained by the single `groupadd` invocation now writing a fixed gid=1001 entry instead of the kernel-allocated gid=999 entry to `/etc/group`. The MB rounding is unchanged.
 
 **Image-size measurement note:** `docker images` reports two materially different numbers depending on which storage driver Docker Desktop uses for the platform. On Mac M-series with containerd snapshotter (arm64 path), the output reflects the **unpacked filesystem footprint** including base layers (1.86 GB for the api). On the legacy graphdriver path (amd64 via qemu shares more layers from the cache), it reports closer to the actual content size (440 MB / 105 MB). The DEPLOY-01/02 budget refers to **image content** (push/pull payload to GHCR) — `docker inspect --format '{{.Size}}'` is the canonical metric. Both api builds are well under 450 MB of content; both web builds are well under 220 MB. Plan 05 SUMMARY documented this same measurement quirk for sms-web on arm64.
 
@@ -29,8 +36,8 @@ This report is the multi-arch variant of the D-19 11-step manual verification ch
 
 | #   | Criterion                                                                              | linux/arm64                                            | linux/amd64                                            | Overall  |
 | --- | -------------------------------------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------ | -------- |
-| 1   | api docker build ≤ 450 MB (bookworm-slim, ffmpeg + tini)                               | PASS — 400.77 MB content, ffmpeg 5.1.8, tini 0.19.0    | PASS — 419.84 MB content, ffmpeg 5.1.8, tini 0.19.0    | **PASS** |
-| 2   | api non-root + ffmpeg on PATH                                                          | PARTIAL — uid=1001(app), gid=999(app) (see Findings)   | PARTIAL — uid=1001(app), gid=999(app) (see Findings)   | **PASS** (uid 1001 = non-root; gid drift documented) |
+| 1   | api docker build ≤ 450 MB (bookworm-slim, ffmpeg + tini)                               | PASS — 400.77 MB content, ffmpeg 5.1.8, tini 0.19.0    | PASS — 419.83 MB content, ffmpeg 5.1.8, tini 0.19.0    | **PASS** |
+| 2   | api non-root + ffmpeg on PATH                                                          | PASS — uid=1001(app), gid=1001(app) (post-hotfix)      | PASS — uid=1001(app), gid=1001(app) (post-hotfix)      | **PASS** |
 | 3   | web docker build ≤ 220 MB + boots port 3000 non-root + /api/health 200                 | PASS — 100.11 MB, uid=1001 gid=1001, /api/health 200   | PASS — 99.99 MB, uid=1001 gid=1001, /api/health 200    | **PASS** |
 | 4   | per-app .dockerignore + minimized build context                                        | PASS — apps/{api,web}/.dockerignore present, root excludes .env | (platform-agnostic)                          | **PASS** |
 
@@ -55,18 +62,20 @@ View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux
 #### Step 2: api size ≤ 450 MB
 
 **Command:** `docker inspect --format '{{.Size}}' sms-api:phase25-arm64`
-**Output:** `420244986` bytes = **400.77 MB**
+**Output (initial):** `420244986` bytes = **400.77 MB**
+**Output (post-hotfix `bb36ade`):** `420243210` bytes = **400.77 MB** (Δ −1,776 bytes)
 **Budget:** 450 MB (471,859,200 bytes)
 **Headroom:** 49.23 MB
 **Result:** PASS
 
 #### Step 3: api non-root
 
-**Command:** `docker run --rm sms-api:phase25-arm64 id`
-**Output:** `uid=1001(app) gid=999(app) groups=999(app)`
+**Command (initial run):** `docker run --rm sms-api:phase25-arm64 id`
+**Output (initial):** `uid=1001(app) gid=999(app) groups=999(app)` — gid drift, see "Hotfix Round" below.
+**Command (post-hotfix `bb36ade`):** `docker run --rm sms-api:phase25-arm64 id`
+**Output (post-hotfix):** `uid=1001(app) gid=1001(app) groups=1001(app)`
 **Expected:** `uid=1001(app) gid=1001(app) groups=1001(app)`
-**Result:** PARTIAL — uid=1001 (non-root, security goal met) but gid=999 (system group, drift from spec)
-**See "Notable Findings" #1 below.** Threat T-25-09 (non-root uid 1001) is satisfied.
+**Result:** PASS — Threat T-25-09 (non-root uid 1001) satisfied; gid now matches spec after `groupadd -r -g 1001 app` pin.
 
 #### Step 4: api ffmpeg
 
@@ -184,17 +193,20 @@ api amd64 EXIT=0
 #### Step 2: api size ≤ 450 MB (amd64)
 
 **Command:** `docker inspect --format '{{.Size}}' sms-api:phase25-amd64`
-**Output:** `440234402` bytes = **419.84 MB**
+**Output (initial):** `440234402` bytes = **419.84 MB**
+**Output (post-hotfix `bb36ade`):** `440230304` bytes = **419.83 MB** (Δ −4,098 bytes)
 **Budget:** 450 MB (471,859,200 bytes)
-**Headroom:** 30.16 MB
+**Headroom:** 30.17 MB
 **Note:** amd64 image is ~20 MB larger than arm64 — expected due to architecture-specific Prisma engine binaries (Prisma ships per-arch engines). Both well within budget.
 **Result:** PASS
 
 #### Step 3: api non-root (amd64)
 
-**Command:** `docker run --rm sms-api:phase25-amd64 id`
-**Output:** `uid=1001(app) gid=999(app) groups=999(app)`
-**Result:** PARTIAL — same gid=999 drift as arm64. See "Notable Findings" #1.
+**Command (initial run):** `docker run --rm sms-api:phase25-amd64 id`
+**Output (initial):** `uid=1001(app) gid=999(app) groups=999(app)` — same gid drift as arm64.
+**Command (post-hotfix `bb36ade`):** `docker run --rm sms-api:phase25-amd64 id`
+**Output (post-hotfix):** `uid=1001(app) gid=1001(app) groups=1001(app)`
+**Result:** PASS — gid now matches spec across both platforms.
 
 #### Step 4: api ffmpeg (amd64)
 
@@ -299,7 +311,7 @@ migration_lock.toml
 | Threat ID         | Mitigation                                                       | Evidence                                                                                                                          | Status |
 | ----------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------ |
 | T-25-08 / T-25-14 | `.env` not in any image layer (Pitfall 8 BLOCKER for GA)         | `docker history` scan returned no .env hits across all 4 images (arm64+amd64, api+web)                                            | PASS   |
-| T-25-09           | api non-root uid 1001                                            | `docker run --rm sms-api:phase25-{arm64,amd64} id` → uid=1001(app); gid=999 (system group) — uid satisfies non-root mandate       | PASS   |
+| T-25-09           | api non-root uid 1001                                            | `docker run --rm sms-api:phase25-{arm64,amd64} id` → `uid=1001(app) gid=1001(app) groups=1001(app)` (post-hotfix `bb36ade`)        | PASS   |
 | T-25-10           | tini reaps zombies (PID 1 signal forwarder)                      | Step 5 confirms `/usr/bin/tini` + tini 0.19.0; Dockerfile `ENTRYPOINT ["/usr/bin/tini", "--"]`                                    | PASS   |
 | T-25-11           | Prisma migrations + schema present in runtime                    | `ls /app/apps/api/src/prisma/migrations/` → `20260427000000_init` + `migration_lock.toml` (Phase 23 squashed migration)           | PASS   |
 | T-25-12           | `--ignore-scripts` skips postinstall in build context            | `grep -c "ignore-scripts" apps/api/Dockerfile` → 6 (3 install lines + 3 surrounding context); explicit `pnpm prisma generate` in builder stage compensates | PASS   |
@@ -311,14 +323,68 @@ migration_lock.toml
 
 ## Notable Findings
 
-### 1. api Dockerfile gid=999 vs spec gid=1001 (drift; non-security)
+### 1. api Dockerfile gid=999 vs spec gid=1001 (drift; RESOLVED via hotfix `bb36ade`)
 
-**Observed on:** Both arm64 and amd64 api images.
-**What:** `docker run --rm sms-api:phase25-{arm64,amd64} id` reports `uid=1001(app) gid=999(app)`.
-**Spec expectation (D-19 step 3):** `uid=1001(app) gid=1001(app) groups=1001(app)`.
-**Root cause:** `apps/api/Dockerfile` line 91 uses `groupadd -r app` without `-g 1001`. The `-r` flag tells `groupadd` to allocate from the system group range (default `<1000`), so the kernel picked the next free slot (999). The companion line 92 `useradd -r -g app -u 1001 app` then succeeds because it references the group by name and explicitly sets uid=1001. The web Dockerfile (line 65 `groupadd -r -g 1001 app`) was **already corrected** in Plan 05 (Rule 1 deviation, commit `2838e72`) so the web image has the matching gid=1001. The api Dockerfile was authored in Plan 04 BEFORE Plan 05 discovered this drift, and Plan 04 Task 3 (the runtime check that would have caught it) was deferred to Plan 06.
-**Security impact:** None — uid=1001 is non-root (T-25-09 satisfied; the mandate is "no uid=0 process"); both `app` user and `app` group have the same name and are owned by the same isolated identity. A scanner that strictly requires gid=1001 (some CIS benchmarks do) would flag this; the threat model T-25-09 does not.
-**Recommended remediation (out of scope for this plan):** A 1-line fix in `apps/api/Dockerfile` line 91: change `groupadd -r app` to `groupadd -r -g 1001 app`. This will not affect any pre-built image because `groupadd` is in the runtime stage (rebuilds for free in any Phase 26+ image regeneration). Should be either a Plan 25 hot-fix commit or a Phase 28 prerequisite. **Not a blocker for Plan 06 acceptance** because the security requirement (uid 1001 = non-root) is met on both platforms.
+**Status: RESOLVED.** See "Hotfix Round (post-`bb36ade`)" subsection below for the re-verification evidence.
+
+**Original observation (initial run, pre-hotfix):** Both arm64 and amd64 api images reported `uid=1001(app) gid=999(app) groups=999(app)` from `docker run --rm sms-api:phase25-{arch} id`. Spec expectation (D-19 step 3) was `uid=1001(app) gid=1001(app) groups=1001(app)`.
+
+**Root cause:** `apps/api/Dockerfile` line 91 used `groupadd -r app` without `-g 1001`. The `-r` flag tells `groupadd` to allocate from the system group range (default `<1000`), so the kernel picked the next free slot (999). The companion line 92 `useradd -r -g app -u 1001 app` succeeded because it references the group by name and explicitly sets uid=1001. The web Dockerfile (line 65 `groupadd -r -g 1001 app`) was already corrected in Plan 05 (Rule 1 deviation, commit `2838e72`); the api Dockerfile was authored in Plan 04 BEFORE Plan 05 discovered this drift, and Plan 04 Task 3 (the runtime check that would have caught it) was deferred to Plan 06.
+
+**Hotfix applied:** Commit `bb36ade` `fix(25-06): pin api group gid=1001 to match web Dockerfile pattern` — 1-line change to `apps/api/Dockerfile` line 91 (`groupadd -r app` → `groupadd -r -g 1001 app`). Both api images rebuilt for arm64 + amd64; both now report `gid=1001` matching the spec.
+
+**Security impact:** None pre-hotfix (uid=1001 satisfied T-25-09 non-root mandate); none post-hotfix. The hotfix closes a CIS-benchmark-style hygiene concern (some scanners require gid=uid for non-root accounts) and restores parity with the web Dockerfile pattern.
+
+### Hotfix Round (post-`bb36ade`)
+
+**Date:** 2026-04-27T19:05:00Z
+**Scope:** api images only (web images and all .env / migrations / tini / ffmpeg checks unchanged from initial run — those did not depend on the modified line).
+**Hotfix commit:** `bb36ade` `fix(25-06): pin api group gid=1001 to match web Dockerfile pattern`
+**File changed:** `apps/api/Dockerfile` line 91 (1 line, runtime stage only — deps/builder/prod-deps stage caches preserved on rebuild).
+
+**Re-verification commands and outputs:**
+
+```
+$ docker buildx build --platform linux/arm64 --load -f apps/api/Dockerfile -t sms-api:phase25-arm64 .
+... DONE 20.3s (build #24, image 46011c64...)
+
+$ docker buildx build --platform linux/amd64 --load -f apps/api/Dockerfile -t sms-api:phase25-amd64 .
+BUILD_EXIT=0 (image 6162e2fa...)
+
+$ docker run --rm sms-api:phase25-arm64 id
+uid=1001(app) gid=1001(app) groups=1001(app)
+
+$ docker run --rm sms-api:phase25-amd64 id
+uid=1001(app) gid=1001(app) groups=1001(app)
+
+$ docker inspect --format '{{.Size}}' sms-api:phase25-arm64
+420243210                                       # 400.77 MB (Δ -1,776 bytes vs initial)
+
+$ docker inspect --format '{{.Size}}' sms-api:phase25-amd64
+440230304                                       # 419.83 MB (Δ -4,098 bytes vs initial)
+
+$ docker run --rm --entrypoint /bin/sh sms-api:phase25-arm64 -c 'ffmpeg -version | head -1'
+ffmpeg version 5.1.8-0+deb12u1 Copyright (c) 2000-2025 the FFmpeg developers
+
+$ docker run --rm --entrypoint /bin/sh sms-api:phase25-arm64 -c '/usr/bin/tini --version'
+tini version 0.19.0
+
+$ docker run --rm --entrypoint /bin/sh sms-api:phase25-amd64 -c 'ffmpeg -version | head -1'
+ffmpeg version 5.1.8-0+deb12u1 Copyright (c) 2000-2025 the FFmpeg developers
+
+$ docker run --rm --entrypoint /bin/sh sms-api:phase25-amd64 -c '/usr/bin/tini --version'
+tini version 0.19.0
+
+$ git diff --quiet HEAD -- apps/api/Dockerfile.dev && echo BYTE_IDENTICAL
+BYTE_IDENTICAL
+```
+
+**Hotfix result:** PASS on both platforms.
+- gid=1001 ✓ on arm64 + amd64
+- size still under 450 MB ✓ (49 MB headroom arm64; 30 MB headroom amd64)
+- ffmpeg 5.1.8 + tini 0.19.0 unchanged ✓
+- `apps/api/Dockerfile.dev` byte-identical (Phase 24 D-06 lock) ✓
+- Post-hotfix image digests captured in "Image Artifacts" table above (replacing pre-hotfix digests).
 
 ### 2. amd64 api image is ~20 MB larger than arm64 (expected)
 
@@ -353,13 +419,13 @@ amd64 build times are reasonable for a CI run (Phase 28 GitHub Actions on `ubunt
 
 **Phase 30 readiness:** Smoke test on a clean Linux VM (amd64 hardware) will pull these images via GHCR; they boot identically to the qemu-emulated runs above (tini PID 1 + non-root + healthcheck were all validated on both platforms).
 
-**One open hygiene item:** The api Dockerfile gid=999 drift documented in "Notable Findings" #1 should be aligned with the web Dockerfile pattern (`groupadd -r -g 1001 app`) before the Phase 28 CI workflow tags an image for production push. This is a 1-line fix; the recommendation is to land it as either a Plan 25 hotfix commit or a Phase 28 pre-step. Threat T-25-09 (non-root uid) is already satisfied — uid=1001 is the security gate.
+**Open hygiene item: RESOLVED.** The api Dockerfile gid=999 drift (initial-run Notable Finding #1) was closed in this run via hotfix commit `bb36ade` (`apps/api/Dockerfile` line 91 pinned to `-g 1001`). Both arm64 and amd64 api images were rebuilt and re-verified at gid=1001 in the "Hotfix Round (post-`bb36ade`)" subsection above. No remaining open items for Phase 28.
 
 ## Sign-off
 
 - [ ] User has reviewed all four image sizes (api/web × arm64/amd64) — all within budget
 - [ ] User has reviewed `docker history` outputs on all four images — no `.env` leak
-- [ ] User has noted the api gid=999 finding (Finding #1) and decided whether to gate Phase 28 on the 1-line fix
+- [ ] User has reviewed the gid=1001 hotfix (`bb36ade`) re-verification (api arm64 + amd64 both report `gid=1001` post-hotfix)
 - [ ] User has approved phase completion via `approved` resume signal
 
 ---
