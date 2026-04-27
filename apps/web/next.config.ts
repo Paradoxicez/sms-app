@@ -1,9 +1,21 @@
 import type { NextConfig } from 'next';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// ESM equivalent of CommonJS __dirname — needed because next.config.ts
+// is loaded as an ES module. Used to resolve outputFileTracingRoot
+// relative to this file (apps/web/next.config.ts → repo root is ../../).
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  // outputFileTracingRoot: REQUIRED for pnpm monorepo standalone builds.
+  // Without this, .next/standalone/server.js boots in Docker and crashes
+  // with "Cannot find module '@some/workspace-pkg'" because the tracer
+  // defaults to apps/web/ and misses workspace symlinks. Phase 25 D-18.
+  outputFileTracingRoot: path.join(__dirname, '../../'),
   // Skip Next.js's default trailing-slash redirect so the /socket.io/ rewrite
   // reaches the upstream without the browser being bounced through a 308.
   // Socket.IO's default path IS "/socket.io/" with trailing slash — the
