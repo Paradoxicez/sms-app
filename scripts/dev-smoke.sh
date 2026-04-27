@@ -26,7 +26,7 @@ set -euo pipefail
 # ---- Configuration --------------------------------------------------------
 
 API_PORT="${API_PORT:-3003}"      # apps/api/.env line 8: PORT=3003
-WEB_PORT="${WEB_PORT:-3002}"      # apps/api/src/main.ts:25 CORS allowlist
+WEB_PORT="${WEB_PORT:-3000}"      # apps/web/package.json: "dev": "next dev --turbopack --port 3000"
 BOOT_WAIT_SEC="${BOOT_WAIT_SEC:-15}"  # tsx-watch + Next.js dev cold boot
 KILL_GRACE_SEC=3                  # how long to wait after SIGTERM before SIGKILL
 LOG_FILE="$(mktemp -t dev-smoke.XXXXXX.log)"
