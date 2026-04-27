@@ -272,6 +272,20 @@ Fail-fast observability: `ArchiveMetricsService` tracks archive success/failure 
 Architecture not yet mapped. Follow existing patterns found in the codebase.
 <!-- GSD:architecture-end -->
 
+<!-- GSD:deploy-convention-start source:phase-24 -->
+## Deploy Folder Convention
+
+**Locked in Phase 24 (2026-04-27).** These rules prevent dev/prod artifact contamination as v1.3 deploy work lands across Phases 25-30. Every Claude session and human contributor MUST honor them.
+
+1. **`deploy/` = production-only artifacts** (compose, Caddyfile, scripts, env example, prod docs). Never place dev tooling under `deploy/`. Phase 26 lands `deploy/docker-compose.yml`; Phase 27 lands `deploy/Caddyfile`; Phase 29 lands `deploy/scripts/{bootstrap,update,backup,restore,init-secrets}.sh` and prod docs (`deploy/README.md`, `deploy/BACKUP-RESTORE.md`, `deploy/TROUBLESHOOTING.md`).
+2. **`apps/` = dev workflow source** (NestJS api, Next.js web, Prisma schema). Never colocate prod-only configs under `apps/`. Phase 25 lands the production multi-stage `apps/api/Dockerfile` and `apps/web/Dockerfile`, but those are image-build inputs — they belong with the source they build, not under `deploy/`.
+3. **`apps/api/Dockerfile.dev` = unused dev container reference.** It is byte-identical to the original pre-Phase-24 dev Dockerfile (kept for future "containerize dev" workflows). The production Dockerfile (Phase 25+) lands at `apps/api/Dockerfile` (no suffix). Do NOT rename `Dockerfile.dev` back; do NOT overwrite it with multi-stage prod content.
+4. **`pnpm-workspace.yaml` lists ONLY `apps/api` and `apps/web`.** `deploy/` MUST NOT contain a `package.json` — pnpm workspace globs would silently pick it up as a workspace member. If you need scripts under `deploy/scripts/`, write bash (or POSIX sh / Makefile) — never JavaScript packages.
+5. **Use `scripts/dev-smoke.sh` to detect dev-workflow regressions** whenever you change `deploy/`, `docker-compose.yml` (root, dev), `.dockerignore`, or `apps/api/Dockerfile.dev`. The script boots `pnpm dev`, probes ports 3003 (api) + 3002 (web) for liveness, and exits 0 on success.
+
+**Cross-reference:** root `.dockerignore` (Phase 24) closes Pitfall 8 (`.env` in image layer = BLOCKER for GA). Per-app `.dockerignore` files (Phase 25, under `apps/api/.dockerignore` and `apps/web/.dockerignore`) inherit and extend; Docker BuildKit applies the closest `.dockerignore` to each build context.
+<!-- GSD:deploy-convention-end -->
+
 <!-- GSD:skills-start source:skills/ -->
 ## Project Skills
 
