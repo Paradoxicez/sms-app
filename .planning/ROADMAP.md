@@ -56,7 +56,7 @@
 
 Goal: Take v1.2's feature-complete platform and ship it to production via a pull-only deploy model. Pre-built images on GHCR, single `docker-compose.yml` in repo, Caddy auto-TLS, Prisma migrate init container, operator scripts. Fresh Linux VM → set domain + secrets → `docker compose up -d` → working HTTPS app in <10 minutes with zero source on the prod box.
 
-- [ ] **Phase 23: Tech Debt Cleanup + Phase 0 Prerequisites** — Convert raw SQL to Prisma migration history, StreamProcessor undefined cameraId guard, 23-test triage, hls_use_fmp4 cold-boot fix, Phase 22→17 metadata wiring
+- [x] **Phase 23: Tech Debt Cleanup + Phase 0 Prerequisites** — Convert raw SQL to Prisma migration history, StreamProcessor undefined cameraId guard, 23-test triage, hls_use_fmp4 cold-boot fix, Phase 22→17 metadata wiring (completed 2026-04-27)
 - [ ] **Phase 24: Deploy Folder Structure + Dev Workflow Guardrails** — Rename Dockerfile→Dockerfile.dev, create `deploy/` skeleton, root `.dockerignore`, dev smoke test
 - [ ] **Phase 25: Multi-Stage Dockerfiles + Image Hardening** — Production api Dockerfile (4 stages, FFmpeg+tini, non-root), web Dockerfile (Next.js standalone), per-app .dockerignore
 - [ ] **Phase 26: Production Compose + Migrate Init + Networking + Volumes** — `deploy/docker-compose.yml` with image refs, two-network split, sms-migrate init service, MinIO bucket auto-create + Stream Profile seed
@@ -77,14 +77,14 @@ Goal: Take v1.2's feature-complete platform and ship it to production via a pull
   3. SRS container boots from cold (no pre-existing fMP4 m3u8 on disk) with no error in logs and serves first HLS segment within 30s of camera publish
   4. `/app/recordings/[id]` recording playback page surfaces the parent camera's tags (badge row) and description (line-clamped block); v1.2 audit gap closed
   5. CI workflow on every push to main runs `pnpm test` and locks merge on red — future failures cannot land
-**Plans:** 5/6 plans executed
+**Plans:** 6/6 plans complete
 Plans:
 - [x] 23-01-PLAN.md — DEBT-05 (partial): Squash hand-rolled SQL into single 0_init migration; replace db:push with db:reset; add db:check-drift; update CLAUDE.md (Wave 1)
 - [x] 23-02-PLAN.md — DEBT-01: StreamGuardMetricsService + processor wiring + /metrics endpoint extension + unit/integration tests (Wave 1)
 - [x] 23-03-PLAN.md — DEBT-03: Regression-lock tests for hls_use_fmp4 absence in both SRS emit paths (Wave 2)
 - [x] 23-04-PLAN.md — DEBT-04: Recording playback page surfaces parent camera tags + description (closes Phase 22↔17 gap) (Wave 2)
 - [x] 23-06-PLAN.md — DEBT-05 (completion): Update setup-test-db.sh to use prisma migrate deploy; BLOCKING checkpoint verifies cold-deploy + drift exit 0; delete 8 hand-rolled migration directories + 2 standalone RLS files (Wave 2, has user checkpoint)
-- [ ] 23-05-PLAN.md — DEBT-02 + CI gate: .github/workflows/test.yml (postgres 16 + drift check) + engines.pnpm + branch protection + v1.4 backlog (Wave 3, has user checkpoint)
+- [x] 23-05-PLAN.md — DEBT-02 + CI gate: .github/workflows/test.yml (postgres 16 + drift check) + engines.pnpm + branch protection + v1.4 backlog (Wave 3, has user checkpoint)
 *Note: `/health` endpoint already exists in api (`apps/api/src/admin/admin.controller.ts:14` + audit interceptor skip); not in scope for this phase.*
 
 ### Phase 24: Deploy Folder Structure + Dev Workflow Guardrails
@@ -179,7 +179,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 23. Tech Debt Cleanup + Phase 0 Prerequisites | 5/6 | In Progress|  |
+| 23. Tech Debt Cleanup + Phase 0 Prerequisites | 6/6 | Complete   | 2026-04-27 |
 | 24. Deploy Folder Structure + Dev Workflow Guardrails | 0/TBD | Not started | - |
 | 25. Multi-Stage Dockerfiles + Image Hardening | 0/TBD | Not started | - |
 | 26. Production Compose + Migrate Init + Networking + Volumes | 0/TBD | Not started | - |
