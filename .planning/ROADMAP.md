@@ -5,7 +5,7 @@
 - ✅ **v1.0 MVP** — Phases 1-7 + 999.1 (shipped 2026-04-16) — [archive](milestones/v1.0-ROADMAP.md)
 - ✅ **v1.1 UI Overhaul** — Phases 8-13 (shipped 2026-04-18) — [archive](milestones/v1.1-ROADMAP.md)
 - ✅ **v1.2 Self-Service, Resilience & UI Polish** — Phases 14-22 (shipped 2026-04-27) — [archive](milestones/v1.2-ROADMAP.md)
-- 📋 **v1.3 Production Ready** — Phases 23+ (planned)
+- 🚧 **v1.3 Production Ready** — Phases 23-30 (planning_complete 2026-04-27)
 
 ## Phases
 
@@ -52,15 +52,114 @@
 
 </details>
 
-### 📋 v1.3 Production Ready (Planned)
+### 🚧 v1.3 Production Ready (Active)
 
-Goal: Take v1.2's feature-complete platform and ship it to production. Multi-stage Docker images, compose overrides, reverse proxy + TLS, secret management, DB migration strategy, health checks/restart policies, logging/monitoring, and tech-debt cleanup from v1.2 (StreamProcessor undefined cameraId guard + pre-existing API test fixes).
+Goal: Take v1.2's feature-complete platform and ship it to production via a pull-only deploy model. Pre-built images on GHCR, single `docker-compose.yml` in repo, Caddy auto-TLS, Prisma migrate init container, operator scripts. Fresh Linux VM → set domain + secrets → `docker compose up -d` → working HTTPS app in <10 minutes with zero source on the prod box.
 
-Phases TBD via `/gsd-new-milestone`.
+- [ ] **Phase 23: Tech Debt Cleanup + Phase 0 Prerequisites** — Convert raw SQL to Prisma migration history, StreamProcessor undefined cameraId guard, 23-test triage, hls_use_fmp4 cold-boot fix, Phase 22→17 metadata wiring
+- [ ] **Phase 24: Deploy Folder Structure + Dev Workflow Guardrails** — Rename Dockerfile→Dockerfile.dev, create `deploy/` skeleton, root `.dockerignore`, dev smoke test
+- [ ] **Phase 25: Multi-Stage Dockerfiles + Image Hardening** — Production api Dockerfile (4 stages, FFmpeg+tini, non-root), web Dockerfile (Next.js standalone), per-app .dockerignore
+- [ ] **Phase 26: Production Compose + Migrate Init + Networking + Volumes** — `deploy/docker-compose.yml` with image refs, two-network split, sms-migrate init service, MinIO bucket auto-create + Stream Profile seed
+- [ ] **Phase 27: Caddy Reverse Proxy + Auto-TLS** — `deploy/Caddyfile` (same-origin), Caddy service with persistent volumes, DOMAIN-SETUP.md
+- [ ] **Phase 28: GitHub Actions CI/CD → GHCR** — `build-images.yml` (matrix [api, web], amd64, GH Cache v2), `release.yml`, semver+latest+sha tagging, build provenance attestation
+- [ ] **Phase 29: Operator UX (bootstrap/update/backup/restore + super-admin CLI)** — `bin/sms create-admin`, 4 deploy scripts, `deploy/README.md` 5-step quickstart
+- [ ] **Phase 30: Smoke Test on Clean VM (gates v1.3 GA)** — Provision DO/Hetzner droplet, sparse-checkout deploy/, run bootstrap.sh, verify <10min cold deploy, nmap port lockdown
 
 ## Phase Details
 
-(No active phases — milestone v1.2 archived. Run `/gsd-new-milestone` to scope v1.3.)
+### Phase 23: Tech Debt Cleanup + Phase 0 Prerequisites
+**Goal**: Tech debt that production amplifies silently is closed before any deploy work begins; the codebase is in a state where `prisma migrate deploy` against a fresh DB produces a v1.2-equivalent schema (RLS included), CI is green, FFmpeg children cannot leak from a stuck-camera bug, and SRS boots cleanly from cold without a manual config edit.
+**Depends on**: Nothing (first phase of v1.3, builds on v1.2 shipped state)
+**Requirements**: DEBT-01, DEBT-02, DEBT-03, DEBT-04, DEBT-05
+**Success Criteria** (what must be TRUE):
+  1. `prisma migrate deploy` against an empty Postgres database produces a schema byte-equivalent to v1.2 production (including RLS policies on Member, Invitation, UserPermissionOverride, etc.) — verified by `prisma migrate diff` returning no drift
+  2. `vitest run` for the api package passes 100% green; the StreamProcessor undefined-cameraId guard has unit + integration coverage and emits a metric on the fast-fail path
+  3. SRS container boots from cold (no pre-existing fMP4 m3u8 on disk) with no error in logs and serves first HLS segment within 30s of camera publish
+  4. `/app/recordings/[id]` recording playback page surfaces the parent camera's tags (badge row) and description (line-clamped block); v1.2 audit gap closed
+  5. CI workflow on every push to main runs `pnpm test` and locks merge on red — future failures cannot land
+**Plans**: TBD
+*Note: `/health` endpoint already exists in api (`apps/api/src/admin/admin.controller.ts:14` + audit interceptor skip); not in scope for this phase.*
+
+### Phase 24: Deploy Folder Structure + Dev Workflow Guardrails
+**Goal**: A `deploy/` directory exists at the repo root holding all production-only artifacts, the dev Dockerfile is renamed so the production Dockerfile can co-locate without ambiguity, and a root-level `.dockerignore` prevents secrets/state/planning leakage into any future image build context. The local `pnpm dev` workflow is byte-identical to the v1.2 experience.
+**Depends on**: Phase 23 (tech debt blocks clean cold-deploy; structural moves should land on green CI)
+**Requirements**: (none — this is preventive structural work that enables Phases 25-30 without contaminating the dev experience; no v1.3 REQ-IDs land here directly)
+**Success Criteria** (what must be TRUE):
+  1. `pnpm dev` (root) launches the dev stack identically to before Phase 24 — same ports, same hot-reload, same DB connection; no developer notices a behavioral change
+  2. The repo contains a `deploy/` directory at the root with placeholder subfolders (e.g. `deploy/scripts/`, `deploy/docs/`) that subsequent phases populate; `apps/` remains dev-focused
+  3. `apps/api/Dockerfile` is renamed to `apps/api/Dockerfile.dev` (used by the existing dev compose); a root `.dockerignore` prevents `.env*`, `node_modules`, `.planning/`, `*.log`, and build artifacts from being copied into any image build context
+  4. `git ls-files deploy/` returns the new skeleton; CI lint/build still passes
+**Plans**: TBD
+
+### Phase 25: Multi-Stage Dockerfiles + Image Hardening
+**Goal**: Both production images build locally from a clean checkout, run as non-root with proper PID 1 handling, contain only the runtime dependencies they need (FFmpeg + tini for api; Next.js standalone for web), and fit within the size budget set by research (≤450MB api, ≤220MB web). The images are reproducible and ready for CI to push to GHCR.
+**Depends on**: Phase 24 (deploy folder structure must exist; dev Dockerfile must be renamed before prod Dockerfile lands)
+**Requirements**: DEPLOY-01, DEPLOY-02
+**Success Criteria** (what must be TRUE):
+  1. `docker build -f apps/api/Dockerfile .` from the repo root produces an image ≤ 450 MB (verified via `docker images`) using `node:22-bookworm-slim` runtime, with FFmpeg 7.x and tini installed
+  2. `docker run --rm <api-image> id` shows the process running as a non-root UID; `docker run --rm <api-image> ffmpeg -version` confirms FFmpeg is on PATH
+  3. `docker build -f apps/web/Dockerfile .` produces an image ≤ 220 MB using Next.js standalone output with `outputFileTracingRoot` configured for the pnpm monorepo; `docker run --rm <web-image>` boots and serves on port 3000 as non-root
+  4. Both images have per-app `.dockerignore` that excludes test files, source maps where appropriate, and `.planning/` content; build context size is minimized
+**Plans**: TBD
+
+### Phase 26: Production Compose + Migrate Init + Networking + Volumes
+**Goal**: A single `deploy/docker-compose.yml` brings up the entire production stack on any Linux host with Docker Compose v2 — Postgres + Redis + MinIO + SRS + sms-migrate (init) + api + web — using GHCR image references only (no `build:` context). The two-network topology hides stateful services from the host, the migrate service runs once before api boots, and first-run init creates required MinIO buckets + seeds a default Stream Profile.
+**Depends on**: Phase 25 (compose references images that Phase 25 builds)
+**Requirements**: DEPLOY-10, DEPLOY-11, DEPLOY-12, DEPLOY-13, DEPLOY-14, DEPLOY-15, DEPLOY-16, DEPLOY-22
+**Success Criteria** (what must be TRUE):
+  1. `docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d` (with valid env file) brings up the full stack on a clean local Linux VM in under 2 minutes; all services pass healthchecks
+  2. `sms-migrate` runs `prisma migrate deploy` exactly once with `restart: "no"`, exits 0, and api only starts after `service_completed_successfully`; re-running `up -d` does not re-trigger destructive migrations
+  3. `nmap -p 5432,6379,9000,9001,1985 localhost` from the host shows all five ports closed externally — postgres/redis/minio admin/SRS admin are reachable only from inside the compose networks; SRS 1985 binds to 127.0.0.1 only
+  4. Named volumes `postgres_data`, `redis_data`, `minio_data`, `caddy_data`, `hls_data` survive `docker compose down && docker compose up -d` with data intact; FFmpeg child processes are reaped (no zombies) thanks to `init: true`
+  5. First-run init creates the `avatars` and `recordings` MinIO buckets and seeds a default Stream Profile if no profiles exist; subsequent boots are idempotent (no duplicate buckets/profiles)
+  6. `deploy/.env.production.example` documents every required variable (DOMAIN, DB_PASSWORD, NEXTAUTH_SECRET, BETTER_AUTH_SECRET, MINIO_ROOT_USER, MINIO_ROOT_PASSWORD, IMAGE_TAG); `deploy/scripts/init-secrets.sh` generates 32-char random values and chmods 600
+**Plans**: TBD
+
+### Phase 27: Caddy Reverse Proxy + Auto-TLS
+**Goal**: A single hostname terminates TLS automatically via Let's Encrypt, routes `/api/*` and `/socket.io/*` to api:3003 and everything else to web:3000 (same-origin pattern eliminates cookie/CORS pain), and persists certificates across container restarts so `docker compose down/up` does not trigger ACME rate-limit lockout. WebSocket pass-through works for both NotificationsGateway and StatusGateway.
+**Depends on**: Phase 26 (Caddy needs the `edge` network and api/web service names defined in the compose)
+**Requirements**: DEPLOY-06, DEPLOY-07, DEPLOY-08, DEPLOY-09, DEPLOY-24
+**Success Criteria** (what must be TRUE):
+  1. Setting `DOMAIN=example.com` in `.env`, pointing example.com's A-record at the host, and running `docker compose up -d` results in a valid Let's Encrypt certificate within 60s; `https://example.com` loads the web app and `http://example.com` 301-redirects to HTTPS
+  2. With staging-CA toggle enabled in Caddyfile, the same flow produces a Let's Encrypt staging cert (no rate-limit risk) — operators can debug DNS/firewall without burning prod quota
+  3. WebSocket reaches `NotificationsGateway` and `StatusGateway` end-to-end via Caddy: `wss://example.com/socket.io/?EIO=4&transport=websocket` upgrades successfully and receives notify/status events; tested by logging into the deployed app and triggering a camera status change
+  4. `caddy_data` + `caddy_config` named volumes persist certs across `docker compose down/up` cycles; the second `up` does not trigger ACME re-issuance
+  5. `deploy/DOMAIN-SETUP.md` documents DNS A-record requirements, port 80 reachability for ACME HTTP-01, propagation expectations, and the staging-CA toggle for debugging
+**Plans**: TBD
+
+### Phase 28: GitHub Actions CI/CD → GHCR
+**Goal**: Pushing a `vX.Y.Z` git tag triggers a GitHub Actions workflow that builds both production images, pushes them to `ghcr.io/<org>/sms-{api,web}` with semver + latest + sha tags, and attaches build provenance attestation. Operators on a production server can `docker compose pull && docker compose up -d` against a stable, signed-by-attestation image.
+**Depends on**: Phase 25 (CI builds the Dockerfiles produced by Phase 25)
+**Requirements**: DEPLOY-03, DEPLOY-04, DEPLOY-05
+**Success Criteria** (what must be TRUE):
+  1. Pushing a test tag `v1.3.0-test` triggers `.github/workflows/build-images.yml` (matrix `app: [api, web]`); both images appear at `ghcr.io/<org>/sms-api:v1.3.0-test` and `ghcr.io/<org>/sms-web:v1.3.0-test` within 10 minutes (single-arch linux/amd64, GH Cache v2)
+  2. Each pushed image carries the four tag variants via `docker/metadata-action@v5`: `v1.3.0-test`, `v1.3` (major.minor), `latest` (on main), and `sha-<7-char-commit>` — verified by `docker inspect ghcr.io/<org>/sms-api:v1.3` showing all aliases
+  3. Build provenance attestation is attached to both images via `actions/attest-build-provenance`; `gh attestation verify oci://ghcr.io/<org>/sms-api:v1.3.0-test --owner <org>` succeeds
+  4. `release.yml` creates a GitHub Release on tag push, listing the published image references in the release notes; auth uses `${{ secrets.GITHUB_TOKEN }}` (no PAT)
+**Plans**: TBD
+
+### Phase 29: Operator UX (bootstrap/update/backup/restore + super-admin CLI)
+**Goal**: A developer who has never seen the codebase can clone the repo (or sparse-checkout `deploy/`), copy the env example, run a single `bootstrap.sh`, and reach a working super-admin login URL in under 10 minutes. Day-2 operations — updating to a new image tag, taking a backup, restoring from a backup — each fit on a single command and produce auditable, idempotent results.
+**Depends on**: Phase 26 (scripts wrap the compose flow; need migrate/seed semantics nailed first)
+**Requirements**: DEPLOY-17, DEPLOY-18, DEPLOY-19, DEPLOY-20, DEPLOY-21, DEPLOY-23
+**Success Criteria** (what must be TRUE):
+  1. `docker compose exec api bin/sms create-admin --email <e> --password <p>` (or interactive prompt) creates a super-admin user with system-org membership and a bcrypt-hashed password; the user can log in immediately at the deployed URL
+  2. `bash deploy/scripts/bootstrap.sh` on a fresh VM (after `.env` is filled) validates required env vars, pulls latest images, runs migrate + first-run seeds, brings up the stack, prints the deployed URL — completes in under 10 minutes wall-clock
+  3. `bash deploy/scripts/update.sh v1.3.1` updates `IMAGE_TAG`, pulls new images, runs migrate, recycles services in dependency order (postgres → redis → minio → migrate → api → web → caddy) without dropping in-flight requests for longer than the configured grace period
+  4. `bash deploy/scripts/backup.sh` produces a single timestamped archive (e.g. `sms-backup-2026-04-27T1200.tar.gz`) containing pg_dump output + MinIO mc-mirror + caddy_data tar; `bash deploy/scripts/restore.sh <archive>` consumes that archive and rebuilds all volumes; round-trip preserves all org/user/camera/recording data byte-equivalent
+  5. `deploy/README.md` documents the 5-step quickstart (clone → init-secrets → fill domain → bootstrap → first-login) and proves the <10-minute claim with a recorded walkthrough or timing log
+**Plans**: TBD
+
+### Phase 30: Smoke Test on Clean VM (gates v1.3 GA)
+**Goal**: An external, never-touched-the-codebase Linux VM is provisioned, the deploy folder is sparse-checked-out (or the repo is cloned), DNS is configured, `bootstrap.sh` is run, and within 10 minutes the operator can log in at `https://<domain>`, register a camera, watch RTSP→HLS playback in the browser, see a recording archive in MinIO, and observe live WebSocket status events. Port lockdown is verified externally with nmap. This phase is the v1.3 GA gate — only after it passes does the milestone ship.
+**Depends on**: Phases 26 + 27 + 28 + 29 (compose, Caddy, GHCR images, operator scripts must all work together)
+**Requirements**: DEPLOY-25, DEPLOY-26
+**Success Criteria** (what must be TRUE):
+  1. A fresh DigitalOcean or Hetzner droplet (Ubuntu 22.04 LTS, 4GB RAM, Docker pre-installed) is provisioned, the `deploy/` directory is sparse-checked-out, `.env` is filled, DNS A-record is set, `bootstrap.sh` is run — total wall-clock from `ssh` first-login to "operator can log in at HTTPS URL" is under 10 minutes
+  2. End-to-end smoke test passes on the deployed VM: super-admin login → register a test camera (RTSP) → camera transitions to LIVE → click play in browser → HLS segments load and play → toggle Record → recording archive appears in MinIO → status changes broadcast over WebSocket to the dashboard in real time
+  3. `nmap -p 22,80,443,1935,8080,8000,10080,5432,6379,9000,9001,1985 <vm-public-ip>` from an external machine shows ONLY 22 (SSH) + 80 (HTTP→HTTPS redirect) + 443 (HTTPS) + 1935 (RTMP ingest) + 8080 (SRS HTTP) + 8000/udp (WebRTC) + 10080/udp (SRT) open; postgres 5432, redis 6379, minio 9000+9001, srs admin 1985 are all closed externally
+  4. Drift log captured: any deviation between the documented quickstart and the actual VM run is recorded in `deploy/SMOKE-TEST-LOG.md` and resolved before milestone close
+**Plans**: TBD
 
 ## Progress
 
@@ -69,4 +168,15 @@ Phases TBD via `/gsd-new-milestone`.
 | v1.0 MVP | 1-7 + 999.1 | Complete | 2026-04-16 |
 | v1.1 UI Overhaul | 8-13 | Complete | 2026-04-18 |
 | v1.2 Self-Service, Resilience & UI Polish | 14-22 | Complete | 2026-04-27 |
-| v1.3 Production Ready | 23+ | Planned | — |
+| v1.3 Production Ready | 23-30 | Planning Complete | — |
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 23. Tech Debt Cleanup + Phase 0 Prerequisites | 0/TBD | Not started | - |
+| 24. Deploy Folder Structure + Dev Workflow Guardrails | 0/TBD | Not started | - |
+| 25. Multi-Stage Dockerfiles + Image Hardening | 0/TBD | Not started | - |
+| 26. Production Compose + Migrate Init + Networking + Volumes | 0/TBD | Not started | - |
+| 27. Caddy Reverse Proxy + Auto-TLS | 0/TBD | Not started | - |
+| 28. GitHub Actions CI/CD → GHCR | 0/TBD | Not started | - |
+| 29. Operator UX (bootstrap/update/backup/restore + super-admin CLI) | 0/TBD | Not started | - |
+| 30. Smoke Test on Clean VM (gates v1.3 GA) | 0/TBD | Not started | - |

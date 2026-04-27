@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.2
-milestone_name: Self-Service, Resilience & UI Polish
-status: shipped
-stopped_at: v1.2 milestone closed
-last_updated: "2026-04-27T05:00:00.000Z"
-last_activity: 2026-04-27 — v1.2 milestone archived; PROJECT.md evolved; ROADMAP collapsed
+milestone: v1.3
+milestone_name: Production Ready
+status: planning_complete
+stopped_at: v1.3 roadmap created — Phase 23 awaits planning
+last_updated: "2026-04-27T06:00:00.000Z"
+last_activity: 2026-04-27 — v1.3 roadmap drafted (Phases 23-30) covering all 31 v1.3 REQ-IDs (5 DEBT + 26 DEPLOY)
 progress:
-  total_phases: 11
-  completed_phases: 11
-  total_plans: 64
-  completed_plans: 64
-  percent: 100
+  total_phases: 8
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -21,21 +21,22 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-27)
 
 **Core value:** Developers can get a secure HLS playback URL for any registered camera via a single API call, and embed it on their website immediately.
-**Current focus:** Planning v1.3 Production Ready — run `/gsd-new-milestone` to scope.
+**Current focus:** Phase 23 — Tech Debt Cleanup + Phase 0 Prerequisites (DEBT-01..05). Run `/gsd-plan-phase 23` to begin.
 
 ## Current Position
 
-Milestone: v1.2 — shipped 2026-04-27
-Phase: — (between milestones)
-Status: Awaiting v1.3 milestone scoping
+Milestone: v1.3 — Production Ready
+Phase: 23 — Tech Debt Cleanup + Phase 0 Prerequisites
+Status: Planning complete; awaiting `/gsd-plan-phase 23` to break Phase 23 into plans
+Plan: — (none yet)
 
-Progress: [██████████] 100% (v1.2 complete: 11/11 phases, 64/64 plans)
+Progress: [░░░░░░░░░░] 0% (v1.3: 0/8 phases, 0/0 plans)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 196 (v1.0: 53, v1.1: 15, v1.2: 64 across 11 phases)
+- Total plans completed across all milestones: 196 (v1.0: 53, v1.1: 15, v1.2: 64, plus 8 inserted/quick)
 - v1.2 timeline: 2026-04-18 → 2026-04-27 (10 days from Phase 14 to milestone close)
 - v1.2 commits: ~600+ across feat/fix/docs/refactor/chore
 
@@ -46,7 +47,7 @@ Progress: [██████████] 100% (v1.2 complete: 11/11 phases, 64
 | v1.0 MVP | 8 | 53 | Complete | 2026-04-16 |
 | v1.1 UI Overhaul | 6 | 15 | Complete | 2026-04-18 |
 | v1.2 Self-Service, Resilience & UI Polish | 11 | 64 | Complete | 2026-04-27 |
-| v1.3 Production Ready | TBD | TBD | Planned | — |
+| v1.3 Production Ready | 8 (23-30) | TBD | Planning Complete | — |
 
 *Updated after each plan completion*
 
@@ -57,26 +58,31 @@ Progress: [██████████] 100% (v1.2 complete: 11/11 phases, 64
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- [v1.2 Roadmap]: Bug fixes + DataTable migrations first (Phase 14) to unblock broken features
-- [v1.2 Roadmap]: FFmpeg resilience + maintenance mode grouped in Phase 15 (both touch StatusService)
-- [v1.2 Roadmap]: Phases 16/17/18 can run in parallel after Phase 14 completes
+- [v1.3 Roadmap]: Phase 23 owns ALL DEBT-XX (Phase 0 prerequisite — non-negotiable before any deploy work)
+- [v1.3 Roadmap]: Phase 24 has NO REQ-IDs — preventive structural work (deploy/ folder + Dockerfile rename + root .dockerignore) to enable Phases 25-30 without contaminating dev
+- [v1.3 Roadmap]: Phase 25 → 26 → 27 strict serial dependency (compose references images, Caddy references network)
+- [v1.3 Roadmap]: Phase 28 (CI/CD) depends on Phase 25 only — can run in parallel with Phases 26/27 in calendar time
+- [v1.3 Roadmap]: Phase 30 is the v1.3 GA gate — clean VM smoke test must pass before milestone close
+- [v1.3 Research]: Caddy 2.11.x over Traefik (no Docker socket exposure)
+- [v1.3 Research]: node:22-bookworm-slim runtime base (FFmpeg + sharp + bash healthchecks need it; Alpine/distroless rejected)
+- [v1.3 Research]: Dedicated sms-migrate init service over api entrypoint (eliminates race conditions at zero cost)
+- [v1.3 Research]: Single-arch linux/amd64 only (multi-arch deferred to DEPLOY-32 v1.3.x)
+- [v1.3 Research]: GHCR public registry, .env file (chmod 600) for secrets — NOT Docker secrets, NOT Vault
 
 ### Roadmap Evolution
 
-- Phase 15.1 inserted after Phase 15: Tenancy RLS bypass + StreamProcessor transition fixes (URGENT)
-- Phase 19 added: Camera input validation and multi-protocol support (RTMP/RTMPS) — closes 5 gaps from audit `.planning/debug/camera-stream-validation-audit.md` (codec/resolution populate, Add Camera format validation, bulk import dedup, RTMP unblock, Prisma unique constraint)
-- Phase 19.1 inserted after Phase 19: RTMP push ingest with platform-generated stream keys (URGENT)
-- Phase 20 added: Cameras UX — bulk actions, maintenance toggle in action menu, copy Camera ID (menu + view-stream header), expressive LIVE/REC status icons, active-state feedback on Start Stream/Record buttons
-- Phase 21 added: Hot-reload Stream Profile changes to running cameras — closes audit gap where StreamsService.startStream reads profile only at job-enqueue, leaving live FFmpeg processes on stale settings until manual restart or 60s health-check failure
-- Phase 22 added: Camera metadata utilization — surface tags & description across UI, search, and integrations. Closes write-only-metadata gap from Explore audit (2026-04-26): tags/description fully persisted but never displayed (no table column, no detail view), no backend filter, no webhook payload, no audit log. Scope spans 9 sub-items across UI display, backend filter+autocomplete+bulk ops, and integration surface — refine via /gsd-discuss-phase before planning.
+- v1.3 milestone scoped 2026-04-27 — 8 phases (23-30) covering 5 DEBT + 26 DEPLOY requirements
+- 4-researcher consensus (STACK + FEATURES + ARCHITECTURE + PITFALLS) converged on phase order; roadmap follows research SUMMARY.md verbatim
+- Phase 23 absorbed Phase 0 prerequisites identified by ARCHITECTURE + PITFALLS researchers (raw SQL → Prisma migration history is the most acute risk; without it `migrate deploy` against fresh prod DB silently breaks RLS multi-tenancy)
+- /health endpoint already exists in api (`apps/api/src/admin/admin.controller.ts:14` + audit interceptor skip) — confirmed before scoping Phase 23, so /health work removed from Phase 23 scope
 
 ### Pending Todos
 
-None yet.
+None yet (Phase 23 plans not authored — run `/gsd-plan-phase 23` to begin).
 
 ### Blockers/Concerns
 
-None yet.
+- None blocking; all open questions from research SUMMARY.md were resolved in REQUIREMENTS.md scoping (MinIO post-archive: pin last community tag; Cosign deferred to v1.3.x; bin/sms scope: backup/restore/update/create-admin only).
 
 ### Quick Tasks Completed
 
@@ -115,6 +121,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-26T11:06:02.236Z
-Stopped at: Phase 22 UI-SPEC approved
-Resume file: .planning/phases/22-camera-metadata-utilization-surface-tags-description-across-/22-UI-SPEC.md
+Last session: 2026-04-27T06:00:00.000Z
+Stopped at: v1.3 roadmap planning complete (Phases 23-30 scoped, 31/31 REQ-IDs mapped)
+Resume file: .planning/ROADMAP.md → next step is `/gsd-plan-phase 23`

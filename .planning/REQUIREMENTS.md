@@ -122,38 +122,48 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DEBT-03 | Phase 23 | Pending |
 | DEBT-04 | Phase 23 | Pending |
 | DEBT-05 | Phase 23 | Pending |
-| DEPLOY-01 | TBD | Pending |
-| DEPLOY-02 | TBD | Pending |
-| DEPLOY-03 | TBD | Pending |
-| DEPLOY-04 | TBD | Pending |
-| DEPLOY-05 | TBD | Pending |
-| DEPLOY-06 | TBD | Pending |
-| DEPLOY-07 | TBD | Pending |
-| DEPLOY-08 | TBD | Pending |
-| DEPLOY-09 | TBD | Pending |
-| DEPLOY-10 | TBD | Pending |
-| DEPLOY-11 | TBD | Pending |
-| DEPLOY-12 | TBD | Pending |
-| DEPLOY-13 | TBD | Pending |
-| DEPLOY-14 | TBD | Pending |
-| DEPLOY-15 | TBD | Pending |
-| DEPLOY-16 | TBD | Pending |
-| DEPLOY-17 | TBD | Pending |
-| DEPLOY-18 | TBD | Pending |
-| DEPLOY-19 | TBD | Pending |
-| DEPLOY-20 | TBD | Pending |
-| DEPLOY-21 | TBD | Pending |
-| DEPLOY-22 | TBD | Pending |
-| DEPLOY-23 | TBD | Pending |
-| DEPLOY-24 | TBD | Pending |
-| DEPLOY-25 | TBD | Pending |
-| DEPLOY-26 | TBD | Pending |
+| DEPLOY-01 | Phase 25 | Pending |
+| DEPLOY-02 | Phase 25 | Pending |
+| DEPLOY-03 | Phase 28 | Pending |
+| DEPLOY-04 | Phase 28 | Pending |
+| DEPLOY-05 | Phase 28 | Pending |
+| DEPLOY-06 | Phase 27 | Pending |
+| DEPLOY-07 | Phase 27 | Pending |
+| DEPLOY-08 | Phase 27 | Pending |
+| DEPLOY-09 | Phase 27 | Pending |
+| DEPLOY-10 | Phase 26 | Pending |
+| DEPLOY-11 | Phase 26 | Pending |
+| DEPLOY-12 | Phase 26 | Pending |
+| DEPLOY-13 | Phase 26 | Pending |
+| DEPLOY-14 | Phase 26 | Pending |
+| DEPLOY-15 | Phase 26 | Pending |
+| DEPLOY-16 | Phase 26 | Pending |
+| DEPLOY-17 | Phase 29 | Pending |
+| DEPLOY-18 | Phase 29 | Pending |
+| DEPLOY-19 | Phase 29 | Pending |
+| DEPLOY-20 | Phase 29 | Pending |
+| DEPLOY-21 | Phase 29 | Pending |
+| DEPLOY-22 | Phase 26 | Pending |
+| DEPLOY-23 | Phase 29 | Pending |
+| DEPLOY-24 | Phase 27 | Pending |
+| DEPLOY-25 | Phase 30 | Pending |
+| DEPLOY-26 | Phase 30 | Pending |
 
 **Coverage:**
 - v1.3 requirements: 31 total (5 DEBT + 26 DEPLOY)
-- Mapped to phases: 5 (Phase 23 — DEBT-XX); 26 pending roadmap
-- Unmapped: 26 (will be assigned by `/gsd-new-milestone` roadmapper)
+- Mapped to phases: 31/31 ✓ (100% coverage, no orphans)
+- Phase 24 owns no REQ-IDs (preventive structural work — deploy/ skeleton + Dockerfile rename + root .dockerignore — enabling Phases 25-30 without contaminating dev workflow)
+
+**Phase distribution:**
+- Phase 23: 5 (all DEBT)
+- Phase 24: 0 (structural)
+- Phase 25: 2 (DEPLOY-01, 02)
+- Phase 26: 8 (DEPLOY-10, 11, 12, 13, 14, 15, 16, 22)
+- Phase 27: 5 (DEPLOY-06, 07, 08, 09, 24)
+- Phase 28: 3 (DEPLOY-03, 04, 05)
+- Phase 29: 6 (DEPLOY-17, 18, 19, 20, 21, 23)
+- Phase 30: 2 (DEPLOY-25, 26)
 
 ---
 *Requirements defined: 2026-04-27*
-*Last updated: 2026-04-27 after initial definition*
+*Last updated: 2026-04-27 — traceability completed by /gsd-new-milestone roadmapper (Phases 23-30 mapped; 31/31 REQ-IDs covered)*
