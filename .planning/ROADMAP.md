@@ -113,7 +113,14 @@ Plans:
   2. `docker run --rm <api-image> id` shows the process running as a non-root UID; `docker run --rm <api-image> ffmpeg -version` confirms FFmpeg is on PATH
   3. `docker build -f apps/web/Dockerfile .` produces an image ≤ 220 MB using Next.js standalone output with `outputFileTracingRoot` configured for the pnpm monorepo; `docker run --rm <web-image>` boots and serves on port 3000 as non-root
   4. Both images have per-app `.dockerignore` that excludes test files, source maps where appropriate, and `.planning/` content; build context size is minimized
-**Plans**: TBD
+**Plans:** 6 plans
+Plans:
+- [ ] 25-01-PLAN.md — api HealthController + HealthModule (D-01) (Wave 1)
+- [ ] 25-02-PLAN.md — web /api/health Next.js route handler (D-02) (Wave 1)
+- [ ] 25-03-PLAN.md — apps/web/next.config.ts add outputFileTracingRoot (D-18) (Wave 1)
+- [ ] 25-04-PLAN.md — apps/api/Dockerfile (4-stage) + apps/api/.dockerignore (D-05..D-07, D-10, D-12..D-15) (Wave 2)
+- [ ] 25-05-PLAN.md — apps/web/Dockerfile (3-stage) + apps/web/.dockerignore (D-11, D-16..D-17) (Wave 2)
+- [ ] 25-06-PLAN.md — D-19 11-step manual verification + must_haves checkpoint (Wave 3, has user checkpoint)
 
 ### Phase 26: Production Compose + Migrate Init + Networking + Volumes
 **Goal**: A single `deploy/docker-compose.yml` brings up the entire production stack on any Linux host with Docker Compose v2 — Postgres + Redis + MinIO + SRS + sms-migrate (init) + api + web — using GHCR image references only (no `build:` context). The two-network topology hides stateful services from the host, the migrate service runs once before api boots, and first-run init creates required MinIO buckets + seeds a default Stream Profile.
@@ -187,7 +194,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 23. Tech Debt Cleanup + Phase 0 Prerequisites | 6/6 | Complete    | 2026-04-27 |
 | 24. Deploy Folder Structure + Dev Workflow Guardrails | 5/5 | Complete    | 2026-04-27 |
-| 25. Multi-Stage Dockerfiles + Image Hardening | 0/TBD | Not started | - |
+| 25. Multi-Stage Dockerfiles + Image Hardening | 0/6 | Planning Complete | - |
 | 26. Production Compose + Migrate Init + Networking + Volumes | 0/TBD | Not started | - |
 | 27. Caddy Reverse Proxy + Auto-TLS | 0/TBD | Not started | - |
 | 28. GitHub Actions CI/CD → GHCR | 0/TBD | Not started | - |
