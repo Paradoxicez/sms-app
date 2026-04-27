@@ -18,6 +18,8 @@ export interface Recording {
 export interface RecordingCameraInclude {
   id: string;
   name: string;
+  tags: string[];               // Phase 23 DEBT-04 — read-only badges (D-19)
+  description: string | null;   // Phase 23 DEBT-04 — line-clamped block (D-18)
   site: {
     id: string;
     name: string;

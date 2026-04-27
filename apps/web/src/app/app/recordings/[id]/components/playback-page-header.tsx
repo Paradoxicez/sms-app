@@ -10,11 +10,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { TagsCell } from '@/app/admin/cameras/components/tags-cell';
 
 export interface PlaybackPageHeaderProps {
   cameraName: string;
   siteName?: string;
   projectName?: string;
+  tags?: string[];                // Phase 23 DEBT-04
+  description?: string | null;    // Phase 23 DEBT-04
   selectedDate: Date;
   displayedMonth: Date;
   daysWithRecordings: number[];
@@ -27,6 +30,8 @@ export function PlaybackPageHeader({
   cameraName,
   siteName,
   projectName,
+  tags,
+  description,
   selectedDate,
   displayedMonth,
   daysWithRecordings,
@@ -35,6 +40,10 @@ export function PlaybackPageHeader({
   onBack,
 }: PlaybackPageHeaderProps) {
   const [popoverOpen, setPopoverOpen] = useState(false);
+  // Phase 23 DEBT-04 — Show more disclosure for description; mirrors the
+  // 120-char heuristic from the Phase 22 camera-popup pattern.
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const descriptionIsLong = (description?.length ?? 0) > 120;
   const today = startOfDay(new Date());
   const isAtToday = startOfDay(selectedDate).getTime() >= today.getTime();
 
@@ -58,6 +67,33 @@ export function PlaybackPageHeader({
         <ArrowLeft className="mr-2 size-4" />
         Back to Recordings
       </Button>
+
+      {/* Phase 23 DEBT-04 — Camera metadata block (D-18). Hidden when both
+          tags and description are absent so cameras without either skip the
+          empty bordered area entirely. */}
+      {((tags && tags.length > 0) || description) && (
+        <div className="space-y-2 pb-3 border-b">
+          {tags && tags.length > 0 && (
+            <TagsCell tags={tags} maxVisible={4} />
+          )}
+          {description && (
+            <div className="text-sm text-muted-foreground">
+              <p className={descriptionExpanded ? '' : 'line-clamp-2'}>
+                {description}
+              </p>
+              {descriptionIsLong && (
+                <button
+                  type="button"
+                  onClick={() => setDescriptionExpanded((v) => !v)}
+                  className="text-xs text-primary hover:underline mt-1"
+                >
+                  {descriptionExpanded ? 'Show less' : 'Show more'}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div>
