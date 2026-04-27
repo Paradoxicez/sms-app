@@ -1,0 +1,33 @@
+# apps/api/.dockerignore — extends root .dockerignore with api-specific scope.
+# Phase 25 D-10. BuildKit applies the closest .dockerignore to each build
+# context; root .dockerignore (Phase 24) covers Secrets / VCS / Dependencies
+# / Build / Coverage / Planning / Data / IDE / Logs / Examples — DO NOT
+# duplicate those patterns here. This file adds api-only exclusions.
+#
+# CRITICAL: do NOT exclude src/prisma/migrations/ — Phase 26 sms-migrate
+# init service runs prisma migrate deploy from the api image and needs
+# the migrations directory present at runtime. Same for src/prisma/schema.prisma.
+
+# === Tests ===
+tests
+**/tests
+**/*.test.ts
+**/*.spec.ts
+**/*.e2e-spec.ts
+vitest.config.ts
+vitest.config.*.ts
+
+# === Dev scripts ===
+# backfill-keyframe.mjs is a one-off historical migration script — not needed at runtime.
+# setup-test-db.sh references the test DB — never runs in production.
+scripts/backfill-keyframe.mjs
+scripts/setup-test-db.sh
+
+# === Build artifacts (rebuilt in builder stage) ===
+dist
+tsconfig.tsbuildinfo
+
+# === Local debug/instrumentation ===
+*.log
+npm-debug.log*
+pnpm-debug.log*
