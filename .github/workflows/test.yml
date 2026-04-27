@@ -1,0 +1,90 @@
+# Phase 23 DEBT-02: CI test gate.
+# Runs on every push to main + every pull_request. Branch protection on `main`
+# requires the `test` job to pass before merge (enabled manually after first run).
+#
+# DO NOT add `container:` to this job — Postgres service reaches `localhost:5432`
+# only when the job runs on the host runner. Pitfall 5 in 23-RESEARCH.md.
+#
+# Image build / release workflows are owned by Phase 28 (D-24). This file
+# stays focused on the test/quality gate.
+
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: sms_platform_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # The api test suite resolves DATABASE_URL via TEST_DATABASE_URL
+      # (apps/api/.env.test). On CI we set both so setup-test-db.sh + the
+      # vitest setup hook find a working DSN. Postgres password matches the
+      # service container env above (NOT a real secret — ephemeral runner-local
+      # container, no external exposure).
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sms_platform_test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sms_platform_test
+      # db:check-drift uses --shadow-database-url; point it at the same Postgres
+      # service (Prisma will create + drop a temporary shadow DB inside it).
+      SHADOW_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sms_platform_shadow
+      # DATABASE_URL_MIGRATE retained for any legacy script that still
+      # references it; matches DATABASE_URL.
+      DATABASE_URL_MIGRATE: postgresql://postgres:postgres@localhost:5432/sms_platform_test
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # pnpm/action-setup MUST come BEFORE setup-node so `cache: pnpm` resolves.
+      # Pitfall 7: align with root engines.pnpm >=10 (Plan 05 Task 2 edit).
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build (typecheck via SWC)
+        # `pnpm -r build` runs `nest build` for api + `next build` for web,
+        # which transitively typechecks via SWC + tsc respectively. No
+        # separate `pnpm typecheck` script exists in the repo today
+        # (verified during Phase 23 research).
+        run: pnpm -r build
+
+      - name: Run API tests
+        # The api package's `pretest` hook runs prisma generate + db:test:setup;
+        # setup-test-db.sh (post-Plan-01 edit) does prisma migrate deploy
+        # against TEST_DATABASE_URL.
+        run: pnpm --filter @sms-platform/api test
+
+      - name: Check schema drift
+        # db:check-drift compares migration history vs schema.prisma using a
+        # shadow DB. Exit 0 = no drift, exit 2 = drift, exit 1 = error.
+        # CI treats any non-zero as fail.
+        run: pnpm --filter @sms-platform/api db:check-drift
