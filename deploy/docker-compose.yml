@@ -1,0 +1,273 @@
+# ============================================================================
+# SMS Platform — production compose (Phase 26, DEPLOY-10..16)
+#
+# Boot:
+#   docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d
+#
+# Update (Phase 29):
+#   docker compose -f deploy/docker-compose.yml --env-file deploy/.env pull
+#   docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d
+#
+# Topology:
+#   - edge:     caddy (Phase 27) + web + api + srs   (public-reachable)
+#   - internal: postgres + redis + minio + sms-migrate (no host ports)
+#   - api joins both: needs DB/cache/object-store on internal AND must be
+#     reachable from caddy on edge.
+#
+# Init chain (sms-migrate, restart: "no"):
+#   1. prisma migrate deploy   (DEPLOY-14)
+#   2. node dist/scripts/init-buckets.js     (DEPLOY-15 — Plan 01)
+#   3. node dist/scripts/seed-stream-profile.js  (DEPLOY-16 — Plan 01)
+#   On any non-zero exit, api stays at "Created" — operator sees the failure
+#   in `docker compose logs sms-migrate` (D-03 fail-fast).
+#
+# Phase 27 will ADD (not modify): a `caddy` service joined to `edge`,
+# mounting `caddy_data` (already declared here so the volume survives the
+# Phase 26→27 transition without operator data loss) + a Caddyfile bind.
+# ============================================================================
+
+name: sms-platform
+
+# Shared json-file logging config (D-16 — DEPLOY-13). Referenced by every
+# long-running service. sms-migrate is intentionally excluded (D-16) — it
+# exits in seconds and its logs are best read via `docker compose logs sms-migrate`.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  # ==========================================================================
+  # postgres — primary datastore (RLS-enforced multi-tenancy from Phase 23)
+  # ==========================================================================
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    init: true
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-sms}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-sms_platform}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - internal
+    logging: *default-logging
+
+  # ==========================================================================
+  # redis — BullMQ queue + session/cache backend
+  # ==========================================================================
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    init: true
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    networks:
+      - internal
+    logging: *default-logging
+
+  # ==========================================================================
+  # minio — object storage (avatars + recordings + snapshots)
+  # MinIO upstream archived 2026-04-25; v1.3 pins last community tag.
+  # ==========================================================================
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    restart: unless-stopped
+    init: true
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    networks:
+      - internal
+    logging: *default-logging
+
+  # ==========================================================================
+  # srs — Simple Realtime Server (RTMP/SRT/WebRTC ingest, HLS delivery)
+  # Public-facing for camera + viewer protocols; admin port 1985 → 127.0.0.1
+  # only (Pitfall 13 + DEPLOY-11 + ROADMAP SC #3).
+  # ==========================================================================
+  srs:
+    image: ossrs/srs:6
+    command: ["./objs/srs", "-c", "conf/srs.conf"]
+    restart: unless-stopped
+    init: true
+    ports:
+      - "1935:1935"                # RTMP ingest (cameras push)
+      - "127.0.0.1:1985:1985"      # Admin API — loopback only (D-07)
+      - "8080:8080"                # HLS delivery (Phase 27 will reverse-proxy)
+      - "8000:8000/udp"            # WebRTC
+      - "10080:10080/udp"          # SRT
+    volumes:
+      - ../config/srs.conf:/usr/local/srs/conf/srs.conf:ro
+      - hls_data:/usr/local/srs/objs/nginx/html
+    healthcheck:
+      test:
+        - "CMD"
+        - "bash"
+        - "-c"
+        - "exec 3<>/dev/tcp/localhost/1985 && printf 'GET /api/v1/versions HTTP/1.0\\r\\n\\r\\n' >&3 && head -1 <&3 | grep -q '200 OK'"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - edge
+    logging: *default-logging
+
+  # ==========================================================================
+  # sms-migrate — one-shot init container (DEPLOY-14, DEPLOY-15, DEPLOY-16)
+  # Reuses the api image (D-02) — has prisma + node + dist/scripts/ + minio
+  # client all bundled. restart: "no" + service_completed_successfully gate
+  # ensures api never boots against an unmigrated DB.
+  # ==========================================================================
+  sms-migrate:
+    image: ghcr.io/${GHCR_ORG}/sms-api:${IMAGE_TAG:-latest}
+    restart: "no"
+    entrypoint: ["/usr/bin/tini", "--", "sh", "-c"]
+    command:
+      - |
+        set -e
+        echo "[sms-migrate] Step 1/3: prisma migrate deploy"
+        node node_modules/prisma/build/index.js migrate deploy --schema=src/prisma/schema.prisma
+        echo "[sms-migrate] Step 2/3: init-buckets.js"
+        node dist/scripts/init-buckets.js
+        echo "[sms-migrate] Step 3/3: seed-stream-profile.js"
+        node dist/scripts/seed-stream-profile.js
+        echo "[sms-migrate] All steps complete. Exiting 0."
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sms}:${DB_PASSWORD}@postgres:5432/${POSTGRES_DB:-sms_platform}?schema=public
+      DATABASE_URL_MIGRATE: postgresql://${POSTGRES_USER:-sms}:${DB_PASSWORD}@postgres:5432/${POSTGRES_DB:-sms_platform}?schema=public
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: "9000"
+      MINIO_USE_SSL: "false"
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - internal
+
+  # ==========================================================================
+  # api — NestJS backend (FFmpeg child processes, Prisma, BullMQ, Socket.IO)
+  # Joins BOTH networks: edge for caddy/srs reach + internal for db/cache/storage.
+  # ==========================================================================
+  api:
+    image: ghcr.io/${GHCR_ORG}/sms-api:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 30s
+    environment:
+      NODE_ENV: production
+      PORT: "3003"
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sms}:${DB_PASSWORD}@postgres:5432/${POSTGRES_DB:-sms_platform}?schema=public
+      DATABASE_URL_MIGRATE: postgresql://${POSTGRES_USER:-sms}:${DB_PASSWORD}@postgres:5432/${POSTGRES_DB:-sms_platform}?schema=public
+      REDIS_URL: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: "9000"
+      MINIO_USE_SSL: "false"
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_PUBLIC_ENDPOINT: ${DOMAIN}
+      MINIO_PUBLIC_PORT: "443"
+      SRS_HTTP_API_URL: http://srs:1985
+      SRS_HLS_PATH: /srs-hls
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      BETTER_AUTH_URL: https://${DOMAIN}
+      JWT_PLAYBACK_SECRET: ${JWT_PLAYBACK_SECRET}
+      NEXTAUTH_URL: https://${DOMAIN}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - hls_data:/srs-hls:ro
+    depends_on:
+      sms-migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      srs:
+        condition: service_healthy
+    networks:
+      - edge
+      - internal
+    logging: *default-logging
+
+  # ==========================================================================
+  # web — Next.js 15 standalone frontend
+  # Single network: edge. Calls api via service DNS (api:3003) for SSR;
+  # browser calls api via /api/* through Caddy (Phase 27 same-origin).
+  # ==========================================================================
+  web:
+    image: ghcr.io/${GHCR_ORG}/sms-web:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    init: true
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+      NEXT_PUBLIC_API_URL: https://${DOMAIN}
+      BETTER_AUTH_URL: https://${DOMAIN}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      NEXTAUTH_URL: https://${DOMAIN}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - edge
+    logging: *default-logging
+
+# ============================================================================
+# Networks (D-05, DEPLOY-11)
+# ============================================================================
+networks:
+  edge:
+    driver: bridge
+  internal:
+    driver: bridge
+    internal: true   # blocks egress; postgres/redis/minio cannot reach internet
+
+# ============================================================================
+# Volumes (D-08, DEPLOY-12)
+# caddy_data declared HERE so Phase 27 caddy service can attach without
+# requiring a destructive recreate. hls_data shared between srs (RW) and
+# api (RO via /srs-hls:ro) per D-09.
+# ============================================================================
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  caddy_data:
+  hls_data:
