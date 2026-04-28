@@ -120,8 +120,40 @@ describe('MinioService avatars bucket', () => {
     await expect(service.removeAvatar('user-77')).rejects.toThrow('boom');
   });
 
-  it('getAvatarUrl composes scheme://publicEndpoint:publicPort/avatars/{userId}.webp?v=X', async () => {
+  it('getAvatarUrl uses MINIO_PUBLIC_URL exactly when set (Phase 27 D-26 — fixes mixed content)', async () => {
     const config = makeConfig({
+      MINIO_PUBLIC_URL: 'https://example.com',
+      MINIO_USE_SSL: 'false', // SDK-side: internal http://minio:9000
+    });
+    const service = await bootService(config);
+    const url = service.getAvatarUrl('user-1', 1234567890);
+    expect(url).toBe('https://example.com/avatars/user-1.webp?v=1234567890');
+    expect(url).toMatch(/^https:\/\//); // mixed-content regression guard
+  });
+
+  it('getSnapshotUrl uses MINIO_PUBLIC_URL exactly when set', async () => {
+    const config = makeConfig({
+      MINIO_PUBLIC_URL: 'https://example.com',
+    });
+    const service = await bootService(config);
+    const url = service.getSnapshotUrl('cam-7', 99);
+    expect(url).toBe('https://example.com/snapshots/cam-7.jpg?v=99');
+    expect(url).toMatch(/^https:\/\//);
+  });
+
+  it('buildPublicUrl strips trailing slashes from MINIO_PUBLIC_URL (no double-slash)', async () => {
+    const config = makeConfig({
+      MINIO_PUBLIC_URL: 'https://example.com/',
+    });
+    const service = await bootService(config);
+    const url = service.getAvatarUrl('u', 1);
+    expect(url).toBe('https://example.com/avatars/u.webp?v=1');
+    expect(url).not.toMatch(/\/\/avatars/);
+  });
+
+  it('getAvatarUrl falls back to legacy endpoint+port when MINIO_PUBLIC_URL unset (dev compat)', async () => {
+    const config = makeConfig({
+      MINIO_PUBLIC_URL: undefined,
       MINIO_PUBLIC_ENDPOINT: 'cdn.example.com',
       MINIO_PUBLIC_PORT: '443',
       MINIO_USE_SSL: 'true',
@@ -131,8 +163,9 @@ describe('MinioService avatars bucket', () => {
     expect(url).toBe('https://cdn.example.com:443/avatars/user-1.webp?v=1234567890');
   });
 
-  it('getAvatarUrl falls back to MINIO_ENDPOINT and MINIO_PORT when public overrides unset', async () => {
+  it('getAvatarUrl falls back to MINIO_ENDPOINT/MINIO_PORT when public overrides unset', async () => {
     const config = makeConfig({
+      MINIO_PUBLIC_URL: undefined,
       MINIO_PUBLIC_ENDPOINT: undefined,
       MINIO_PUBLIC_PORT: undefined,
       MINIO_ENDPOINT: 'minio.internal',
