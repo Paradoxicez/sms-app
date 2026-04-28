@@ -167,10 +167,10 @@ Plans:
   2. Each pushed image carries the four tag variants via `docker/metadata-action@v5`: `v1.3.0-test`, `v1.3` (major.minor), `latest` (on main), and `sha-<7-char-commit>` — verified by `docker inspect ghcr.io/<org>/sms-api:v1.3` showing all aliases
   3. Build provenance attestation is attached to both images via `actions/attest-build-provenance`; `gh attestation verify oci://ghcr.io/<org>/sms-api:v1.3.0-test --owner <org>` succeeds
   4. `release.yml` creates a GitHub Release on tag push, listing the published image references in the release notes; auth uses `${{ secrets.GITHUB_TOKEN }}` (no PAT)
-**Plans:** 4 plans
+**Plans:** 2/4 plans executed
 Plans:
-- [ ] 28-01-PLAN.md — Smoke scripts: .github/scripts/smoke-{api,web}.sh asserting Phase 25 D-19 invariants on every CI build (Wave 1)
-- [ ] 28-02-PLAN.md — release.yml: tag-triggered GitHub Release with auto-notes + custom body (image refs + attestation verify + compose pull snippet) + prerelease auto-flag (Wave 1)
+- [x] 28-01-PLAN.md — Smoke scripts: .github/scripts/smoke-{api,web}.sh asserting Phase 25 D-19 invariants on every CI build (Wave 1)
+- [x] 28-02-PLAN.md — release.yml: tag-triggered GitHub Release with auto-notes + custom body (image refs + attestation verify + compose pull snippet) + prerelease auto-flag (Wave 1)
 - [ ] 28-03-PLAN.md — build-images.yml: matrix [api, web] build/smoke/push to GHCR with semver+latest+sha tags via metadata-action@v5, OCI labels, GH Cache v2, sigstore attestation via attest-build-provenance@v2 (Wave 2)
 - [ ] 28-04-PLAN.md — deploy/.env.production.example GHCR_ORG comment expansion (D-18) + 28-04-VERIFICATION.md 9-checkpoint runbook + live operator checkpoint (D-22 #1-9, D-19 manual GHCR public toggle) (Wave 3, has user checkpoint)
 
@@ -213,6 +213,6 @@ Plans:
 | 25. Multi-Stage Dockerfiles + Image Hardening | 6/6 | Complete    | 2026-04-27 |
 | 26. Production Compose + Migrate Init + Networking + Volumes | 4/4 | Complete    | 2026-04-28 |
 | 27. Caddy Reverse Proxy + Auto-TLS | 5/5 | Complete    | 2026-04-28 |
-| 28. GitHub Actions CI/CD → GHCR | 0/4 | Plans authored | - |
+| 28. GitHub Actions CI/CD → GHCR | 2/4 | In Progress|  |
 | 29. Operator UX (bootstrap/update/backup/restore + super-admin CLI) | 0/TBD | Not started | - |
 | 30. Smoke Test on Clean VM (gates v1.3 GA) | 0/TBD | Not started | - |
