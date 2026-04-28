@@ -52,9 +52,11 @@
 
 - **D-02:** **Ship via `COPY apps/api/bin` in Dockerfile final stage**. Phase 25 final stage WORKDIR = `/app/apps/api`. ROADMAP SC #1 เขียน `docker compose exec api bin/sms create-admin` (relative path) → resolve เป็น `/app/apps/api/bin/sms`. Phase 29 patch Phase 25 Dockerfile เพิ่ม 1 บรรทัด หลัง `COPY apps/api/dist`:
   ```dockerfile
-  COPY --from=builder --chown=app:app /app/apps/api/bin ./bin
+  COPY --from=builder --chown=app:app /app/apps/api/bin ./apps/api/bin
   ```
   Dockerfile builder stage ไม่ต้องเปลี่ยน (apps/api/bin/sms เข้า COPY . . ของ builder อยู่แล้ว เพราะ source tree mount ผ่าน workspace). chmod +x ใน source tree (`git update-index --chmod=+x apps/api/bin/sms`) → preserved across COPY. Cross-phase touch = locked decision in Phase 29; ห้าม refactor Phase 25 Dockerfile โดยไม่ปรึกษา Phase 29 owner.
+
+  **Correction during planning (Phase 29 revision):** WORKDIR at the insertion line is `/app` (apps/api/Dockerfile L94), so the destination is `./apps/api/bin` to match the existing COPY pattern at L102 (`./apps/api/dist`). The relative `bin/sms` invocation (ROADMAP SC #1) still works because L107 sets WORKDIR=`/app/apps/api`, making `/app/apps/api/bin/sms` resolve as `bin/sms` from the runtime CWD.
 
 - **D-03:** **Subcommand scope = `create-admin` only** ใน v1.3. Router pattern (switch ใน src/cli/sms.ts):
   ```ts
