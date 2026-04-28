@@ -108,7 +108,23 @@ export class MinioService implements OnModuleInit {
     }
   }
 
-  getAvatarUrl(userId: string, version?: number): string {
+  /**
+   * Build a public URL for a MinIO object. Phase 27 (D-26): when
+   * MINIO_PUBLIC_URL is set (production via Caddy), use it as the exact
+   * prefix — this eliminates the mixed-content blocker where the legacy
+   * `${MINIO_USE_SSL ? 'https' : 'http'}://${endpoint}:${port}/...` path
+   * emitted `http://` even when the page was served over HTTPS, because
+   * MINIO_USE_SSL describes the api↔minio SDK connection (internal HTTP)
+   * not the browser-facing URL. Falls back to the legacy composition for
+   * dev/non-Caddy environments.
+   */
+  private buildPublicUrl(bucket: string, objectName: string, version: number): string {
+    const publicUrl = this.configService.get<string>('MINIO_PUBLIC_URL');
+    if (publicUrl) {
+      const base = publicUrl.replace(/\/+$/, ''); // strip trailing slashes
+      return `${base}/${bucket}/${objectName}?v=${version}`;
+    }
+    // Legacy dev fallback: derive endpoint+port+scheme like before.
     const endpoint =
       this.configService.get<string>('MINIO_PUBLIC_ENDPOINT') ??
       this.configService.get<string>('MINIO_ENDPOINT', 'localhost');
@@ -117,8 +133,12 @@ export class MinioService implements OnModuleInit {
       this.configService.get<string>('MINIO_PORT', '9000');
     const scheme =
       this.configService.get<string>('MINIO_USE_SSL') === 'true' ? 'https' : 'http';
+    return `${scheme}://${endpoint}:${port}/${bucket}/${objectName}?v=${version}`;
+  }
+
+  getAvatarUrl(userId: string, version?: number): string {
     const v = version ?? Date.now();
-    return `${scheme}://${endpoint}:${port}/avatars/${userId}.webp?v=${v}`;
+    return this.buildPublicUrl('avatars', `${userId}.webp`, v);
   }
 
   // ─── Snapshots (camera card thumbnails) ─────────────────────────────
@@ -176,15 +196,7 @@ export class MinioService implements OnModuleInit {
   }
 
   getSnapshotUrl(cameraId: string, version?: number): string {
-    const endpoint =
-      this.configService.get<string>('MINIO_PUBLIC_ENDPOINT') ??
-      this.configService.get<string>('MINIO_ENDPOINT', 'localhost');
-    const port =
-      this.configService.get<string>('MINIO_PUBLIC_PORT') ??
-      this.configService.get<string>('MINIO_PORT', '9000');
-    const scheme =
-      this.configService.get<string>('MINIO_USE_SSL') === 'true' ? 'https' : 'http';
     const v = version ?? Date.now();
-    return `${scheme}://${endpoint}:${port}/snapshots/${cameraId}.jpg?v=${v}`;
+    return this.buildPublicUrl('snapshots', `${cameraId}.jpg`, v);
   }
 }
