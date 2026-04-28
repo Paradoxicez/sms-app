@@ -166,7 +166,7 @@ Developers can get a secure HLS playback URL for any registered camera via a sin
 ## Current State
 
 **Shipped:** v1.2 Self-Service, Resilience & UI Polish (2026-04-27) — 11 phases, 64 plans, 115 tasks
-**In progress:** v1.3 Production Ready — Phases 23-26 complete (Phase 26 closed 2026-04-28), 4 phases remain (27-30)
+**In progress:** v1.3 Production Ready — Phases 23-27 complete (Phase 27 closed 2026-04-28), 3 phases remain (28-30)
 **Stack:** NestJS 11 + Next.js 15 + PostgreSQL 16 + Prisma 6 + Redis 7 + SRS v6 + FFmpeg 7 + MinIO + Better Auth
 
 **v1.2 highlights:**
@@ -214,7 +214,16 @@ Developers can get a secure HLS playback URL for any registered camera via a sin
 - ✅ Static validation: `docker compose config --quiet` exits 0 against synthetic env file; 14/14 static assertions PASS (port topology, depends_on chain, volume declarations, image-only refs, no `host.docker.internal`, no legacy `version: '3'`); user-approved checkpoint
 - 📐 Phase 30 flags: (a) verifier-script regex assumed short-form `127.0.0.1:1985`, but `docker compose config` renders ports in long-form (`host_ip: 127.0.0.1` + `target: 1985` adjacent) — re-test against actual `docker port` output; (b) `caddy_data` forward-declared for Phase 27 join, `docker compose config` strips orphan from rendered output (source has 5, rendered shows 4)
 
-**v1.3 work remaining (Phases 27-30):** Reverse proxy + TLS (27), GHCR push + CI provenance (28), operator UX scripts + admin CLI (29), smoke test on clean VM (30)
+**Phase 27 highlights (Caddy Reverse Proxy + Auto-TLS, 2026-04-28):**
+- ✅ `deploy/Caddyfile` — 49 lines, 5 mutually-exclusive handle blocks (`/api/*` + `/socket.io/*` → api:3003, `/avatars/*` + `/snapshots/*` → minio:9000, catch-all → web:3000), global ACME options with prod LE default + staging-CA toggle via `${ACME_CA}`, `email {$ACME_EMAIL}`, `admin off`, `servers { protocols h1 h2 }` (HTTP/3 disabled per D-12), `caddy validate --adapter caddyfile` exit 0
+- ✅ `deploy/docker-compose.yml` caddy service — `caddy:2.11` image, `:80/tcp` + `:443/tcp` (no `/udp`), `edge` + `internal` networks (D-17), `caddy_data` + new `caddy_config` named volumes + `Caddyfile:ro` mount, healthcheck `wget --spider` with 30s `start_period`, `depends_on api+web service_healthy`; additions-only patch + 18/18 grep guards PASS
+- ✅ `apps/api/src/recordings/minio.service.ts` — new `buildPublicUrl(bucket, objectName, version)` private helper consumed by both `getAvatarUrl` + `getSnapshotUrl`; reads `MINIO_PUBLIC_URL` (browser-facing) instead of deriving scheme from `MINIO_USE_SSL` (api↔minio internal SDK flag); closes T-27-MIXED mixed-content blocker (D-26); SDK init byte-identical, 5 new vitest URL-composition tests including 2 `^https://` regression guards (10/10 pass)
+- ✅ `deploy/.env.production.example` — adds `ACME_EMAIL` + `MINIO_PUBLIC_URL` to Section 1 (Required), `ACME_CA` to Section 3 (Defaults); compose api service env block exports `MINIO_PUBLIC_URL`; `init-secrets.sh` untouched (operator-supplied identifiers, never auto-generated)
+- ✅ `deploy/DOMAIN-SETUP.md` — 113-line operator-facing setup doc per DEPLOY-24, 5 H2 sections (DNS A-record / Port 80 reachability / Propagation / Staging-CA toggle / Common Errors), D-28 Cloudflare gray→orange addendum, 7-row Common Errors table mapping log message → cause → fix; references all 3 env vars + edge+internal networks; lives at `deploy/` root (NOT `deploy/docs/`)
+- ✅ `deploy/scripts/verify-phase-27.sh` — 115 LOC, mode 0755, bundles D-24 checkpoint #1 (`docker compose config --quiet`) + #2 (`caddy validate` via `docker run --rm caddy:2.11`) + 25 structural greps across all 4 Phase 27 artifacts; lab-only checkpoints #3-6 explicitly NOT executed (Phase 30 territory)
+- 📐 Phase 30 deferred (4 items in `27-HUMAN-UAT.md`): live LE cert issuance + 308 redirect (SC #1), live `wss://` 101 upgrade to NotificationsGateway + StatusGateway (SC #3), cert persistence across `docker compose down/up` (SC #4), re-run `verify-phase-27.sh` on healthy Docker host. All 4 explicitly scoped to Phase 30 clean-VM smoke per DOMAIN-SETUP.md footer + 27-05 SUMMARY.
+
+**v1.3 work remaining (Phases 28-30):** GHCR push + CI provenance (28), operator UX scripts + admin CLI (29), smoke test on clean VM (30)
 
 ## Evolution
 
@@ -234,4 +243,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-28 after Phase 26 completion (Production Compose + Migrate Init + Networking + Volumes — 4 plans, DEPLOY-10..16 + DEPLOY-22 validated; Phase 30 will live-boot smoke). Phases 23-26 of v1.3 complete; 4 phases remain (27-30: reverse proxy + TLS, GHCR push, operator UX, smoke test on clean VM). Next: `/gsd-discuss-phase 27` then `/gsd-plan-phase 27` for Caddy reverse proxy + auto-TLS.*
+*Last updated: 2026-04-28 after Phase 27 completion (Caddy Reverse Proxy + Auto-TLS — 5 plans, DEPLOY-06/07/08/09/24 validated at static layer; 4 live-cluster items routed to Phase 30 in `27-HUMAN-UAT.md`). Phases 23-27 of v1.3 complete; 3 phases remain (28-30: GHCR push, operator UX, smoke test on clean VM). Next: `/gsd-discuss-phase 28` then `/gsd-plan-phase 28` for GitHub Actions CI/CD → GHCR.*
