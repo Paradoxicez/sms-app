@@ -16,7 +16,7 @@
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
     "db:reset": "prisma migrate reset --force --skip-seed && prisma generate",
-    "db:check-drift": "set -a; . ./.env; set +a; prisma migrate diff --from-migrations src/prisma/migrations --to-schema-datamodel src/prisma/schema.prisma --shadow-database-url \"$SHADOW_DATABASE_URL\" --exit-code"
+    "db:check-drift": "set -a; [ -f ./.env ] && . ./.env; set +a; prisma migrate diff --from-migrations src/prisma/migrations --to-schema-datamodel src/prisma/schema.prisma --shadow-database-url \"$SHADOW_DATABASE_URL\" --exit-code"
   },
   "dependencies": {
     "@nestjs/bullmq": "^11.0.4",
