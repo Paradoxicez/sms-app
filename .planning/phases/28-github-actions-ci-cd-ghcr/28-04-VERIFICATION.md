@@ -35,15 +35,15 @@ Update each row's `Status` column with `pass`, `fail`, or `blocked` as the opera
 
 | # | Checkpoint | Status | Note |
 |---|------------|--------|------|
-| 1 | Tag push triggers matrix build, both jobs green within 10 min | pending | |
-| 2 | Anonymous `docker pull` succeeds for both images (D-19 public visibility) | pending | |
-| 3 | `docker inspect` shows correct RepoTags + OCI labels for prerelease | pending | |
-| 4 | `gh attestation verify` exits 0 for both images (DEPLOY-05) | pending | |
-| 5 | GitHub Release `v1.3.0-test` exists with prerelease badge + image-ref body | pending | |
-| 6 | PR build runs but does NOT push to GHCR | pending | |
-| 7 | Push to main publishes `:main` + `:latest` + `:sha-<7>` only | pending | |
-| 8 | Phase 23 test.yml passes on the same commits | pending | |
-| 9 | Stable `v1.3.0` tag re-attaches `:latest` + `:v1.3` | pending | |
+| 1 | Tag push triggers matrix build, both jobs green within 10 min | pass | run 25046440617, api+web success on commit 14f638d, ~3m25s |
+| 2 | Anonymous `docker pull` succeeds for both images (D-19 public visibility) | pass | repo public → images inherited public; pull required `--platform linux/amd64` (Apple Silicon → amd64-only image) |
+| 3 | `docker inspect` shows correct RepoTags + OCI labels for prerelease | pass | api+web both have all 4 OCI labels (source/revision/version/created); GHCR tag set `[1.3.0-test, sha-14f638d]` excludes latest+v1.3 ✓ |
+| 4 | `gh attestation verify` exits 0 for both images (DEPLOY-05) | pass | predicateType=slsa.dev/provenance/v1, sourceRepositoryRef=refs/tags/v1.3.0-test, Rekor logIndex 1396668341 |
+| 5 | GitHub Release `v1.3.0-test` exists with prerelease badge + image-ref body | pass | isPrerelease=true; body contains image refs + gh attestation verify + docker compose pull. Defects: capital `P` in `${{ github.repository_owner }}` and `v` prefix in prerelease ref make body's pull command non-executable as-is (template-fix follow-up) |
+| 6 | PR build runs but does NOT push to GHCR | pass | run 25050826641 success, "Log in to GHCR"+"Build & push"+"Attest" steps skipped, GHCR version count 30→30 |
+| 7 | Push to main publishes `:main` + `:latest` + `:sha-<7>` only | pass | metadata-action output for run 25046260123: tag-names=[main, latest, sha-14f638d]. (Currently sha-14f638d is reassigned to v1.3.0-test push — normal Docker registry tag-reassignment behavior, not workflow defect) |
+| 8 | Phase 23 test.yml passes on the same commits | pass | run 25046260119 success on commit 14f638d (same SHA as build-images run 25046260123). Required 3 fixes to test.yml/package.json: drop DATABASE_URL collision, `[ -f ./.env ]` guard, createdb shadow DB step (Phase 23 latent bugs surfaced on first CI run) |
+| 9 | Stable `v1.3.0` tag re-attaches `:latest` + `:v1.3` | pass | run 25051184197 success, GHCR tag set `[v1.3, v1.3.0, sha-14f638d, latest]` matches D-05 4-tag stable scheme exactly. Stable attestation verify exit=0 |
 
 ***
 

@@ -54,12 +54,13 @@ requirements-completed:
   - DEPLOY-05
 
 # Metrics
-duration: "2 min (Tasks 1+2 only; Task 3 awaiting operator live execution)"
+duration: "2 min autonomous + ~1h live operator execution"
 completed: 2026-04-28
-tasks_completed: 2
-tasks_pending: 1
+tasks_completed: 3
+tasks_pending: 0
 files_created: 1
 files_modified: 1
+verification_result: "9 of 9 checkpoints PASS — see 28-04-VERIFICATION.md state log"
 ---
 
 # Phase 28 Plan 04: Verification Runbook + GHCR_ORG Doc Summary
@@ -249,8 +250,58 @@ Once received, Phase 28 closes; DEPLOY-03 / DEPLOY-04 / DEPLOY-05 mark complete.
 - [x] Task 3 deliberately NOT executed (no `git tag v1.3.0-test` pushed, no GHCR toggle attempted, all state-log rows left `pending`) — confirmed per objective
 
 ---
+
+## Task 3 — Live Verification COMPLETE (2026-04-28)
+
+**Status: 9 of 9 checkpoints PASS** — DEPLOY-03 / DEPLOY-04 / DEPLOY-05 demonstrably met on real GHCR + real GitHub Actions runners.
+
+### Live execution context
+
+- **Repo:** `Paradoxicez/sms-app` (public, GitHub.com)
+- **Tags pushed:** `v1.3.0-test` (prerelease, retried after fixes) + `v1.3.0` (stable)
+- **GHCR images:** `ghcr.io/paradoxicez/sms-{api,web}` (both public, anonymous-pullable)
+- **Final state-log:** all 9 rows = `pass` in `28-04-VERIFICATION.md`
+
+### Pre-verification environment fixes (operator-side)
+
+Three Phase 23 latent CI bugs surfaced when `test.yml` ran for the first time. Fixed inline so Checkpoint 8 could pass:
+
+1. **`168f6e5` — `fix(23-test): drop DATABASE_URL from CI env so vitest guard passes`**
+   `apps/api/tests/global-setup.ts` refuses to run when `TEST_DATABASE_URL == DATABASE_URL` (defense-in-depth against wiping a dev DB). `test.yml` set both to the same value. Fix: only set `TEST_DATABASE_URL` in CI; globalSetup rewrites `DATABASE_URL` itself.
+2. **`6caa372` — `fix(23-test): make db:check-drift tolerate missing apps/api/.env in CI`**
+   The `db:check-drift` script unconditionally sourced `apps/api/.env`, which exits non-zero in CI. Wrapped in `[ -f ./.env ] && . ./.env`.
+3. **`14f638d` — `fix(23-test): create Postgres shadow DB before db:check-drift`**
+   Prisma `migrate diff --shadow-database-url` requires the shadow DB to exist. Added `createdb` step in `test.yml` before drift check.
+
+### Phase 28 in-scope fix during verification
+
+- **`7b7cb8f` — `fix(28-03): restore v prefix on semver tags via pattern=v{{version}}`**
+  Original Plan 03 used `pattern={{version}}` which strips the `v`. Switched to `pattern=v{{version}}` and `pattern=v{{major}}.{{minor}}` so stable tags produce the documented 4-tag scheme `vX.Y.Z + vX.Y + latest + sha-<7>`. Confirmed working on Checkpoint 9.
+
+### Documented limitations (workflow defects to be addressed in follow-up)
+
+| ID | Defect | Impact | Recommended fix |
+|----|--------|--------|-----------------|
+| L-28-A | metadata-action suppresses non-`{{version}}` semver patterns for prereleases — prerelease GHCR tags miss the `v` prefix (e.g. `1.3.0-test` vs `v1.3.0-test`) | Cosmetic; runbook + deploy docs adapted to use the actual tag form per release type | Add `type=ref,event=tag` line to metadata-action config (covers prerelease with original tag literal) — defer to Phase 28.1 gap closure if needed |
+| L-28-B | `release.yml` body interpolates `${{ github.repository_owner }}` (preserves user case → `Paradoxicez`) and uses `${{ github.ref_name }}` for prerelease docker pull cmd (includes `v` prefix that GHCR strips) | Operator copy-paste of release-body docker pull command fails: registry rejects mixed-case + `not found` for prefixed prerelease tag | Add a `lowercased_owner` step to `release.yml`; for prerelease, strip leading `v` in docker pull example |
+| L-28-C | Production images build only `linux/amd64` (single platform on `ubuntu-latest`) | Apple Silicon developers must `--platform linux/amd64` to pull (Rosetta/QEMU). Linux server deployment unaffected | Add `platforms: linux/amd64,linux/arm64` to `docker/build-push-action` if multi-arch is desired (doubles build time) |
+
+### Live verification highlights
+
+- **Checkpoint 4 attestation evidence:** `predicateType: https://slsa.dev/provenance/v1`, Rekor logIndex 1396668341, certificate issued by `https://token.actions.githubusercontent.com` for `refs/tags/v1.3.0-test`
+- **Checkpoint 9 stable tag set:** `["v1.3", "v1.3.0", "sha-14f638d", "latest"]` — exactly D-05 4-tag scheme
+- **Pitfall 8 bonus:** `docker history ghcr.io/paradoxicez/sms-api:v1.3.0 | grep -c '\.env'` returned `0` ✓
+- **Checkpoint 6 PR-only gate:** GHCR version count 30 → 30 across PR build, "Log in to GHCR" + "Build & push" + "Attest provenance" all skipped on `pull_request` event
+
+### Operator resume signal
+
+`verified — all 9 checkpoints pass`
+
+See `28-04-VERIFICATION.md` state log for the full per-checkpoint pass note.
+
+---
 *Phase: 28-github-actions-ci-cd-ghcr*
 *Plan: 04*
 *Wave: 3 (depends on 28-02 and 28-03)*
 *Autonomous portion completed: 2026-04-28T09:03:51Z*
-*Task 3 awaiting operator live execution (BLOCKING gate)*
+*Live verification completed: 2026-04-28 (operator)*
