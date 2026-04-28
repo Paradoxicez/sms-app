@@ -221,5 +221,5 @@ Plans:
 | 26. Production Compose + Migrate Init + Networking + Volumes | 4/4 | Complete    | 2026-04-28 |
 | 27. Caddy Reverse Proxy + Auto-TLS | 5/5 | Complete    | 2026-04-28 |
 | 28. GitHub Actions CI/CD → GHCR | 4/4 | Complete    | 2026-04-28 |
-| 29. Operator UX (bootstrap/update/backup/restore + super-admin CLI) | 6/6 | Complete   | 2026-04-28 |
+| 29. Operator UX (bootstrap/update/backup/restore + super-admin CLI) | 6/6 | Complete    | 2026-04-28 |
 | 30. Smoke Test on Clean VM (gates v1.3 GA) | 0/TBD | Not started | - |
