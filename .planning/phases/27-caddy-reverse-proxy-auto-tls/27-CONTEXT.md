@@ -194,6 +194,23 @@
   6. `docker compose down && docker compose up -d` แล้ว Caddy boot ไม่ trigger ACME re-issue (`docker compose logs caddy | grep -c "certificate obtained"` = 0 ใน boot ที่ 2)
 - **D-25:** Phase 30 smoke จะ verify end-to-end (login + camera register + RTSP→HLS playback + WSS notifications) — Phase 27 verification เน้นที่ Caddy layer functional พอ.
 
+### Research-resolved decisions (2026-04-28, locked after research)
+- **D-26 (CRITICAL — mixed-content blocker fix):** `apps/api/src/recordings/minio.service.ts:111-122,178-189` currently builds avatar/snapshot URLs with **`http://`** scheme even when `MINIO_PUBLIC_PORT=443` (researcher report 2026-04-28). On a TLS-served page, every browser blocks `http://` subresources as mixed content → avatars/snapshots disappear in prod (BLOCKER for v1.3 GA). **Locked fix:** emit URLs with **`https://${DOMAIN}/<bucket>/<object>`** (scheme = `https`, no port suffix — 443 is implicit) when the request is for the public-facing URL. Planner reads `minio.service.ts` to choose the concrete code path:
+  - Option A: introduce `MINIO_PUBLIC_URL` env var (e.g. `https://${DOMAIN}`) and have `getAvatarUrl()`/`getSnapshotUrl()` consume it directly (drop the `${endpoint}:${port}` recombination for public URLs).
+  - Option B: derive scheme from a new `MINIO_PUBLIC_PROTOCOL` env var (`https` in prod, `http` in dev) keeping the existing endpoint+port assembly.
+  - Either is acceptable; planner picks based on minimal-blast-radius after reading the file. Caddyfile path matchers `/avatars/*` + `/snapshots/*` (D-01/D-05) remain — they handle the proxy side; D-26 fixes the client-emitted URL scheme.
+  - Acceptance: `curl -sI https://${DOMAIN}/avatars/<known-uid>.webp` returns 200 (or 404 if no avatar) — never mixed-content blocked; `view-source` of any page never shows `http://` MinIO URLs when DOMAIN is set.
+  - Mark in `deploy/.env.production.example` if a new env var is introduced.
+- **D-27 (defensive routing — supersedes D-05's `/api/*` line):** Caddyfile MUST match **both** bare `/api` and `/api/*` so a request to `https://${DOMAIN}/api` does not fall through to web:3000 and 404. Two equivalent forms acceptable:
+  ```
+  @api path /api /api/*
+  handle @api {
+      reverse_proxy api:3003
+  }
+  ```
+  or expand `handle /api/*` block to also include a sibling `handle /api { reverse_proxy api:3003 }`. Planner picks the cleaner form.
+- **D-28 (DOMAIN-SETUP.md Cloudflare addendum — refines D-21 #2):** The Cloudflare note already in D-21 #2 ("gray cloud during initial cert") MUST add **one sentence** stating "After Caddy reports `certificate obtained successfully`, you may re-enable Cloudflare proxy (orange cloud) — Caddy will continue serving the existing cert and renew via stored ACME account state in `caddy_data`." This closes the operator workflow loop.
+
 ### Claude's Discretion
 - Caddyfile indentation (Caddy uses tabs, JSON-style braces, 1-line directives)
 - Healthcheck timing tuning (`interval: 30s` ก่อน, อาจปรับ 60s ถ้า cert provisioning ซ้อน)
