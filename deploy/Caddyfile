@@ -1,0 +1,49 @@
+# deploy/Caddyfile — Phase 27 (DEPLOY-06, DEPLOY-07, DEPLOY-08)
+# Source patterns: https://caddyserver.com/docs/caddyfile/directives/{handle,reverse_proxy}
+#                  https://caddyserver.com/docs/caddyfile/options
+#                  https://caddyserver.com/docs/automatic-https
+# See: deploy/DOMAIN-SETUP.md for ACME troubleshooting + staging toggle.
+
+{
+	# ACME — defaults to Let's Encrypt prod CA. Override via ACME_CA env var
+	# (e.g. https://acme-staging-v02.api.letsencrypt.org/directory) for debug.
+	acme_ca {$ACME_CA:https://acme-v02.api.letsencrypt.org/directory}
+	email {$ACME_EMAIL}
+
+	# Lock down attack surface: no admin API + no HTTP/3.
+	# `protocols` lives under `servers` in Caddy 2.11 (corrected from research D-12
+	# transcription — same intent, smaller nmap surface; no 443/udp QUIC binding).
+	admin off
+	servers {
+		protocols h1 h2
+	}
+}
+
+{$DOMAIN} {
+	# api — REST + Socket.IO handshake. Defensive matcher covers bare /api too
+	# (Caddy `/api/*` does NOT match `/api` without trailing slash — Pitfall 2).
+	@api path /api /api/*
+	handle @api {
+		reverse_proxy api:3003
+	}
+
+	# Socket.IO upgrade — single matcher covers all 4 namespaces
+	# (/notifications, /camera-status, /cluster-status, /srs-logs); namespace
+	# is in query/auth, not the URL path. WebSocket upgrade auto-handled.
+	handle /socket.io/* {
+		reverse_proxy api:3003
+	}
+
+	# MinIO public-read buckets — same-origin avoids CORS + mixed-content.
+	handle /avatars/* {
+		reverse_proxy minio:9000
+	}
+	handle /snapshots/* {
+		reverse_proxy minio:9000
+	}
+
+	# Default: web (Next.js).
+	handle {
+		reverse_proxy web:3000
+	}
+}
