@@ -115,3 +115,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
 # tini as PID 1 reaps FFmpeg zombies and forwards SIGTERM correctly.
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["node", "dist/main"]
+
+# Phase 28 verification PR — discard after Checkpoint 6 passes
