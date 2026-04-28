@@ -166,7 +166,7 @@ Developers can get a secure HLS playback URL for any registered camera via a sin
 ## Current State
 
 **Shipped:** v1.2 Self-Service, Resilience & UI Polish (2026-04-27) — 11 phases, 64 plans, 115 tasks
-**In progress:** v1.3 Production Ready — Phases 23-25 complete (2026-04-27), 5 phases remain (26-30)
+**In progress:** v1.3 Production Ready — Phases 23-26 complete (Phase 26 closed 2026-04-28), 4 phases remain (27-30)
 **Stack:** NestJS 11 + Next.js 15 + PostgreSQL 16 + Prisma 6 + Redis 7 + SRS v6 + FFmpeg 7 + MinIO + Better Auth
 
 **v1.2 highlights:**
@@ -204,7 +204,17 @@ Developers can get a secure HLS playback URL for any registered camera via a sin
 - 🔧 In-plan hotfix: `apps/api/Dockerfile:91` `groupadd -r app` → `groupadd -r -g 1001 app` to align with web pattern (commit `bb36ade`); cosmetic CIS-style gid pinning, security gate (uid=1001 non-root) was already satisfied
 - 📐 Image digests recorded in `25-VERIFICATION.md` as Phase 28 native amd64 CI regression baseline (±5% target)
 
-**v1.3 work remaining (Phases 26-30):** Compose orchestration + migrate-init + named volumes (26), reverse proxy + TLS (27), GHCR push + CI provenance (28), operator UX scripts + admin CLI (29), smoke test on clean VM (30)
+**Phase 26 highlights (Production Compose + Migrate Init + Networking + Volumes, 2026-04-28):**
+- ✅ `deploy/docker-compose.yml` — 7 services (postgres + redis + minio + sms-migrate + srs + api + web), 2 networks (edge + `internal: true` blocks egress), 5 named volumes (postgres_data, redis_data, minio_data, caddy_data forward-declared for Phase 27, hls_data); GHCR-only image refs (zero `build:` directives per DEPLOY-10); SRS port 1985 binds `127.0.0.1` only (Pitfall 13); 6 long-running services have `init: true` + `restart: unless-stopped` + `*default-logging` anchor (json-file 10m × 5); api `stop_grace_period: 30s` for FFmpeg drain
+- ✅ `sms-migrate` init container reuses api image (D-02), chains `prisma migrate deploy && init-buckets.js && seed-stream-profile.js` exactly once with `restart: "no"`; api gates on `service_completed_successfully` (DEPLOY-14)
+- ✅ `apps/api/src/scripts/init-buckets.ts` — idempotent MinIO bucket bootstrap (avatars public-read via `setBucketPolicy`, recordings stays private), `Client.bucketExists` guard, fail-fast `process.exit(1)` (DEPLOY-15)
+- ✅ `apps/api/src/scripts/seed-stream-profile.ts` — per-org `streamProfile.count` guard, default 1080p H.264 / 2500kbps / 25fps profile with `isDefault: true`, fresh-VM no-orgs friendly path (DEPLOY-16); schema-correction landed: D-13 sample's stale field names (`videoCodec`/`width`/`height`/`framerate`/`gopSize`) replaced with actual schema fields (codec/resolution/fps/videoBitrate/audioCodec/audioBitrate)
+- ✅ `deploy/.env.production.example` — 4-section D-25 template (Required / Image refs / Defaults / Computed), 7 SC #6 vars + GHCR_ORG + JWT_PLAYBACK_SECRET + ADMIN_EMAIL/PASSWORD; 7 `change-me-*` placeholders for init-secrets.sh detection
+- ✅ `deploy/scripts/init-secrets.sh` — idempotent `openssl rand -base64 32` generator with BSD/GNU sed shim (macOS dev compatibility), `chmod 600 deploy/.env` (Pitfall 8 mitigation), DOMAIN/GHCR_ORG/ADMIN_EMAIL excluded from SECRET_VARS array (operator-supplied identifiers, never auto-generated); end-to-end smoke: first run generates 6 secrets, second run skips all 6 — fully idempotent (DEPLOY-22)
+- ✅ Static validation: `docker compose config --quiet` exits 0 against synthetic env file; 14/14 static assertions PASS (port topology, depends_on chain, volume declarations, image-only refs, no `host.docker.internal`, no legacy `version: '3'`); user-approved checkpoint
+- 📐 Phase 30 flags: (a) verifier-script regex assumed short-form `127.0.0.1:1985`, but `docker compose config` renders ports in long-form (`host_ip: 127.0.0.1` + `target: 1985` adjacent) — re-test against actual `docker port` output; (b) `caddy_data` forward-declared for Phase 27 join, `docker compose config` strips orphan from rendered output (source has 5, rendered shows 4)
+
+**v1.3 work remaining (Phases 27-30):** Reverse proxy + TLS (27), GHCR push + CI provenance (28), operator UX scripts + admin CLI (29), smoke test on clean VM (30)
 
 ## Evolution
 
@@ -224,4 +234,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-27 after Phase 25 completion (Multi-Stage Dockerfiles + Image Hardening — 6 plans, DEPLOY-01 + DEPLOY-02 validated multi-arch). Phases 23-25 of v1.3 complete; 5 phases remain (26-30: compose orchestration, reverse proxy + TLS, GHCR push, operator UX, smoke test on clean VM). Next: `/gsd-discuss-phase 26` then `/gsd-plan-phase 26` for production compose + migrate-init + networking + named volumes.*
+*Last updated: 2026-04-28 after Phase 26 completion (Production Compose + Migrate Init + Networking + Volumes — 4 plans, DEPLOY-10..16 + DEPLOY-22 validated; Phase 30 will live-boot smoke). Phases 23-26 of v1.3 complete; 4 phases remain (27-30: reverse proxy + TLS, GHCR push, operator UX, smoke test on clean VM). Next: `/gsd-discuss-phase 27` then `/gsd-plan-phase 27` for Caddy reverse proxy + auto-TLS.*
