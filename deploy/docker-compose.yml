@@ -249,6 +249,43 @@ services:
       - edge
     logging: *default-logging
 
+  # ==========================================================================
+  # caddy — reverse proxy + auto-TLS via Let's Encrypt (Phase 27, DEPLOY-06)
+  # Joins BOTH networks (D-17 amends Phase 26 D-06): edge for :80/:443 host
+  # exposure + internal so it can resolve minio:9000 for /avatars/* and
+  # /snapshots/* proxy paths (Phase 26 D-07 keeps minio internal-only).
+  # ==========================================================================
+  caddy:
+    image: caddy:2.11
+    restart: unless-stopped
+    init: true
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+      ACME_CA: ${ACME_CA:-}
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    networks:
+      - edge
+      - internal
+    logging: *default-logging
+
 # ============================================================================
 # Networks (D-05, DEPLOY-11)
 # ============================================================================
@@ -270,4 +307,5 @@ volumes:
   redis_data:
   minio_data:
   caddy_data:
+  caddy_config:
   hls_data:
