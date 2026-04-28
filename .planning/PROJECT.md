@@ -73,9 +73,11 @@ Developers can get a secure HLS playback URL for any registered camera via a sin
 - ✓ RTMP push ingest with platform-generated stream keys — v1.2 (Phase 19.1)
 - ✓ Camera metadata utilization — tags + description surfaced across DataTable, view-stream-sheet, map popup, webhook payload, audit diff, Dev Portal docs — v1.2 (Phase 22)
 
+- ✓ Operator UX (bootstrap/update/backup/restore + super-admin CLI) — `bin/sms create-admin` (Better Auth scrypt, single-admin guard, --force idempotency), `deploy/scripts/{bootstrap,update,backup,restore}.sh` (atomic pre-flight migrate, offline pg_dump+MinIO+caddy_data archive, integrity-verified DR), README 5-step quickstart + BACKUP-RESTORE + TROUBLESHOOTING runbooks — v1.3 (Phase 29) — DEPLOY-17/18/19/20/21/23
+
 ### Active
 
-(None — milestone v1.2 shipped 2026-04-27. Run `/gsd-new-milestone` to scope v1.3 Production Ready.)
+(Phase 30 remaining — fresh-VM smoke test gates v1.3 GA. 5 HUMAN-UAT items from Phase 29 will be validated there.)
 
 ### Deferred to Future
 
@@ -252,4 +254,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-28 after Phase 28 completion (GitHub Actions CI/CD → GHCR — 4 plans, DEPLOY-03/04/05 validated live on `Paradoxicez/sms-app` GHCR; 9/9 verification checkpoints pass; 3 documented limitations deferred to follow-up). Phases 23-28 of v1.3 complete; 2 phases remain (29-30: operator UX scripts, smoke test on clean VM). Next: `/gsd-discuss-phase 29` then `/gsd-plan-phase 29` for Operator UX bootstrap/update/backup/restore + super-admin CLI.*
+*Last updated: 2026-04-29 after Phase 29 completion (Operator UX — 6 plans, DEPLOY-17/18/19/20/21/23 statically verified; 5/5 must-haves shipped; 5 HUMAN-UAT items deferred to Phase 30 for fresh-VM live-runtime proof). Phases 23-29 of v1.3 complete; 1 phase remains (30: smoke test on clean VM, gates v1.3 GA). Next: `/gsd-discuss-phase 30` then `/gsd-plan-phase 30` for Smoke Test on Clean VM (DEPLOY-25, DEPLOY-26).*
