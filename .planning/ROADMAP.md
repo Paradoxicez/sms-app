@@ -150,7 +150,13 @@ Plans:
   3. WebSocket reaches `NotificationsGateway` and `StatusGateway` end-to-end via Caddy: `wss://example.com/socket.io/?EIO=4&transport=websocket` upgrades successfully and receives notify/status events; tested by logging into the deployed app and triggering a camera status change
   4. `caddy_data` + `caddy_config` named volumes persist certs across `docker compose down/up` cycles; the second `up` does not trigger ACME re-issuance
   5. `deploy/DOMAIN-SETUP.md` documents DNS A-record requirements, port 80 reachability for ACME HTTP-01, propagation expectations, and the staging-CA toggle for debugging
-**Plans**: TBD
+**Plans:** 5 plans
+Plans:
+- [ ] 27-01-PLAN.md — Author deploy/Caddyfile (5 handle blocks + global ACME options + admin off + protocols h1 h2) (Wave 1)
+- [ ] 27-02-PLAN.md — Patch deploy/docker-compose.yml: add caddy service (edge+internal nets, caddy_data + caddy_config + Caddyfile:ro) + new caddy_config volume (Wave 1)
+- [ ] 27-03-PLAN.md — Fix mixed-content blocker (D-26): MinioService.buildPublicUrl helper reads MINIO_PUBLIC_URL; getAvatarUrl + getSnapshotUrl emit https:// on TLS pages; vitest regression guard (Wave 1)
+- [ ] 27-04-PLAN.md — Patch deploy/.env.production.example with ACME_EMAIL + ACME_CA + MINIO_PUBLIC_URL; wire MINIO_PUBLIC_URL through compose api service env block (Wave 1)
+- [ ] 27-05-PLAN.md — Author deploy/DOMAIN-SETUP.md (D-21 5 sections + D-28 Cloudflare note) + deploy/scripts/verify-phase-27.sh (D-24 #1+#2+structural greps); operator checkpoint (Wave 2, has user checkpoint)
 
 ### Phase 28: GitHub Actions CI/CD → GHCR
 **Goal**: Pushing a `vX.Y.Z` git tag triggers a GitHub Actions workflow that builds both production images, pushes them to `ghcr.io/<org>/sms-{api,web}` with semver + latest + sha tags, and attaches build provenance attestation. Operators on a production server can `docker compose pull && docker compose up -d` against a stable, signed-by-attestation image.
@@ -201,7 +207,7 @@ Plans:
 | 24. Deploy Folder Structure + Dev Workflow Guardrails | 5/5 | Complete    | 2026-04-27 |
 | 25. Multi-Stage Dockerfiles + Image Hardening | 6/6 | Complete    | 2026-04-27 |
 | 26. Production Compose + Migrate Init + Networking + Volumes | 4/4 | Complete    | 2026-04-28 |
-| 27. Caddy Reverse Proxy + Auto-TLS | 0/TBD | Not started | - |
+| 27. Caddy Reverse Proxy + Auto-TLS | 0/5 | Planning Complete | - |
 | 28. GitHub Actions CI/CD → GHCR | 0/TBD | Not started | - |
 | 29. Operator UX (bootstrap/update/backup/restore + super-admin CLI) | 0/TBD | Not started | - |
 | 30. Smoke Test on Clean VM (gates v1.3 GA) | 0/TBD | Not started | - |
