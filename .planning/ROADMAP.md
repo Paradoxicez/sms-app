@@ -59,7 +59,7 @@ Goal: Take v1.2's feature-complete platform and ship it to production via a pull
 - [x] **Phase 23: Tech Debt Cleanup + Phase 0 Prerequisites** — Convert raw SQL to Prisma migration history, StreamProcessor undefined cameraId guard, 23-test triage, hls_use_fmp4 cold-boot fix, Phase 22→17 metadata wiring (completed 2026-04-27)
 - [x] **Phase 24: Deploy Folder Structure + Dev Workflow Guardrails** — Rename Dockerfile→Dockerfile.dev, create `deploy/` skeleton, root `.dockerignore`, dev smoke test (completed 2026-04-27)
 - [x] **Phase 25: Multi-Stage Dockerfiles + Image Hardening** — Production api Dockerfile (4 stages, FFmpeg+tini, non-root), web Dockerfile (Next.js standalone), per-app .dockerignore (completed 2026-04-27)
-- [ ] **Phase 26: Production Compose + Migrate Init + Networking + Volumes** — `deploy/docker-compose.yml` with image refs, two-network split, sms-migrate init service, MinIO bucket auto-create + Stream Profile seed
+- [x] **Phase 26: Production Compose + Migrate Init + Networking + Volumes** — `deploy/docker-compose.yml` with image refs, two-network split, sms-migrate init service, MinIO bucket auto-create + Stream Profile seed (completed 2026-04-28)
 - [ ] **Phase 27: Caddy Reverse Proxy + Auto-TLS** — `deploy/Caddyfile` (same-origin), Caddy service with persistent volumes, DOMAIN-SETUP.md
 - [ ] **Phase 28: GitHub Actions CI/CD → GHCR** — `build-images.yml` (matrix [api, web], amd64, GH Cache v2), `release.yml`, semver+latest+sha tagging, build provenance attestation
 - [ ] **Phase 29: Operator UX (bootstrap/update/backup/restore + super-admin CLI)** — `bin/sms create-admin`, 4 deploy scripts, `deploy/README.md` 5-step quickstart
@@ -133,7 +133,12 @@ Plans:
   4. Named volumes `postgres_data`, `redis_data`, `minio_data`, `caddy_data`, `hls_data` survive `docker compose down && docker compose up -d` with data intact; FFmpeg child processes are reaped (no zombies) thanks to `init: true`
   5. First-run init creates the `avatars` and `recordings` MinIO buckets and seeds a default Stream Profile if no profiles exist; subsequent boots are idempotent (no duplicate buckets/profiles)
   6. `deploy/.env.production.example` documents every required variable (DOMAIN, DB_PASSWORD, NEXTAUTH_SECRET, BETTER_AUTH_SECRET, MINIO_ROOT_USER, MINIO_ROOT_PASSWORD, IMAGE_TAG); `deploy/scripts/init-secrets.sh` generates 32-char random values and chmods 600
-**Plans**: TBD
+**Plans:** 4/4 plans complete
+Plans:
+- [x] 26-01-PLAN.md — Init scripts: apps/api/src/scripts/init-buckets.ts (DEPLOY-15) + seed-stream-profile.ts (DEPLOY-16) (Wave 1)
+- [x] 26-02-PLAN.md — deploy/.env.production.example template + deploy/scripts/init-secrets.sh idempotent secret generator (DEPLOY-22) (Wave 1)
+- [x] 26-03-PLAN.md — deploy/docker-compose.yml: 7 services + 2 networks + 5 named volumes (DEPLOY-10, 11, 12, 13, 14, 15, 16) (Wave 2)
+- [x] 26-04-PLAN.md — docker compose config --quiet validation + user checkpoint (Wave 3, has user checkpoint)
 
 ### Phase 27: Caddy Reverse Proxy + Auto-TLS
 **Goal**: A single hostname terminates TLS automatically via Let's Encrypt, routes `/api/*` and `/socket.io/*` to api:3003 and everything else to web:3000 (same-origin pattern eliminates cookie/CORS pain), and persists certificates across container restarts so `docker compose down/up` does not trigger ACME rate-limit lockout. WebSocket pass-through works for both NotificationsGateway and StatusGateway.
@@ -195,7 +200,7 @@ Plans:
 | 23. Tech Debt Cleanup + Phase 0 Prerequisites | 6/6 | Complete    | 2026-04-27 |
 | 24. Deploy Folder Structure + Dev Workflow Guardrails | 5/5 | Complete    | 2026-04-27 |
 | 25. Multi-Stage Dockerfiles + Image Hardening | 6/6 | Complete    | 2026-04-27 |
-| 26. Production Compose + Migrate Init + Networking + Volumes | 0/TBD | Not started | - |
+| 26. Production Compose + Migrate Init + Networking + Volumes | 4/4 | Complete    | 2026-04-28 |
 | 27. Caddy Reverse Proxy + Auto-TLS | 0/TBD | Not started | - |
 | 28. GitHub Actions CI/CD → GHCR | 0/TBD | Not started | - |
 | 29. Operator UX (bootstrap/update/backup/restore + super-admin CLI) | 0/TBD | Not started | - |
