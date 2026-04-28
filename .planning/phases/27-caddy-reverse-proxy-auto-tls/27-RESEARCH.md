@@ -551,27 +551,31 @@ Unset + restart to re-issue against prod CA.
 | A5 | Caddy's official `caddy:2.11` Alpine image bundles `wget` (busybox) for the healthcheck. | D-16 | If wrong, healthcheck `wget --spider` always fails; container marked unhealthy → restart loop. Caddy's docker-library Dockerfile sources from `alpine:3.x` which includes busybox by default; busybox provides wget. Confidence: HIGH (alpine-busybox standard). |
 | A6 | Phase 26's `caddy_data` named volume declaration (lines 268-273 of `deploy/docker-compose.yml`) was made specifically to allow Phase 27 to attach without forcing a destructive `docker volume rm`. | D-13 hand-off | Verified true: Phase 26 compose file comment lines 263-266 explicitly state *"caddy_data declared HERE so Phase 27 caddy service can attach without requiring a destructive recreate."* **VERIFIED HIGH.** |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **CRITICAL — Mixed-content blocking for avatar/snapshot URLs.** `MinioService.getAvatarUrl()` + `getSnapshotUrl()` produce `http://${DOMAIN}:443/...` URLs (verified in `apps/api/src/recordings/minio.service.ts:111-122,178-189`). Browsers will block these on the HTTPS-served pages.
    - What we know: bug is real; fix requires api code change.
    - What's unclear: which fix to ship in Phase 27 — (a) introduce `MINIO_PUBLIC_USE_SSL=true`, (b) emit relative URLs, (c) defer to v1.3.x patch and ship Phase 27 with broken thumbnails.
    - **Recommendation:** Operator decides BEFORE planner writes tasks. Default suggestion: option (b) relative URLs — cleanest, smallest behavioral surface. Note this expands Phase 27 scope by ~10 LOC + 2-3 unit tests in api.
+   - **RESOLVED:** D-26 locks Option A (MINIO_PUBLIC_URL env var). Implemented in Plan 27-03 (apps/api/src/recordings/minio.service.ts) + Plan 27-04 (deploy/.env.production.example + compose api env wire).
 
 2. **`/api` exact-match routing.** D-05 uses `handle /api/*` which does NOT match bare `/api`. Today no api controller exposes `/api` exactly; future-proofing would be `path /api /api/*`.
    - What we know: low risk today.
    - What's unclear: whether the planner adds defensive matchers (1 token cost) or accepts the current state.
    - **Recommendation:** Add defensive matcher `path /api /api/*` (and same for `/socket.io`) — costs nothing, future-proof.
+   - **RESOLVED:** D-27 mandates `@api path /api /api/*` named matcher. Implemented in Plan 27-01 deploy/Caddyfile.
 
 3. **Should `/health` be a dedicated proxy path?** Phase 25 placed `/api/health` on api (correct). Operators / monitoring tools (UptimeRobot, etc.) probe `https://${DOMAIN}/api/health` — works through current routing.
    - What we know: works without extra config.
    - What's unclear: whether to add a top-level `/health` shortcut for tooling that hates path prefixes.
    - **Recommendation:** Don't add. `/api/health` is canonical; tooling can use it.
+   - **RESOLVED:** do not add. /api/health remains canonical. No plan changes needed.
 
 4. **DOMAIN-SETUP.md placement of Cloudflare DNS-only guidance.** D-21 lists Cloudflare gray-cloud requirement under "Port 80 Reachability" — but operators using Cloudflare may interpret this as "you can't use Cloudflare at all".
    - What we know: HTTP-01 challenge bypasses proxy by hitting port 80 origin directly; gray-cloud is required only during initial cert issuance.
    - What's unclear: whether to add a "after first cert: re-enable orange-cloud is OK" note.
    - **Recommendation:** Add the post-issuance re-enable note (1 sentence). Improves operator UX without bloating doc.
+   - **RESOLVED:** D-28 mandates the orange-cloud re-enable sentence. Implemented in Plan 27-05 deploy/DOMAIN-SETUP.md.
 
 ## Environment Availability
 
