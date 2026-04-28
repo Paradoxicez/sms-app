@@ -81,6 +81,14 @@ jobs:
         # against TEST_DATABASE_URL.
         run: pnpm --filter @sms-platform/api test
 
+      - name: Create Postgres shadow DB
+        # `prisma migrate diff --shadow-database-url` requires the shadow DB to
+        # already exist (it doesn't auto-create). Point createdb at the same
+        # Postgres service container that hosts sms_platform_test.
+        env:
+          PGPASSWORD: postgres
+        run: createdb -h localhost -U postgres sms_platform_shadow
+
       - name: Check schema drift
         # db:check-drift compares migration history vs schema.prisma using a
         # shadow DB. Exit 0 = no drift, exit 2 = drift, exit 1 = error.
