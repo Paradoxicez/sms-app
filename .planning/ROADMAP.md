@@ -63,7 +63,7 @@ Goal: Take v1.2's feature-complete platform and ship it to production via a pull
 - [x] **Phase 27: Caddy Reverse Proxy + Auto-TLS** — `deploy/Caddyfile` (same-origin), Caddy service with persistent volumes, DOMAIN-SETUP.md (completed 2026-04-28)
 - [x] **Phase 28: GitHub Actions CI/CD → GHCR** — `build-images.yml` (matrix [api, web], amd64, GH Cache v2), `release.yml`, semver+latest+sha tagging, build provenance attestation (completed 2026-04-28)
 - [x] **Phase 29: Operator UX (bootstrap/update/backup/restore + super-admin CLI)** — `bin/sms create-admin`, 4 deploy scripts, `deploy/README.md` 5-step quickstart (completed 2026-04-28)
-- [ ] **Phase 30: Smoke Test on Clean VM (gates v1.3 GA)** — Provision DO/Hetzner droplet, sparse-checkout deploy/, run bootstrap.sh, verify <10min cold deploy, nmap port lockdown
+- [ ] **Phase 30: Smoke Test on Clean VM (GA gate)** — Provision DO/Hetzner droplet, sparse-checkout deploy/, run bootstrap.sh, verify <10min cold deploy, nmap port lockdown
 
 ## Phase Details
 
@@ -193,7 +193,7 @@ Plans:
 - [x] 29-05-PLAN.md — DEPLOY-21: deploy/scripts/restore.sh integrity-verified restore (Wave 2)
 - [x] 29-06-PLAN.md — DEPLOY-23: deploy/README.md (overwrite stub) + BACKUP-RESTORE.md + TROUBLESHOOTING.md (Wave 3)
 
-### Phase 30: Smoke Test on Clean VM (gates v1.3 GA)
+### Phase 30: Smoke Test on Clean VM (GA gate)
 **Goal**: An external, never-touched-the-codebase Linux VM is provisioned, the deploy folder is sparse-checked-out (or the repo is cloned), DNS is configured, `bootstrap.sh` is run, and within 10 minutes the operator can log in at `https://<domain>`, register a camera, watch RTSP→HLS playback in the browser, see a recording archive in MinIO, and observe live WebSocket status events. Port lockdown is verified externally with nmap. This phase is the v1.3 GA gate — only after it passes does the milestone ship.
 **Depends on**: Phases 26 + 27 + 28 + 29 (compose, Caddy, GHCR images, operator scripts must all work together)
 **Requirements**: DEPLOY-25, DEPLOY-26
