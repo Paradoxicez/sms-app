@@ -1,0 +1,65 @@
+# .github/workflows/release.yml — Phase 28 (DEPLOY-03 SC #4, DEPLOY-04).
+# Creates a GitHub Release on every v*.*.* tag push. Runs in parallel with
+# build-images.yml — release.yml does NOT push images (no `packages:write`),
+# does NOT depend on build-images.yml job success (operators see the Release
+# entry immediately; image refs resolve once build-images.yml finishes the
+# push step). Auto-flags pre-release tags (alpha/beta/rc/test) per D-17.
+#
+# Phase 28 D-15, D-16, D-17. Image build/publish workflow lives in
+# .github/workflows/build-images.yml (separate file).
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write   # required by softprops/action-gh-release@v2 to create the release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Detect prerelease (alpha/beta/rc/test suffixes per D-17)
+        id: prerelease_check
+        run: |
+          if [[ "${{ github.ref_name }}" =~ -(alpha|beta|rc|test) ]]; then
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          prerelease: ${{ steps.prerelease_check.outputs.is_prerelease }}
+          body: |
+            ## Container Images
+
+            - `ghcr.io/${{ github.repository_owner }}/sms-api:${{ github.ref_name }}`
+            - `ghcr.io/${{ github.repository_owner }}/sms-web:${{ github.ref_name }}`
+
+            Provenance verified via build attestation:
+
+            ```sh
+            gh attestation verify oci://ghcr.io/${{ github.repository_owner }}/sms-api:${{ github.ref_name }} --owner ${{ github.repository_owner }}
+            gh attestation verify oci://ghcr.io/${{ github.repository_owner }}/sms-web:${{ github.ref_name }} --owner ${{ github.repository_owner }}
+            ```
+
+            ## Upgrade an existing deployment
+
+            ```sh
+            cd /opt/sms-platform/deploy   # or wherever you cloned `deploy/`
+            export IMAGE_TAG=${{ github.ref_name }}
+            docker compose pull
+            docker compose up -d
+            ```
+
+            See [deploy/README.md](https://github.com/${{ github.repository }}/blob/main/deploy/README.md) for the full operator guide (lands in Phase 29).
