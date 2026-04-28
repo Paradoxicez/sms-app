@@ -36,19 +36,17 @@ jobs:
           --health-retries 5
 
     env:
-      # The api test suite resolves DATABASE_URL via TEST_DATABASE_URL
-      # (apps/api/.env.test). On CI we set both so setup-test-db.sh + the
-      # vitest setup hook find a working DSN. Postgres password matches the
-      # service container env above (NOT a real secret — ephemeral runner-local
-      # container, no external exposure).
+      # Vitest globalSetup (apps/api/tests/global-setup.ts) refuses to run
+      # when TEST_DATABASE_URL equals DATABASE_URL (defense-in-depth against
+      # accidental dev-DB wipe). On CI we therefore set ONLY TEST_DATABASE_URL —
+      # globalSetup rewrites DATABASE_URL / DATABASE_URL_MIGRATE / SYSTEM_DATABASE_URL
+      # to that same value before any test code runs. setup-test-db.sh also reads
+      # TEST_DATABASE_URL exclusively. Postgres password matches the service
+      # container env above (NOT a real secret — ephemeral runner-local container).
       TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sms_platform_test
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sms_platform_test
       # db:check-drift uses --shadow-database-url; point it at the same Postgres
       # service (Prisma will create + drop a temporary shadow DB inside it).
       SHADOW_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sms_platform_shadow
-      # DATABASE_URL_MIGRATE retained for any legacy script that still
-      # references it; matches DATABASE_URL.
-      DATABASE_URL_MIGRATE: postgresql://postgres:postgres@localhost:5432/sms_platform_test
 
     steps:
       - name: Checkout repository
