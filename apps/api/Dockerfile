@@ -100,6 +100,7 @@ ENV NODE_ENV=production
 COPY --from=prod-deps --chown=app:app /app/node_modules ./node_modules
 COPY --from=prod-deps --chown=app:app /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=builder --chown=app:app /app/apps/api/dist ./apps/api/dist
+COPY --from=builder --chown=app:app /app/apps/api/bin ./apps/api/bin
 COPY --from=builder --chown=app:app /app/apps/api/src/prisma ./apps/api/src/prisma
 COPY --from=builder --chown=app:app /app/apps/api/package.json ./apps/api/
 
