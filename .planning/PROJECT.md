@@ -166,7 +166,7 @@ Developers can get a secure HLS playback URL for any registered camera via a sin
 ## Current State
 
 **Shipped:** v1.2 Self-Service, Resilience & UI Polish (2026-04-27) — 11 phases, 64 plans, 115 tasks
-**In progress:** v1.3 Production Ready — Phases 23-27 complete (Phase 27 closed 2026-04-28), 3 phases remain (28-30)
+**In progress:** v1.3 Production Ready — Phases 23-28 complete (Phase 28 closed 2026-04-28), 2 phases remain (29-30)
 **Stack:** NestJS 11 + Next.js 15 + PostgreSQL 16 + Prisma 6 + Redis 7 + SRS v6 + FFmpeg 7 + MinIO + Better Auth
 
 **v1.2 highlights:**
@@ -223,7 +223,16 @@ Developers can get a secure HLS playback URL for any registered camera via a sin
 - ✅ `deploy/scripts/verify-phase-27.sh` — 115 LOC, mode 0755, bundles D-24 checkpoint #1 (`docker compose config --quiet`) + #2 (`caddy validate` via `docker run --rm caddy:2.11`) + 25 structural greps across all 4 Phase 27 artifacts; lab-only checkpoints #3-6 explicitly NOT executed (Phase 30 territory)
 - 📐 Phase 30 deferred (4 items in `27-HUMAN-UAT.md`): live LE cert issuance + 308 redirect (SC #1), live `wss://` 101 upgrade to NotificationsGateway + StatusGateway (SC #3), cert persistence across `docker compose down/up` (SC #4), re-run `verify-phase-27.sh` on healthy Docker host. All 4 explicitly scoped to Phase 30 clean-VM smoke per DOMAIN-SETUP.md footer + 27-05 SUMMARY.
 
-**v1.3 work remaining (Phases 28-30):** GHCR push + CI provenance (28), operator UX scripts + admin CLI (29), smoke test on clean VM (30)
+**Phase 28 highlights (GitHub Actions CI/CD → GHCR, 2026-04-28):**
+- ✅ `.github/workflows/build-images.yml` — matrix `app: [api, web]` parallel build/smoke/push pipeline; `docker/build-push-action@v6` with `load: true` → smoke gate via `bash .github/scripts/smoke-${{ matrix.app }}.sh smoke-${{ matrix.app }}:latest` → `push: true` on non-PR; `actions/attest-build-provenance@v2` attaches sigstore SLSA Build L3 provenance to every pushed image
+- ✅ `.github/workflows/release.yml` — tag-triggered `v*.*.*`, auto-changelog from commits, body includes both image refs + `gh attestation verify` cmds + `docker compose pull && up -d` upgrade snippet, prerelease auto-flag for `-(alpha|beta|rc|test)` suffixes; `permissions: contents: write` only (strict separation from build-images.yml)
+- ✅ `.github/scripts/smoke-{api,web}.sh` — encode Phase 25 D-19 manual checklist as automated CI gates (non-root UID, FFmpeg apt, tini install, Next.js standalone outputFileTracingRoot) — fail at smoke step before any GHCR pollution
+- ✅ Live verification on real GHCR (`Paradoxicez/sms-app`): 9/9 checkpoints PASS — prerelease v1.3.0-test pushed both images with attestation, anonymous `docker pull` succeeded (Pitfall 11 ✓), stable v1.3.0 produced exactly the 4-tag scheme `[v1.3.0, v1.3, sha-14f638d, latest]`, PR build skipped GHCR push, Pitfall 8 leak check returned 0 `.env` layers
+- 🔧 In-plan hotfix: `metadata-action` `pattern={{version}}` → `pattern=v{{version}}` to restore documented 4-tag `vX.Y.Z` format on stable releases (commit `7b7cb8f`)
+- 🔧 Phase 23 latent CI bugs surfaced + fixed inline (3 commits — `168f6e5`/`6caa372`/`14f638d`): drop DATABASE_URL collision in test.yml, conditional `.env` source in `db:check-drift`, `createdb` shadow DB step before drift check
+- 📐 Three documented limitations defer to follow-up (cosmetic, no production impact): L-28-A metadata-action prerelease v-prefix suppression, L-28-B release.yml body capital-P + prerelease-v ref discrepancy, L-28-C linux/amd64-only image (Apple Silicon dev needs `--platform`)
+
+**v1.3 work remaining (Phases 29-30):** operator UX scripts + admin CLI (29), smoke test on clean VM (30)
 
 ## Evolution
 
@@ -243,4 +252,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-28 after Phase 27 completion (Caddy Reverse Proxy + Auto-TLS — 5 plans, DEPLOY-06/07/08/09/24 validated at static layer; 4 live-cluster items routed to Phase 30 in `27-HUMAN-UAT.md`). Phases 23-27 of v1.3 complete; 3 phases remain (28-30: GHCR push, operator UX, smoke test on clean VM). Next: `/gsd-discuss-phase 28` then `/gsd-plan-phase 28` for GitHub Actions CI/CD → GHCR.*
+*Last updated: 2026-04-28 after Phase 28 completion (GitHub Actions CI/CD → GHCR — 4 plans, DEPLOY-03/04/05 validated live on `Paradoxicez/sms-app` GHCR; 9/9 verification checkpoints pass; 3 documented limitations deferred to follow-up). Phases 23-28 of v1.3 complete; 2 phases remain (29-30: operator UX scripts, smoke test on clean VM). Next: `/gsd-discuss-phase 29` then `/gsd-plan-phase 29` for Operator UX bootstrap/update/backup/restore + super-admin CLI.*

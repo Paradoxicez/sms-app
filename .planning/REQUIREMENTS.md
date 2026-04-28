@@ -20,9 +20,9 @@ Requirements for v1.3 milestone. Each maps to roadmap phases.
 
 - [ ] **DEPLOY-01**: Multi-stage `apps/api/Dockerfile` produces ≤450MB production image (`node:22-bookworm-slim` runtime, non-root user, FFmpeg + tini included, prod-deps only)
 - [ ] **DEPLOY-02**: `apps/web/Dockerfile` produces ≤220MB Next.js standalone image (non-root user, `outputFileTracingRoot` configured for monorepo)
-- [ ] **DEPLOY-03**: GitHub Actions workflow builds + pushes both images to `ghcr.io/<org>/sms-{api,web}:<tag>` on git tag push (single-arch `linux/amd64`)
-- [ ] **DEPLOY-04**: Image tags follow `vX.Y.Z` + `vX.Y` + `latest` + `sha-<7>` pattern via `docker/metadata-action@v5`
-- [ ] **DEPLOY-05**: GHA workflow attaches build provenance attestation (`actions/attest-build-provenance`) to each pushed image
+- [x] **DEPLOY-03**: GitHub Actions workflow builds + pushes both images to `ghcr.io/<org>/sms-{api,web}:<tag>` on git tag push (single-arch `linux/amd64`)
+- [x] **DEPLOY-04**: Image tags follow `vX.Y.Z` + `vX.Y` + `latest` + `sha-<7>` pattern via `docker/metadata-action@v5`
+- [x] **DEPLOY-05**: GHA workflow attaches build provenance attestation (`actions/attest-build-provenance`) to each pushed image
 
 ### Reverse Proxy & Auto-TLS
 
@@ -124,9 +124,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DEBT-05 | Phase 23 | Complete |
 | DEPLOY-01 | Phase 25 | Pending |
 | DEPLOY-02 | Phase 25 | Pending |
-| DEPLOY-03 | Phase 28 | Pending |
-| DEPLOY-04 | Phase 28 | Pending |
-| DEPLOY-05 | Phase 28 | Pending |
+| DEPLOY-03 | Phase 28 | ✓ Complete |
+| DEPLOY-04 | Phase 28 | ✓ Complete |
+| DEPLOY-05 | Phase 28 | ✓ Complete |
 | DEPLOY-06 | Phase 27 | Pending |
 | DEPLOY-07 | Phase 27 | Pending |
 | DEPLOY-08 | Phase 27 | Pending |

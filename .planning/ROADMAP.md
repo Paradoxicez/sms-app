@@ -61,7 +61,7 @@ Goal: Take v1.2's feature-complete platform and ship it to production via a pull
 - [x] **Phase 25: Multi-Stage Dockerfiles + Image Hardening** — Production api Dockerfile (4 stages, FFmpeg+tini, non-root), web Dockerfile (Next.js standalone), per-app .dockerignore (completed 2026-04-27)
 - [x] **Phase 26: Production Compose + Migrate Init + Networking + Volumes** — `deploy/docker-compose.yml` with image refs, two-network split, sms-migrate init service, MinIO bucket auto-create + Stream Profile seed (completed 2026-04-28)
 - [x] **Phase 27: Caddy Reverse Proxy + Auto-TLS** — `deploy/Caddyfile` (same-origin), Caddy service with persistent volumes, DOMAIN-SETUP.md (completed 2026-04-28)
-- [ ] **Phase 28: GitHub Actions CI/CD → GHCR** — `build-images.yml` (matrix [api, web], amd64, GH Cache v2), `release.yml`, semver+latest+sha tagging, build provenance attestation
+- [x] **Phase 28: GitHub Actions CI/CD → GHCR** — `build-images.yml` (matrix [api, web], amd64, GH Cache v2), `release.yml`, semver+latest+sha tagging, build provenance attestation (completed 2026-04-28)
 - [ ] **Phase 29: Operator UX (bootstrap/update/backup/restore + super-admin CLI)** — `bin/sms create-admin`, 4 deploy scripts, `deploy/README.md` 5-step quickstart
 - [ ] **Phase 30: Smoke Test on Clean VM (gates v1.3 GA)** — Provision DO/Hetzner droplet, sparse-checkout deploy/, run bootstrap.sh, verify <10min cold deploy, nmap port lockdown
 
@@ -167,12 +167,12 @@ Plans:
   2. Each pushed image carries the four tag variants via `docker/metadata-action@v5`: `v1.3.0-test`, `v1.3` (major.minor), `latest` (on main), and `sha-<7-char-commit>` — verified by `docker inspect ghcr.io/<org>/sms-api:v1.3` showing all aliases
   3. Build provenance attestation is attached to both images via `actions/attest-build-provenance`; `gh attestation verify oci://ghcr.io/<org>/sms-api:v1.3.0-test --owner <org>` succeeds
   4. `release.yml` creates a GitHub Release on tag push, listing the published image references in the release notes; auth uses `${{ secrets.GITHUB_TOKEN }}` (no PAT)
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 Plans:
 - [x] 28-01-PLAN.md — Smoke scripts: .github/scripts/smoke-{api,web}.sh asserting Phase 25 D-19 invariants on every CI build (Wave 1)
 - [x] 28-02-PLAN.md — release.yml: tag-triggered GitHub Release with auto-notes + custom body (image refs + attestation verify + compose pull snippet) + prerelease auto-flag (Wave 1)
 - [x] 28-03-PLAN.md — build-images.yml: matrix [api, web] build/smoke/push to GHCR with semver+latest+sha tags via metadata-action@v5, OCI labels, GH Cache v2, sigstore attestation via attest-build-provenance@v2 (Wave 2)
-- [ ] 28-04-PLAN.md — deploy/.env.production.example GHCR_ORG comment expansion (D-18) + 28-04-VERIFICATION.md 9-checkpoint runbook + live operator checkpoint (D-22 #1-9, D-19 manual GHCR public toggle) (Wave 3, has user checkpoint)
+- [x] 28-04-PLAN.md — deploy/.env.production.example GHCR_ORG comment expansion (D-18) + 28-04-VERIFICATION.md 9-checkpoint runbook + live operator checkpoint (D-22 #1-9, D-19 manual GHCR public toggle) (Wave 3, has user checkpoint)
 
 ### Phase 29: Operator UX (bootstrap/update/backup/restore + super-admin CLI)
 **Goal**: A developer who has never seen the codebase can clone the repo (or sparse-checkout `deploy/`), copy the env example, run a single `bootstrap.sh`, and reach a working super-admin login URL in under 10 minutes. Day-2 operations — updating to a new image tag, taking a backup, restoring from a backup — each fit on a single command and produce auditable, idempotent results.
@@ -213,6 +213,6 @@ Plans:
 | 25. Multi-Stage Dockerfiles + Image Hardening | 6/6 | Complete    | 2026-04-27 |
 | 26. Production Compose + Migrate Init + Networking + Volumes | 4/4 | Complete    | 2026-04-28 |
 | 27. Caddy Reverse Proxy + Auto-TLS | 5/5 | Complete    | 2026-04-28 |
-| 28. GitHub Actions CI/CD → GHCR | 3/4 | In Progress|  |
+| 28. GitHub Actions CI/CD → GHCR | 4/4 | Complete    | 2026-04-28 |
 | 29. Operator UX (bootstrap/update/backup/restore + super-admin CLI) | 0/TBD | Not started | - |
 | 30. Smoke Test on Clean VM (gates v1.3 GA) | 0/TBD | Not started | - |
