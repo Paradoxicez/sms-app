@@ -1,0 +1,121 @@
+# .github/workflows/build-images.yml — Phase 28 (DEPLOY-03, DEPLOY-04, DEPLOY-05).
+#
+# Builds production api + web images on a parallel matrix, smoke-tests each
+# locally-loaded build (Plan 01 .github/scripts/smoke-*.sh), pushes to GHCR
+# with the 4-tag semver scheme via metadata-action@v5, and attaches sigstore
+# build provenance attestation via attest-build-provenance@v2.
+#
+# Trigger matrix (D-01):
+#   push: branches: [main]    -> :main + :latest + :sha-<7>          (push: yes, attest: yes)
+#   push: tags: ['v*.*.*']    -> stable: :vX.Y.Z + :vX.Y + :latest    (push: yes, attest: yes)
+#                              prerelease: :vX.Y.Z-test + :sha-<7>    (push: yes, attest: yes)
+#   pull_request:             -> :pr-<n> (build only — D-02)         (push: NO,  attest: NO)
+#   workflow_dispatch:        -> manual rebuild (no inputs — D-22 deferred)  (push: yes, attest: yes)
+#
+# Pre-release tag policy (D-06): metadata-action's type=semver pattern
+# automatically skips prerelease semver tags (-alpha/-beta/-rc/-test), so
+# `latest` and `vX.Y` aliases never get assigned to a prerelease accidentally.
+#
+# Auth: GITHUB_TOKEN only — no PAT (Pitfall 11 mitigated by D-19 public images).
+# Test-gate co-existence: .github/workflows/test.yml (Phase 23 DEBT-02) runs
+# in parallel; this workflow does NOT duplicate vitest (D-20).
+
+name: Build & Publish Images
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*.*.*'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read           # checkout
+  packages: write          # GHCR push (Pitfall 11)
+  id-token: write          # OIDC for sigstore attestation
+  attestations: write      # actions/attest-build-provenance@v2
+
+# D-03: cancel in-progress on PR + main; NEVER cancel tag builds (every release
+# must complete + attest, even if a follow-up tag arrives mid-build).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'push' || !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAMESPACE: ${{ github.repository_owner }}/sms
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false      # api and web are independent; one failing should not abort the other
+      matrix:
+        app: [api, web]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute image tags + OCI labels (metadata-action D-05, D-07)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}-${{ matrix.app }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,format=short,prefix=sha-
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build image and load to local Docker daemon (D-10 step 1)
+        id: build_load
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/${{ matrix.app }}/Dockerfile
+          platforms: linux/amd64
+          load: true
+          tags: smoke-${{ matrix.app }}:latest
+          cache-from: type=gha,scope=${{ matrix.app }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.app }}
+
+      - name: Smoke test loaded image (D-10 step 2 — gates push)
+        run: bash .github/scripts/smoke-${{ matrix.app }}.sh smoke-${{ matrix.app }}:latest
+
+      - name: Build & push image with full tag set (D-10 step 3)
+        id: push
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/${{ matrix.app }}/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.app }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.app }}
+
+      - name: Attest build provenance (DEPLOY-05, D-09)
+        if: github.event_name != 'pull_request'
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}-${{ matrix.app }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
