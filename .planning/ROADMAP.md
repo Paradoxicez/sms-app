@@ -62,7 +62,7 @@ Goal: Take v1.2's feature-complete platform and ship it to production via a pull
 - [x] **Phase 26: Production Compose + Migrate Init + Networking + Volumes** — `deploy/docker-compose.yml` with image refs, two-network split, sms-migrate init service, MinIO bucket auto-create + Stream Profile seed (completed 2026-04-28)
 - [x] **Phase 27: Caddy Reverse Proxy + Auto-TLS** — `deploy/Caddyfile` (same-origin), Caddy service with persistent volumes, DOMAIN-SETUP.md (completed 2026-04-28)
 - [x] **Phase 28: GitHub Actions CI/CD → GHCR** — `build-images.yml` (matrix [api, web], amd64, GH Cache v2), `release.yml`, semver+latest+sha tagging, build provenance attestation (completed 2026-04-28)
-- [ ] **Phase 29: Operator UX (bootstrap/update/backup/restore + super-admin CLI)** — `bin/sms create-admin`, 4 deploy scripts, `deploy/README.md` 5-step quickstart
+- [x] **Phase 29: Operator UX (bootstrap/update/backup/restore + super-admin CLI)** — `bin/sms create-admin`, 4 deploy scripts, `deploy/README.md` 5-step quickstart (completed 2026-04-28)
 - [ ] **Phase 30: Smoke Test on Clean VM (gates v1.3 GA)** — Provision DO/Hetzner droplet, sparse-checkout deploy/, run bootstrap.sh, verify <10min cold deploy, nmap port lockdown
 
 ## Phase Details
@@ -184,14 +184,14 @@ Plans:
   3. `bash deploy/scripts/update.sh v1.3.1` updates `IMAGE_TAG`, pulls new images, runs migrate, recycles services in dependency order (postgres → redis → minio → migrate → api → web → caddy) without dropping in-flight requests for longer than the configured grace period
   4. `bash deploy/scripts/backup.sh` produces a single timestamped archive (e.g. `sms-backup-2026-04-27T1200.tar.gz`) containing pg_dump output + MinIO mc-mirror + caddy_data tar; `bash deploy/scripts/restore.sh <archive>` consumes that archive and rebuilds all volumes; round-trip preserves all org/user/camera/recording data byte-equivalent
   5. `deploy/README.md` documents the 5-step quickstart (clone → init-secrets → fill domain → bootstrap → first-login) and proves the <10-minute claim with a recorded walkthrough or timing log
-**Plans:** 5/6 plans executed
+**Plans:** 6/6 plans complete
 Plans:
 - [x] 29-01-PLAN.md — DEPLOY-17: bin/sms CLI (apps/api/src/cli/sms.ts) + bash wrapper + Dockerfile cross-touch (Wave 1)
 - [x] 29-02-PLAN.md — DEPLOY-18: deploy/scripts/bootstrap.sh first-run orchestrator (Wave 2)
 - [x] 29-03-PLAN.md — DEPLOY-19: deploy/scripts/update.sh atomic image-tag upgrade (Wave 2)
 - [x] 29-04-PLAN.md — DEPLOY-20: deploy/scripts/backup.sh offline atomic backup (Wave 2)
 - [x] 29-05-PLAN.md — DEPLOY-21: deploy/scripts/restore.sh integrity-verified restore (Wave 2)
-- [ ] 29-06-PLAN.md — DEPLOY-23: deploy/README.md (overwrite stub) + BACKUP-RESTORE.md + TROUBLESHOOTING.md (Wave 3)
+- [x] 29-06-PLAN.md — DEPLOY-23: deploy/README.md (overwrite stub) + BACKUP-RESTORE.md + TROUBLESHOOTING.md (Wave 3)
 
 ### Phase 30: Smoke Test on Clean VM (gates v1.3 GA)
 **Goal**: An external, never-touched-the-codebase Linux VM is provisioned, the deploy folder is sparse-checked-out (or the repo is cloned), DNS is configured, `bootstrap.sh` is run, and within 10 minutes the operator can log in at `https://<domain>`, register a camera, watch RTSP→HLS playback in the browser, see a recording archive in MinIO, and observe live WebSocket status events. Port lockdown is verified externally with nmap. This phase is the v1.3 GA gate — only after it passes does the milestone ship.
@@ -221,5 +221,5 @@ Plans:
 | 26. Production Compose + Migrate Init + Networking + Volumes | 4/4 | Complete    | 2026-04-28 |
 | 27. Caddy Reverse Proxy + Auto-TLS | 5/5 | Complete    | 2026-04-28 |
 | 28. GitHub Actions CI/CD → GHCR | 4/4 | Complete    | 2026-04-28 |
-| 29. Operator UX (bootstrap/update/backup/restore + super-admin CLI) | 5/6 | In Progress|  |
+| 29. Operator UX (bootstrap/update/backup/restore + super-admin CLI) | 6/6 | Complete   | 2026-04-28 |
 | 30. Smoke Test on Clean VM (gates v1.3 GA) | 0/TBD | Not started | - |
