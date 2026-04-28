@@ -79,8 +79,8 @@ jobs:
             type=ref,event=branch
             type=ref,event=pr
             type=sha,format=short,prefix=sha-
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern=v{{version}}
+            type=semver,pattern=v{{major}}.{{minor}}
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build image and load to local Docker daemon (D-10 step 1)
