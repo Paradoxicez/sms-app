@@ -38,3 +38,9 @@ apps/web/.planning/
 # Local bulk-import examples (may contain real credentials/URLs — do not commit)
 bulk-import-*-EXAMPLE.csv
 bulk-import-*-EXAMPLE.xlsx
+
+# Phase 30 (smoke test) — operator's local-only evidence (screenshots, raw logs)
+# Stays out of git per T-30-05 mitigation. Each smoke run creates its own
+# UTC-stamped subdirectory. The SMOKE-TEST-LOG.md does ship — only the binary
+# evidence does not.
+deploy/smoke-evidence/
