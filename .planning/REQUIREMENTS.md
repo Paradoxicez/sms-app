@@ -117,37 +117,37 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DEBT-01 | Phase 23 | Pending |
-| DEBT-02 | Phase 23 | Pending |
-| DEBT-03 | Phase 23 | Pending |
-| DEBT-04 | Phase 23 | Pending |
-| DEBT-05 | Phase 23 | Complete |
-| DEPLOY-01 | Phase 25 | Pending |
-| DEPLOY-02 | Phase 25 | Pending |
+| DEBT-01 | Phase 23 | ✓ Complete |
+| DEBT-02 | Phase 23 | ✓ Complete |
+| DEBT-03 | Phase 23 | ✓ Complete |
+| DEBT-04 | Phase 23 | ✓ Complete |
+| DEBT-05 | Phase 23 | ✓ Complete |
+| DEPLOY-01 | Phase 25 | ✓ Complete |
+| DEPLOY-02 | Phase 25 | ✓ Complete |
 | DEPLOY-03 | Phase 28 | ✓ Complete |
 | DEPLOY-04 | Phase 28 | ✓ Complete |
 | DEPLOY-05 | Phase 28 | ✓ Complete |
-| DEPLOY-06 | Phase 27 | Pending |
-| DEPLOY-07 | Phase 27 | Pending |
-| DEPLOY-08 | Phase 27 | Pending |
-| DEPLOY-09 | Phase 27 | Pending |
-| DEPLOY-10 | Phase 26 | Pending |
-| DEPLOY-11 | Phase 26 | Pending |
-| DEPLOY-12 | Phase 26 | Pending |
-| DEPLOY-13 | Phase 26 | Pending |
-| DEPLOY-14 | Phase 26 | Pending |
-| DEPLOY-15 | Phase 26 | Pending |
-| DEPLOY-16 | Phase 26 | Pending |
-| DEPLOY-17 | Phase 29 | Pending |
-| DEPLOY-18 | Phase 29 | Pending |
-| DEPLOY-19 | Phase 29 | Pending |
-| DEPLOY-20 | Phase 29 | Pending |
-| DEPLOY-21 | Phase 29 | Pending |
-| DEPLOY-22 | Phase 26 | Pending |
-| DEPLOY-23 | Phase 29 | Pending |
-| DEPLOY-24 | Phase 27 | Pending |
-| DEPLOY-25 | Phase 30 | Pending |
-| DEPLOY-26 | Phase 30 | Pending |
+| DEPLOY-06 | Phase 27 | ✓ Complete |
+| DEPLOY-07 | Phase 27 | ✓ Complete |
+| DEPLOY-08 | Phase 27 | ✓ Complete |
+| DEPLOY-09 | Phase 27 | ✓ Complete |
+| DEPLOY-10 | Phase 26 | ✓ Complete |
+| DEPLOY-11 | Phase 26 | ✓ Complete |
+| DEPLOY-12 | Phase 26 | ✓ Complete |
+| DEPLOY-13 | Phase 26 | ✓ Complete |
+| DEPLOY-14 | Phase 26 | ✓ Complete |
+| DEPLOY-15 | Phase 26 | ✓ Complete |
+| DEPLOY-16 | Phase 26 | ✓ Complete |
+| DEPLOY-17 | Phase 29 | ✓ Complete |
+| DEPLOY-18 | Phase 29 | ✓ Complete |
+| DEPLOY-19 | Phase 29 | ✓ Complete |
+| DEPLOY-20 | Phase 29 | ✓ Complete |
+| DEPLOY-21 | Phase 29 | ✓ Complete |
+| DEPLOY-22 | Phase 26 | ✓ Complete |
+| DEPLOY-23 | Phase 29 | ✓ Complete |
+| DEPLOY-24 | Phase 27 | ✓ Complete |
+| DEPLOY-25 | Phase 30 | ✓ Complete |
+| DEPLOY-26 | Phase 30 | ✓ Complete |
 
 **Coverage:**
 - v1.3 requirements: 31 total (5 DEBT + 26 DEPLOY)
