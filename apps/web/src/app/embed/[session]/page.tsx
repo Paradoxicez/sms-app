@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import Hls from 'hls.js';
 import { Loader2 } from 'lucide-react';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
 interface SessionInfo {
   id: string;

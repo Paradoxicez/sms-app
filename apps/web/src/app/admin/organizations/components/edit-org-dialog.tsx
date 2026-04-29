@@ -60,7 +60,7 @@ interface EditOrgDialogProps {
   org: Organization | null;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3003";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 export function EditOrgDialog({ open, onOpenChange, onSuccess, org }: EditOrgDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);

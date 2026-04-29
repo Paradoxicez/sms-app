@@ -19,7 +19,7 @@ import {
 
 import { createOrgColumns, type OrgRow } from "./org-columns"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3003"
+const API_URL = process.env.NEXT_PUBLIC_API_URL || ""
 
 interface OrgDataTableProps {
   organizations: OrgRow[]

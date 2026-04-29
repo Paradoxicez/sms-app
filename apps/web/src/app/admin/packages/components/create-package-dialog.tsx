@@ -44,7 +44,7 @@ const FEATURE_TOGGLES = [
   { key: "apiKeys", label: "API Keys" },
 ];
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3003";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 export function CreatePackageDialog({ open, onOpenChange, onSuccess }: CreatePackageDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
