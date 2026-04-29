@@ -214,9 +214,164 @@ step_verify_phase_27() {
 # ============================================================================
 # Main execution
 # ============================================================================
+# ============================================================================
+# Step [5/7] — bin/sms create-admin idempotent + --force (Phase 29 SC#2)
+# ============================================================================
+step_create_admin_idempotent() {
+  log "[5/7] bin/sms create-admin idempotent runtime (Phase 29 SC#2)"
+
+  # Test 1: re-running with same email → exit 1 + "already exists" message.
+  # bootstrap.sh has already created the admin in step [1/7]; re-invoking
+  # without --force MUST surface 'already exists' on stderr or stdout.
+  local readmin_out
+  readmin_out=$(${DC} exec -T api bin/sms create-admin --email "${ADMIN_EMAIL}" --password "${ADMIN_PASSWORD}" 2>&1 || true)
+  if echo "${readmin_out}" | grep -q 'already exists'; then
+    pass_check "create-admin re-run with same email → 'already exists' (idempotent)"
+    PASS=$((PASS+1))
+  else
+    fail_check "create-admin re-run did not emit 'already exists' — output: ${readmin_out}"
+    FAIL=$((FAIL+1))
+  fi
+
+  # Test 2: --force rotates password without changing user.id.
+  # We query Postgres directly via psql exec for the cleanest identity check.
+  # ADMIN_EMAIL is operator-supplied trusted input (T-30-09 disposition: accept).
+  local before_id
+  before_id=$(${DC} exec -T postgres psql -U "${POSTGRES_USER:-sms}" -d "${POSTGRES_DB:-sms_platform}" -tAc "SELECT id FROM \"User\" WHERE email='${ADMIN_EMAIL}'" 2>/dev/null | tr -d '[:space:]' || echo "")
+  if ${DC} exec -T api bin/sms create-admin --email "${ADMIN_EMAIL}" --password "${ADMIN_PASSWORD}" --force 2>&1 | grep -qE 'rotated|success|created'; then
+    local after_id
+    after_id=$(${DC} exec -T postgres psql -U "${POSTGRES_USER:-sms}" -d "${POSTGRES_DB:-sms_platform}" -tAc "SELECT id FROM \"User\" WHERE email='${ADMIN_EMAIL}'" 2>/dev/null | tr -d '[:space:]' || echo "")
+    if [[ -n "${before_id}" && "${before_id}" == "${after_id}" ]]; then
+      pass_check "create-admin --force preserved user.id (${before_id})"
+      PASS=$((PASS+1))
+    else
+      fail_check "create-admin --force changed user.id (before=${before_id}, after=${after_id}) — Phase 29 D-09 violated"
+      FAIL=$((FAIL+1))
+    fi
+  else
+    fail_check "create-admin --force did not succeed"
+    FAIL=$((FAIL+1))
+  fi
+  echo
+}
+
+# ============================================================================
+# Step [6/7] — update.sh atomic recycle (Phase 29 SC#3)
+# ============================================================================
+step_update_atomic_recycle() {
+  if [[ -n "${SKIP_UPDATE:-}" ]]; then
+    log "[6/7] SKIP_UPDATE=1 — skipping update.sh atomic recycle test"
+    echo
+    return 0
+  fi
+
+  log "[6/7] update.sh atomic recycle (Phase 29 SC#3)"
+  log "  Probing /api/health continuously during update.sh ${IMAGE_TAG:-latest} re-recycle..."
+
+  # Background curl probe loop: hits /api/health every 1s for 180s, logs each
+  # `<unix-ts> <http-code>` line for the post-recycle outage analysis.
+  local probe_log
+  probe_log=$(mktemp)
+  (
+    local end=$((SECONDS + 180))
+    while [[ ${SECONDS} -lt ${end} ]]; do
+      local code
+      code=$(curl -s -o /dev/null -w '%{http_code}\n' --max-time 2 "https://${DOMAIN}/api/health" 2>/dev/null || echo 000)
+      printf '%s %s\n' "$(date +%s)" "${code}" >> "${probe_log}"
+      sleep 1
+    done
+  ) &
+  local probe_pid=$!
+
+  # Run update.sh with the SAME IMAGE_TAG — we are testing the recycle
+  # codepath, NOT image-version upgrade. This avoids the smoke run needing
+  # two published tags. The recycle still happens (compose up -d issues a
+  # full container replacement when the spec changes, but here the spec is
+  # identical → it issues a soft restart per service per Phase 26 depends_on
+  # chain). For a fresh-VM smoke this is sufficient atomic-recycle proof.
+  local update_start update_end update_elapsed update_rc
+  update_start=$(date +%s)
+  set +e
+  bash "${SCRIPT_DIR}/update.sh" "${IMAGE_TAG:-latest}" >/tmp/update-output.log 2>&1
+  update_rc=$?
+  set -e
+  update_end=$(date +%s)
+  update_elapsed=$((update_end - update_start))
+
+  # Wait for probe loop to finish (it self-terminates after 180s)
+  wait "${probe_pid}" 2>/dev/null || true
+
+  if [[ "${update_rc}" -eq 0 ]]; then
+    pass_check "update.sh exit 0 (recycle completed in ${update_elapsed}s)"
+    PASS=$((PASS+1))
+  else
+    fail_check "update.sh exit ${update_rc} — see /tmp/update-output.log"
+    FAIL=$((FAIL+1))
+  fi
+
+  # Analyze probe log: count consecutive non-200 windows.
+  # Longest contiguous outage MUST be <= 5s (Phase 29 D-15 grace period).
+  local longest_outage=0 current_outage=0
+  local ts code
+  while read -r ts code; do
+    if [[ "${code}" != "200" ]]; then
+      current_outage=$((current_outage + 1))
+      if [[ ${current_outage} -gt ${longest_outage} ]]; then
+        longest_outage=${current_outage}
+      fi
+    else
+      current_outage=0
+    fi
+  done < "${probe_log}"
+  if [[ ${longest_outage} -le 5 ]]; then
+    pass_check "Longest /api/health outage during recycle: ${longest_outage}s ≤ 5s (Phase 29 SC#3 PASS)"
+    PASS=$((PASS+1))
+  else
+    fail_check "Longest /api/health outage during recycle: ${longest_outage}s > 5s — atomic recycle dropped requests"
+    FAIL=$((FAIL+1))
+  fi
+  rm -f "${probe_log}" /tmp/update-output.log
+  echo
+}
+
+# ============================================================================
+# Step [7/7] — summary + exit code + tee to SMOKE-TEST-LOG (D-11)
+# ============================================================================
+step_summary_and_exit() {
+  log "[7/7] Summary"
+  printf '  PASS=%s  FAIL=%s\n' "${PASS}" "${FAIL}"
+  echo
+
+  # Append a result row to SMOKE-TEST-LOG.md if the file exists (D-11
+  # evidence sink). Best-effort: missing log does NOT fail the verifier.
+  if [[ -f "${LOG_FILE}" ]]; then
+    local result_label
+    if [[ "${FAIL}" -eq 0 ]]; then
+      result_label="PASS"
+    else
+      result_label="FAIL"
+    fi
+    printf '\n<!-- verify-deploy.sh run %s — %s checks PASS, %s FAIL, verdict=%s -->\n' \
+      "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${PASS}" "${FAIL}" "${result_label}" >> "${LOG_FILE}"
+  fi
+
+  if [[ "${FAIL}" -eq 0 ]]; then
+    ok "All ${PASS} verify-deploy assertions passed."
+    log "Phase 30 SC#1 satisfied (covers Phase 27 SC#1/#3/#4 + Phase 29 SC#1/#2/#3)"
+    exit 0
+  else
+    die "${FAIL} of $((PASS+FAIL)) assertions failed. v1.3 GA blocked (D-12 hard fail)."
+    # die() exits 1
+  fi
+}
+
+# ============================================================================
+# Main execution
+# ============================================================================
 step_cold_deploy_timing
 step_https_reachable
 step_cert_persistence
 step_verify_phase_27
-
-# Steps [5/7], [6/7], [7/7] layered on by Task 2 of Plan 30-03.
+step_create_admin_idempotent
+step_update_atomic_recycle
+step_summary_and_exit
