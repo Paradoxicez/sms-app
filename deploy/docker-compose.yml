@@ -209,6 +209,11 @@ services:
       # compose because api + srs are isolated containers. Use the compose
       # service name so all api → srs traffic routes correctly.
       SRS_HOST: srs
+      # SRS_PUBLIC_HOST is the EXTERNAL hostname operators see in generated
+      # push URLs (rtmp://${SRS_PUBLIC_HOST}:1935/push/<key>). Without this
+      # env, cameras.service builds URLs with "localhost" → useless for
+      # external encoders (OBS/NVR pushing from outside the VM).
+      SRS_PUBLIC_HOST: ${DOMAIN}
       # api source reads process.env.SRS_API_URL (NOT SRS_HTTP_API_URL).
       # Mismatch falls back to http://localhost:1985 → CameraHealthService's
       # SRS probe fails → ffmpegAlive=true + srsAlive=false → "dead stream
