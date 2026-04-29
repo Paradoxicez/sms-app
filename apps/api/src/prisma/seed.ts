@@ -129,7 +129,7 @@ async function main() {
   console.log('Developer package assigned to system org');
 
   console.log('\n--- Seed complete ---');
-  console.log(`Super Admin: ${adminEmail} / ${adminPassword}`);
+  console.log(`Super Admin email: ${adminEmail} (password from .env, not echoed)`);
 }
 
 main()

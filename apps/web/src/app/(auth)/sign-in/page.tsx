@@ -46,8 +46,6 @@ export default function SignInPage() {
         rememberMe: rememberMe,
       });
 
-      console.log("sign-in result:", JSON.stringify(result));
-
       if (result.error) {
         setError("Invalid email or password. Please try again.");
         setIsLoading(false);

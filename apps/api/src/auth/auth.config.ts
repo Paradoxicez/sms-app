@@ -49,8 +49,10 @@ export async function initAuth() {
         },
         allowUserToCreateOrganization: false,
         creatorRole: 'admin',
-        sendInvitationEmail: async (data: any) => {
-          console.log(`Invitation email to ${data.email}`, data);
+        sendInvitationEmail: async (_data: any) => {
+          // Stub — wire to email provider in production. Do NOT log the
+          // payload: it contains the invitation token URL which any reader
+          // of the api logs could use to accept the invitation.
         },
       }),
       admin({
