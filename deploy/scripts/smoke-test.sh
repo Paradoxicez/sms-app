@@ -32,7 +32,7 @@
 #   - The aggregated MAX_RC therefore covers: verify-deploy + verify-playback + verify-backup.
 # ============================================================================
 set -euo pipefail
-IFS=$'\n\t'
+IFS=$' \n\t'
 
 # --- Path resolution -------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

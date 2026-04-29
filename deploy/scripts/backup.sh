@@ -27,7 +27,7 @@
 # ============================================================================
 
 set -euo pipefail
-IFS=$'\n\t'
+IFS=$' \n\t'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEPLOY_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"

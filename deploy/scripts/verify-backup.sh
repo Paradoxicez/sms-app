@@ -42,7 +42,7 @@
 # ============================================================================
 
 set -euo pipefail
-IFS=$'\n\t'
+IFS=$' \n\t'
 
 # --- Path resolution (works from any CWD) ---
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
