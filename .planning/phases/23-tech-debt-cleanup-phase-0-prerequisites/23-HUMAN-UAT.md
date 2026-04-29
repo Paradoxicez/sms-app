@@ -3,18 +3,24 @@ status: partial
 phase: 23-tech-debt-cleanup-phase-0-prerequisites
 source: [23-VERIFICATION.md]
 started: 2026-04-27T18:45:00Z
-updated: 2026-04-27T18:45:00Z
+updated: 2026-04-29T13:00:00Z
 ---
 
 ## Current Test
 
-[awaiting human testing]
+[testing paused — 2 items deferred (recording-page visual + branch protection)]
 
 ## Tests
 
 ### 1. Re-run api test suite locally to confirm green
 expected: `pnpm --filter @sms-platform/api test` returns `828 passed | 0 failed | 121 todo | 11 skipped` (or close — 11 skipped are Redis-gated integration tests)
-result: [pending]
+result: skipped
+reason: |
+  Out of Phase 30 fresh-VM smoke scope — laptop-side test that depends on local
+  Postgres + Redis. CI workflow on origin/main runs the same suite on every push;
+  green builds on runs 25097887583 + 25107464738 + 25107211594 (and others) confirm
+  the suite is green against `main` as it stands. Defer manual local re-run to v1.4
+  test-backfill cycle.
 
 Command:
 ```bash
@@ -27,7 +33,12 @@ expected: Recording playback page header shows
 - Description line-clamped to 2-3 lines with "Show more" disclosure when overflowing
 - Read-only badges (no clickable filter)
 - Both displayed above the player
-result: [pending]
+result: blocked
+blocked_by: prior-phase
+reason: |
+  Phase 30 manual UI checklist step 4 (Toggle Record) was not exercised this session,
+  so no recording was produced to navigate to. Carry-forward together with
+  30-HUMAN-UAT.md Test #3.
 
 Steps:
 1. Start dev stack: `pnpm dev`
@@ -39,7 +50,13 @@ Steps:
 
 ### 3. Activate CI gate (DEBT-02 Tasks 4 + 5 deferred from 23-05)
 expected: `gh repo create` (or `git remote add`), push to GitHub, wait for first green `test.yml` run, then enable branch protection requiring `test` check on `main`
-result: [pending]
+result: issue
+reported: |
+  Origin remote configured (git@github.com:Paradoxicez/sms-app.git) and CI workflow
+  test.yml runs green on every push throughout 2026-04-29 — confirmed via
+  `gh run list --workflow=test.yml`. Branch-protection enable step (gh api PUT) NOT
+  yet executed. Carry-forward to v1.3.x.
+severity: minor
 
 Steps (when ready to push to GitHub):
 1. Create GitHub repo + push:
@@ -88,9 +105,21 @@ Steps (when ready to push to GitHub):
 
 total: 3
 passed: 0
-issues: 0
-pending: 3
-skipped: 0
-blocked: 0
+issues: 1
+pending: 0
+skipped: 1
+blocked: 1
 
 ## Gaps
+
+- truth: "Branch protection on main requires test workflow to pass before merge"
+  status: failed
+  reason: "Origin remote + green CI confirmed; branch-protection PUT call deferred to v1.3.x ops cycle"
+  severity: minor
+  test: 3
+  root_cause: "Operator-step deferred — no code/wiring blocker"
+  artifacts: []
+  missing:
+    - "Run gh api PUT /repos/.../branches/main/protection with required_status_checks={contexts:['test']}"
+    - "Verify with gh api ... -q .required_status_checks.contexts"
+  debug_session: ""
