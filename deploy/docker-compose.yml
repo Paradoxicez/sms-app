@@ -209,6 +209,11 @@ services:
       # compose because api + srs are isolated containers. Use the compose
       # service name so all api → srs traffic routes correctly.
       SRS_HOST: srs
+      # api source reads process.env.SRS_API_URL (NOT SRS_HTTP_API_URL).
+      # Mismatch falls back to http://localhost:1985 → CameraHealthService's
+      # SRS probe fails → ffmpegAlive=true + srsAlive=false → "dead stream
+      # detected" → kills FFmpeg every 60s in a tight loop.
+      SRS_API_URL: http://srs:1985
       SRS_HTTP_API_URL: http://srs:1985
       SRS_HLS_PATH: /srs-hls
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
