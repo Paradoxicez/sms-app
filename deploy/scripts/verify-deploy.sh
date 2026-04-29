@@ -238,7 +238,7 @@ step_create_admin_idempotent() {
   # ADMIN_EMAIL is operator-supplied trusted input (T-30-09 disposition: accept).
   local before_id
   before_id=$(${DC} exec -T postgres psql -U "${POSTGRES_USER:-sms}" -d "${POSTGRES_DB:-sms_platform}" -tAc "SELECT id FROM \"User\" WHERE email='${ADMIN_EMAIL}'" 2>/dev/null | tr -d '[:space:]' || echo "")
-  if ${DC} exec -T api bin/sms create-admin --email "${ADMIN_EMAIL}" --password "${ADMIN_PASSWORD}" --force 2>&1 | grep -qE 'rotated|success|created'; then
+  if ${DC} exec -T api bin/sms create-admin --email "${ADMIN_EMAIL}" --password "${ADMIN_PASSWORD}" --force 2>&1 | grep -qE 'rotated|success|created|Updated password'; then
     local after_id
     after_id=$(${DC} exec -T postgres psql -U "${POSTGRES_USER:-sms}" -d "${POSTGRES_DB:-sms_platform}" -tAc "SELECT id FROM \"User\" WHERE email='${ADMIN_EMAIL}'" 2>/dev/null | tr -d '[:space:]' || echo "")
     if [[ -n "${before_id}" && "${before_id}" == "${after_id}" ]]; then

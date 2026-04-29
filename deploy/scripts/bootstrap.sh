@@ -151,6 +151,16 @@ else
 fi
 rm -f /tmp/bootstrap-create-admin.err
 
+# --- DEPLOY-16 fix: re-run seed now that the system org exists ---
+# sms-migrate ran earlier (line 107) against an empty org list, so
+# seed-stream-profile.js no-ops per its zero-orgs guard. Re-running here (after
+# create-admin inserts the system org) lets the seed insert the default
+# StreamProfile. Idempotent: prisma migrate deploy + bucket init + seed all
+# no-op when their target state is already present.
+log "Re-seeding default Stream Profile (post-admin)..."
+${DC} run --rm sms-migrate || warn "Stream-profile re-seed failed (non-fatal). Inspect: ${DC} logs sms-migrate"
+ok "Default Stream Profile seeded"
+
 # --- D-10: Wait HTTPS reachable (poll Caddy /api/health 5s × 24 = 120s) ---
 # Caddy provisions a Let's Encrypt cert on first request to :443 — typically
 # 30-60s end-to-end (DNS-01 / HTTP-01 challenge + ACME order + cert install).
