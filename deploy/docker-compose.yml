@@ -215,6 +215,11 @@ services:
       # detected" → kills FFmpeg every 60s in a tight loop.
       SRS_API_URL: http://srs:1985
       SRS_HTTP_API_URL: http://srs:1985
+      # SRS HTTP server (port 8080) for HLS proxy + cluster HLS. Source uses
+      # two different env names — set both. Default fallback localhost:8080
+      # has nothing in api container → preview m3u8 proxy 502s → black player.
+      SRS_HTTP_URL: http://srs:8080
+      SRS_HLS_URL: http://srs:8080
       SRS_HLS_PATH: /srs-hls
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
       BETTER_AUTH_URL: https://${DOMAIN}
