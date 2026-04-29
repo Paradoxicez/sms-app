@@ -65,9 +65,14 @@ import { ResilienceModule } from './resilience/resilience.module';
       throttlers:
         process.env.NODE_ENV === 'production'
           ? [
-              { name: 'global', ttl: 60000, limit: 100 },
-              { name: 'tenant', ttl: 60000, limit: 60 },
-              { name: 'apikey', ttl: 60000, limit: 30 },
+              // Production limits sized for a real-tenant deploy: dashboard
+              // polls (status, viewers, bandwidth) + per-camera previews +
+              // Socket.IO heartbeats + bulk-import + login retries all share
+              // the global pool. 100/60s was too tight and locked out the
+              // sign-in endpoint after a handful of clicks.
+              { name: 'global', ttl: 60000, limit: 600 },
+              { name: 'tenant', ttl: 60000, limit: 300 },
+              { name: 'apikey', ttl: 60000, limit: 120 },
             ]
           : [
               // Dev/UAT: raise ceilings so exploratory sessions do not lock out.
