@@ -42,6 +42,14 @@
 		reverse_proxy minio:9000
 	}
 
+	# SRS HLS — strip /srs-hls prefix and proxy to SRS HTTP server (port 8080).
+	# Used by playback.service-issued hlsUrls so external players (embed page,
+	# third-party iframes) can reach SRS via the public domain. SRS validates
+	# the JWT token via on_play callback before serving m3u8 + .ts segments.
+	handle_path /srs-hls/* {
+		reverse_proxy srs:8080
+	}
+
 	# Default: web (Next.js).
 	handle {
 		reverse_proxy web:3000

@@ -225,6 +225,11 @@ services:
       # has nothing in api container → preview m3u8 proxy 502s → black player.
       SRS_HTTP_URL: http://srs:8080
       SRS_HLS_URL: http://srs:8080
+      # PUBLIC_HLS_BASE_URL is what playback.service writes into the session
+      # response (returned to embed page, third-party iframes). Must be a
+      # browser-resolvable URL — the internal SRS_* URLs only work from inside
+      # the compose network. Caddy strips /srs-hls and proxies to srs:8080.
+      PUBLIC_HLS_BASE_URL: https://${DOMAIN}/srs-hls
       SRS_HLS_PATH: /srs-hls
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
       BETTER_AUTH_URL: https://${DOMAIN}

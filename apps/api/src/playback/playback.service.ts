@@ -98,8 +98,11 @@ export class PlaybackService {
 
     // 6. Select least-loaded edge node for HLS delivery (per D-09, D-10, D-11)
     const edgeNode = await this.clusterService.getLeastLoadedEdge();
+    const publicBase = process.env.PUBLIC_HLS_BASE_URL;
     const hlsBase = edgeNode
       ? `${edgeNode.hlsUrl}/live/${orgId}/${cameraId}.m3u8`
+      : publicBase
+      ? `${publicBase}/live/${orgId}/${cameraId}.m3u8`
       : `http://${process.env.SRS_HOST || 'localhost'}:8080/live/${orgId}/${cameraId}.m3u8`;
     const hlsUrl = `${hlsBase}?token=${token}`;
 
@@ -182,8 +185,11 @@ export class PlaybackService {
     // 6. Pick edge node + build hlsUrl — byte-identical formula to createSession
     //    so the URL FFmpeg requests is the URL on_play will validate.
     const edgeNode = await this.clusterService.getLeastLoadedEdge();
+    const publicBase = process.env.PUBLIC_HLS_BASE_URL;
     const hlsBase = edgeNode
       ? `${edgeNode.hlsUrl}/live/${orgId}/${cameraId}.m3u8`
+      : publicBase
+      ? `${publicBase}/live/${orgId}/${cameraId}.m3u8`
       : `http://${process.env.SRS_HOST || 'localhost'}:8080/live/${orgId}/${cameraId}.m3u8`;
     const hlsUrl = `${hlsBase}?token=${token}`;
 
