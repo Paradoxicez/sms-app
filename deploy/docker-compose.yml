@@ -189,6 +189,11 @@ services:
       PORT: "3003"
       DATABASE_URL: postgresql://${POSTGRES_USER:-sms}:${DB_PASSWORD}@postgres:5432/${POSTGRES_DB:-sms_platform}?schema=public
       DATABASE_URL_MIGRATE: postgresql://${POSTGRES_USER:-sms}:${DB_PASSWORD}@postgres:5432/${POSTGRES_DB:-sms_platform}?schema=public
+      # api source (api-keys/streams/cameras modules) reads REDIS_HOST + REDIS_PORT
+      # individually via process.env, NOT a connection URL. Keep REDIS_URL alongside
+      # for forward-compat / BullMQ workers that prefer URL form.
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
       REDIS_URL: redis://redis:6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       MINIO_ENDPOINT: minio
