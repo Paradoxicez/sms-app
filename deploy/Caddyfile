@@ -49,6 +49,14 @@
 	handle_path /srs-hls/* {
 		reverse_proxy srs:8080
 	}
+	# /live/* mirrors SRS's natural path. SRS's master playlist (with hls_ctx)
+	# emits absolute /live/... URLs for the inner playlist + .ts segments —
+	# without this route the browser hits Caddy's default → web:3000 → 404.
+	# SRS still validates the JWT via on_play, so direct /live/* access is
+	# auth-equivalent to /srs-hls/live/*.
+	handle /live/* {
+		reverse_proxy srs:8080
+	}
 
 	# Default: web (Next.js).
 	handle {
