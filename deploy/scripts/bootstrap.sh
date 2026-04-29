@@ -99,12 +99,26 @@ ${DC} pull
 ok "Images pulled"
 
 # --- D-09: Wait sms-migrate to exit 0 BEFORE create-admin ---
-# `compose up -d --wait sms-migrate` blocks until the init container exits 0
-# (or fails). Exit 0 → schema migrated (prisma migrate deploy is idempotent),
-# MinIO buckets created, default stream profile seeded. Failure here is fatal:
-# api will crash-loop against an unmigrated DB.
+# `compose --wait` is misleading for one-shot init containers: it expects
+# RUNNING/HEALTHY but our sms-migrate has restart:"no" and exits 0 when
+# done, which compose treats as failure even though the migration actually
+# succeeded. So we drop --wait, bring it up, then check the *real* exit
+# code via docker inspect after compose returns.
 log "Running migrate + bucket init + stream-profile seed (sms-migrate)..."
-${DC} up -d --wait sms-migrate || die "sms-migrate failed. Inspect: ${DC} logs sms-migrate"
+${DC} up -d sms-migrate >/dev/null 2>&1 || true   # may return non-zero; we read exit code below
+
+# Poll for the container to actually finish (compose returns before exit on
+# some versions). Cap at 5 min — anything longer is a real fault.
+for _ in $(seq 1 60); do
+  state=$(${DC} ps -a --format '{{.State}}' sms-migrate 2>/dev/null | head -1 || true)
+  [[ "${state}" == "exited" ]] && break
+  sleep 5
+done
+
+migrate_cid=$(${DC} ps -aq sms-migrate 2>/dev/null | head -1)
+[[ -n "${migrate_cid}" ]] || die "sms-migrate container not found after up. Inspect: ${DC} logs sms-migrate"
+migrate_exit=$(docker inspect -f '{{.State.ExitCode}}' "${migrate_cid}" 2>/dev/null || echo 127)
+[[ "${migrate_exit}" == "0" ]] || die "sms-migrate exited with code ${migrate_exit}. Inspect: ${DC} logs sms-migrate"
 ok "sms-migrate exited 0 (schema + buckets + default profile ready)"
 
 # --- D-09: Bring up the rest of the stack (api + web + caddy) ---
