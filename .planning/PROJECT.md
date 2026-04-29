@@ -79,7 +79,11 @@ Developers can get a secure HLS playback URL for any registered camera via a sin
 
 ### Active
 
-(Milestone v1.3 Production Ready — all 8 phases (23-30) complete. Awaiting `/gsd-audit-milestone v1.3` and `/gsd-complete-milestone` to archive.)
+_All v1.3 requirements validated. Next milestone (v1.4) scope opens with a process item:_
+
+- Replace Phase 24-29 static-only verifiers with live-runtime smoke gates so wiring bugs surface in CI not in operator smoke (lesson from v1.3 fresh-VM smoke — eighteen latent env-var/init/config bugs only surfaced when a real VM exercised the green-static-verified pipeline; see `.planning/todos/v1.3.1-drift-from-phase-30.md` v1.4 process item)
+- Run `/gsd-validate-phase` for phases 24-30 to backfill Nyquist VALIDATION.md (process debt, 7 phases)
+- Address v1.3.1 backlog items (`.planning/todos/v1.3.1-drift-from-phase-30.md`): SRS WebRTC/SRT UDP listeners, README DNS-propagation warning, branch protection on main, recording playback visual smoke, update.sh atomic recycle test, backup/restore round-trip, UI checklist remaining steps
 
 ### Deferred to Future
 
@@ -140,6 +144,12 @@ Developers can get a secure HLS playback URL for any registered camera via a sin
 | Camera.tags as denormalized String[] with `tagsNormalized` shadow + GIN | Avoid Tag entity over-engineering; case-insensitive search | ✓ Good — Phase 22 ships across 4 surfaces |
 | RTMP push with platform-generated stream keys + SRS forward hook | Avoid FFmpeg pull for encoders that prefer push | ✓ Good — Phase 19.1 inserted between 19 and 20 |
 | Active-job collision via Redis pub/sub (Phase 21.1) | Phase 21 surface contract was correct but runtime restart cycle silently dropped on locked jobs | ✓ Good — gap closure phase pattern works |
+| Pull-only Docker Compose deploy (v1.3) | Pre-built GHCR images + single docker-compose.yml in repo + auto-TLS via Caddy = zero source on prod box | ✓ Good — `bash bootstrap.sh` brings clean Ubuntu VM to working HTTPS in 161s |
+| Phase 26-29 v1.3 phase order: deploy folder skeleton → Dockerfiles → compose → Caddy → CI/CD → operator scripts → smoke | Each phase's static contract is a prerequisite for the next; smoke gates the whole chain | ✓ Good — separation worked, but ⚠️ Revisit: static-only verifiers missed 18 wiring bugs that only surfaced on a real VM |
+| `host.docker.internal` callbacks in srs.conf (initial Phase 26) | Worked in dev (Docker Desktop on Mac) but breaks on Linux Docker Engine (no automatic host.docker.internal DNS) | ⚠️ Revisit — fixed inline during Phase 30 smoke (commit `0479298`) by switching to compose service-name `api:3003`; future phases must default to service-name for any cross-container HTTP |
+| `--ignore-scripts` on prod-deps stage (initial Phase 25 Dockerfile) | Mirrors Pitfall 8 leak prevention but accidentally skips `@prisma/engines` postinstall → engines missing in runtime image | ⚠️ Revisit — fixed inline during Phase 30 smoke (commit `5683572`) by copying schema into prod-deps + dropping `--ignore-scripts`; future Dockerfiles must explicitly verify runtime artifacts after stage transitions |
+| Caddy `acme_ca {$VAR:default}` syntax (initial Phase 27) | Caddy's env-var default applies only when var is UNSET, not when set-but-empty (which is what compose `${VAR:-}` expands to) | ⚠️ Revisit — fixed inline during Phase 30 smoke (commit `be1ef1b`) by moving the LE-prod default into compose `${ACME_CA:-https://acme-v02.api.letsencrypt.org/directory}`; pattern repeats wherever Caddyfile + compose env-defaults compose |
+| NestJS Throttler global pool 100/min (Phase 1 default carried into v1.3) | OK for single-tenant dev but gets saturated by 7 cameras polling status + Socket.IO heartbeats + dashboard fetches → sign-in 429 ThrottlerException | ⚠️ Revisit — fixed inline during Phase 30 smoke (commit `d74b9a4`) by raising to 600/min; v1.4 should add per-route throttle on `/auth/sign-in/*` so brute-force protection is independent of global headroom |
 
 ## Current Milestone: v1.3 Production Ready
 
@@ -169,8 +179,8 @@ Developers can get a secure HLS playback URL for any registered camera via a sin
 
 ## Current State
 
-**Shipped:** v1.2 Self-Service, Resilience & UI Polish (2026-04-27) — 11 phases, 64 plans, 115 tasks
-**Feature-complete:** v1.3 Production Ready — all 8 phases (23-30) complete (2026-04-29); awaiting milestone audit + archive before tagging GA
+**Shipped:** v1.3 Production Ready (2026-04-29) — 8 phases (23-30), 42 plans, 48 tasks; first GA release
+**Previous:** v1.2 Self-Service, Resilience & UI Polish (2026-04-27) — 11 phases, 64 plans, 115 tasks
 **Stack:** NestJS 11 + Next.js 15 + PostgreSQL 16 + Prisma 6 + Redis 7 + SRS v6 + FFmpeg 7 + MinIO + Better Auth
 
 **v1.2 highlights:**
@@ -247,7 +257,7 @@ Developers can get a secure HLS playback URL for any registered camera via a sin
 - ✅ `30-VERIFICATION.md` — verifier report status `human_needed`, 6/6 must-haves verified, all 6 deliverables ship correct; 3 HUMAN-UAT items persist for the actual smoke run on a real cloud VM
 - 📐 Phase 30 is the GA-gate ENABLER, not the GA event itself: authorship complete; live smoke run on a clean Ubuntu 22.04 VM with real DNS+RTSP requires operator/release work tracked via `30-HUMAN-UAT.md` (will surface in `/gsd-progress` and `/gsd-audit-uat`)
 
-**v1.3 work remaining:** none — all 8 milestone phases (23-30) complete; awaiting `/gsd-audit-milestone v1.3` + `/gsd-complete-milestone` to archive and tag GA
+**v1.3 GA verdict (2026-04-29):** SHIPPED with documented drift. Fresh-VM smoke on stream.magichouse.in.th completed in 161s (well under 600s SC#1 budget); 7 cameras LIVE; HLS playback verified end-to-end via curl + browser. Eighteen wiring bugs surfaced and fixed inline during the smoke (commits `6f7b323..d74b9a4`) — every one a Phase 24-29 verifier blind spot (env-var name mismatches, host.docker.internal-on-Linux, prisma engines missing from prod-deps, Caddy ACME default fallback, etc.). Seven items deferred to v1.3.x backlog (`.planning/todos/v1.3.1-drift-from-phase-30.md`).
 
 ## Evolution
 
@@ -267,4 +277,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-29 after Phase 30 completion (Smoke Test Tooling — 6 plans, DEPLOY-25/26 statically verified; 6/6 must-haves shipped; 3 HUMAN-UAT items deferred to operator/release work on a real clean VM). Milestone v1.3 Production Ready is feature-complete (8/8 phases, 23-30) — awaiting `/gsd-audit-milestone v1.3` then `/gsd-complete-milestone` before tagging GA. Note: 5 Phase-29 HUMAN-UAT items + 4 Phase-27 deferred items are subsumed into the Phase 30 smoke run rather than re-tested here.*
+*Last updated: 2026-04-29 after **v1.3 Production Ready milestone shipped** (8 phases, 42 plans, 48 tasks; first GA release). Fresh-VM smoke on stream.magichouse.in.th completed in 161s; eighteen wiring bugs surfaced + fixed inline during the smoke; seven items deferred to v1.3.x backlog. v1.4 milestone scoping opens with the process item: replace Phase 24-29 static-only verifiers with live-runtime smoke gates so wiring bugs surface in CI not in operator smoke.*

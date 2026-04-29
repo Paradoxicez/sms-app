@@ -1,5 +1,50 @@
 # Milestones
 
+## v1.3 Production Ready (Shipped: 2026-04-29)
+
+**Phases completed:** 8 phases, 42 plans, 48 tasks
+
+**Key accomplishments:**
+
+- Single squashed migration baseline:
+- Closes the silent stuck-camera bug (memory note 260421-g9o) by adding a real-time refusal counter at GET /api/srs/callbacks/metrics, surfaced via the same in-memory snapshot pattern as ArchiveMetricsService
+- 1. [Rule 3 - Blocking] Worktree missing `node_modules` and `.env.test`
+- Surface parent camera tags + description on /app/recordings/[id] header by reusing Phase 22 TagsCell + line-clamp Show-more disclosure pattern — closes the Phase 22 ↔ Phase 17 audit gap with a 2-line Prisma include extension and a 38-line frontend touch.
+- Migration history is now single-entry: only `20260427000000_init/` survives. setup-test-db.sh uses `prisma migrate deploy` exclusively. Destructive deletion was gated behind an operator-verified cold-deploy check (5-step recipe → all exit 0) before any rm executed.
+- Two-file placeholder skeleton (`deploy/README.md` stub + `deploy/scripts/.gitkeep`) reserving the production-only directory and locking the convention before Phases 25-30 populate it.
+- git mv apps/api/Dockerfile → apps/api/Dockerfile.dev — byte-identical (hash 2184cc68fa118f05f7d90cdd465c704ad030b995), R100 rename, history preserved, zero content edits, zero impact on dev workflow.
+- D-22 manual verification — completed by orchestrator on behalf of user (user explicitly delegated)
+- Public unguarded `GET /api/health` endpoint returning `{ok:true}` via new HealthController/HealthModule, wired into AppModule and verified against the dev pipeline.
+- Next.js App Router GET /api/health route handler returning `{ok:true}` in-process — enables self-contained HEALTHCHECK in apps/web/Dockerfile (Plan 05) without depending on the api sibling.
+- Phase 25 Plan 03 — adds `outputFileTracingRoot` to `apps/web/next.config.ts` so Next.js 15 standalone build correctly traces pnpm-workspace symlinks into `.next/standalone/`, unblocking Plan 05's web Dockerfile from shipping a complete runtime tree.
+- 1. [Rule 3 — Blocking environmental issue] Task 3 docker build verification deferred to Plan 06
+- Production-grade 3-stage Next.js 15 standalone Dockerfile (deps -> builder -> runtime) plus per-app .dockerignore for the SMS Platform web; image content ~100 MB, runs as uid=1001 (app:app), HEALTHCHECK probes /api/health.
+- Two idempotent standalone Node entry scripts that the sms-migrate init container chains after `prisma migrate deploy` — `init-buckets.ts` creates `avatars` (public-read) and `recordings` (private) MinIO buckets, `seed-stream-profile.ts` seeds a default 1080p H.264 / 2500kbps / 25fps StreamProfile for every org with zero profiles.
+- One-liner:
+- One-liner:
+- deploy/docker-compose.yml proven structurally valid (docker compose config --quiet exit 0, 14/14 static assertions PASS) and operator-approved — Phase 26 closed, Phase 27 (Caddy + auto-TLS) cleared to plan
+- Single-site Caddyfile (~50 lines, validates clean under caddy:2.11) with same-origin path routing to api/web/minio, ACME auto-TLS via Let's Encrypt + staging-CA env-var toggle, WebSocket auto-pass for 4 Socket.IO namespaces, and hardened globals (admin off + HTTP/3 disabled).
+- Patches `deploy/docker-compose.yml` to add the `caddy` reverse-proxy service (image caddy:2.11, ports 80+443/tcp, both networks, named volume + Caddyfile bind, wget healthcheck with ACME-grace start_period, depends_on api+web service_healthy) plus the new `caddy_config` named volume — additions-only diff (38/0), validates clean under `docker compose config --quiet`, mitigates 5 STRIDE threats including no admin :2019 + Caddyfile :ro defense-in-depth.
+- Chose Option A
+- Closes the Phase 27 operator-facing surface: `deploy/.env.production.example` documents all 3 new vars (ACME_EMAIL + MINIO_PUBLIC_URL in Section 1 Required, ACME_CA in Section 3 Defaults) and `deploy/docker-compose.yml` exports MINIO_PUBLIC_URL through the api service env block — completing the runtime wire from operator env → compose → api container → MinioService.buildPublicUrl (plan 27-03) → browser-bound https:// URLs on TLS pages. Additions-only diff (19+1 / 0); init-secrets.sh untouched (D-20); compose validates clean.
+- Closes the Phase 27 deliverable surface: `deploy/DOMAIN-SETUP.md` is the operator-facing minimal-scope setup doc per DEPLOY-24 (5 H2 sections + Cloudflare D-28 addendum + 7-row Common Errors table); `deploy/scripts/verify-phase-27.sh` is the static D-24 validator (bash, executable, 25/25 structural grep guards PASS, lab-only checkpoints #3-6 explicitly out-of-scope). Single Rule 1 fix to the verifier's `acme_ca` regex anchor (matches plan 27-01's documented drift).
+- Ready for Plan 03 (build-images.yml):
+- Authored `.github/workflows/build-images.yml` (121 LOC) — the primary CI workflow that builds production api + web images on a parallel matrix, smoke-tests each locally-loaded build via Plan 01's `.github/scripts/smoke-{api,web}.sh`, pushes to `ghcr.io/<owner>/sms-{api,web}` with the 4-tag semver scheme (vX.Y.Z + vX.Y + latest + sha-<7>) on stable tags via metadata-action@v5, and attaches sigstore build provenance attestation via attest-build-provenance@v2 with `push-to-registry: true` so operators can `gh attestation verify oci://...` anonymously. PRs run build + smoke only (no GHCR push); pre-release tags get vX.Y.Z-suffix + sha-<7> only (no :latest, no vX.Y, gated by metadata-action's default behavior + is_default_branch raw filter).
+- Authored a 9-checkpoint verification runbook (`28-04-VERIFICATION.md`) covering the full Phase 28 live-UAT surface — tag-push matrix builds, anonymous GHCR pull, OCI label provenance, sigstore attestation, GitHub Release prerelease flagging, PR build-only gate, main-push tag set, Phase 23 test.yml co-existence, and stable semver re-attaching `:latest` + `:v1.3` — plus the one-time manual D-19 GHCR public-visibility toggle. Expanded `deploy/.env.production.example` GHCR_ORG comment from 2 lines to 4 lines per D-18, connecting the variable to `${{ github.repository_owner }}` in CI with an `acme-corp` worked example. Tasks 1+2 complete and committed; Task 3 (live execution of all 9 checkpoints, GHCR UI toggle, real tag pushes) is a BLOCKING checkpoint:human-verify gate that requires the operator — Claude cannot push real tags, run real GitHub Actions, or toggle GHCR package visibility.
+- Subcommand-router Node CLI with `create-admin` handler that upserts a super-admin into the System organization (Org → User → Account → Member chain), idempotent via `--force`, ships into the production image via a single-line Dockerfile patch, and is callable as `docker compose exec api bin/sms create-admin --email <e> --password <p>` per ROADMAP §Phase 29 SC #1.
+- Single-command first-run orchestrator (`deploy/scripts/bootstrap.sh`, 189 lines / 95 effective, mode 100755) that takes a fresh VM with `deploy/.env` filled (DOMAIN/ADMIN_EMAIL/ADMIN_PASSWORD/GHCR_ORG/ACME_EMAIL) and brings the entire stack to a logged-in HTTPS endpoint via pre-flight → auto-secrets → compose pull → `up -d --wait sms-migrate` → `up -d` rest → wait api healthy → `bin/sms create-admin` (with `--force` fallback on re-run) → 120s HTTPS poll → final URL + ELAPSED seconds + day-2 ops summary — all idempotent for safe Ctrl-C / partial-failure recovery, per ROADMAP §Phase 29 SC #2 <10-minute cold-deploy claim.
+- `deploy/scripts/update.sh`
+- Files created:
+- Verify-first restore.sh that consumes a backup.sh archive and rebuilds postgres + minio + caddy_data byte-equivalent, with integrity check + interactive/--yes confirmation gating compose down -v.
+- Three operator-facing markdown documents (`deploy/README.md` overwritten; `deploy/BACKUP-RESTORE.md` and `deploy/TROUBLESHOOTING.md` authored; plus `deploy/SMOKE-TEST-LOG.md` placeholder) that close out Phase 29 by giving an operator a single entry point into the deploy folder, a 5-step quickstart proving the <10-minute cold-deploy claim per ROADMAP §Phase 29 SC #5, day-2 runbooks for backup / restore / update / super-admin password rotation, and a symptom→diagnosis→fix table for the 6 most common failures plus a 7th restore-interrupted row.
+- Operator-laptop-side nmap verifier asserting v1.3 port lockdown contract — 5 allowed-open TCP + 5 must-be-closed TCP + 2 allowed-open UDP — closes DEPLOY-26 and gates Phase 30 SC#3.
+- Authored deploy/scripts/verify-deploy.sh — the heaviest Phase 30 verifier — covering bootstrap.sh cold-deploy timing (≤600s), HTTPS reachability + 308 redirect, ACME cert persistence across down/up, verify-phase-27.sh re-run, bin/sms create-admin idempotency + --force user.id preservation, and update.sh atomic recycle (≤5s /api/health outage). 377 LOC bash, mode 0755, bash -n clean, folds 6 deferred UAT items into one runnable script.
+- One-liner:
+- One-liner:
+- Artifact 1: `deploy/scripts/smoke-test.sh`
+
+---
+
 ## v1.2 Self-Service, Resilience & UI Polish (Shipped: 2026-04-27)
 
 **Phases completed:** 11 phases, 64 plans, 115 tasks
