@@ -55,7 +55,7 @@ async function main(): Promise<void> {
         resolution: '1920x1080',
         fps: 25,
         videoBitrate: '2500k',
-        audioCodec: 'aac',
+        audioCodec: 'mute',
         audioBitrate: '128k',
         isDefault: true,
       },
