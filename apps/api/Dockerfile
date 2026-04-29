@@ -99,6 +99,14 @@ ENV NODE_ENV=production
 # image), and apps/api/package.json (for pnpm prisma * commands at runtime).
 COPY --from=prod-deps --chown=app:app /app/node_modules ./node_modules
 COPY --from=prod-deps --chown=app:app /app/apps/api/node_modules ./apps/api/node_modules
+# Override @prisma + .prisma from builder: prod-deps was installed with
+# --ignore-scripts which skips @prisma/engines postinstall (downloads
+# schema-engine + libquery_engine binaries). Builder ran `prisma generate`
+# which triggered the engine download. Without these overrides, runtime
+# `prisma migrate deploy` tries to fetch engines from binaries.prisma.sh
+# at runtime → fails on the internal-only network used by sms-migrate.
+COPY --from=builder --chown=app:app /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder --chown=app:app /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=app:app /app/apps/api/dist ./apps/api/dist
 COPY --from=builder --chown=app:app /app/apps/api/bin ./apps/api/bin
 COPY --from=builder --chown=app:app /app/apps/api/src/prisma ./apps/api/src/prisma
