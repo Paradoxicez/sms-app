@@ -271,7 +271,11 @@ services:
     environment:
       DOMAIN: ${DOMAIN}
       ACME_EMAIL: ${ACME_EMAIL}
-      ACME_CA: ${ACME_CA:-}
+      # Default to LE production CA when operator leaves ACME_CA empty/unset.
+      # Caddyfile's `{$ACME_CA:default}` only honors the default for UNSET vars,
+      # not empty strings — so we provide the canonical URL here to avoid the
+      # `acme_ca` directive parse-error when the env var is set-but-empty.
+      ACME_CA: ${ACME_CA:-https://acme-v02.api.letsencrypt.org/directory}
     volumes:
       - caddy_data:/data
       - caddy_config:/config
