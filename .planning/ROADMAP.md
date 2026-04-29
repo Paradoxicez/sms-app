@@ -63,7 +63,7 @@ Goal: Take v1.2's feature-complete platform and ship it to production via a pull
 - [x] **Phase 27: Caddy Reverse Proxy + Auto-TLS** — `deploy/Caddyfile` (same-origin), Caddy service with persistent volumes, DOMAIN-SETUP.md (completed 2026-04-28)
 - [x] **Phase 28: GitHub Actions CI/CD → GHCR** — `build-images.yml` (matrix [api, web], amd64, GH Cache v2), `release.yml`, semver+latest+sha tagging, build provenance attestation (completed 2026-04-28)
 - [x] **Phase 29: Operator UX (bootstrap/update/backup/restore + super-admin CLI)** — `bin/sms create-admin`, 4 deploy scripts, `deploy/README.md` 5-step quickstart (completed 2026-04-28)
-- [ ] **Phase 30: Smoke Test on Clean VM (GA gate)** — Provision DO/Hetzner droplet, sparse-checkout deploy/, run bootstrap.sh, verify <10min cold deploy, nmap port lockdown
+- [x] **Phase 30: Smoke Test on Clean VM (GA gate)** — Provision DO/Hetzner droplet, sparse-checkout deploy/, run bootstrap.sh, verify <10min cold deploy, nmap port lockdown (completed 2026-04-29)
 
 ## Phase Details
 
@@ -202,14 +202,14 @@ Plans:
   2. End-to-end smoke test passes on the deployed VM: super-admin login → register a test camera (RTSP) → camera transitions to LIVE → click play in browser → HLS segments load and play → toggle Record → recording archive appears in MinIO → status changes broadcast over WebSocket to the dashboard in real time
   3. `nmap -p 22,80,443,1935,8080,8000,10080,5432,6379,9000,9001,1985 <vm-public-ip>` from an external machine shows ONLY 22 (SSH) + 80 (HTTP→HTTPS redirect) + 443 (HTTPS) + 1935 (RTMP ingest) + 8080 (SRS HTTP) + 8000/udp (WebRTC) + 10080/udp (SRT) open; postgres 5432, redis 6379, minio 9000+9001, srs admin 1985 are all closed externally
   4. Drift log captured: any deviation between the documented quickstart and the actual VM run is recorded in `deploy/SMOKE-TEST-LOG.md` and resolved before milestone close
-**Plans:** 6 plans
+**Plans:** 6/6 plans complete
 Plans:
-- [ ] 30-01-PLAN.md — DEPLOY-25: deploy/SMOKE-TEST-LOG.md template (per-SC + per-UAT result table + Drift section + Timing log) (Wave 1)
-- [ ] 30-02-PLAN.md — DEPLOY-26: deploy/scripts/verify-nmap.sh — external TCP+UDP port lockdown verifier (laptop-side) (Wave 1)
-- [ ] 30-03-PLAN.md — DEPLOY-25: deploy/scripts/verify-deploy.sh — bootstrap timing + HTTPS + cert persist + create-admin idempotency + update.sh atomic recycle (Wave 2)
-- [ ] 30-04-PLAN.md — DEPLOY-25: deploy/scripts/verify-playback.sh — wss 101 upgrade + HLS m3u8 reachability + MinIO .ts archive (Wave 2)
-- [ ] 30-05-PLAN.md — DEPLOY-25: deploy/scripts/verify-backup.sh — pre/post SELECT count + MinIO sha256 round-trip + cert preservation (Wave 2)
-- [ ] 30-06-PLAN.md — DEPLOY-25 + DEPLOY-26: deploy/scripts/smoke-test.sh wrapper + 30-VERIFICATION.md template + .gitignore evidence-folder patch (Wave 3)
+- [x] 30-01-PLAN.md — DEPLOY-25: deploy/SMOKE-TEST-LOG.md template (per-SC + per-UAT result table + Drift section + Timing log) (Wave 1)
+- [x] 30-02-PLAN.md — DEPLOY-26: deploy/scripts/verify-nmap.sh — external TCP+UDP port lockdown verifier (laptop-side) (Wave 1)
+- [x] 30-03-PLAN.md — DEPLOY-25: deploy/scripts/verify-deploy.sh — bootstrap timing + HTTPS + cert persist + create-admin idempotency + update.sh atomic recycle (Wave 2)
+- [x] 30-04-PLAN.md — DEPLOY-25: deploy/scripts/verify-playback.sh — wss 101 upgrade + HLS m3u8 reachability + MinIO .ts archive (Wave 2)
+- [x] 30-05-PLAN.md — DEPLOY-25: deploy/scripts/verify-backup.sh — pre/post SELECT count + MinIO sha256 round-trip + cert preservation (Wave 2)
+- [x] 30-06-PLAN.md — DEPLOY-25 + DEPLOY-26: deploy/scripts/smoke-test.sh wrapper + 30-VERIFICATION.md template + .gitignore evidence-folder patch (Wave 3)
 
 ## Progress
 
@@ -229,4 +229,4 @@ Plans:
 | 27. Caddy Reverse Proxy + Auto-TLS | 5/5 | Complete    | 2026-04-28 |
 | 28. GitHub Actions CI/CD → GHCR | 4/4 | Complete    | 2026-04-28 |
 | 29. Operator UX (bootstrap/update/backup/restore + super-admin CLI) | 6/6 | Complete    | 2026-04-28 |
-| 30. Smoke Test on Clean VM (gates v1.3 GA) | 0/6 | Not started | - |
+| 30. Smoke Test on Clean VM (gates v1.3 GA) | 6/6 | Complete    | 2026-04-29 |

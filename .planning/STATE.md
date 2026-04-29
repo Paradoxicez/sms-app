@@ -4,13 +4,13 @@ milestone: v1.3
 milestone_name: Production Ready
 status: executing
 stopped_at: Phase 30 context gathered
-last_updated: "2026-04-28T21:38:59.895Z"
+last_updated: "2026-04-29T04:26:59.689Z"
 progress:
   total_phases: 8
-  completed_phases: 7
+  completed_phases: 8
   total_plans: 42
-  completed_plans: 36
-  percent: 86
+  completed_plans: 42
+  percent: 100
 ---
 
 # Project State
@@ -20,13 +20,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-27)
 
 **Core value:** Developers can get a secure HLS playback URL for any registered camera via a single API call, and embed it on their website immediately.
-**Current focus:** Phase 29 — Operator UX (bootstrap/update/backup/restore + super-admin CLI)
+**Current focus:** Phase 30 — smoke-test-on-clean-vm-ga-gate
 
 ## Current Position
 
 Milestone: v1.3 — Production Ready
-Phase: 29
-Status: Ready to execute
+Phase: 30
+Status: Executing Phase 30
 Plan: Not started
 
 Progress: [░░░░░░░░░░] 0% (v1.3: 0/8 phases, 0/0 plans)

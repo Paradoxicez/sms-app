@@ -75,9 +75,11 @@ Developers can get a secure HLS playback URL for any registered camera via a sin
 
 - ✓ Operator UX (bootstrap/update/backup/restore + super-admin CLI) — `bin/sms create-admin` (Better Auth scrypt, single-admin guard, --force idempotency), `deploy/scripts/{bootstrap,update,backup,restore}.sh` (atomic pre-flight migrate, offline pg_dump+MinIO+caddy_data archive, integrity-verified DR), README 5-step quickstart + BACKUP-RESTORE + TROUBLESHOOTING runbooks — v1.3 (Phase 29) — DEPLOY-17/18/19/20/21/23
 
+- ✓ Smoke-test tooling for v1.3 GA gate — `deploy/SMOKE-TEST-LOG.md` operator-fillable template (105 lines, 7 H2 sections, 9 deferred-UAT rows), `deploy/scripts/verify-{nmap,deploy,playback,backup}.sh` (200/377/227/344 LOC, mode 100755), `deploy/scripts/smoke-test.sh` sequential wrapper (228 LOC) — authorship complete; live smoke run on clean cloud VM is operator/release work, persisted as 30-HUMAN-UAT.md — v1.3 (Phase 30) — DEPLOY-25/26
+
 ### Active
 
-(Phase 30 remaining — fresh-VM smoke test gates v1.3 GA. 5 HUMAN-UAT items from Phase 29 will be validated there.)
+(Milestone v1.3 Production Ready — all 8 phases (23-30) complete. Awaiting `/gsd-audit-milestone v1.3` and `/gsd-complete-milestone` to archive.)
 
 ### Deferred to Future
 
@@ -168,7 +170,7 @@ Developers can get a secure HLS playback URL for any registered camera via a sin
 ## Current State
 
 **Shipped:** v1.2 Self-Service, Resilience & UI Polish (2026-04-27) — 11 phases, 64 plans, 115 tasks
-**In progress:** v1.3 Production Ready — Phases 23-28 complete (Phase 28 closed 2026-04-28), 2 phases remain (29-30)
+**Feature-complete:** v1.3 Production Ready — all 8 phases (23-30) complete (2026-04-29); awaiting milestone audit + archive before tagging GA
 **Stack:** NestJS 11 + Next.js 15 + PostgreSQL 16 + Prisma 6 + Redis 7 + SRS v6 + FFmpeg 7 + MinIO + Better Auth
 
 **v1.2 highlights:**
@@ -234,7 +236,18 @@ Developers can get a secure HLS playback URL for any registered camera via a sin
 - 🔧 Phase 23 latent CI bugs surfaced + fixed inline (3 commits — `168f6e5`/`6caa372`/`14f638d`): drop DATABASE_URL collision in test.yml, conditional `.env` source in `db:check-drift`, `createdb` shadow DB step before drift check
 - 📐 Three documented limitations defer to follow-up (cosmetic, no production impact): L-28-A metadata-action prerelease v-prefix suppression, L-28-B release.yml body capital-P + prerelease-v ref discrepancy, L-28-C linux/amd64-only image (Apple Silicon dev needs `--platform`)
 
-**v1.3 work remaining (Phases 29-30):** operator UX scripts + admin CLI (29), smoke test on clean VM (30)
+**Phase 30 highlights (Smoke Test on Clean VM — v1.3 GA gate, 2026-04-29):**
+- ✅ `deploy/SMOKE-TEST-LOG.md` — operator-fillable smoke run template, 105 lines, 7 H2 sections (Run Metadata / Verifier Results / Manual UI Checklist / Drift / Evidence / Sign-off / Redaction notice), 4 SC rows + 9 deferred-UAT rows from Phases 27/29, 7 manual UI steps; redaction notice covers ADMIN_PASSWORD/RTSP_TEST_URL/VM_IP/LE serials per T-30-01
+- ✅ `deploy/scripts/verify-nmap.sh` — laptop-side TCP+UDP port-lockdown verifier (200 LOC), `--reason` flag on both scans, asserts the 10+2 port contract for v1.3 GA (TCP 22/80/443/1935/8080 OPEN; TCP 5432/6379/9000/9001/1985 CLOSED; UDP 8000+10080 OPEN), no 443/udp scan per D-15
+- ✅ `deploy/scripts/verify-deploy.sh` — VM-side post-bootstrap 7-step verifier (377 LOC), folds 6 deferred UAT items (Phase 27 SC#1/#3/#4 + Phase 29 SC#1/#2/#3); parses `Bootstrap time:` ≤600s, `${DC} down` WITHOUT `-v` (T-30-04 mitigated), backgrounded /api/health probe asserts longest_outage ≤ 5s during `update.sh` recycle, invokes `verify-phase-27.sh`
+- ✅ `deploy/scripts/verify-playback.sh` — VM-side post-UI playback verifier (227 LOC), wss://101 upgrade with `openssl rand -base64 16` Sec-WebSocket-Key, `mc ls.*local/recordings` asserts ≥1 `.ts` AND 0 `.mp4` (SRS v6 codec limit honored), no hardcoded RTSP credentials
+- ✅ `deploy/scripts/verify-backup.sh` — VM-side backup/restore round-trip (344 LOC), pg_count for 5 tables (User/Organization/Camera/Recording/RecordingArchive), backup.sh + restore.sh `--yes` round-trip, sha256-of-sorted-listing for 3 MinIO buckets (avatars/snapshots/recordings), TLS cert preservation via `certificate obtained` log scan
+- ✅ `deploy/scripts/smoke-test.sh` — sequential wrapper (228 LOC), pre-flight checks all 4 verifiers exist, MAX_RC aggregator, manual gate with `read -r _` between verify-deploy and verify-playback, verify-nmap is INFORMATIONAL only (printed, never invoked) per Plan 06 contract
+- ✅ `.gitignore` +6 lines: `deploy/smoke-evidence/` (operator's local-only screenshots/raw logs stay out of git per T-30-05); SMOKE-TEST-LOG.md DOES ship — only binary evidence does not
+- ✅ `30-VERIFICATION.md` — verifier report status `human_needed`, 6/6 must-haves verified, all 6 deliverables ship correct; 3 HUMAN-UAT items persist for the actual smoke run on a real cloud VM
+- 📐 Phase 30 is the GA-gate ENABLER, not the GA event itself: authorship complete; live smoke run on a clean Ubuntu 22.04 VM with real DNS+RTSP requires operator/release work tracked via `30-HUMAN-UAT.md` (will surface in `/gsd-progress` and `/gsd-audit-uat`)
+
+**v1.3 work remaining:** none — all 8 milestone phases (23-30) complete; awaiting `/gsd-audit-milestone v1.3` + `/gsd-complete-milestone` to archive and tag GA
 
 ## Evolution
 
@@ -254,4 +267,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-29 after Phase 29 completion (Operator UX — 6 plans, DEPLOY-17/18/19/20/21/23 statically verified; 5/5 must-haves shipped; 5 HUMAN-UAT items deferred to Phase 30 for fresh-VM live-runtime proof). Phases 23-29 of v1.3 complete; 1 phase remains (30: smoke test on clean VM, gates v1.3 GA). Next: `/gsd-discuss-phase 30` then `/gsd-plan-phase 30` for Smoke Test on Clean VM (DEPLOY-25, DEPLOY-26).*
+*Last updated: 2026-04-29 after Phase 30 completion (Smoke Test Tooling — 6 plans, DEPLOY-25/26 statically verified; 6/6 must-haves shipped; 3 HUMAN-UAT items deferred to operator/release work on a real clean VM). Milestone v1.3 Production Ready is feature-complete (8/8 phases, 23-30) — awaiting `/gsd-audit-milestone v1.3` then `/gsd-complete-milestone` before tagging GA. Note: 5 Phase-29 HUMAN-UAT items + 4 Phase-27 deferred items are subsumed into the Phase 30 smoke run rather than re-tested here.*
