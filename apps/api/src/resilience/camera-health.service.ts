@@ -25,6 +25,20 @@ const NOTIFIABLE_CAMERA_STATUSES = ['online', 'connecting', 'reconnecting', 'deg
 export class CameraHealthService implements OnModuleInit {
   private readonly logger = new Logger(CameraHealthService.name);
 
+  // Cached SRS stream IDs to tolerate transient `getStreams()` failures.
+  // Production smoke (2026-04-30) found SRS HTTP API drops connections
+  // (`client disconnect peer. ret=1007`) under concurrent probe load — when
+  // that happens, getStreams() throws → catch returns {streams: []} → every
+  // camera looks dead → SIGTERM cascade → 12-min flap loop.
+  // Strategy: keep the last successful stream-id snapshot, and only mark a
+  // camera srsAlive=false after MISS_TOLERANCE consecutive ticks where SRS
+  // also reports the stream missing. A single tick miss is tolerated.
+  private srsStreamIdsCache: Set<string> = new Set();
+  private srsCacheUpdatedAt = 0;
+  private readonly missCounters = new Map<string, number>();
+  private readonly MISS_TOLERANCE = 2;
+  private readonly CACHE_STALE_MS = 5 * 60_000;
+
   constructor(
     private readonly prisma: SystemPrismaService,
     private readonly srsApi: SrsApiService,
@@ -68,15 +82,51 @@ export class CameraHealthService implements OnModuleInit {
     });
 
     // Step 3 — single SRS probe for all cameras (not per-camera — mitigates T-15-03).
+    // Use last-known-good cache when getStreams() fails or returns empty under
+    // load, so a transient SRS HTTP hiccup does not kill every healthy FFmpeg.
+    let srsCallFailed = false;
     const srsStreamsResult = await this.srsApi.getStreams().catch((err) => {
       this.logger.warn(
-        `CameraHealthService: getStreams failed — ${(err as Error).message}`,
+        `CameraHealthService: getStreams failed — ${(err as Error).message} — falling back to cached stream set`,
       );
-      return { streams: [] };
+      srsCallFailed = true;
+      return null;
     });
-    const srsStreamIds = new Set<string>(
-      (srsStreamsResult?.streams ?? []).map((s: { name: string }) => s.name),
-    );
+    let srsStreamIds: Set<string>;
+    if (
+      srsCallFailed ||
+      !srsStreamsResult ||
+      !Array.isArray(srsStreamsResult.streams)
+    ) {
+      // SRS API call failed — reuse cache if it is fresh enough.
+      const cacheAge = Date.now() - this.srsCacheUpdatedAt;
+      if (this.srsCacheUpdatedAt > 0 && cacheAge < this.CACHE_STALE_MS) {
+        this.logger.debug(
+          `CameraHealthService: using cached SRS stream set (age=${Math.round(cacheAge / 1000)}s, size=${this.srsStreamIdsCache.size})`,
+        );
+        srsStreamIds = this.srsStreamIdsCache;
+      } else {
+        // No usable cache — skip the dead-detection step entirely this tick.
+        // Better to leak one missed kill than to nuke every working FFmpeg.
+        this.logger.warn(
+          'CameraHealthService: no fresh SRS cache available — skipping liveness pass this tick',
+        );
+        this.logger.debug('CameraHealthService: tick end (skipped)');
+        return;
+      }
+    } else {
+      srsStreamIds = new Set<string>(
+        (srsStreamsResult.streams as Array<{ name: string }>).map(
+          (s) => s.name,
+        ),
+      );
+      // Refresh cache only on successful response with non-empty streams,
+      // OR on a successful response whose emptiness is consistent with a
+      // recent cache. (Empty-but-correct vs empty-due-to-bug is hard to
+      // distinguish on a single tick — the miss-counter below handles it.)
+      this.srsStreamIdsCache = srsStreamIds;
+      this.srsCacheUpdatedAt = Date.now();
+    }
 
     // Step 4 — detect dead streams + recover.
     for (const camera of cameras) {
@@ -91,6 +141,25 @@ export class CameraHealthService implements OnModuleInit {
 
       const ffmpegAlive = this.ffmpeg.isRunning(camera.id);
       const srsAlive = srsStreamIds.has(camera.id);
+
+      // Per-camera miss tolerance — only treat srs=false as dead after
+      // MISS_TOLERANCE consecutive misses. A single missed tick is
+      // commonly a SRS HTTP race (response truncated under load) and
+      // not a real publish-channel failure. Reset the counter the
+      // moment we see the camera back in SRS.
+      if (srsAlive) {
+        this.missCounters.delete(camera.id);
+      } else {
+        const misses = (this.missCounters.get(camera.id) ?? 0) + 1;
+        this.missCounters.set(camera.id, misses);
+        if (!isPushPassthrough && ffmpegAlive && misses < this.MISS_TOLERANCE) {
+          this.logger.debug(
+            `CameraHealthService: tolerating srs-miss for ${camera.id} (${misses}/${this.MISS_TOLERANCE}) — ffmpeg still running`,
+          );
+          continue;
+        }
+      }
+
       const dead = isPushPassthrough ? !srsAlive : !ffmpegAlive || !srsAlive;
 
       if (!dead) continue;
