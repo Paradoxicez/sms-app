@@ -1,6 +1,6 @@
 ---
 status: resolved
-scope: bug_1_only
+scope: bug_1_and_2 (Bug #2 resolved transitively — see note)
 trigger: "production-cameras-flapping — หลัง deploy ระบบขึ้น production server แล้ว มีกล้องบางตัว flap (ติดๆดับๆ); หาวิธี diagnose บน production และระบุ root cause"
 created: 2026-04-30
 updated: 2026-04-30T~12:30Z
@@ -8,7 +8,7 @@ resolved: 2026-04-30
 ssh_diagnostic_run: 2026-04-30T03:30-03:43Z (ice@stream.magichouse.in.th)
 fix_applied: commits badd5a1 (12:36 +0700) + 03c66e5 (14:15 +0700), 2026-04-30
 fix_deployed: GHCR :latest rebuild from d7f5b17 at 07:16 UTC; production container restarted 09:10 UTC, both 2026-04-30
-note: Bug #2 (FFmpeg I/O error on Saensuk + cam 6 + BKR02/05/06) NOT addressed — separate root cause; Bug #2 partially resolved out-of-band when user switched Saensuk-139 to transcode profile (see saensuk-139-live-but-preview-broken.md) but cohort coverage incomplete.
+note: Bug #2 (FFmpeg I/O error on Saensuk + cam 6 + BKR02/05/06) RESOLVED TRANSITIVELY by Bug #1 fix. Confirmed 2026-04-30T~17:35Z: 0 FFmpeg I/O errors in 6hr post-deploy (was hundreds before), all 18 cohort cameras stable online, transitionsPerMinute=0, no crashLoop/degraded. Re-diagnosis: Bug #2 was a downstream symptom of Bug #1's SIGTERM/restart loop — repeated FFmpeg restarts caused SRS RTMP handshake races that surfaced as "Input/output error". Once cameras stopped being reaped, the I/O error symptom disappeared. Saensuk-139 transcode-profile workaround (see saensuk-139-live-but-preview-broken.md) addressed an unrelated PTS-skew bug specific to that camera, not Bug #2.
 ---
 
 ## ROOT CAUSE IDENTIFIED — Live diagnostic on stream.magichouse.in.th (2026-04-30 03:30-03:43Z)
