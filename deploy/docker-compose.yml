@@ -121,7 +121,10 @@ services:
       - "8000:8000/udp"            # WebRTC
       - "10080:10080/udp"          # SRT
     volumes:
-      - ../config/srs.conf:/usr/local/srs/conf/srs.conf:ro
+      # 2026-04-30: srs.conf moved from ../config/srs.conf into deploy/srs.conf
+      # so the deploy/ folder is fully self-contained for the sms-deploy-only
+      # repo pattern. Nothing under ../ is referenced any more.
+      - ./srs.conf:/usr/local/srs/conf/srs.conf:ro
       - hls_data:/usr/local/srs/objs/nginx/html
     healthcheck:
       test:
