@@ -305,8 +305,16 @@ services:
       - caddy_data:/data
       - caddy_config:/config
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    # 2026-04-30: changed from `wget --spider http://localhost:80` to a pure
+    # TCP probe. The HTTP probe failed because Caddy auto-redirects port 80
+    # to https://localhost, but the only TLS site block is `{$DOMAIN}`, so
+    # SNI=localhost triggers `tlsv1 alert internal error 80` from Caddy.
+    # Production saw FailingStreak grow to 2086 even though Caddy was
+    # serving traffic correctly to the public domain. The TCP-listen probe
+    # verifies Caddy is bound to both ports without exercising the TLS
+    # layer (which is for the public domain only).
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80"]
+      test: ["CMD-SHELL", "nc -z localhost 80 && nc -z localhost 443"]
       interval: 30s
       timeout: 5s
       retries: 3

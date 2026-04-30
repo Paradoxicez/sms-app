@@ -61,14 +61,31 @@ Point an A-record at the server's public IPv4 address:
 A    streams.example.com    →    1.2.3.4    TTL 300
 ```
 
-Verify before proceeding (run from outside the LAN if possible):
+**Verify against PUBLIC resolvers BEFORE running bootstrap.** Local dig may
+hit your laptop's DNS cache or your registrar's authoritative server before
+propagation completes — Let's Encrypt's ACME challenge resolves through
+public resolvers, so the cert request can fail even when local dig looks
+fine. Always pin to `@8.8.8.8` (Google) for the precheck, and ideally
+double-check with `@1.1.1.1` (Cloudflare):
 
 ```bash
-dig +short A "$(grep ^DOMAIN= deploy/.env | cut -d= -f2)"
+DOMAIN=$(grep ^DOMAIN= deploy/.env | cut -d= -f2)
+dig @8.8.8.8 +short A "$DOMAIN"
 # → expected: the server's public IP, exactly one line
+dig @1.1.1.1 +short A "$DOMAIN"  # cross-check
 ```
 
-If `dig` returns nothing or the wrong IP, fix the DNS record first and wait for propagation. See [`./DOMAIN-SETUP.md`](./DOMAIN-SETUP.md) for provider-specific walkthroughs (Cloudflare gray-cloud requirement, propagation expectations, port 80 reachability checks, and the staging-CA toggle for debug-without-rate-limit).
+If either returns nothing or the wrong IP, **stop here** — fix the DNS
+record at your registrar and wait for propagation (typically 60s-15min for
+fresh records, longer for `.in.th`/`.co.th` and other ccTLDs). Re-run the
+two `dig` commands until both show your VM's public IP. Only then proceed
+to step 4. The Phase 30 fresh-VM smoke run lost ~30 minutes to a missed
+DNS-propagation step that this check would have caught.
+
+See [`./DOMAIN-SETUP.md`](./DOMAIN-SETUP.md) for provider-specific
+walkthroughs (Cloudflare gray-cloud requirement, propagation expectations,
+port 80 reachability checks, and the staging-CA toggle for
+debug-without-rate-limit).
 
 ### 4. Bootstrap
 
