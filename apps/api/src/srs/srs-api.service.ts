@@ -36,7 +36,19 @@ export class SrsApiService {
 
   async getStreams(nodeApiUrl?: string): Promise<any> {
     const url = nodeApiUrl || this.baseUrl;
-    const res = await fetch(`${url}/api/v1/streams`);
+    // SRS /api/v1/streams paginates with default count=10. With >10 active
+    // publishers the trailing entries silently disappear from the response —
+    // CameraHealthService then sees those cameras as srs=false and kills
+    // their FFmpeg in a tight loop. Pass a large count to disable pagination.
+    // 9999 comfortably exceeds any single-host SaaS scenario.
+    const res = await fetch(`${url}/api/v1/streams?count=9999`);
+    return res.json();
+  }
+
+  async getClients(nodeApiUrl?: string): Promise<any> {
+    const url = nodeApiUrl || this.baseUrl;
+    // Same pagination caveat as getStreams — pass count=9999.
+    const res = await fetch(`${url}/api/v1/clients?count=9999`);
     return res.json();
   }
 
@@ -84,11 +96,6 @@ export class SrsApiService {
     return res.json();
   }
 
-  async getClients(nodeApiUrl?: string): Promise<any> {
-    const url = nodeApiUrl || this.baseUrl;
-    const res = await fetch(`${url}/api/v1/clients`);
-    return res.json();
-  }
 
   async reloadConfig(nodeApiUrl?: string): Promise<void> {
     const url = nodeApiUrl || this.baseUrl;
