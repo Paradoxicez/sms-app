@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { SystemPrismaService } from '../prisma/system-prisma.service';
@@ -8,6 +8,7 @@ import { StatusService } from '../status/status.service';
 import { SrsRestartDetector } from './srs-restart-detector';
 import { buildStreamJobData } from './job-data.helper';
 import { MAX_STREAM_ATTEMPTS } from '../streams/processors/stream.processor';
+import { StreamHealthMetricsService } from '../streams/stream-health-metrics.service';
 
 const NOTIFIABLE_CAMERA_STATUSES = ['online', 'connecting', 'reconnecting', 'degraded'];
 
@@ -40,6 +41,14 @@ export class CameraHealthService implements OnModuleInit {
   private readonly MISS_TOLERANCE = 2;
   private readonly CACHE_STALE_MS = 5 * 60_000;
 
+  // 2026-04-30 self-healing trio (G): periodic SRS rpc=reload counter.
+  // Tick fires every 60s, so 30 ticks ≈ 30 min between reloads. The reload
+  // is a SIGHUP equivalent — refreshes vhost/forward/callback config WITHOUT
+  // disrupting active streams. Treats as a preventive cleanup of any cached
+  // state SRS retained from previous publish lifecycles.
+  private tickCount = 0;
+  private readonly RELOAD_EVERY_N_TICKS = 30;
+
   constructor(
     private readonly prisma: SystemPrismaService,
     private readonly srsApi: SrsApiService,
@@ -48,6 +57,11 @@ export class CameraHealthService implements OnModuleInit {
     private readonly srsRestartDetector: SrsRestartDetector,
     @InjectQueue('camera-health') private readonly healthQueue: Queue,
     @InjectQueue('stream-ffmpeg') private readonly streamQueue: Queue,
+    // 2026-04-30 self-healing trio (B): adaptive miss tolerance + degraded
+    // camera skip. Optional so this module is safe to construct in tests
+    // that do not wire the @Global() StreamHealthModule.
+    @Optional()
+    private readonly healthMetrics?: StreamHealthMetricsService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -69,6 +83,24 @@ export class CameraHealthService implements OnModuleInit {
 
   async runTick(): Promise<void> {
     this.logger.debug('CameraHealthService: tick start');
+    this.tickCount += 1;
+
+    // 2026-04-30 self-healing trio (G): preventive SRS reload every
+    // RELOAD_EVERY_N_TICKS ticks (30 min). Refreshes SRS vhost config
+    // and clears any stale cache entries from previous publish lifecycles.
+    // Safe — SRS does not disrupt active publishers/players on rpc=reload.
+    if (this.tickCount % this.RELOAD_EVERY_N_TICKS === 0) {
+      try {
+        await this.srsApi.reloadConfig();
+        this.logger.log(
+          `CameraHealthService: preventive SRS reload (tick #${this.tickCount})`,
+        );
+      } catch (err) {
+        this.logger.warn(
+          `CameraHealthService: preventive SRS reload failed — ${(err as Error).message}`,
+        );
+      }
+    }
 
     // Step 1 — detect SRS restart + handle bulk re-enqueue (no per-camera work).
     await this.srsRestartDetector.detectAndHandle();
@@ -131,6 +163,17 @@ export class CameraHealthService implements OnModuleInit {
 
     // Step 4 — detect dead streams + recover.
     for (const camera of cameras) {
+      // 2026-04-30 self-healing trio (A): a camera that the StreamProcessor
+      // has marked degraded (crash-loop) must NOT be re-enqueued. The
+      // operator clears the degraded flag by transitioning the camera back
+      // to 'connecting' (manual config edit) or by api restart.
+      if (this.healthMetrics?.isDegraded(camera.id)) {
+        this.logger.debug(
+          `CameraHealthService: skipping degraded camera ${camera.id} (crash-loop active)`,
+        );
+        continue;
+      }
+
       // Phase 19.1 (D-17): push+passthrough cameras have NO FFmpeg process
       // by design — SRS `forward` directive remaps push/<key> → live/<orgId>/<cameraId>
       // natively. Treating ffmpegAlive=false as "dead" would loop: enqueue ffmpeg job
@@ -143,19 +186,22 @@ export class CameraHealthService implements OnModuleInit {
       const ffmpegAlive = this.ffmpeg.isRunning(camera.id);
       const srsAlive = srsStreamIds.has(camera.id);
 
-      // Per-camera miss tolerance — only treat srs=false as dead after
-      // MISS_TOLERANCE consecutive misses. A single missed tick is
-      // commonly a SRS HTTP race (response truncated under load) and
-      // not a real publish-channel failure. Reset the counter the
-      // moment we see the camera back in SRS.
+      // 2026-04-30 self-healing trio (B): adaptive miss tolerance per
+      // camera. Cameras that flap quickly after coming online get a
+      // bumped tolerance so the SRS HTTP race does not chew through a
+      // fresh online → reconnecting transition before the system
+      // settles. The bump is bounded (MAX 4) so a truly dead camera is
+      // still detected, just two ticks later.
+      const tolerance =
+        this.healthMetrics?.getMissTolerance(camera.id) ?? this.MISS_TOLERANCE;
       if (srsAlive) {
         this.missCounters.delete(camera.id);
       } else {
         const misses = (this.missCounters.get(camera.id) ?? 0) + 1;
         this.missCounters.set(camera.id, misses);
-        if (!isPushPassthrough && ffmpegAlive && misses < this.MISS_TOLERANCE) {
+        if (!isPushPassthrough && ffmpegAlive && misses < tolerance) {
           this.logger.debug(
-            `CameraHealthService: tolerating srs-miss for ${camera.id} (${misses}/${this.MISS_TOLERANCE}) — ffmpeg still running`,
+            `CameraHealthService: tolerating srs-miss for ${camera.id} (${misses}/${tolerance}) — ffmpeg still running`,
           );
           continue;
         }
@@ -164,6 +210,15 @@ export class CameraHealthService implements OnModuleInit {
       const dead = isPushPassthrough ? !srsAlive : !ffmpegAlive || !srsAlive;
 
       if (!dead) continue;
+
+      // 2026-04-30 self-healing trio (B): if we are about to kill a
+      // camera that JUST came online, bump its tolerance so the next
+      // cycle gives the SRS publish more grace. This is the classic
+      // "tolerance was too tight" signal — the camera was healthy
+      // moments ago and is being killed by a probe race.
+      if (camera.status === 'online') {
+        this.healthMetrics?.bumpMissTolerance(camera.id);
+      }
 
       // Push+passthrough recovery path: no FFmpeg to stop, no FFmpeg to (re)start.
       // The encoder (OBS / camera) reconnects on its own. We only mark status
@@ -240,17 +295,26 @@ export class CameraHealthService implements OnModuleInit {
       }
     }
 
+    // 2026-04-30 self-healing trio (F): adaptive backoff base. Cameras
+    // with a recent crash history get a larger floor so retries do not
+    // hammer them. Healthy cameras keep the original 1s start-of-curve
+    // for fast recovery from transient errors.
+    const backoffDelay =
+      this.healthMetrics?.getBackoffBaseMs(camera.id) ?? 1_000;
+
     await this.streamQueue.add(
       'start',
       buildStreamJobData(camera),
       {
         jobId,
         attempts: MAX_STREAM_ATTEMPTS,
-        backoff: { type: 'exponential', delay: 1000 },
+        backoff: { type: 'exponential', delay: backoffDelay },
         removeOnComplete: true,
         removeOnFail: false,
       },
     );
-    this.logger.log(`CameraHealthService: enqueued recovery for ${camera.id}`);
+    this.logger.log(
+      `CameraHealthService: enqueued recovery for ${camera.id} (backoffBase=${backoffDelay}ms)`,
+    );
   }
 }
