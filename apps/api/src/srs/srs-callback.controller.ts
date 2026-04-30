@@ -7,6 +7,7 @@ import { PlaybackService } from '../playback/playback.service';
 import { RecordingsService } from '../recordings/recordings.service';
 import { ArchiveMetricsService } from '../recordings/archive-metrics.service';
 import { StreamGuardMetricsService } from '../streams/stream-guard-metrics.service';
+import { StreamHealthMetricsService } from '../streams/stream-health-metrics.service';
 import { onHlsCallbackSchema } from '../recordings/dto/on-hls-callback.dto';
 import { CamerasService } from '../cameras/cameras.service';
 import { SnapshotService } from '../cameras/snapshot.service';
@@ -60,6 +61,12 @@ export class SrsCallbackController {
     // CamerasModule already resolves the cycle for runtime DI.
     @Inject(forwardRef(() => SnapshotService))
     private readonly snapshotService?: SnapshotService,
+    // 2026-04-30 self-healing trio (D): churn metrics for the
+    // GET /metrics endpoint. Surfaces transitionsPerMinute, suspected
+    // crash-loop cameras, top flapping cameras, and stuck-reconnecting
+    // cameras for external monitoring (Grafana, UptimeKuma, ad-hoc).
+    @Optional()
+    private readonly streamHealthMetrics?: StreamHealthMetricsService,
   ) {}
 
   @Get('metrics')
@@ -69,6 +76,8 @@ export class SrsCallbackController {
       // Phase 23 DEBT-01: stream guard refusal observability. `null` when the
       // service is unavailable in DI (matches the archives convention).
       streamGuard: this.streamGuardMetrics?.snapshot() ?? null,
+      // 2026-04-30 self-healing trio (D): camera-fleet health snapshot.
+      streamHealth: this.streamHealthMetrics?.snapshot() ?? null,
     };
   }
 
