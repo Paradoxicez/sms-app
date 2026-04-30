@@ -8,6 +8,11 @@ export class FfmpegService {
   private runningProcesses = new Map<string, ffmpeg.FfmpegCommand>();
   private eventHandlers = new Map<string, { resolve: () => void; reject: (err: Error) => void }>();
   private intentionalStops = new Set<string>();
+  // Ring buffer of recent FFmpeg stderr lines per camera (last 30).
+  // Surfaced on the 'error' event so production logs reveal the actual
+  // libx264 / RTSP / RTMP failure cause instead of a bare "Input/output error".
+  private readonly stderrBuffers = new Map<string, string[]>();
+  private readonly STDERR_BUFFER_SIZE = 30;
 
   async startStream(
     cameraId: string,
@@ -24,6 +29,8 @@ export class FfmpegService {
     const cmd = buildFfmpegCommand(inputUrl, outputUrl, profile, needsTranscode);
     this.runningProcesses.set(cameraId, cmd);
 
+    this.stderrBuffers.set(cameraId, []);
+
     return new Promise<void>((resolve, reject) => {
       this.eventHandlers.set(cameraId, { resolve, reject });
 
@@ -31,11 +38,20 @@ export class FfmpegService {
         this.logger.log(`FFmpeg started for camera ${cameraId}: ${commandLine}`);
       });
 
+      cmd.on('stderr', (line: string) => {
+        const buf = this.stderrBuffers.get(cameraId);
+        if (!buf) return;
+        buf.push(line);
+        if (buf.length > this.STDERR_BUFFER_SIZE) buf.shift();
+      });
+
       cmd.on('error', (err: Error) => {
         const wasIntentional = this.intentionalStops.has(cameraId);
+        const tail = (this.stderrBuffers.get(cameraId) ?? []).join('\n');
         this.intentionalStops.delete(cameraId);
         this.runningProcesses.delete(cameraId);
         this.eventHandlers.delete(cameraId);
+        this.stderrBuffers.delete(cameraId);
 
         if (wasIntentional) {
           // SIGTERM from stopStream() makes fluent-ffmpeg fire 'error'
@@ -49,7 +65,10 @@ export class FfmpegService {
           return;
         }
 
-        this.logger.error(`FFmpeg error for camera ${cameraId}: ${err.message}`);
+        this.logger.error(
+          `FFmpeg error for camera ${cameraId}: ${err.message}` +
+            (tail ? `\n--- last stderr lines ---\n${tail}` : ''),
+        );
         reject(err);
       });
 
@@ -58,6 +77,7 @@ export class FfmpegService {
         this.logger.log(`FFmpeg ended for camera ${cameraId}`);
         this.runningProcesses.delete(cameraId);
         this.eventHandlers.delete(cameraId);
+        this.stderrBuffers.delete(cameraId);
         resolve();
       });
 
