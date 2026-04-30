@@ -106,3 +106,74 @@ export function normalizeCodecInfo(raw: unknown): CodecInfo | null {
   // Unrecognized shape — fail-safe to null so UI renders em-dash, not crash
   return null
 }
+
+// ─────────────────────────────────────────────
+// Quick task 260501-1n1 — Smart probe brand/warning helpers
+// ─────────────────────────────────────────────
+
+/**
+ * Brand vendors recognized by FfprobeService.detectBrand. Mirrors
+ * `apps/api/src/cameras/ffprobe.service.ts` `BrandHint` type.
+ */
+export type BrandHint =
+  | "uniview"
+  | "hikvision"
+  | "dahua"
+  | "axis"
+  | "generic-onvif"
+  | "unknown"
+
+export type BrandConfidence = "high" | "medium" | "low"
+
+/**
+ * Camera-row fields surfaced to the StreamWarningBanner. Defined separately
+ * from `CodecInfo` because Tier 1 persists these as TOP-LEVEL Camera columns
+ * (NOT inside the `codecInfo` JSON column) — keeps the Phase 19.1 D-16
+ * tagged-union contract on `codecInfo` intact.
+ */
+export interface CameraStreamWarnings {
+  streamWarnings?: string[]
+  brandHint?: BrandHint | string | null
+  brandConfidence?: BrandConfidence | string | null
+  /**
+   * NOT persisted in Tier 1 — stays in the api `ProbeResult` only. If a
+   * future tier surfaces it on the camera GET response, this field is ready.
+   */
+  brandEvidence?: string[]
+  /**
+   * NOT persisted directly. The UI re-derives it client-side via
+   * `deriveRecommendTranscode` from the three persisted fields above. See
+   * PLAN.md Task 3 Step 2 for the rationale (avoid duplicate state).
+   */
+  recommendTranscode?: boolean
+}
+
+/**
+ * Re-compute `recommendTranscode` in the client from the three persisted
+ * Camera columns + `needsTranscode`. Mirrors `FfprobeService.probeCamera`'s
+ * server-side composite so the UI stays consistent with the source of truth.
+ *
+ * Truth table (matches PLAN.md Task 1 <action>):
+ *   - needsTranscode=true (existing H.265 logic)              → true
+ *   - brandHint ∈ {uniview, hikvision, dahua} AND
+ *     brandConfidence ∈ {medium, high}                        → true
+ *   - streamWarnings includes 'vfr-detected'                  → true
+ *   - otherwise                                               → false
+ */
+export function deriveRecommendTranscode(cam: {
+  needsTranscode?: boolean
+  streamWarnings?: string[]
+  brandHint?: string | null
+  brandConfidence?: string | null
+}): boolean {
+  if (cam.needsTranscode) return true
+  const riskBrand =
+    cam.brandHint === "uniview" ||
+    cam.brandHint === "hikvision" ||
+    cam.brandHint === "dahua"
+  const goodConf =
+    cam.brandConfidence === "medium" || cam.brandConfidence === "high"
+  if (riskBrand && goodConf) return true
+  if ((cam.streamWarnings ?? []).includes("vfr-detected")) return true
+  return false
+}

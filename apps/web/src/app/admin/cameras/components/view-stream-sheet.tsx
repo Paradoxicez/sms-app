@@ -29,6 +29,7 @@ import { ResolvedPolicyCard } from "@/app/admin/policies/components/resolved-pol
 import { AuditLogDataTable } from "@/components/audit/audit-log-data-table"
 import { normalizeCodecInfo } from "@/lib/codec-info"
 import { CodecMismatchBanner } from "./codec-mismatch-banner"
+import { StreamWarningBanner } from "./stream-warning-banner"
 import { PushUrlSection } from "./push-url-section"
 import { WaitingForFirstPublish } from "./waiting-for-first-publish"
 
@@ -118,6 +119,12 @@ export function ViewStreamContent({
   const showMismatch =
     !mismatchDismissed &&
     normalizeCodecInfo(camera.codecInfo)?.status === "mismatch"
+
+  // Quick task 260501-1n1 — separate dismiss flag for the smart-probe banner.
+  // Tracked independently from `mismatchDismissed` because both banners can
+  // render simultaneously (e.g. an H.265 Uniview camera) and the user may
+  // dismiss one without the other.
+  const [warningDismissed, setWarningDismissed] = useState(false)
 
   async function handleAcceptAutoTranscode() {
     try {
@@ -261,6 +268,31 @@ export function ViewStreamContent({
         </div>
 
         <TabsContent value="preview" className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/*
+           * Quick task 260501-1n1 — Smart-probe warning banner. Renders
+           * BEFORE the codec-mismatch banner so it's the first thing the user
+           * sees in the Preview tab. Both banners can render simultaneously
+           * when both apply (e.g. an H.265 Uniview camera).
+           *
+           * The banner re-derives `recommendTranscode` client-side from
+           * persisted Camera fields via `deriveRecommendTranscode`, so it
+           * surfaces automatically once the StreamProbeProcessor success
+           * branch lands the row update.
+           */}
+          {!warningDismissed && (
+            <StreamWarningBanner
+              camera={{
+                id: camera.id,
+                needsTranscode: camera.needsTranscode,
+                streamWarnings: camera.streamWarnings,
+                brandHint: camera.brandHint,
+                brandConfidence: camera.brandConfidence,
+              }}
+              onAccept={handleAcceptAutoTranscode}
+              onDismiss={() => setWarningDismissed(true)}
+            />
+          )}
+
           {showMismatch && (
             <CodecMismatchBanner
               camera={camera}

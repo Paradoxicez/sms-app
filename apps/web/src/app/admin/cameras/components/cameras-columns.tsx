@@ -65,6 +65,15 @@ export interface CameraRow {
    * for cameras that have never been online.
    */
   thumbnail?: string | null
+  /**
+   * Quick task 260501-1n1 — Tier 1 smart-probe outputs. Persisted as
+   * top-level Camera columns (NOT inside codecInfo JSON) by the ffprobe
+   * success branch of StreamProbeProcessor. Defaults: `[]` / null / null
+   * until the first probe lands.
+   */
+  streamWarnings?: string[]
+  brandHint?: string | null
+  brandConfidence?: string | null
 }
 
 interface CamerasColumnCallbacks {
