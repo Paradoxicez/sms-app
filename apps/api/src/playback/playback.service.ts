@@ -182,15 +182,18 @@ export class PlaybackService {
       { algorithm: 'HS256', expiresIn: resolved.ttlSeconds },
     );
 
-    // 6. Pick edge node + build hlsUrl — byte-identical formula to createSession
-    //    so the URL FFmpeg requests is the URL on_play will validate.
+    // 6. Pick edge node + build hlsUrl. Background callers (snapshot/probe) MUST
+    //    use the INTERNAL SRS HTTP endpoint — never PUBLIC_HLS_BASE_URL — so the
+    //    FFmpeg fetch goes container-to-container (api → srs:8080) and bypasses
+    //    Caddy hairpin. Hairpin via the public domain produced 502 EOF spam in
+    //    production (caddy logs Lavf/59.27.100 → /srs-hls/.../*.m3u8 → context
+    //    canceled / EOF) because the internal probe path competed with viewer
+    //    HLS traffic over the same TLS path.
     const edgeNode = await this.clusterService.getLeastLoadedEdge();
-    const publicBase = process.env.PUBLIC_HLS_BASE_URL;
+    const internalBase = `http://${process.env.SRS_HOST || 'srs'}:8080`;
     const hlsBase = edgeNode
       ? `${edgeNode.hlsUrl}/live/${orgId}/${cameraId}.m3u8`
-      : publicBase
-      ? `${publicBase}/live/${orgId}/${cameraId}.m3u8`
-      : `http://${process.env.SRS_HOST || 'localhost'}:8080/live/${orgId}/${cameraId}.m3u8`;
+      : `${internalBase}/live/${orgId}/${cameraId}.m3u8`;
     const hlsUrl = `${hlsBase}?token=${token}`;
 
     const updated = await this.systemPrisma.playbackSession.update({
