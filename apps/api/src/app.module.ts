@@ -13,6 +13,7 @@ import { UsersModule } from './users/users.module';
 import { FeaturesModule } from './features/features.module';
 import { CamerasModule } from './cameras/cameras.module';
 import { StreamsModule } from './streams/streams.module';
+import { StreamHealthModule } from './streams/stream-health.module';
 import { StatusModule } from './status/status.module';
 import { SrsModule } from './srs/srs.module';
 import { SettingsModule } from './settings/settings.module';
@@ -46,6 +47,7 @@ import { ResilienceModule } from './resilience/resilience.module';
     UsersModule,
     FeaturesModule,
     CamerasModule,
+    StreamHealthModule,
     StatusModule,
     StreamsModule,
     SrsModule,
