@@ -1,9 +1,32 @@
 ---
-status: awaiting_human_verify
+status: resolved
 trigger: "NestJS Throttler returning HTTP 429 to SRS for /api/srs/callbacks/on-hls (and possibly other callback endpoints) at high rate. Recording/DVR/archive pipeline triggered by on_hls may be silently broken because SRS treats 429 as warning-and-ignore."
 created: 2026-04-30
-updated: 2026-04-30
+updated: 2026-04-30T~16:50Z
+resolved: 2026-04-30
+fix_commit: bc37dc2 fix(throttle):  named-throttler key mismatch silently nullified @SkipThrottle on SRS callbacks + Better Auth routes (was no-op since v1.3.0)
+deployed: 2026-04-30T~15:15Z (GHCR :latest rebuild + docker compose up -d api)
+verified: 2026-04-30T~16:50Z (~1hr post-deploy on production stream.magichouse.in.th)
+follow_up: "Surfaced separate bug — archive pipeline broken (on_hls handler not enqueueing archive jobs). New debug session opened: archive-pipeline-on-hls-no-enqueue.md"
 ---
+
+## Production Verification — RESOLVED (2026-04-30 ~16:50 UTC, ~1hr post-deploy)
+
+| Signal | Result | Verdict |
+|--------|--------|---------|
+| ThrottlerException (1hr api log) | 0 | ✓ throttler bypass works |
+| SRS on_hls ok responses (30min srs log) | 18,607 (~620/min, matches expected 19 cameras × 30/min) | ✓ callbacks flowing normally |
+| SRS on_hls failures (30min srs log) | 30 (~0.16% failure rate) | ✓ acceptable noise |
+| streamHealth.transitionsPerMinute | 0 | ✓ cameras stable post-restart |
+| streamGuard.refusals | 0 | ✓ no undefined cameraId noise |
+
+**Conclusion:** The throttler bypass fix is verified working. SRS callbacks return `{code:0}` consistently; api receives the requests without throttler rejection. This debug session is closed.
+
+**Surfaced separate bug — NOT addressed by this fix:**
+- `archives.total` remained `0` over the 1hr window despite 18,607 on_hls callbacks succeeding
+- 0 archive log activity in api (no enqueue lines, no recording saves)
+- Means: on_hls handler reaches api now, but archive enqueue logic itself doesn't fire — separate root cause
+- Open follow-up debug session for investigation; this debug remains closed because the throttler-specific contract (callbacks return 2xx) is fully satisfied.
 
 ## Current Focus
 
