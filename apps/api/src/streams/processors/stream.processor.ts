@@ -10,6 +10,7 @@ import { SystemPrismaService } from '../../prisma/system-prisma.service';
 import { SrsApiService } from '../../srs/srs-api.service';
 import { fingerprintProfile } from '../profile-fingerprint.util';
 import { StreamGuardMetricsService } from '../stream-guard-metrics.service';
+import { StreamHealthMetricsService } from '../stream-health-metrics.service';
 
 export const MAX_BACKOFF_MS = 300_000; // 5 minutes
 const BASE_BACKOFF_MS = 1_000; // 1 second
@@ -79,6 +80,11 @@ export class StreamProcessor extends WorkerHost {
     // SRS retains a phantom source that rejects new publishes. Optional to
     // preserve positional-construction tests.
     @Optional() private readonly srsApi?: SrsApiService,
+    // 2026-04-30 self-healing trio (A): consult crash-loop verdict before
+    // each spawn so we stop hammering a chronically-failing camera. The
+    // service tracks recent fast-exits per camera; once threshold is
+    // crossed, isDegraded() returns true and we skip the spawn entirely.
+    @Optional() private readonly healthMetrics?: StreamHealthMetricsService,
   ) {
     super();
   }
@@ -124,6 +130,26 @@ export class StreamProcessor extends WorkerHost {
       this.logger.warn(
         `Refusing FFmpeg job for push+passthrough camera ${cameraId} — SRS forward handles it`,
       );
+      return;
+    }
+
+    // 2026-04-30 self-healing trio (A) — crash-loop circuit breaker. The
+    // health metrics service raises isDegraded once a camera has logged
+    // > CRASH_LOOP_THRESHOLD fast-exits inside the rolling window. While
+    // degraded we refuse new spawn attempts so the system is not pinned
+    // in a retry storm against a camera with bad RTSP/codec/auth.
+    // Operator clears the degraded flag by transitioning the camera back
+    // to 'connecting' (manual config edit) or by api restart.
+    if (this.healthMetrics?.isDegraded(cameraId)) {
+      this.logger.warn(
+        `Skipping FFmpeg spawn for camera ${cameraId} — in degraded state (crash-loop)`,
+      );
+      // Best-effort transition so the UI reflects the degraded verdict.
+      // Existing notify pipeline fires camera.degraded webhook — fulfills
+      // task E with no extra wiring.
+      await this.statusService
+        .transition(cameraId, orgId, 'degraded')
+        .catch(() => {});
       return;
     }
 
@@ -259,7 +285,50 @@ export class StreamProcessor extends WorkerHost {
         }
       }
 
-      await this.ffmpegService.startStream(cameraId, inputUrl, outputUrl, profile, needsTranscode);
+      try {
+        await this.ffmpegService.startStream(cameraId, inputUrl, outputUrl, profile, needsTranscode);
+      } catch (spawnErr) {
+        // 2026-04-30 self-healing trio (A + C):
+        //
+        //  (A) After every startStream rejection, ask the health metrics
+        //      service whether this exit pushed the camera over the crash-
+        //      loop threshold. If yes, mark degraded + transition status
+        //      to 'degraded'. The existing notify pipeline fires the
+        //      camera.degraded webhook automatically (task E).
+        //
+        //  (C) Phantom-source cleanup: regardless of crash-loop verdict,
+        //      try to kick any client that SRS still has registered for
+        //      our stream path. A clean SIGTERM normally produces an
+        //      on_unpublish callback that frees the source, but SIGKILL
+        //      (OOM) and abrupt network failures can leave a phantom
+        //      that rejects the next publish with StreamBusy 1028.
+        //      findPublisherClientId returns null when the source is
+        //      already clean, so this is a no-op on the happy path.
+        if (this.healthMetrics?.isInCrashLoop(cameraId)) {
+          this.healthMetrics.markDegraded(cameraId);
+          await this.statusService
+            .transition(cameraId, orgId, 'degraded')
+            .catch(() => {});
+        }
+        if (this.srsApi) {
+          try {
+            const streamPath = `live/${orgId}/${cameraId}`;
+            const stalePublisherId =
+              await this.srsApi.findPublisherClientId(streamPath);
+            if (stalePublisherId) {
+              this.logger.warn(
+                `Post-exit cleanup: kicking stale publisher ${stalePublisherId} for ${cameraId}`,
+              );
+              await this.srsApi.kickPublisher(stalePublisherId);
+            }
+          } catch (cleanupErr) {
+            this.logger.warn(
+              `Post-exit cleanup failed for ${cameraId}: ${(cleanupErr as Error).message}`,
+            );
+          }
+        }
+        throw spawnErr;
+      }
     } finally {
       // Mitigation 1: lifecycle cleanup. Even if startStream rejects (FFmpeg
       // died from the signal-driven gracefulRestart), the subscriber must be

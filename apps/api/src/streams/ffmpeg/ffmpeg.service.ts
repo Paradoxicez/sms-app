@@ -1,6 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import ffmpeg from 'fluent-ffmpeg';
 import { buildFfmpegCommand, StreamProfile } from './ffmpeg-command.builder';
+import { StreamHealthMetricsService } from '../stream-health-metrics.service';
 
 @Injectable()
 export class FfmpegService {
@@ -13,6 +14,13 @@ export class FfmpegService {
   // libx264 / RTSP / RTMP failure cause instead of a bare "Input/output error".
   private readonly stderrBuffers = new Map<string, string[]>();
   private readonly STDERR_BUFFER_SIZE = 30;
+
+  // Optional so existing positional-construction tests (no health metrics)
+  // continue to build. When undefined, recordStart/recordExit are no-ops
+  // and crash-loop detection silently degrades to the legacy behavior.
+  constructor(
+    @Optional() private readonly healthMetrics?: StreamHealthMetricsService,
+  ) {}
 
   async startStream(
     cameraId: string,
@@ -35,6 +43,7 @@ export class FfmpegService {
       this.eventHandlers.set(cameraId, { resolve, reject });
 
       cmd.on('start', (commandLine: string) => {
+        this.healthMetrics?.recordStart(cameraId);
         this.logger.log(`FFmpeg started for camera ${cameraId}: ${commandLine}`);
       });
 
@@ -48,6 +57,7 @@ export class FfmpegService {
       cmd.on('error', (err: Error) => {
         const wasIntentional = this.intentionalStops.has(cameraId);
         const tail = (this.stderrBuffers.get(cameraId) ?? []).join('\n');
+        this.healthMetrics?.recordExit(cameraId, wasIntentional);
         this.intentionalStops.delete(cameraId);
         this.runningProcesses.delete(cameraId);
         this.eventHandlers.delete(cameraId);
@@ -73,6 +83,7 @@ export class FfmpegService {
       });
 
       cmd.on('end', () => {
+        this.healthMetrics?.recordExit(cameraId, true);
         this.intentionalStops.delete(cameraId);
         this.logger.log(`FFmpeg ended for camera ${cameraId}`);
         this.runningProcesses.delete(cameraId);

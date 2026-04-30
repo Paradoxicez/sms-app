@@ -1,10 +1,11 @@
-import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional, forwardRef } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { SystemPrismaService } from '../prisma/system-prisma.service';
 import { StatusGateway } from './status.gateway';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { StreamHealthMetricsService } from '../streams/stream-health-metrics.service';
 
 @Injectable()
 export class StatusService {
@@ -16,16 +17,22 @@ export class StatusService {
   // connecting phase). Pull cameras still typically pass through `connecting`
   // because FFmpegService.start() sets that state before the SRS callback
   // fires — the new direct edge is additive, not destructive.
+  //
+  // 2026-04-30 self-healing edge `connecting/reconnecting -> degraded` added
+  // so the crash-loop detector can mark a chronically-failing camera
+  // `degraded` from any non-online state. The existing `online -> degraded`
+  // edge handled the steady-state case; the new edges cover the more common
+  // crash-during-startup case.
   private readonly validTransitions: Record<string, string[]> = {
     offline: ['connecting', 'online'],
-    connecting: ['online', 'offline', 'reconnecting'],
+    connecting: ['online', 'offline', 'reconnecting', 'degraded'],
     // `connecting` added in Phase 19.1: StreamProcessor runs a FFmpeg job
     // for an already-online camera (BootRecovery re-enqueue, push+transcode
     // orphan cleanup, mid-stream profile change) — it needs to mark the
     // camera as transitional while FFmpeg warms up again.
     online: ['reconnecting', 'degraded', 'offline', 'connecting'],
-    reconnecting: ['online', 'offline', 'connecting'],
-    degraded: ['online', 'offline'],
+    reconnecting: ['online', 'offline', 'connecting', 'degraded'],
+    degraded: ['online', 'offline', 'connecting'],
   };
 
   constructor(
@@ -35,6 +42,11 @@ export class StatusService {
     @Inject(forwardRef(() => NotificationsService))
     private readonly notificationsService: NotificationsService,
     @InjectQueue('camera-notify') private readonly notifyQueue: Queue,
+    // 2026-04-30 self-healing trio (D): record transitions for the
+    // streamHealth metrics block + adaptive miss-tolerance reset logic.
+    // Optional so existing positional-construction tests still build.
+    @Optional()
+    private readonly healthMetrics?: StreamHealthMetricsService,
   ) {}
 
   async transition(cameraId: string, orgId: string, newStatus: string): Promise<void> {
@@ -64,6 +76,10 @@ export class StatusService {
         ...(newStatus === 'online' ? { lastOnlineAt: new Date() } : {}),
       },
     });
+
+    // 2026-04-30: feed the StreamHealth ring buffer so snapshot() reports
+    // accurate transitionsPerMinute / topFlapping5min / stuckReconnectingOver5min.
+    this.healthMetrics?.recordTransition(cameraId, currentStatus, newStatus);
 
     // UI state stays live during maintenance per D-04 + D-15
     this.statusGateway.broadcastStatus(orgId, cameraId, newStatus);
