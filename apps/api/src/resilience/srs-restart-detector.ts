@@ -5,6 +5,7 @@ import { SystemPrismaService } from '../prisma/system-prisma.service';
 import { SrsApiService } from '../srs/srs-api.service';
 import { FfmpegService } from '../streams/ffmpeg/ffmpeg.service';
 import { buildStreamJobData } from './job-data.helper';
+import { MAX_STREAM_ATTEMPTS } from '../streams/processors/stream.processor';
 
 /**
  * Detects SRS container restart by tracking the top-level `server` instance
@@ -98,7 +99,7 @@ export class SrsRestartDetector {
         {
           jobId: `camera:${camera.id}:ffmpeg`,
           delay,
-          attempts: 20,
+          attempts: MAX_STREAM_ATTEMPTS,
           backoff: { type: 'exponential', delay: 1000 },
           removeOnComplete: true,
           removeOnFail: false,

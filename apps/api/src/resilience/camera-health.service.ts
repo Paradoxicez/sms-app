@@ -7,6 +7,7 @@ import { FfmpegService } from '../streams/ffmpeg/ffmpeg.service';
 import { StatusService } from '../status/status.service';
 import { SrsRestartDetector } from './srs-restart-detector';
 import { buildStreamJobData } from './job-data.helper';
+import { MAX_STREAM_ATTEMPTS } from '../streams/processors/stream.processor';
 
 const NOTIFIABLE_CAMERA_STATUSES = ['online', 'connecting', 'reconnecting', 'degraded'];
 
@@ -210,11 +211,33 @@ export class CameraHealthService implements OnModuleInit {
     // FFmpeg profile would persist. We MUST preserve in-flight 'restart'.
     const jobId = `camera:${camera.id}:ffmpeg`;
     const existing = await this.streamQueue.getJob(jobId);
-    if (existing && existing.name === 'restart') {
-      this.logger.debug(
-        `CameraHealthService: skipping enqueue for ${camera.id} — in-flight 'restart' job ${existing.id} preserved (will retry next tick)`,
-      );
-      return;
+    if (existing) {
+      if (existing.name === 'restart') {
+        this.logger.debug(
+          `CameraHealthService: skipping enqueue for ${camera.id} — in-flight 'restart' job ${existing.id} preserved (will retry next tick)`,
+        );
+        return;
+      }
+      // 2026-04-30 hard-reset: BullMQ exponential backoff can stall a job
+      // for tens of minutes between retries (atm=12 → ~34 min delay). When
+      // the underlying RTMP issue (e.g. SRS phantom source from a killed
+      // FFmpeg) has resolved, we want the next health tick to retry —
+      // but BullMQ `add()` with the same jobId is a no-op when the existing
+      // job is in the delayed/waiting set. Detect "stuck" by attemptsMade
+      // ≥ STUCK_ATTEMPTS_THRESHOLD and remove the stale job so the fresh
+      // add below produces a brand-new attempt cycle.
+      const STUCK_ATTEMPTS_THRESHOLD = 3;
+      const attemptsMade = (existing as any).attemptsMade ?? 0;
+      if (attemptsMade >= STUCK_ATTEMPTS_THRESHOLD) {
+        this.logger.warn(
+          `CameraHealthService: removing stuck job for ${camera.id} (attemptsMade=${attemptsMade}) — re-enqueueing fresh`,
+        );
+        await existing.remove().catch((err) => {
+          this.logger.warn(
+            `CameraHealthService: failed to remove stuck job for ${camera.id}: ${(err as Error).message}`,
+          );
+        });
+      }
     }
 
     await this.streamQueue.add(
@@ -222,7 +245,7 @@ export class CameraHealthService implements OnModuleInit {
       buildStreamJobData(camera),
       {
         jobId,
-        attempts: 20,
+        attempts: MAX_STREAM_ATTEMPTS,
         backoff: { type: 'exponential', delay: 1000 },
         removeOnComplete: true,
         removeOnFail: false,

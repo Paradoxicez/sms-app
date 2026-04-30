@@ -7,11 +7,24 @@ import { StreamProfile } from '../ffmpeg/ffmpeg-command.builder';
 import { StatusService } from '../../status/status.service';
 import { REDIS_CLIENT } from '../../api-keys/api-keys.service';
 import { SystemPrismaService } from '../../prisma/system-prisma.service';
+import { SrsApiService } from '../../srs/srs-api.service';
 import { fingerprintProfile } from '../profile-fingerprint.util';
 import { StreamGuardMetricsService } from '../stream-guard-metrics.service';
 
 export const MAX_BACKOFF_MS = 300_000; // 5 minutes
 const BASE_BACKOFF_MS = 1_000; // 1 second
+
+/**
+ * Cap on BullMQ attempts for stream-ffmpeg jobs. Lowered from 20 to 8 after
+ * the 2026-04-30 production incident where FFmpegs killed mid-publish (by the
+ * pre-fix CameraHealthService false-positive) left BKR02/05/06 stuck in
+ * delayed state with `delay = 1000 * 2^11 ≈ 34 min` between retries. Each
+ * exponential delay is `1000 * 2^(attempts-1)` so the new cap is `2^7 = 128s`
+ * with cumulative max ~255s before BullMQ removes the job. CameraHealthService
+ * Hard-reset re-enqueues fresh on its next 60s tick, so total worst-case
+ * recovery time is ~5 min instead of >30 min.
+ */
+export const MAX_STREAM_ATTEMPTS = 8;
 
 export interface StreamJobData {
   cameraId: string;
@@ -60,6 +73,12 @@ export class StreamProcessor extends WorkerHost {
     // positionally with 2-4 args — keeping this @Optional() preserves their
     // build per CLAUDE.md memory `verify_subagent_writes`.
     @Optional() private readonly streamGuardMetrics?: StreamGuardMetricsService,
+    // 2026-04-30: SrsApiService for pre-flight kick of stale publishers in
+    // the SRS source registry. Mitigates the StreamBusy (1028) cascade where
+    // a previous FFmpeg crashed unclean (SIGKILL, OOM, network blip) and
+    // SRS retains a phantom source that rejects new publishes. Optional to
+    // preserve positional-construction tests.
+    @Optional() private readonly srsApi?: SrsApiService,
   ) {
     super();
   }
@@ -207,6 +226,37 @@ export class StreamProcessor extends WorkerHost {
           `Processing stream job for camera ${cameraId} (attempt ${job.attemptsMade + 1})`,
         );
         await this.statusService.transition(cameraId, orgId, 'connecting');
+      }
+
+      // 2026-04-30 defensive pre-flight: kick any stale publisher for this
+      // stream path before spawning FFmpeg. Mitigates the StreamBusy (1028)
+      // cascade discovered during the camera-flap incident — when a previous
+      // FFmpeg dies unclean (SIGKILL, container restart, network reset),
+      // SRS may retain a phantom client/source registration that rejects
+      // every subsequent publish with "Stream already exists or busy".
+      // findPublisherClientId returns null when no stale entry exists, so
+      // this is a no-op on the happy path. We only kick fmle-publish/publish/
+      // rtmp-publish types so we never disturb a real concurrent viewer.
+      if (this.srsApi) {
+        try {
+          const streamPath = `live/${orgId}/${cameraId}`;
+          const stalePublisherId =
+            await this.srsApi.findPublisherClientId(streamPath);
+          if (stalePublisherId) {
+            this.logger.warn(
+              `Pre-flight kick: stale publisher ${stalePublisherId} for ${cameraId} — kicking before spawn`,
+            );
+            await this.srsApi.kickPublisher(stalePublisherId);
+            // Brief pause so SRS finishes source teardown before our publish.
+            // 500ms is empirically enough for ST coroutine cleanup; tested
+            // against the StreamBusy repro on stream.magichouse.in.th.
+            await new Promise((resolve) => setTimeout(resolve, 500));
+          }
+        } catch (err) {
+          this.logger.warn(
+            `Pre-flight kick failed for ${cameraId}: ${(err as Error).message} — proceeding to spawn anyway`,
+          );
+        }
       }
 
       await this.ffmpegService.startStream(cameraId, inputUrl, outputUrl, profile, needsTranscode);

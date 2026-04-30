@@ -4,6 +4,7 @@ import { Queue } from 'bullmq';
 import { execSync } from 'child_process';
 import { SystemPrismaService } from '../prisma/system-prisma.service';
 import { buildStreamJobData } from './job-data.helper';
+import { MAX_STREAM_ATTEMPTS } from '../streams/processors/stream.processor';
 
 /**
  * Re-enqueues desired-running cameras (status in [online, connecting,
@@ -104,7 +105,7 @@ export class BootRecoveryService implements OnApplicationBootstrap {
         {
           jobId: `camera:${camera.id}:ffmpeg`,
           delay,
-          attempts: 20,
+          attempts: MAX_STREAM_ATTEMPTS,
           backoff: { type: 'exponential', delay: 1000 },
           removeOnComplete: true,
           removeOnFail: false,

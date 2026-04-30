@@ -8,7 +8,7 @@ import { FfmpegService } from './ffmpeg/ffmpeg.service';
 import { StatusService } from '../status/status.service';
 import { AuditService } from '../audit/audit.service';
 import { REDIS_CLIENT } from '../api-keys/api-keys.service';
-import { StreamJobData, calculateBackoff, MAX_BACKOFF_MS } from './processors/stream.processor';
+import { StreamJobData, calculateBackoff, MAX_BACKOFF_MS, MAX_STREAM_ATTEMPTS } from './processors/stream.processor';
 import { StreamProfile } from './ffmpeg/ffmpeg-command.builder';
 
 @Injectable()
@@ -149,7 +149,7 @@ export class StreamsService {
 
     await this.streamQueue.add('start', jobData, {
       jobId: `camera:${cameraId}:ffmpeg`,
-      attempts: 20,
+      attempts: MAX_STREAM_ATTEMPTS,
       backoff: {
         type: 'exponential',
         delay: 1000,
@@ -350,7 +350,7 @@ export class StreamsService {
         {
           jobId,
           delay: Math.floor(Math.random() * 30_000),
-          attempts: 20,
+          attempts: MAX_STREAM_ATTEMPTS,
           backoff: { type: 'exponential', delay: 1000 },
           removeOnComplete: true,
           removeOnFail: false,
