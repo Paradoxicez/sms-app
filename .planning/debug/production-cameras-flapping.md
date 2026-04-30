@@ -1,9 +1,14 @@
 ---
-status: root_cause_identified
+status: resolved
+scope: bug_1_only
 trigger: "production-cameras-flapping — หลัง deploy ระบบขึ้น production server แล้ว มีกล้องบางตัว flap (ติดๆดับๆ); หาวิธี diagnose บน production และระบุ root cause"
 created: 2026-04-30
-updated: 2026-04-30T03:45Z
+updated: 2026-04-30T~12:30Z
+resolved: 2026-04-30
 ssh_diagnostic_run: 2026-04-30T03:30-03:43Z (ice@stream.magichouse.in.th)
+fix_applied: commits badd5a1 (12:36 +0700) + 03c66e5 (14:15 +0700), 2026-04-30
+fix_deployed: GHCR :latest rebuild from d7f5b17 at 07:16 UTC; production container restarted 09:10 UTC, both 2026-04-30
+note: Bug #2 (FFmpeg I/O error on Saensuk + cam 6 + BKR02/05/06) NOT addressed — separate root cause; Bug #2 partially resolved out-of-band when user switched Saensuk-139 to transcode profile (see saensuk-139-live-but-preview-broken.md) but cohort coverage incomplete.
 ---
 
 ## ROOT CAUSE IDENTIFIED — Live diagnostic on stream.magichouse.in.th (2026-04-30 03:30-03:43Z)
@@ -164,10 +169,109 @@ started: หลัง production deployment v1.3 (Phase 30 smoke test gate). Dev
 
 ## Resolution
 
-root_cause: INCONCLUSIVE without production-server evidence. Codebase analysis points strongly to a 2-cause cascade:
-  Primary suspect (H1+H2): FFmpeg has no RTSP stall timeouts (`apps/api/src/streams/ffmpeg/ffmpeg-command.builder.ts`) so unstable RTSP sources hang silently → SRS dispose at 30s (`config/srs.conf:34`) makes UI show OFFLINE while FFmpeg is "alive" → CameraHealthService 60s tick SIGTERMs and re-enqueues via 20-attempt exponential backoff (`apps/api/src/resilience/camera-health.service.ts:55-131`) → flap pattern. Probe race in `stream-probe.processor.ts:142-242` writes empty-codec success when SRS hasn't yet parsed video.codec → permanent ⚠ until next on_publish.
-  Secondary suspect (H3): Production-only LAN reachability — KBTG / BKK cameras may not be routable from VM via the `edge` Docker network.
-  User runs the playbook (returned in chat) on the production VM; the matching diagnostic step pinpoints whether root cause is FFmpeg/probe code (H1+H2) or environment (H3) or hook timeout (H4).
-fix: TBD pending production playbook results
-verification: TBD
-files_changed: []
+root_cause: Bug #1 (CameraHealthService false-positive `srs=false` cascade) — confirmed by 03:30-03:43Z SSH diagnostic. Under concurrent SRS HTTP load (CameraHealthService probe + StreamProbeProcessor + Snapshot triggers), SRS HTTP server returns `client disconnect peer. ret=1007` to a percentage of `/api/v1/streams` requests. Pre-fix `srsApi.getStreams()` catch-all returned `{streams: []}` on any error → empty Set → ALL cameras marked `srsAlive=false` → ALL FFmpeg SIGTERM'd → ~12 minute flap cycle.
+
+fix: Cache + miss-tolerance in `CameraHealthService.runTick()`:
+  - Keep last-known-good `srsStreamIdsCache` Set populated only on successful `getStreams()` responses.
+  - On `getStreams()` failure: fall back to fresh cache (CACHE_STALE_MS=5min) when available, OR skip the liveness pass entirely this tick. NEVER treat a failed call as "all streams gone."
+  - Per-camera `missCounters` Map: a camera missing from the SRS response one tick is tolerated (MISS_TOLERANCE=2 default). Only after MISS_TOLERANCE consecutive misses with `ffmpegAlive=true` is the camera SIGTERM'd.
+  - StreamHealthMetricsService bumps tolerance per-camera up to MAX=4 when the camera flaps quickly after coming online.
+  - Trade-off: if SRS is genuinely unreachable for ≥5 min, dead cameras won't be detected by SRS-side absence — but `!ffmpegAlive` (process actually exited) still works, so we never miss a hard FFmpeg crash.
+  - Operator visibility: every cache fallback emits `CameraHealthService: using cached SRS stream set (age=Xs, size=N)` at debug level; every skipped tick emits `no fresh SRS cache available — skipping liveness pass this tick` at warn level.
+
+verification:
+  - Local TypeScript build: `pnpm --filter @sms-platform/api build` → "Successfully compiled: 176 files with swc"
+  - Local typecheck (tsc --noEmit): zero errors in `apps/api/src/resilience/` or `apps/api/tests/resilience/`
+  - Unit tests: `apps/api/tests/resilience/camera-health.test.ts` updated with 5 new cases covering (a) cold-cache + failure → no kill, (b) warm-cache + failure → fallback, (c) MISS_TOLERANCE=2 grace, (d) declares dead after 2 consecutive misses, (e) does not throw on first-tick failure. Old "treats all cameras as potentially dead" test removed (regressed by fix design).
+  - Test runner blocked locally because Docker postgres on port 5434 is not running; user needs to `docker compose up -d postgres` then `pnpm --filter @sms-platform/api test --run resilience/camera-health` to confirm green.
+  - Production verification: PENDING user deploy gate (see "Deploy Gate" below).
+
+files_changed:
+  - apps/api/src/resilience/camera-health.service.ts (cache + miss-tolerance + adaptive tolerance + reload cron) — committed in badd5a1 + 03c66e5, currently in v1.3.1 tag
+  - apps/api/src/streams/stream-health-metrics.service.ts (NEW @Global service for adaptive tolerance + backoff + crash-loop detection) — committed in f8377bf
+  - apps/api/src/srs/srs-api.service.ts (`count=9999` to disable SRS pagination cap) — committed in 21840f0
+  - apps/api/tests/resilience/camera-health.test.ts (test refresh — pre-existing test asserted old buggy behavior) — uncommitted, this session
+
+## Fix Applied (2026-04-30 20:58 +07)
+
+**Status:** Fix code is **already committed and tagged v1.3.1**. This session refreshed the unit tests so they reflect the new behavior (the old "all cameras potentially dead" assertion was a stale guard for the bug, not the fix).
+
+**What ran in this session:**
+1. Read `apps/api/src/resilience/camera-health.service.ts` and confirmed the cache + miss-tolerance pattern is implemented per the four fix directions in this debug doc (#1 tolerance — applied; #2 retry — not applied, deferred; #3 per-camera probe — not applied, deferred; #4 semaphore — not applied, deferred).
+2. Read `apps/api/src/srs/srs-api.service.ts` — no semaphore (#4) yet. SrsApiService is a thin wrapper around `fetch()`; bounded-concurrency would require a deeper refactor and the cache+tolerance fix already breaks the cascade. Defer #4 unless production confirms continued issues.
+3. Read existing test `apps/api/tests/resilience/camera-health.test.ts`. Found one stale test that asserted the OLD buggy behavior ("treats all cameras as potentially dead" when getStreams fails). Replaced it with 5 new cases that exercise the cache + miss-tolerance contract.
+4. `pnpm --filter @sms-platform/api build` → success, 176 files compiled.
+5. `tsc --noEmit` → zero errors in resilience/* (pre-existing TS errors in other modules — not introduced by this work).
+6. Unit-test runtime blocked: docker compose postgres@5434 not running in this sandbox. Tests must be run on user's machine.
+
+**Out-of-scope (per checkpoint instructions):**
+- Bug #2 (FFmpeg I/O error on Saensuk + camera 6 + BKR02/05/06) — separate cohort, separate root cause; not addressed.
+- Tier-B-genpts-defense stash from saensuk-139 debug — left untouched.
+- SrsApiService semaphore (#4) — deferred unless cache+tolerance proves insufficient.
+- SrsApiService retry-with-backoff (#2) — deferred (cache absorbs the same transient failure window).
+- Per-camera `/api/v1/streams/{id}` switch (#3) — deferred (deeper refactor; current single-call design is OK with tolerance).
+
+## Production Verification — RESOLVED (2026-04-30 ~12:30 UTC, ~6hr after deploy)
+
+Production runs `ghcr.io/paradoxicez/sms-api:latest` (digest `sha256:8bac8de4...`, image built from commit `d7f5b17` at 07:16 UTC, descendant of fix commits `badd5a1` + `03c66e5`). Container started at 09:10 UTC. Fix code confirmed present in running container:
+- `grep -c MISS_TOLERANCE /app/apps/api/dist/resilience/camera-health.service.js` → **3 matches**
+- `grep -c srsStreamIdsCache /app/apps/api/dist/resilience/camera-health.service.js` → **4 matches**
+
+Log signatures over the 6-hour window since deploy (09:10 UTC → 15:30 UTC):
+
+| Pattern | Count | Interpretation |
+|---------|-------|----------------|
+| `using cached SRS stream set` | 0 | SRS HTTP API never failed → no cache fallback needed |
+| `tolerating srs-miss` | 0 | No camera ever missing from SRS for even one tick |
+| `dead stream detected` | 0 | NO false-positives — pre-fix this would fire ~every 12 min |
+| `transitioning/reconnecting/connecting` (last 1hr) | 0 | Cameras stable, no flap activity |
+
+**Conclusion:** Bug #1 is RESOLVED in production. The cache+tolerance fix is running, and the underlying SRS HTTP overload condition has not recurred over 6 hours of uptime. The 12-minute flap cycle observed in the 03:30-03:43 SSH diagnostic was on the pre-fix image (container started before 09:10 deploy).
+
+Verification commands used:
+```bash
+ssh ice@stream.magichouse.in.th 'docker compose logs api --since 6h 2>&1 | grep -cE "..."'
+```
+
+Future regression detection: if `dead stream detected` reappears for healthy cameras OR `using cached SRS stream set` count spikes >100/hr, investigate whether SRS HTTP server load has crossed a new threshold and consider applying fix-direction #4 (SrsApiService semaphore) at that time.
+
+## Deploy Gate (RESOLVED — production already on fix)
+
+The fix is in `v1.3.1` tag (committed 2026-04-30 14:15-15:22 +07). User must verify whether production server is currently running this image:
+
+```bash
+# On production (ice@stream.magichouse.in.th):
+ssh ice@stream.magichouse.in.th
+cd /home/ice/sms-app
+docker inspect sms-platform-api-1 --format '{{ index .Config.Labels "org.opencontainers.image.version" }}'
+# OR
+docker compose images api
+```
+
+**If production is on `:v1.3.0` or earlier:** the fix is NOT yet deployed. Pull `:v1.3.1` and restart:
+```bash
+cd /home/ice/sms-app
+git pull origin main
+docker compose pull api
+docker compose up -d api
+docker compose logs -f api 2>&1 | grep -E "CameraHealthService|dead stream"
+```
+
+**If production is on `:v1.3.1` already:** the fix IS deployed; the flap reported during the SSH diagnostic happened on the OLD image. Confirm by tailing logs for ~15 minutes (one full flap cycle was 12 min); the `dead stream detected` warnings should NOT recur.
+
+**Test plan to confirm fix in production:**
+1. Tail api logs for 30 minutes: `docker compose logs -f api --tail 0 2>&1 | grep CameraHealthService`
+2. Expected: `using cached SRS stream set` debug lines (occasional) + `tolerating srs-miss for X (1/2)` debug lines (occasional). NO `dead stream detected` warnings for cameras that are visibly healthy in the dashboard.
+3. Expected: `/api/srs/callbacks/metrics` → `streamHealth` block populated with non-zero `cacheHits` and/or `tolerated` counters over time.
+4. UI: 19 cameras stay LIVE for >30 min without the 12-min flap pattern. The 4 KBTG cohort cameras + Saensuk cohort may still flap — those are Bug #2, separate fix.
+
+**Rollback plan if fix worsens behavior:**
+```bash
+cd /home/ice/sms-app
+docker compose down
+git checkout v1.3.0
+docker compose pull api
+docker compose up -d
+```
+
+Once user confirms in production: move this file from `.planning/debug/` to `.planning/debug/resolved/`, append to knowledge base, and commit.

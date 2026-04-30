@@ -168,7 +168,7 @@ files_changed:
 
 | Priority | Issue | Status |
 |----------|-------|--------|
-| HIGH | `production-cameras-flapping` Bug #1 — `apps/api/src/resilience/camera-health.service.ts:71-94` false-positive `srs=false` reaping healthy streams every 60s | root_cause_identified, **unfixed** — see `.planning/debug/production-cameras-flapping.md` |
+| RESOLVED | ~~`production-cameras-flapping` Bug #1~~ — fix in v1.3.1 (commits `badd5a1` + `03c66e5`); production verified 2026-04-30 ~12:30 UTC, no flap events in 6hr post-deploy. See `.planning/debug/production-cameras-flapping.md` |
 | MEDIUM | NestJS Throttler returning 429 on `/api/srs/callbacks/on-hls` for ALL cameras every 2s — recording/DVR/archive pipeline may be silently broken | not investigated; observed during this debug session |
 | LOW | iOS Safari embed compatibility for Uniview/Hikvision/Dahua cameras (single-frame display bug, separate from PTS skew) | no user reports yet; Apple Developer forum thread documents the symptom |
 
