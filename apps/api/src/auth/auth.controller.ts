@@ -6,7 +6,13 @@ import { initAuth } from './auth.config';
 import { loadBetterAuthNode } from './esm-loader';
 
 @ApiExcludeController()
-@SkipThrottle()
+// ThrottlerModule uses NAMED throttlers ('global','tenant','apikey') in
+// app.module.ts — bare @SkipThrottle() only writes metadata for the implicit
+// 'default' throttler and is therefore a NO-OP for this app. Spell out every
+// named throttler so Better Auth's internal CSRF + session + sign-in calls do
+// not share the global per-IP pool with dashboard polling. See debug session
+// .planning/debug/srs-callback-throttler-429.md for the full root-cause trace.
+@SkipThrottle({ global: true, tenant: true, apikey: true })
 @Controller('api/auth')
 export class AuthController implements OnModuleInit {
   private handler!: (req: Request, res: Response) => Promise<void>;

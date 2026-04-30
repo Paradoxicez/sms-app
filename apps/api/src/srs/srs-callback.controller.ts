@@ -17,7 +17,18 @@ import { AuditService } from '../audit/audit.service';
 import { streamKeyPrefix } from '../cameras/stream-key.util';
 
 @ApiExcludeController()
-@SkipThrottle()
+// IMPORTANT: ThrottlerModule is configured with NAMED throttlers
+// ('global','tenant','apikey') in app.module.ts — there is NO throttler named
+// 'default'. Bare @SkipThrottle() defaults to {default:true} (per the v6.5
+// source), which writes metadata under THROTTLER:SKIPdefault. The guard reads
+// THROTTLER:SKIP{configuredName} per throttler — so the bare form silently
+// skips NOTHING. We must spell out every named throttler explicitly.
+//
+// SRS posts ~30 on_hls callbacks/min/camera (hls_fragment 2s); a 19-camera
+// fleet emits ~570/min from one container IP — directly grazing the 600/min
+// global cap. Without this skip the on_hls archive pipeline (MinIO upload +
+// DVR row write) silently drops segments because SRS warn-and-ignores 429.
+@SkipThrottle({ global: true, tenant: true, apikey: true })
 @Controller('api/srs/callbacks')
 export class SrsCallbackController {
   private readonly logger = new Logger(SrsCallbackController.name);
