@@ -219,6 +219,13 @@ model Camera {
   status          String         @default("offline")
   needsTranscode  Boolean        @default(false)
   codecInfo       Json?
+  // Quick task 260501-1n1 — Tier 1 smart probe outputs persisted on Camera
+  // (NOT inside codecInfo JSON, which keeps the Phase 19 D-07 tagged-union
+  // contract intact). Defaults intentionally permissive so legacy rows
+  // pre-migration render as "no warnings, unknown brand".
+  streamWarnings  String[]       @default([])
+  brandHint       String?
+  brandConfidence String?
   streamProfileId String?
   streamProfile   StreamProfile? @relation(fields: [streamProfileId], references: [id], onDelete: SetNull)
   lastOnlineAt    DateTime?

@@ -268,6 +268,13 @@ export class StreamProbeProcessor extends WorkerHost {
       } else {
         // ffprobe path — existing behavior preserved but rewritten to the
         // new tagged-union shape.
+        //
+        // Quick task 260501-1n1 (Tier 1 smart probe): persist the brand
+        // hint + stream warnings the FfprobeService now returns. These live
+        // as TOP-LEVEL Camera columns (NOT inside codecInfo JSON) so the
+        // Phase 19.1 D-16 tagged-union contract on `codecInfo` stays intact.
+        // brandEvidence is intentionally NOT persisted in Tier 1 — the UI
+        // re-derives display from the persisted fields. See PLAN.md "Step 5".
         const result = await this.ffprobeService.probeCamera(streamUrl);
         await this.writeCodecInfo(
           cameraId,
@@ -287,10 +294,15 @@ export class StreamProbeProcessor extends WorkerHost {
             probedAt: new Date().toISOString(),
             source: 'ffprobe',
           },
-          { needsTranscode: result.needsTranscode },
+          {
+            needsTranscode: result.needsTranscode,
+            streamWarnings: result.streamWarnings,
+            brandHint: result.brandHint,
+            brandConfidence: result.brandConfidence,
+          },
         );
         this.logger.log(
-          `Probed (ffprobe) camera ${cameraId}: codec=${result.codec}, transcode=${result.needsTranscode}`,
+          `Probed (ffprobe) camera ${cameraId}: codec=${result.codec}, transcode=${result.needsTranscode}, brand=${result.brandHint}/${result.brandConfidence}, warnings=[${result.streamWarnings.join(',')}]`,
         );
       }
     } catch (err) {

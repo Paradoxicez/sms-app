@@ -67,6 +67,15 @@ describe('StreamProbeProcessor — Phase 19 (D-01, D-02, D-04, D-07)', () => {
       fps: 30,
       audioCodec: 'aac',
       needsTranscode: false,
+      // Quick task 260501-1n1 — ProbeResult was extended with smart-probe
+      // fields. Tests must mock the full shape or the success-branch log
+      // statement (`result.streamWarnings.join(...)`) throws and triggers
+      // the catch path, polluting the assertion that update was called twice.
+      streamWarnings: [],
+      brandHint: 'unknown',
+      brandConfidence: 'low',
+      brandEvidence: [],
+      recommendTranscode: false,
     });
     await runJob({ cameraId: 'c', streamUrl: 'rtsp://x', orgId: 'o' });
     const firstCall = mockPrisma.camera.update.mock.calls[0][0];
@@ -84,6 +93,13 @@ describe('StreamProbeProcessor — Phase 19 (D-01, D-02, D-04, D-07)', () => {
       fps: 30,
       audioCodec: 'aac',
       needsTranscode: false,
+      // Quick task 260501-1n1 — see note above. Healthy H.264 camera with
+      // no recognizable URL/encoder pattern → all defaults.
+      streamWarnings: [],
+      brandHint: 'unknown',
+      brandConfidence: 'low',
+      brandEvidence: [],
+      recommendTranscode: false,
     });
     await runJob({ cameraId: 'c', streamUrl: 'rtsp://x', orgId: 'o' });
     // update called twice: pending, then success
@@ -98,6 +114,11 @@ describe('StreamProbeProcessor — Phase 19 (D-01, D-02, D-04, D-07)', () => {
     });
     expect(finalCall.data.codecInfo.audio).toMatchObject({ codec: 'aac' });
     expect(finalCall.data.needsTranscode).toBe(false);
+    // Quick task 260501-1n1 — the new fields are now persisted on Camera
+    // via the `extra` arg to writeCodecInfo (NOT inside codecInfo JSON).
+    expect(finalCall.data.streamWarnings).toEqual([]);
+    expect(finalCall.data.brandHint).toBe('unknown');
+    expect(finalCall.data.brandConfidence).toBe('low');
   });
 
   it('writes codecInfo.status = "failed" with normalized error on ffprobe failure', async () => {
