@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Radio, Circle, Copy } from "lucide-react"
 import { toast } from "sonner"
 
@@ -21,6 +21,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
+import { apiFetch } from "@/lib/api"
 
 import { type CameraRow } from "./cameras-columns"
 import { CameraStatusBadge } from "./camera-status-badge"
@@ -32,6 +33,20 @@ import { CodecMismatchBanner } from "./codec-mismatch-banner"
 import { StreamWarningBanner } from "./stream-warning-banner"
 import { PushUrlSection } from "./push-url-section"
 import { WaitingForFirstPublish } from "./waiting-for-first-publish"
+
+/**
+ * Quick task 260501-tgy — local StreamProfile shape for the smart-probe
+ * banner's profile picker. Mirrors the subset of fields returned by
+ * `/api/stream-profiles` that the banner needs (id, name, codec). We
+ * deliberately duplicate the shape rather than refactor into a shared
+ * hook — the only other call site (`camera-form-dialog.tsx:153`) uses a
+ * larger StreamProfile shape that includes preset/resolution/bitrate.
+ */
+interface StreamProfile {
+  id: string
+  name: string
+  codec: string
+}
 
 interface ViewStreamSheetProps {
   camera: CameraRow | null
@@ -126,6 +141,22 @@ export function ViewStreamContent({
   // dismiss one without the other.
   const [warningDismissed, setWarningDismissed] = useState(false)
 
+  // Quick task 260501-tgy — fetch the org's stream profiles on mount and
+  // filter out the passthrough (`copy`) profiles. The non-passthrough list
+  // feeds the StreamWarningBanner profile picker; an empty list triggers
+  // the Create-CTA branch (link to /app/stream-profiles).
+  const [transcodeProfiles, setTranscodeProfiles] = useState<StreamProfile[]>(
+    [],
+  )
+
+  useEffect(() => {
+    apiFetch<StreamProfile[]>("/api/stream-profiles")
+      .then((profiles) => {
+        setTranscodeProfiles(profiles.filter((p) => p.codec !== "copy"))
+      })
+      .catch(() => setTranscodeProfiles([]))
+  }, [])
+
   async function handleAcceptAutoTranscode() {
     try {
       const res = await fetch(`/api/cameras/${camera.id}`, {
@@ -140,6 +171,29 @@ export function ViewStreamContent({
       onRefresh?.()
     } catch {
       toast.error("Failed to enable auto-transcode. Try again.")
+    }
+  }
+
+  // Quick task 260501-tgy — switch the camera's Stream Profile via PATCH
+  // /api/cameras/:id (Phase 21 hot-reload picks up the streamProfileId
+  // change and triggers a stream restart automatically — no extra restart
+  // call from the client). Distinct from `handleAcceptAutoTranscode` above
+  // which writes the per-camera `needsTranscode` flag for the Phase 19.1
+  // D-16 codec-mismatch contract — that flow is unchanged.
+  async function handleSwitchProfile(newProfileId: string) {
+    try {
+      const res = await fetch(`/api/cameras/${camera.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ streamProfileId: newProfileId }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      setWarningDismissed(true)
+      toast.success("Stream Profile switched. Stream will restart momentarily.")
+      onRefresh?.()
+    } catch {
+      toast.error("Failed to switch profile. Try again.")
     }
   }
 
@@ -278,6 +332,14 @@ export function ViewStreamContent({
            * persisted Camera fields via `deriveRecommendTranscode`, so it
            * surfaces automatically once the StreamProbeProcessor success
            * branch lands the row update.
+           *
+           * Quick task 260501-tgy — banner self-suppresses when the camera
+           * is already transcoding via a non-passthrough Stream Profile
+           * (codec !== 'copy') OR the per-camera `needsTranscode` flag is
+           * true. The Switch CTA delegates to `handleSwitchProfile` which
+           * PATCHes `streamProfileId` (Phase 21 hot-reload restart), NOT
+           * the `needsTranscode` flag — that flag stays the contract for
+           * the separate CodecMismatchBanner below.
            */}
           {!warningDismissed && (
             <StreamWarningBanner
@@ -287,8 +349,10 @@ export function ViewStreamContent({
                 streamWarnings: camera.streamWarnings,
                 brandHint: camera.brandHint,
                 brandConfidence: camera.brandConfidence,
+                streamProfile: camera.streamProfile,
               }}
-              onAccept={handleAcceptAutoTranscode}
+              transcodeProfiles={transcodeProfiles}
+              onSwitchProfile={handleSwitchProfile}
               onDismiss={() => setWarningDismissed(true)}
             />
           )}
