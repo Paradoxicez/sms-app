@@ -17,10 +17,7 @@ import { SuperAdminGuard } from '../auth/guards/super-admin.guard';
 import { ClusterService } from './cluster.service';
 import { CreateNodeSchema } from './dto/create-node.dto';
 import { UpdateNodeSchema } from './dto/update-node.dto';
-import { generateEdgeNginxConfig } from './templates/nginx-edge.conf';
-import { generateOriginSrsConfig } from './templates/srs-origin.conf';
 import { SrsApiService } from '../srs/srs-api.service';
-import { PrismaService } from '../prisma/prisma.service';
 import { Request } from 'express';
 
 /** Convert BigInt fields to Number for JSON serialization */
@@ -42,7 +39,6 @@ export class ClusterController {
   constructor(
     private readonly clusterService: ClusterService,
     private readonly srsApiService: SrsApiService,
-    private readonly prisma: PrismaService,
   ) {}
 
   @Get('nodes')
@@ -95,34 +91,6 @@ export class ClusterController {
   async testConnection(@Param('id') id: string) {
     const node = await this.clusterService.findOne(id);
     return this.clusterService.testConnection(node.apiUrl, node.role, node.hlsUrl);
-  }
-
-  @Get('nodes/:id/config')
-  @ApiOperation({ summary: 'Get generated config for a node' })
-  @ApiResponse({ status: 200, description: 'Config string and version' })
-  async getConfig(@Param('id') id: string) {
-    const node = await this.clusterService.findOne(id);
-
-    if (node.role === 'ORIGIN') {
-      const settings = await this.prisma.systemSettings.findFirst();
-      const config = generateOriginSrsConfig({
-        hlsFragment: settings?.hlsFragment ?? 2,
-        hlsWindow: settings?.hlsWindow ?? 10,
-        hlsEncryption: settings?.hlsEncryption ?? false,
-        rtmpPort: settings?.rtmpPort ?? 1935,
-        httpPort: settings?.httpPort ?? 8080,
-        apiPort: settings?.apiPort ?? 1985,
-      });
-      return { config, configVersion: node.configVersion };
-    } else {
-      // EDGE: generate nginx config pointing to origin HLS
-      const origin = await this.prisma.srsNode.findFirst({
-        where: { role: 'ORIGIN' },
-      });
-      const originHlsUrl = origin?.hlsUrl || 'http://srs:8080';
-      const config = generateEdgeNginxConfig(originHlsUrl, node.hlsPort);
-      return { config, configVersion: node.configVersion };
-    }
   }
 
   @Post('nodes/:id/reload')

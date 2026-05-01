@@ -292,21 +292,6 @@ model OrgSettings {
   @@index([orgId])
 }
 
-model SystemSettings {
-  id             String   @id @default(uuid())
-  hlsFragment    Int      @default(2)
-  hlsWindow      Int      @default(10)
-  hlsEncryption  Boolean  @default(false)
-  rtmpPort       Int      @default(1935)
-  srtPort        Int      @default(10080)
-  webrtcPort     Int      @default(8000)
-  httpPort       Int      @default(8080)
-  apiPort        Int      @default(1985)
-  timeoutSeconds Int      @default(30)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-}
-
 // ─────────────────────────────────────────────
 // Phase 3: Playback & Security
 // ─────────────────────────────────────────────

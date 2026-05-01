@@ -6,12 +6,10 @@ import {
   UseGuards,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiExcludeEndpoint } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ClsService } from 'nestjs-cls';
 import { AuthGuard } from '../auth/guards/auth.guard';
-import { SuperAdminGuard } from '../auth/guards/super-admin.guard';
 import { SettingsService } from './settings.service';
-import { UpdateSystemSettingsSchema } from './dto/update-system-settings.dto';
 import { UpdateOrgSettingsSchema } from './dto/update-org-settings.dto';
 
 @ApiTags('Settings')
@@ -28,31 +26,6 @@ export class SettingsController {
       throw new BadRequestException('No active organization');
     }
     return orgId;
-  }
-
-  // ─── System Settings (Super Admin) ─────────────
-
-  @Get('admin/settings/stream-engine')
-  @UseGuards(SuperAdminGuard)
-  @ApiExcludeEndpoint()
-  @ApiOperation({ summary: 'Get system-wide stream engine settings (super admin)' })
-  @ApiResponse({ status: 200, description: 'System settings' })
-  async getSystemSettings() {
-    return this.settingsService.getSystemSettings();
-  }
-
-  @Patch('admin/settings/stream-engine')
-  @UseGuards(SuperAdminGuard)
-  @ApiExcludeEndpoint()
-  @ApiOperation({ summary: 'Update system-wide stream engine settings (super admin)' })
-  @ApiResponse({ status: 200, description: 'Settings updated' })
-  @ApiResponse({ status: 400, description: 'Validation error' })
-  async updateSystemSettings(@Body() body: unknown) {
-    const result = UpdateSystemSettingsSchema.safeParse(body);
-    if (!result.success) {
-      throw new BadRequestException(result.error.flatten());
-    }
-    return this.settingsService.updateSystemSettings(result.data);
   }
 
   // ─── Org Settings ─────────────────────────────
