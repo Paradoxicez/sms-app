@@ -26,3 +26,18 @@ git stash pop
 ```
 
 Logged per `<deviation_rules>` SCOPE BOUNDARY (only auto-fix issues directly caused by the current task's changes).
+
+---
+
+## RESOLVED 2026-04-30 (post-quick-task cleanup)
+
+All 7 deferred test failures fixed in a follow-up commit. Root causes:
+
+| Test | Cause | Fix |
+|------|-------|-----|
+| `camera-health.test.ts` | Old test asserted ONE-tick reap; v1.3.1 added `MISS_TOLERANCE=2` (`badd5a1`) | Call `runTick()` twice; test name now mentions tolerance |
+| `boot-recovery.test.ts`, `srs-restart-recovery.test.ts`, `profile-restart-dedup.test.ts` | All asserted `attempts: 20`; lowered to `8` in `cf0c944 fix(streams): pre-flight kick + cap retry attempts` | Update assertions to `attempts: 8` |
+| `srs/callbacks.test.ts` | Asserted `fetch('/api/v1/streams')`; v1.3 added `?count=9999` to disable SRS pagination cap (`21840f0`) | Update URL to include query param |
+| `bulk-import-dialog.test.tsx`, `bulk-import-dialog-push.spec.tsx` | Counter labels renamed: `valid` → `new`, `duplicate` → `already in DB` | Update text matchers |
+
+All 7 files now green: 46/46 backend tests + 34/34 frontend tests.

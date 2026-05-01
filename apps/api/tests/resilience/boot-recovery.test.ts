@@ -52,7 +52,7 @@ describe('BootRecoveryService', () => {
       expect(options.jobId).toMatch(/^camera:cam-.*:ffmpeg$/);
       expect(options.delay).toBeGreaterThanOrEqual(0);
       expect(options.delay).toBeLessThan(30_000);
-      expect(options.attempts).toBe(20);
+      expect(options.attempts).toBe(8);
       expect(options.removeOnComplete).toBe(true);
       expect(options.removeOnFail).toBe(false);
     }

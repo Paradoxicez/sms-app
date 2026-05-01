@@ -300,7 +300,7 @@ describe('SRS API Service', () => {
     }) as any;
 
     const result = await service.getStreams();
-    expect(global.fetch).toHaveBeenCalledWith('http://localhost:1985/api/v1/streams');
+    expect(global.fetch).toHaveBeenCalledWith('http://localhost:1985/api/v1/streams?count=9999');
     expect(result.code).toBe(0);
   });
 });

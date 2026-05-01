@@ -146,7 +146,7 @@ push-cam,,PUSH`;
 
     await waitFor(() => {
       // Both rows should be valid (push-cam with empty streamUrl is valid per D-13)
-      expect(screen.getByText('2 valid')).toBeInTheDocument();
+      expect(screen.getByText('2 new')).toBeInTheDocument();
     });
     // And zero errors (the empty URL on push row must not trigger "Stream URL is required")
     expect(screen.queryByText(/errors/)).toBeNull();

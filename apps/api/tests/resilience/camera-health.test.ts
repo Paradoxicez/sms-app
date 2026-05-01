@@ -102,12 +102,14 @@ describe('CameraHealthService', () => {
   });
 
   describe('runTick — dead stream recovery', () => {
-    it('triggers SIGTERM + transition + enqueue when FFmpeg is running but SRS does not know about it', async () => {
+    it('triggers SIGTERM + transition + enqueue when FFmpeg is running but SRS does not know about it (after MISS_TOLERANCE consecutive misses)', async () => {
       const camera = makeCamera({ id: 'cam-dead-1' });
       mockPrisma.camera.findMany.mockResolvedValue([camera]);
       mockFfmpeg.isRunning.mockReturnValue(true);
       mockSrsApi.getStreams.mockResolvedValue({ streams: [] }); // SRS has no stream
 
+      // MISS_TOLERANCE=2: first tick is tolerated (missCounter=1), second tick triggers reap
+      await service.runTick();
       await service.runTick();
 
       expect(mockFfmpeg.stopStream).toHaveBeenCalledWith('cam-dead-1');
@@ -121,7 +123,7 @@ describe('CameraHealthService', () => {
         expect.objectContaining({ cameraId: 'cam-dead-1', orgId: 'org-1' }),
         expect.objectContaining({
           jobId: 'camera:cam-dead-1:ffmpeg',
-          attempts: 20,
+          attempts: 8,
           removeOnComplete: true,
           removeOnFail: false,
         }),

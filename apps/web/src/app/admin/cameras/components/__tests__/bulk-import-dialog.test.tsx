@@ -137,11 +137,10 @@ C,http://bad/url`;
     fireEvent.change(fileInput, { target: { files: [file] } });
 
     await waitFor(() => {
-      expect(screen.getByText(/valid/i)).toBeInTheDocument();
+      expect(screen.getByText('1 new')).toBeInTheDocument();
     });
 
-    expect(screen.getByText('1 valid')).toBeInTheDocument();
-    expect(screen.getByText('1 duplicate')).toBeInTheDocument();
+    expect(screen.getByText('1 already in DB')).toBeInTheDocument();
     expect(screen.getByText('1 errors')).toBeInTheDocument();
   });
 
@@ -175,7 +174,7 @@ B,rtsp://h/s`;
     fireEvent.change(fileInput, { target: { files: [file] } });
 
     await waitFor(() => {
-      expect(screen.getByText('1 valid')).toBeInTheDocument();
+      expect(screen.getByText('1 new')).toBeInTheDocument();
     });
     await waitFor(() => {
       const btn = screen.getByRole('button', { name: /Confirm Import/i });

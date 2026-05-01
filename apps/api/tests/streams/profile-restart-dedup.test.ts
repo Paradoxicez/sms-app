@@ -160,7 +160,7 @@ describe('Phase 21 — D-03 + Q5 remove-then-add (latest save wins, NOT pure Bul
     );
   });
 
-  it("queue.add is called with options { jobId, attempts: 20, backoff: { type: 'exponential', delay: 1000 }, removeOnComplete: true, removeOnFail: false } — matches startStream's options for downstream consistency", async () => {
+  it("queue.add is called with options { jobId, attempts: 8, backoff: { type: 'exponential', delay: 1000 }, removeOnComplete: true, removeOnFail: false } — matches startStream's options for downstream consistency (MAX_STREAM_ATTEMPTS lowered 20→8 in cf0c944)", async () => {
     await streamsService.enqueueProfileRestart({
       profileId: 'p1',
       oldFingerprint: 'sha256:old',
@@ -174,7 +174,7 @@ describe('Phase 21 — D-03 + Q5 remove-then-add (latest save wins, NOT pure Bul
       'restart',
       expect.anything(),
       expect.objectContaining({
-        attempts: 20,
+        attempts: 8,
         backoff: { type: 'exponential', delay: 1000 },
         removeOnComplete: true,
         removeOnFail: false,
