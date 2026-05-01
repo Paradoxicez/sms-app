@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { normalizeCodecInfo } from "./codec-info"
+import { normalizeCodecInfo, deriveRecommendTranscode } from "./codec-info"
 
 describe("normalizeCodecInfo — Phase 19 (D-07 legacy migration)", () => {
   it("null/undefined input returns null (render em-dash)", () => {
@@ -72,5 +72,56 @@ describe("normalizeCodecInfo — Phase 19 (D-07 legacy migration)", () => {
   it("malformed input (missing probedAt) returns null (invalid shape)", () => {
     expect(normalizeCodecInfo({ status: "success", video: {} })).toBeNull()
     expect(normalizeCodecInfo({ random: "junk" })).toBeNull()
+  })
+})
+
+describe("deriveRecommendTranscode — quick task 260501-tgy", () => {
+  it("returns false when needsTranscode === true (flipped polarity — user already opted in)", () => {
+    expect(
+      deriveRecommendTranscode({
+        needsTranscode: true,
+        brandHint: "uniview",
+        brandConfidence: "high",
+      }),
+    ).toBe(false)
+  })
+
+  it("returns false when streamProfile.codec is non-passthrough (already transcoding)", () => {
+    expect(
+      deriveRecommendTranscode({
+        streamProfile: { codec: "libx264" },
+        brandHint: "uniview",
+        brandConfidence: "high",
+      }),
+    ).toBe(false)
+    expect(
+      deriveRecommendTranscode({
+        streamProfile: { codec: "h264_nvenc" },
+        streamWarnings: ["vfr-detected"],
+      }),
+    ).toBe(false)
+  })
+
+  it("returns true when streamProfile.codec === 'copy' AND a brand/VFR trigger fires (no short-circuit)", () => {
+    expect(
+      deriveRecommendTranscode({
+        streamProfile: { codec: "copy" },
+        brandHint: "uniview",
+        brandConfidence: "high",
+      }),
+    ).toBe(true)
+    expect(
+      deriveRecommendTranscode({
+        streamProfile: null,
+        streamWarnings: ["vfr-detected"],
+      }),
+    ).toBe(true)
+    expect(
+      deriveRecommendTranscode({
+        // streamProfile undefined
+        brandHint: "hikvision",
+        brandConfidence: "medium",
+      }),
+    ).toBe(true)
   })
 })

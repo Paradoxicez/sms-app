@@ -149,24 +149,41 @@ export interface CameraStreamWarnings {
 }
 
 /**
- * Re-compute `recommendTranscode` in the client from the three persisted
- * Camera columns + `needsTranscode`. Mirrors `FfprobeService.probeCamera`'s
- * server-side composite so the UI stays consistent with the source of truth.
+ * Re-compute `recommendTranscode` in the client from the persisted Camera
+ * columns + `needsTranscode` + the assigned `streamProfile.codec`. Mirrors
+ * `FfprobeService.probeCamera`'s server-side composite so the UI stays
+ * consistent with the source of truth.
  *
- * Truth table (matches PLAN.md Task 1 <action>):
- *   - needsTranscode=true (existing H.265 logic)              → true
+ * Truth table (matches PLAN.md Task 1 <behavior>):
+ *   - needsTranscode === true  (already opted in)             → false (suppress)
+ *   - streamProfile.codec ∉ {undefined, null, 'copy'}         → false (already transcoding)
  *   - brandHint ∈ {uniview, hikvision, dahua} AND
  *     brandConfidence ∈ {medium, high}                        → true
  *   - streamWarnings includes 'vfr-detected'                  → true
  *   - otherwise                                               → false
+ *
+ * Note: the `recommendTranscode` field on `CameraStreamWarnings` stays as
+ * documentation; the field is still re-derived client-side from persisted
+ * columns, so the two short-circuit cases above keep the smart-probe banner
+ * silent the moment the camera is effectively transcoding (quick task
+ * 260501-tgy fix for the Saensuk-139 false-nag).
  */
 export function deriveRecommendTranscode(cam: {
   needsTranscode?: boolean
   streamWarnings?: string[]
   brandHint?: string | null
   brandConfidence?: string | null
+  streamProfile?: { codec?: string } | null
 }): boolean {
-  if (cam.needsTranscode) return true
+  // Short-circuit: camera is already opted into the auto-transcode flag.
+  if (cam.needsTranscode === true) return false
+
+  // Short-circuit: assigned profile is non-passthrough → already transcoding.
+  // null/undefined profile and codec === 'copy' fall THROUGH to brand/VFR checks.
+  if (cam.streamProfile?.codec && cam.streamProfile.codec !== "copy") {
+    return false
+  }
+
   const riskBrand =
     cam.brandHint === "uniview" ||
     cam.brandHint === "hikvision" ||
