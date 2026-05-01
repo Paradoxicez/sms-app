@@ -124,9 +124,10 @@ None yet (Phase 23 plans not authored — run `/gsd-plan-phase 23` to begin).
 | 260429-fast | Fix v1.3 GA blockers — DEPLOY-25 verify-deploy.sh regex + DEPLOY-16 bootstrap.sh seed ordering | 2026-04-29 | 6f7b323 | | (gsd-fast, no dir) |
 | 260501-1n1 | Smart camera probe + brand detection (Tier 1) — VFR + brand heuristic via URL path / tags.encoder, recommendTranscode composite, StreamWarningBanner UI alongside Phase 19.1 D-16 codec banner | 2026-04-30 | 6faca73+0e5d41c+b9ea24f | | [260501-1n1-smart-camera-probe-brand-detection-onboa](./quick/260501-1n1-smart-camera-probe-brand-detection-onboa/) |
 | 260501-tgy | StreamWarningBanner UX fix — hide when transcoding (needsTranscode flag flipped + streamProfile.codec≠'copy' short-circuit) + Profile Picker dropdown replacing flag-toggle CTA (PATCH streamProfileId; Phase 21 hot-reload restart) | 2026-05-01 | b525da1+ba6c780+7dadf4c | | [260501-tgy-streamwarningbanner-ux-fix-hide-when-tra](./quick/260501-tgy-streamwarningbanner-ux-fix-hide-when-tra/) |
+| 260501-vx5 | Stream Engine cleanup — delete System tab UI + SystemSettings backend (silent-failure since d7f5b17) + drop cluster getConfig endpoint + fix Live Logs via SRS file logging + shared volume (srs_log_tank file → /srs-logs/srs.log mounted ro on api → tail -f) | 2026-05-01 | 623b537+151ce63+6c1ccbc+c803ec5 | | [260501-vx5-stream-engine-cleanup-delete-system-tab-](./quick/260501-vx5-stream-engine-cleanup-delete-system-tab-/) |
 
 ## Session Continuity
 
-Last session: 2026-05-01T14:20:00.000Z
-Stopped at: Quick task 260501-tgy complete (banner UX fix — hide when transcoding + profile picker)
-Resume file: .planning/quick/260501-tgy-streamwarningbanner-ux-fix-hide-when-tra/260501-tgy-SUMMARY.md
+Last session: 2026-05-01T16:20:00.000Z
+Stopped at: Quick task 260501-vx5 complete (Stream Engine System tab deleted + Live Logs fixed via shared volume)
+Resume file: .planning/quick/260501-vx5-stream-engine-cleanup-delete-system-tab-/260501-vx5-SUMMARY.md
