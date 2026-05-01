@@ -6,7 +6,8 @@ import "@testing-library/jest-dom/vitest"
 import { StreamWarningBanner } from "../stream-warning-banner"
 
 /**
- * Quick task 260501-1n1 Task 3 — StreamWarningBanner.
+ * Quick task 260501-1n1 Task 3 (original behavior) + 260501-tgy Task 2
+ * (profile-picker UX + flipped-polarity short-circuit).
  *
  * Behavior matrix lives in PLAN.md <behavior>. Each `it` corresponds to one
  * row of that matrix. The banner is purely presentational; it derives
@@ -18,7 +19,12 @@ describe("StreamWarningBanner", () => {
 
   it("renders nothing when recommendTranscode is undefined (legacy row pre-probe)", () => {
     const { container } = render(
-      <StreamWarningBanner camera={{ id: "c1" }} onAccept={noop} onDismiss={noop} />,
+      <StreamWarningBanner
+        camera={{ id: "c1" }}
+        transcodeProfiles={[]}
+        onSwitchProfile={noop}
+        onDismiss={noop}
+      />,
     )
     // No alert role — entire component bails to null
     expect(screen.queryByRole("alert")).toBeNull()
@@ -35,7 +41,8 @@ describe("StreamWarningBanner", () => {
           brandHint: "unknown",
           brandConfidence: "low",
         }}
-        onAccept={noop}
+        transcodeProfiles={[]}
+        onSwitchProfile={noop}
         onDismiss={noop}
       />,
     )
@@ -52,7 +59,8 @@ describe("StreamWarningBanner", () => {
           brandHint: "uniview",
           brandConfidence: "high",
         }}
-        onAccept={noop}
+        transcodeProfiles={[]}
+        onSwitchProfile={noop}
         onDismiss={noop}
       />,
     )
@@ -69,7 +77,8 @@ describe("StreamWarningBanner", () => {
           brandHint: "hikvision",
           brandConfidence: "medium",
         }}
-        onAccept={noop}
+        transcodeProfiles={[]}
+        onSwitchProfile={noop}
         onDismiss={noop}
       />,
     )
@@ -86,7 +95,8 @@ describe("StreamWarningBanner", () => {
           brandHint: "dahua",
           brandConfidence: "high",
         }}
-        onAccept={noop}
+        transcodeProfiles={[]}
+        onSwitchProfile={noop}
         onDismiss={noop}
       />,
     )
@@ -104,31 +114,13 @@ describe("StreamWarningBanner", () => {
           brandHint: "unknown",
           brandConfidence: "low",
         }}
-        onAccept={noop}
+        transcodeProfiles={[]}
+        onSwitchProfile={noop}
         onDismiss={noop}
       />,
     )
     expect(
       screen.getByText(/Variable frame rate detected — transcode profile recommended/i),
-    ).toBeInTheDocument()
-  })
-
-  it("renders generic title when needsTranscode=true but no brand or warnings (H.265 path)", () => {
-    render(
-      <StreamWarningBanner
-        camera={{
-          id: "c1",
-          needsTranscode: true,
-          streamWarnings: [],
-          brandHint: "unknown",
-          brandConfidence: "low",
-        }}
-        onAccept={noop}
-        onDismiss={noop}
-      />,
-    )
-    expect(
-      screen.getByText(/Stream may need transcode profile/i),
     ).toBeInTheDocument()
   })
 
@@ -142,7 +134,8 @@ describe("StreamWarningBanner", () => {
           brandConfidence: "high",
         }}
         brandEvidence={["url-path:/media/video2", "tags.encoder:Hisilicon V200"]}
-        onAccept={noop}
+        transcodeProfiles={[]}
+        onSwitchProfile={noop}
         onDismiss={noop}
       />,
     )
@@ -150,26 +143,6 @@ describe("StreamWarningBanner", () => {
     expect(screen.getByText("high-profile")).toBeInTheDocument()
     expect(screen.getByText("url-path:/media/video2")).toBeInTheDocument()
     expect(screen.getByText("tags.encoder:Hisilicon V200")).toBeInTheDocument()
-  })
-
-  it("primary CTA 'Switch to Transcode Profile' invokes onAccept", async () => {
-    const user = userEvent.setup()
-    const onAccept = vi.fn()
-    render(
-      <StreamWarningBanner
-        camera={{
-          id: "c1",
-          brandHint: "uniview",
-          brandConfidence: "high",
-        }}
-        onAccept={onAccept}
-        onDismiss={noop}
-      />,
-    )
-    await user.click(
-      screen.getByRole("button", { name: /switch to transcode profile/i }),
-    )
-    expect(onAccept).toHaveBeenCalledTimes(1)
   })
 
   it("secondary CTA 'Dismiss' invokes onDismiss", async () => {
@@ -182,7 +155,8 @@ describe("StreamWarningBanner", () => {
           brandHint: "uniview",
           brandConfidence: "high",
         }}
-        onAccept={noop}
+        transcodeProfiles={[]}
+        onSwitchProfile={noop}
         onDismiss={onDismiss}
       />,
     )
@@ -201,7 +175,8 @@ describe("StreamWarningBanner", () => {
           brandHint: "uniview",
           brandConfidence: "low",
         }}
-        onAccept={noop}
+        transcodeProfiles={[]}
+        onSwitchProfile={noop}
         onDismiss={noop}
       />,
     )
@@ -219,10 +194,107 @@ describe("StreamWarningBanner", () => {
           brandHint: "generic-onvif",
           brandConfidence: "medium",
         }}
-        onAccept={noop}
+        transcodeProfiles={[]}
+        onSwitchProfile={noop}
         onDismiss={noop}
       />,
     )
     expect(container.firstChild).toBeNull()
+  })
+
+  // ─── Quick task 260501-tgy — flipped polarity + profile-picker UX ───
+
+  it("returns null when needsTranscode === true (flipped polarity short-circuit)", () => {
+    const { container } = render(
+      <StreamWarningBanner
+        camera={{
+          id: "c1",
+          needsTranscode: true,
+          brandHint: "uniview",
+          brandConfidence: "high",
+        }}
+        transcodeProfiles={[]}
+        onSwitchProfile={noop}
+        onDismiss={noop}
+      />,
+    )
+    expect(container.firstChild).toBeNull()
+  })
+
+  it("returns null when streamProfile.codec is non-passthrough (already transcoding)", () => {
+    const { container } = render(
+      <StreamWarningBanner
+        camera={{
+          id: "c1",
+          streamProfile: { codec: "libx264" },
+          brandHint: "uniview",
+          brandConfidence: "high",
+        }}
+        transcodeProfiles={[]}
+        onSwitchProfile={noop}
+        onDismiss={noop}
+      />,
+    )
+    expect(container.firstChild).toBeNull()
+  })
+
+  it("with 0 transcode profiles renders 'Create Transcode Profile' link to /app/stream-profiles, no <select>", () => {
+    render(
+      <StreamWarningBanner
+        camera={{ id: "c1", brandHint: "uniview", brandConfidence: "high" }}
+        transcodeProfiles={[]}
+        onSwitchProfile={noop}
+        onDismiss={noop}
+      />,
+    )
+    const link = screen.getByRole("link", { name: /create transcode profile/i })
+    expect(link).toHaveAttribute("href", "/app/stream-profiles")
+    expect(screen.queryByRole("combobox")).toBeNull()
+    expect(screen.queryByRole("button", { name: /^switch$/i })).toBeNull()
+  })
+
+  it("with 2+ transcode profiles renders <select> with each option and Switch button calls onSwitchProfile with selected id", async () => {
+    const user = userEvent.setup()
+    const onSwitchProfile = vi.fn()
+    render(
+      <StreamWarningBanner
+        camera={{ id: "c1", brandHint: "uniview", brandConfidence: "high" }}
+        transcodeProfiles={[
+          { id: "p1", name: "HD15", codec: "libx264" },
+          { id: "p2", name: "SD10", codec: "libx264" },
+        ]}
+        onSwitchProfile={onSwitchProfile}
+        onDismiss={noop}
+      />,
+    )
+    const select = screen.getByRole("combobox", {
+      name: /select transcode profile/i,
+    }) as HTMLSelectElement
+    expect(select.value).toBe("p1") // default-selected = first
+    expect(screen.getByRole("option", { name: "HD15" })).toBeInTheDocument()
+    expect(screen.getByRole("option", { name: "SD10" })).toBeInTheDocument()
+
+    await user.selectOptions(select, "p2")
+    await user.click(screen.getByRole("button", { name: /^switch$/i }))
+    expect(onSwitchProfile).toHaveBeenCalledTimes(1)
+    expect(onSwitchProfile).toHaveBeenCalledWith("p2")
+  })
+
+  it("default-selected profile is the first one in transcodeProfiles when user does not change selection", async () => {
+    const user = userEvent.setup()
+    const onSwitchProfile = vi.fn()
+    render(
+      <StreamWarningBanner
+        camera={{ id: "c1", brandHint: "uniview", brandConfidence: "high" }}
+        transcodeProfiles={[
+          { id: "p1", name: "HD15", codec: "libx264" },
+          { id: "p2", name: "SD10", codec: "libx264" },
+        ]}
+        onSwitchProfile={onSwitchProfile}
+        onDismiss={noop}
+      />,
+    )
+    await user.click(screen.getByRole("button", { name: /^switch$/i }))
+    expect(onSwitchProfile).toHaveBeenCalledWith("p1")
   })
 })

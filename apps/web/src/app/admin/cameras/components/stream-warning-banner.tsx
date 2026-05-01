@@ -1,8 +1,10 @@
 "use client"
 
+import { useState } from "react"
+import Link from "next/link"
 import { AlertTriangle } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { deriveRecommendTranscode } from "@/lib/codec-info"
 
@@ -13,6 +15,8 @@ interface StreamWarningBannerProps {
     streamWarnings?: string[]
     brandHint?: string | null
     brandConfidence?: string | null
+    /** Quick task 260501-tgy — non-passthrough profile suppresses the banner. */
+    streamProfile?: { codec?: string } | null
   }
   /**
    * Optional — populated only if a future API surfaces ProbeResult.brandEvidence.
@@ -20,7 +24,19 @@ interface StreamWarningBannerProps {
    * chips alone if absent.
    */
   brandEvidence?: string[]
-  onAccept: () => void | Promise<void>
+  /**
+   * Quick task 260501-tgy — caller pre-filters to codec !== 'copy'. Empty list
+   * triggers the "Create Transcode Profile" CTA branch; non-empty renders a
+   * <select> + Switch button.
+   */
+  transcodeProfiles: { id: string; name: string; codec: string }[]
+  /**
+   * Quick task 260501-tgy — replaces the old `onAccept` (per-camera flag
+   * override). The parent PATCHes `/api/cameras/:id` with `streamProfileId`
+   * and lets Phase 21 hot-reload restart the stream automatically.
+   * CodecMismatchBanner keeps its own `onAccept` independently.
+   */
+  onSwitchProfile: (profileId: string) => void | Promise<void>
   onDismiss: () => void
 }
 
@@ -45,6 +61,14 @@ interface StreamWarningBannerProps {
  *
  * Renders nothing when `deriveRecommendTranscode(camera) === false` — safe to
  * mount unconditionally so the parent's composition order stays stable.
+ *
+ * Quick task 260501-tgy adds two short-circuits inherited from
+ * `deriveRecommendTranscode`: `needsTranscode === true` (already opted in)
+ * and `streamProfile.codec` ∉ {undefined, null, 'copy'} (already
+ * transcoding) both bail to null. The action row also swaps the misleading
+ * "Switch to Transcode Profile" CTA (which PATCHed the per-camera flag) for
+ * a profile picker (`<select>` + Switch button) when the org has 1+
+ * transcode profiles, or a single "Create Transcode Profile" link when 0.
  */
 function brandLabel(brand?: string | null): string | null {
   switch (brand) {
@@ -66,10 +90,19 @@ function brandLabel(brand?: string | null): string | null {
 export function StreamWarningBanner({
   camera,
   brandEvidence,
-  onAccept,
+  transcodeProfiles,
+  onSwitchProfile,
   onDismiss,
 }: StreamWarningBannerProps) {
   if (!deriveRecommendTranscode(camera)) return null
+
+  // useState initializer runs once per mount; the parent re-mounts the
+  // banner per sheet open (warningDismissed gate), so the default tracks
+  // fresh transcodeProfiles arrays. When transcodeProfiles is empty the
+  // value stays "" (unused — empty-state branch renders the Create CTA).
+  const [selectedProfileId, setSelectedProfileId] = useState<string>(
+    transcodeProfiles[0]?.id ?? "",
+  )
 
   const warnings = camera.streamWarnings ?? []
   const brand = brandLabel(camera.brandHint)
@@ -125,12 +158,40 @@ export function StreamWarningBanner({
             </div>
           ) : null}
           <div className="flex items-center gap-2 pt-1">
-            <Button onClick={() => onAccept()}>
-              Switch to Transcode Profile
-            </Button>
-            <Button variant="outline" onClick={onDismiss}>
-              Dismiss
-            </Button>
+            {transcodeProfiles.length === 0 ? (
+              <>
+                <Link
+                  href="/app/stream-profiles"
+                  className={buttonVariants()}
+                >
+                  Create Transcode Profile
+                </Link>
+                <Button variant="outline" onClick={onDismiss}>
+                  Dismiss
+                </Button>
+              </>
+            ) : (
+              <>
+                <select
+                  value={selectedProfileId}
+                  onChange={(e) => setSelectedProfileId(e.target.value)}
+                  aria-label="Select transcode profile"
+                  className="h-9 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                >
+                  {transcodeProfiles.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+                <Button onClick={() => onSwitchProfile(selectedProfileId)}>
+                  Switch
+                </Button>
+                <Button variant="outline" onClick={onDismiss}>
+                  Dismiss
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </div>
