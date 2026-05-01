@@ -126,6 +126,7 @@ services:
       # repo pattern. Nothing under ../ is referenced any more.
       - ./srs.conf:/usr/local/srs/conf/srs.conf:ro
       - hls_data:/usr/local/srs/objs/nginx/html
+      - srs_logs:/usr/local/srs/objs/logs:rw
     healthcheck:
       test:
         - "CMD"
@@ -234,6 +235,10 @@ services:
       # the compose network. Caddy strips /srs-hls and proxies to srs:8080.
       PUBLIC_HLS_BASE_URL: https://${DOMAIN}/srs-hls
       SRS_HLS_PATH: /srs-hls
+      # Live Logs tab — srs-log.gateway.ts tails this path when set; falls back
+      # to `docker logs -f` (broken in api container, no docker CLI) when empty.
+      # Wired through the `srs_logs` named volume (srs writes RW, api mounts RO).
+      SRS_LOG_PATH: /srs-logs/srs.log
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
       BETTER_AUTH_URL: https://${DOMAIN}
       JWT_PLAYBACK_SECRET: ${JWT_PLAYBACK_SECRET}
@@ -242,6 +247,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
     volumes:
       - hls_data:/srs-hls:ro
+      - srs_logs:/srs-logs:ro
     depends_on:
       sms-migrate:
         condition: service_completed_successfully
@@ -355,3 +361,4 @@ volumes:
   caddy_data:
   caddy_config:
   hls_data:
+  srs_logs:
