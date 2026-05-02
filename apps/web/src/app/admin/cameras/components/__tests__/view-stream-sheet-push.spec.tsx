@@ -20,7 +20,7 @@ vi.mock("@/components/recordings/hls-player", () => ({
 }))
 
 // Mock the resolved-policy card — it otherwise fires apiFetch on mount.
-vi.mock("@/app/admin/policies/components/resolved-policy-card", () => ({
+vi.mock("@/components/policies/resolved-policy-card", () => ({
   ResolvedPolicyCard: () => <div data-testid="resolved-policy-card" />,
 }))
 

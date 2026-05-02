@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { apiFetch } from '@/lib/api';
@@ -26,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { DomainListEditor } from './domain-list-editor';
+import { DomainListEditor, type DomainListEditorHandle } from './domain-list-editor';
 
 type PolicyLevel = 'SYSTEM' | 'PROJECT' | 'SITE' | 'CAMERA';
 
@@ -72,6 +72,7 @@ export function EditPolicyDialog({ policyId, open, onOpenChange, onSuccess }: Ed
   const [rateLimit, setRateLimit] = useState('');
   const [entityId, setEntityId] = useState('');
   const [entities, setEntities] = useState<EntityOption[]>([]);
+  const domainEditorRef = useRef<DomainListEditorHandle>(null);
 
   useEffect(() => {
     if (!open || !policyId) return;
@@ -113,6 +114,11 @@ export function EditPolicyDialog({ policyId, open, onOpenChange, onSuccess }: Ed
     e.preventDefault();
     if (!policyId || !name.trim()) return;
 
+    // Flush any pending domain text the user typed but never committed via
+    // Add Domain button / Enter / blur. Returns the authoritative domains
+    // array (does NOT rely on stale `domains` state from this render).
+    const finalDomains = domainEditorRef.current?.flush() ?? domains;
+
     setSaving(true);
     setError(null);
 
@@ -124,7 +130,7 @@ export function EditPolicyDialog({ policyId, open, onOpenChange, onSuccess }: Ed
           description: description.trim() || undefined,
           ttlSeconds: ttlSeconds ? Number(ttlSeconds) : null,
           maxViewers: maxViewers !== '' ? Number(maxViewers) : null,
-          domains,
+          domains: finalDomains,
           allowNoReferer,
           rateLimit: rateLimit ? Number(rateLimit) : null,
           projectId: level === 'PROJECT' ? entityId || null : undefined,
@@ -251,7 +257,7 @@ export function EditPolicyDialog({ policyId, open, onOpenChange, onSuccess }: Ed
             {/* Domain Allowlist */}
             <div className="space-y-2">
               <Label>Domain Allowlist</Label>
-              <DomainListEditor domains={domains} onChange={setDomains} />
+              <DomainListEditor ref={domainEditorRef} domains={domains} onChange={setDomains} />
             </div>
 
             {/* No-Referer + Rate Limit */}

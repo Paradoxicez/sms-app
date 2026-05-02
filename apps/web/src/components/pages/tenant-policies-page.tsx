@@ -31,9 +31,9 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PolicyLevelBadge } from '@/app/admin/policies/components/policy-level-badge';
-import { CreatePolicyDialog } from '@/app/admin/policies/components/create-policy-dialog';
-import { EditPolicyDialog } from '@/app/admin/policies/components/edit-policy-dialog';
+import { PolicyLevelBadge } from '@/components/policies/policy-level-badge';
+import { CreatePolicyDialog } from '@/components/policies/create-policy-dialog';
+import { EditPolicyDialog } from '@/components/policies/edit-policy-dialog';
 
 type PolicyLevel = 'SYSTEM' | 'PROJECT' | 'SITE' | 'CAMERA';
 

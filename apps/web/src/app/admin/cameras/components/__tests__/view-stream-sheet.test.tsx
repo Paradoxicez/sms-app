@@ -16,7 +16,7 @@ vi.mock("sonner", () => ({
 vi.mock("@/components/recordings/hls-player", () => ({
   HlsPlayer: () => <div data-testid="mock-hls-player" />,
 }))
-vi.mock("@/app/admin/policies/components/resolved-policy-card", () => ({
+vi.mock("@/components/policies/resolved-policy-card", () => ({
   ResolvedPolicyCard: () => <div data-testid="mock-resolved-policy" />,
 }))
 vi.mock("@/components/audit/audit-log-data-table", () => ({

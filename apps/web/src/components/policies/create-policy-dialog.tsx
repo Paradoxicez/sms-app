@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 
 import { apiFetch } from '@/lib/api';
@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { DomainListEditor } from './domain-list-editor';
+import { DomainListEditor, type DomainListEditorHandle } from './domain-list-editor';
 
 type PolicyLevel = 'SYSTEM' | 'PROJECT' | 'SITE' | 'CAMERA';
 
@@ -53,6 +53,7 @@ export function CreatePolicyDialog({ open, onOpenChange, onSuccess }: CreatePoli
   const [entities, setEntities] = useState<EntityOption[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const domainEditorRef = useRef<DomainListEditorHandle>(null);
 
   useEffect(() => {
     if (level === 'SYSTEM') {
@@ -92,6 +93,11 @@ export function CreatePolicyDialog({ open, onOpenChange, onSuccess }: CreatePoli
     e.preventDefault();
     if (!name.trim()) return;
 
+    // Flush any pending domain text the user typed but never committed via
+    // Add Domain button / Enter / blur. Returns the authoritative domains
+    // array (does NOT rely on stale `domains` state from this render).
+    const finalDomains = domainEditorRef.current?.flush() ?? domains;
+
     setSaving(true);
     setError(null);
 
@@ -102,7 +108,7 @@ export function CreatePolicyDialog({ open, onOpenChange, onSuccess }: CreatePoli
         description: description.trim() || undefined,
         ttlSeconds: ttlSeconds ? Number(ttlSeconds) : undefined,
         maxViewers: maxViewers !== '' ? Number(maxViewers) : undefined,
-        domains,
+        domains: finalDomains,
         allowNoReferer,
         rateLimit: rateLimit ? Number(rateLimit) : undefined,
         projectId: level === 'PROJECT' ? entityId || undefined : undefined,
@@ -233,7 +239,7 @@ export function CreatePolicyDialog({ open, onOpenChange, onSuccess }: CreatePoli
           {/* Domain Allowlist */}
           <div className="space-y-2">
             <Label>Domain Allowlist</Label>
-            <DomainListEditor domains={domains} onChange={setDomains} />
+            <DomainListEditor ref={domainEditorRef} domains={domains} onChange={setDomains} />
           </div>
 
           {/* Allow No-Referer + Rate Limit in grid */}
