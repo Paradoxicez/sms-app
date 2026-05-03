@@ -125,9 +125,10 @@ None yet (Phase 23 plans not authored — run `/gsd-plan-phase 23` to begin).
 | 260501-1n1 | Smart camera probe + brand detection (Tier 1) — VFR + brand heuristic via URL path / tags.encoder, recommendTranscode composite, StreamWarningBanner UI alongside Phase 19.1 D-16 codec banner | 2026-04-30 | 6faca73+0e5d41c+b9ea24f | | [260501-1n1-smart-camera-probe-brand-detection-onboa](./quick/260501-1n1-smart-camera-probe-brand-detection-onboa/) |
 | 260501-tgy | StreamWarningBanner UX fix — hide when transcoding (needsTranscode flag flipped + streamProfile.codec≠'copy' short-circuit) + Profile Picker dropdown replacing flag-toggle CTA (PATCH streamProfileId; Phase 21 hot-reload restart) | 2026-05-01 | b525da1+ba6c780+7dadf4c | | [260501-tgy-streamwarningbanner-ux-fix-hide-when-tra](./quick/260501-tgy-streamwarningbanner-ux-fix-hide-when-tra/) |
 | 260501-vx5 | Stream Engine cleanup — delete System tab UI + SystemSettings backend (silent-failure since d7f5b17) + drop cluster getConfig endpoint + fix Live Logs via SRS file logging + shared volume (srs_log_tank file → /srs-logs/srs.log mounted ro on api → tail -f) | 2026-05-01 | 623b537+151ce63+6c1ccbc+c803ec5 | | [260501-vx5-stream-engine-cleanup-delete-system-tab-](./quick/260501-vx5-stream-engine-cleanup-delete-system-tab-/) |
+| 260503-d1w | Add Stop Stream + Stop Recording bulk verbs to camera list — extend BulkVerb registry + filterStop* helpers + outline-variant toolbar buttons + thread through admin and tenant page consumers | 2026-05-03 | c7d7a20+ff41689+262ad0c | | [260503-d1w-bulk-actions-camera-list-stop-stream-sto](./quick/260503-d1w-bulk-actions-camera-list-stop-stream-sto/) |
 
 ## Session Continuity
 
-Last session: 2026-05-01T16:20:00.000Z
-Stopped at: Quick task 260501-vx5 complete (Stream Engine System tab deleted + Live Logs fixed via shared volume)
-Resume file: .planning/quick/260501-vx5-stream-engine-cleanup-delete-system-tab-/260501-vx5-SUMMARY.md
+Last session: 2026-05-03T02:35:00.000Z
+Stopped at: Quick task 260503-d1w complete (bulk Stop Stream + Stop Recording verbs added to camera list toolbar)
+Resume file: .planning/quick/260503-d1w-bulk-actions-camera-list-stop-stream-sto/260503-d1w-SUMMARY.md
