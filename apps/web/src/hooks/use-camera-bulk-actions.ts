@@ -11,6 +11,8 @@ import {
   filterExitMaintenanceTargets,
   filterStartRecordingTargets,
   filterStartStreamTargets,
+  filterStopRecordingTargets,
+  filterStopStreamTargets,
   VERB_COPY,
   type BulkVerb,
 } from '@/lib/bulk-actions';
@@ -115,6 +117,17 @@ export function useCameraBulkActions({
     );
   }, [runBulk, selectedCameras]);
 
+  const handleBulkStopStream = useCallback(() => {
+    void runBulk('stop-stream', filterStopStreamTargets(selectedCameras));
+  }, [runBulk, selectedCameras]);
+
+  const handleBulkStopRecording = useCallback(() => {
+    void runBulk(
+      'stop-recording',
+      filterStopRecordingTargets(selectedCameras),
+    );
+  }, [runBulk, selectedCameras]);
+
   const handleBulkEnterMaintenance = useCallback(() => {
     const targets = filterEnterMaintenanceTargets(selectedCameras);
     if (targets.length === 0) return;
@@ -194,6 +207,8 @@ export function useCameraBulkActions({
 
     handleBulkStartStream,
     handleBulkStartRecording,
+    handleBulkStopStream,
+    handleBulkStopRecording,
     handleBulkEnterMaintenance,
     handleBulkExitMaintenance,
     handleBulkDelete,

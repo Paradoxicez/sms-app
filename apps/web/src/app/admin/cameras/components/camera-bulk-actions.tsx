@@ -28,6 +28,8 @@ export function CameraBulkActions({
     bulkProcessing,
     handleBulkStartStream,
     handleBulkStartRecording,
+    handleBulkStopStream,
+    handleBulkStopRecording,
     handleBulkEnterMaintenance,
     handleBulkExitMaintenance,
     handleBulkDelete,
@@ -49,6 +51,8 @@ export function CameraBulkActions({
         processing={bulkProcessing}
         onStartStream={handleBulkStartStream}
         onStartRecording={handleBulkStartRecording}
+        onStopStream={handleBulkStopStream}
+        onStopRecording={handleBulkStopRecording}
         onEnterMaintenance={handleBulkEnterMaintenance}
         onExitMaintenance={handleBulkExitMaintenance}
         onDelete={handleBulkDelete}

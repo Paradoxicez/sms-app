@@ -34,6 +34,8 @@ import {
   filterExitMaintenanceTargets,
   filterStartRecordingTargets,
   filterStartStreamTargets,
+  filterStopRecordingTargets,
+  filterStopStreamTargets,
   VERB_COPY,
   type BulkVerb,
 } from '@/lib/bulk-actions';
@@ -333,6 +335,14 @@ export default function TenantCamerasPage() {
     void runBulk('start-recording', filterStartRecordingTargets(selectedCameras));
   }
 
+  function handleBulkStopStream() {
+    void runBulk('stop-stream', filterStopStreamTargets(selectedCameras));
+  }
+
+  function handleBulkStopRecording() {
+    void runBulk('stop-recording', filterStopRecordingTargets(selectedCameras));
+  }
+
   function handleBulkEnterMaintenance() {
     const targets = filterEnterMaintenanceTargets(selectedCameras);
     if (targets.length === 0) return;
@@ -393,6 +403,8 @@ export default function TenantCamerasPage() {
         processing={bulkProcessing}
         onStartStream={handleBulkStartStream}
         onStartRecording={handleBulkStartRecording}
+        onStopStream={handleBulkStopStream}
+        onStopRecording={handleBulkStopRecording}
         onEnterMaintenance={handleBulkEnterMaintenance}
         onExitMaintenance={handleBulkExitMaintenance}
         onDelete={handleBulkDelete}

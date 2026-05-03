@@ -31,6 +31,8 @@ function cam(overrides: Partial<CameraRow> = {}): CameraRow {
 const allHandlers = () => ({
   onStartStream: vi.fn(),
   onStartRecording: vi.fn(),
+  onStopStream: vi.fn(),
+  onStopRecording: vi.fn(),
   onEnterMaintenance: vi.fn(),
   onExitMaintenance: vi.fn(),
   onDelete: vi.fn(),

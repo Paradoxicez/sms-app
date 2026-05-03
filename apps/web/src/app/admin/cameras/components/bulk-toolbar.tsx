@@ -16,6 +16,8 @@ import { BulkRemoveTagPopover } from "./bulk-remove-tag-popover"
  *
  *   - counter chip: "{N} selected" (processing swaps to "Processing… ({N})")
  *   - Start Stream / Start Recording buttons are always visible
+ *   - Stop Stream / Stop Recording buttons are always visible (mirror Start variants;
+ *     pre-filter helpers handle no-op selections — no destructive styling)
  *   - Maintenance button visible when any selected camera is not in maintenance
  *   - Exit Maintenance button visible when any selected camera is in maintenance
  *   - Delete ({N}) is destructive; Clear × stays enabled during processing
@@ -40,6 +42,8 @@ export interface BulkToolbarProps {
   processing: boolean
   onStartStream: () => void
   onStartRecording: () => void
+  onStopStream: () => void
+  onStopRecording: () => void
   onEnterMaintenance: () => void
   onExitMaintenance: () => void
   onDelete: () => void
@@ -59,6 +63,8 @@ export function BulkToolbar({
   processing,
   onStartStream,
   onStartRecording,
+  onStopStream,
+  onStopRecording,
   onEnterMaintenance,
   onExitMaintenance,
   onDelete,
@@ -128,6 +134,24 @@ export function BulkToolbar({
       >
         <Circle className="mr-1.5 size-4" aria-hidden="true" />
         Start Recording
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={onStopStream}
+        disabled={processing}
+      >
+        <Radio className="mr-1.5 size-4" aria-hidden="true" />
+        Stop Stream
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={onStopRecording}
+        disabled={processing}
+      >
+        <Circle className="mr-1.5 size-4" aria-hidden="true" />
+        Stop Recording
       </Button>
       {hasNotInMaintenance && (
         <Button
