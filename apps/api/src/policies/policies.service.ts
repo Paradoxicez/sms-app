@@ -19,13 +19,11 @@ export interface ResolvedPolicy {
   maxViewers: number;
   domains: string[];
   allowNoReferer: boolean;
-  rateLimit: number;
   sources: {
     ttlSeconds: PolicyLevel;
     maxViewers: PolicyLevel;
     domains: PolicyLevel;
     allowNoReferer: PolicyLevel;
-    rateLimit: PolicyLevel;
   };
 }
 
@@ -34,7 +32,6 @@ const SYSTEM_DEFAULTS: Omit<ResolvedPolicy, 'sources'> = {
   maxViewers: 10,
   domains: [],
   allowNoReferer: true,
-  rateLimit: 100,
 };
 
 const LEVEL_PRIORITY: Record<string, number> = {
@@ -78,7 +75,6 @@ export class PoliciesService implements OnModuleInit {
           maxViewers: SYSTEM_DEFAULTS.maxViewers,
           domains: SYSTEM_DEFAULTS.domains,
           allowNoReferer: SYSTEM_DEFAULTS.allowNoReferer,
-          rateLimit: SYSTEM_DEFAULTS.rateLimit,
         },
       });
       this.logger.log('System default policy seeded');
@@ -99,7 +95,6 @@ export class PoliciesService implements OnModuleInit {
         maxViewers: dto.maxViewers,
         domains: dto.domains,
         allowNoReferer: dto.allowNoReferer,
-        rateLimit: dto.rateLimit,
         cameraId: dto.cameraId,
         siteId: dto.siteId,
         projectId: dto.projectId,
@@ -193,11 +188,10 @@ export class PoliciesService implements OnModuleInit {
         maxViewers: 'SYSTEM',
         domains: 'SYSTEM',
         allowNoReferer: 'SYSTEM',
-        rateLimit: 'SYSTEM',
       };
 
       // Per-field merge for scalar fields: take first non-null/non-undefined value
-      const scalarFields = ['ttlSeconds', 'maxViewers', 'allowNoReferer', 'rateLimit'] as const;
+      const scalarFields = ['ttlSeconds', 'maxViewers', 'allowNoReferer'] as const;
 
       for (const field of scalarFields) {
         for (const policy of policies) {

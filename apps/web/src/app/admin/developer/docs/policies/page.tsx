@@ -12,7 +12,7 @@ export default function PoliciesGuidePage() {
         <h2 className="text-xl font-semibold">Overview</h2>
         <p className="text-sm text-muted-foreground">
           Policies control how playback sessions behave -- session duration (TTL), maximum concurrent viewers,
-          allowed embed domains, and rate limits. Policies are applied hierarchically, allowing you to set
+          and allowed embed domains. Policies are applied hierarchically, allowing you to set
           defaults at the system level and override them at more specific levels.
         </p>
       </section>
@@ -41,13 +41,13 @@ export default function PoliciesGuidePage() {
           leaves <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">maxViewers</code> as null, the TTL comes from the camera level while maxViewers is inherited
           from the nearest parent that defines it.
         </p>
-        <CodeBlock language="text" code={`System Policy:    ttl=7200 maxViewers=10  domains=[]     rateLimit=100
-Project Policy:   ttl=300  maxViewers=null domains=null   rateLimit=null
-Site Policy:      ttl=null maxViewers=5   domains=null   rateLimit=null
-Camera Policy:    ttl=60   maxViewers=null domains=null   rateLimit=null
+        <CodeBlock language="text" code={`System Policy:    ttl=7200 maxViewers=10  domains=[]
+Project Policy:   ttl=300  maxViewers=null domains=null
+Site Policy:      ttl=null maxViewers=5   domains=null
+Camera Policy:    ttl=60   maxViewers=null domains=null
 
-Resolved:         ttl=60   maxViewers=5   domains=[]     rateLimit=100
-                  ^camera  ^site          ^system         ^system`} />
+Resolved:         ttl=60   maxViewers=5   domains=[]
+                  ^camera  ^site          ^system`} />
       </section>
 
       <section className="space-y-3">
@@ -87,12 +87,6 @@ Resolved:         ttl=60   maxViewers=5   domains=[]     rateLimit=100
                 <td className="py-2 pr-4">true</td>
                 <td className="py-2">Whether to allow requests with no Referer header (direct URL access, mobile apps)</td>
               </tr>
-              <tr className="border-b">
-                <td className="py-2 pr-4 font-mono">rateLimit</td>
-                <td className="py-2 pr-4">number</td>
-                <td className="py-2 pr-4">100</td>
-                <td className="py-2">Maximum API requests per minute per API key</td>
-              </tr>
             </tbody>
           </table>
         </div>
@@ -112,8 +106,7 @@ Resolved:         ttl=60   maxViewers=5   domains=[]     rateLimit=100
     "ttl": 300,
     "maxViewers": 20,
     "domains": ["*.myapp.com", "staging.myapp.com"],
-    "allowNoReferer": false,
-    "rateLimit": 120
+    "allowNoReferer": false
   }'`} />
         <p className="text-sm text-muted-foreground">
           To check what policy is resolved for a specific camera:

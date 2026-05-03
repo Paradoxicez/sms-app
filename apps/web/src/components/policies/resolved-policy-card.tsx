@@ -14,7 +14,6 @@ interface ResolvedPolicy {
   maxViewers: number;
   domains: string[];
   allowNoReferer: boolean;
-  rateLimit: number;
   sources?: Record<string, PolicyLevel>;
 }
 
@@ -26,7 +25,6 @@ interface ResolvedPolicyCardProps {
     maxViewers?: number | null;
     domains?: string[];
     allowNoReferer?: boolean | null;
-    rateLimit?: number | null;
   };
 }
 
@@ -122,12 +120,6 @@ export function ResolvedPolicyCard({
               value={data.allowNoReferer ? 'Yes' : 'No'}
               sourceLevel={data.sources?.allowNoReferer}
               isCurrentLevel={data.sources?.allowNoReferer === currentLevel}
-            />
-            <FieldRow
-              label="Rate Limit"
-              value={`${data.rateLimit} req/min`}
-              sourceLevel={data.sources?.rateLimit}
-              isCurrentLevel={data.sources?.rateLimit === currentLevel}
             />
           </div>
         ) : (

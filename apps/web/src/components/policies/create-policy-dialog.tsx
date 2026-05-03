@@ -48,7 +48,6 @@ export function CreatePolicyDialog({ open, onOpenChange, onSuccess }: CreatePoli
   const [maxViewers, setMaxViewers] = useState('');
   const [domains, setDomains] = useState<string[]>([]);
   const [allowNoReferer, setAllowNoReferer] = useState(true);
-  const [rateLimit, setRateLimit] = useState('');
   const [entityId, setEntityId] = useState('');
   const [entities, setEntities] = useState<EntityOption[]>([]);
   const [saving, setSaving] = useState(false);
@@ -84,7 +83,6 @@ export function CreatePolicyDialog({ open, onOpenChange, onSuccess }: CreatePoli
     setMaxViewers('');
     setDomains([]);
     setAllowNoReferer(true);
-    setRateLimit('');
     setEntityId('');
     setError(null);
   }
@@ -110,7 +108,6 @@ export function CreatePolicyDialog({ open, onOpenChange, onSuccess }: CreatePoli
         maxViewers: maxViewers !== '' ? Number(maxViewers) : undefined,
         domains: finalDomains,
         allowNoReferer,
-        rateLimit: rateLimit ? Number(rateLimit) : undefined,
         projectId: level === 'PROJECT' ? entityId || undefined : undefined,
         siteId: level === 'SITE' ? entityId || undefined : undefined,
         cameraId: level === 'CAMERA' ? entityId || undefined : undefined,
@@ -135,7 +132,6 @@ export function CreatePolicyDialog({ open, onOpenChange, onSuccess }: CreatePoli
   const isSystem = level === 'SYSTEM';
   const ttlPlaceholder = isSystem ? 'e.g., 7200' : '(inherited)';
   const viewersPlaceholder = isSystem ? 'e.g., 10' : '(inherited)';
-  const ratePlaceholder = isSystem ? 'e.g., 100' : '(inherited)';
 
   return (
     <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetForm(); }}>
@@ -242,31 +238,17 @@ export function CreatePolicyDialog({ open, onOpenChange, onSuccess }: CreatePoli
             <DomainListEditor ref={domainEditorRef} domains={domains} onChange={setDomains} />
           </div>
 
-          {/* Allow No-Referer + Rate Limit in grid */}
-          <div className="grid grid-cols-2 gap-4 items-end">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="dlg-noref">No-Referer</Label>
-                <p className="text-xs text-muted-foreground">Allow empty referer</p>
-              </div>
-              <Switch
-                id="dlg-noref"
-                checked={allowNoReferer}
-                onCheckedChange={setAllowNoReferer}
-              />
+          {/* Allow No-Referer */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="dlg-noref">No-Referer</Label>
+              <p className="text-xs text-muted-foreground">Allow empty referer</p>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="dlg-rate">Rate Limit</Label>
-              <Input
-                id="dlg-rate"
-                type="number"
-                value={rateLimit}
-                onChange={(e) => setRateLimit(e.target.value)}
-                placeholder={ratePlaceholder}
-                min={1}
-              />
-              <p className="text-xs text-muted-foreground">requests/min</p>
-            </div>
+            <Switch
+              id="dlg-noref"
+              checked={allowNoReferer}
+              onCheckedChange={setAllowNoReferer}
+            />
           </div>
 
           {error && (

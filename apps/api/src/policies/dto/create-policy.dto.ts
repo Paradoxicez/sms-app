@@ -8,7 +8,6 @@ export const CreatePolicySchema = z.object({
   maxViewers: z.number().int().min(0).optional(),
   domains: z.array(z.string()).optional(),
   allowNoReferer: z.boolean().optional(),
-  rateLimit: z.number().int().min(0).optional(),
   cameraId: z.string().uuid().optional(),
   siteId: z.string().uuid().optional(),
   projectId: z.string().uuid().optional(),

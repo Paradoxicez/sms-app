@@ -44,7 +44,6 @@ interface Policy {
   maxViewers?: number | null;
   domains: string[];
   allowNoReferer?: boolean | null;
-  rateLimit?: number | null;
   cameraId?: string | null;
   siteId?: string | null;
   projectId?: string | null;
@@ -69,7 +68,6 @@ export function EditPolicyDialog({ policyId, open, onOpenChange, onSuccess }: Ed
   const [maxViewers, setMaxViewers] = useState('');
   const [domains, setDomains] = useState<string[]>([]);
   const [allowNoReferer, setAllowNoReferer] = useState(true);
-  const [rateLimit, setRateLimit] = useState('');
   const [entityId, setEntityId] = useState('');
   const [entities, setEntities] = useState<EntityOption[]>([]);
   const domainEditorRef = useRef<DomainListEditorHandle>(null);
@@ -88,7 +86,6 @@ export function EditPolicyDialog({ policyId, open, onOpenChange, onSuccess }: Ed
         setMaxViewers(p.maxViewers != null ? String(p.maxViewers) : '');
         setDomains(p.domains ?? []);
         setAllowNoReferer(p.allowNoReferer ?? true);
-        setRateLimit(p.rateLimit != null ? String(p.rateLimit) : '');
         setEntityId(p.cameraId ?? p.siteId ?? p.projectId ?? '');
 
         // Fetch entities for this level
@@ -132,7 +129,6 @@ export function EditPolicyDialog({ policyId, open, onOpenChange, onSuccess }: Ed
           maxViewers: maxViewers !== '' ? Number(maxViewers) : null,
           domains: finalDomains,
           allowNoReferer,
-          rateLimit: rateLimit ? Number(rateLimit) : null,
           projectId: level === 'PROJECT' ? entityId || null : undefined,
           siteId: level === 'SITE' ? entityId || null : undefined,
           cameraId: level === 'CAMERA' ? entityId || null : undefined,
@@ -152,7 +148,6 @@ export function EditPolicyDialog({ policyId, open, onOpenChange, onSuccess }: Ed
   const isSystem = level === 'SYSTEM';
   const ttlPlaceholder = isSystem ? 'e.g., 7200' : '(inherited)';
   const viewersPlaceholder = isSystem ? 'e.g., 10' : '(inherited)';
-  const ratePlaceholder = isSystem ? 'e.g., 100' : '(inherited)';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -260,31 +255,17 @@ export function EditPolicyDialog({ policyId, open, onOpenChange, onSuccess }: Ed
               <DomainListEditor ref={domainEditorRef} domains={domains} onChange={setDomains} />
             </div>
 
-            {/* No-Referer + Rate Limit */}
-            <div className="grid grid-cols-2 gap-4 items-end">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label htmlFor="edit-noref">No-Referer</Label>
-                  <p className="text-xs text-muted-foreground">Allow empty referer</p>
-                </div>
-                <Switch
-                  id="edit-noref"
-                  checked={allowNoReferer}
-                  onCheckedChange={setAllowNoReferer}
-                />
+            {/* No-Referer */}
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="edit-noref">No-Referer</Label>
+                <p className="text-xs text-muted-foreground">Allow empty referer</p>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-rate">Rate Limit</Label>
-                <Input
-                  id="edit-rate"
-                  type="number"
-                  value={rateLimit}
-                  onChange={(e) => setRateLimit(e.target.value)}
-                  placeholder={ratePlaceholder}
-                  min={1}
-                />
-                <p className="text-xs text-muted-foreground">requests/min</p>
-              </div>
+              <Switch
+                id="edit-noref"
+                checked={allowNoReferer}
+                onCheckedChange={setAllowNoReferer}
+              />
             </div>
 
             {error && (

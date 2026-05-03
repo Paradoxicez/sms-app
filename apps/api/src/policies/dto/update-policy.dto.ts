@@ -7,7 +7,6 @@ export const UpdatePolicySchema = z.object({
   maxViewers: z.number().int().min(0).nullable().optional(),
   domains: z.array(z.string()).optional(),
   allowNoReferer: z.boolean().nullable().optional(),
-  rateLimit: z.number().int().min(0).nullable().optional(),
 });
 
 export type UpdatePolicyDto = z.infer<typeof UpdatePolicySchema>;

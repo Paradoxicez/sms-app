@@ -314,7 +314,6 @@ model Policy {
   maxViewers     Int? // Max concurrent viewers, 0 = unlimited (null = inherit)
   domains        String[] @default([]) // Domain allowlist, empty = allow all
   allowNoReferer Boolean? // Allow requests without Referer (null = inherit)
-  rateLimit      Int? // Per-API-key requests per minute (null = inherit)
 
   cameraId  String?  @unique
   camera    Camera?  @relation(fields: [cameraId], references: [id], onDelete: Cascade)
