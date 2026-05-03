@@ -14,9 +14,15 @@ import type { CameraRow } from '@/app/admin/cameras/components/cameras-columns';
  * do not appear as "N failed" in the summary toast.
  */
 
+// Quick task 260503-d1w — added stop-stream + stop-recording verbs to mirror
+// the start-* pair. Pre-filter helpers KEEP rows where the action is meaningful
+// (status === 'online' for stop-stream, isRecording === true for stop-recording),
+// so the toast count matches the user's mental model.
 export type BulkVerb =
   | 'start-stream'
   | 'start-recording'
+  | 'stop-stream'
+  | 'stop-recording'
   | 'enter-maintenance'
   | 'exit-maintenance'
   | 'delete';
@@ -45,6 +51,13 @@ const ACTION: Record<BulkVerb, ActionFn> = {
     apiFetch(`/api/cameras/${id}/stream/start`, { method: 'POST' }),
   'start-recording': (id) =>
     apiFetch('/api/recordings/start', {
+      method: 'POST',
+      body: JSON.stringify({ cameraId: id }),
+    }),
+  'stop-stream': (id) =>
+    apiFetch(`/api/cameras/${id}/stream/stop`, { method: 'POST' }),
+  'stop-recording': (id) =>
+    apiFetch('/api/recordings/stop', {
       method: 'POST',
       body: JSON.stringify({ cameraId: id }),
     }),
@@ -142,6 +155,16 @@ export const VERB_COPY: Record<
     plural: (n) => `${n} recordings started`,
     errorTitle: 'Failed to start recordings',
   },
+  'stop-stream': {
+    singular: 'Stream stopped',
+    plural: (n) => `${n} streams stopped`,
+    errorTitle: 'Failed to stop streams',
+  },
+  'stop-recording': {
+    singular: 'Recording stopped',
+    plural: (n) => `${n} recordings stopped`,
+    errorTitle: 'Failed to stop recordings',
+  },
   'enter-maintenance': {
     singular: 'Camera entered maintenance',
     plural: (n) => `${n} cameras entered maintenance`,
@@ -175,6 +198,22 @@ export function filterStartRecordingTargets<
   T extends Pick<CameraRow, 'isRecording'>,
 >(cameras: T[]): T[] {
   return cameras.filter((c) => !c.isRecording);
+}
+
+// Quick task 260503-d1w — Stop verbs are only meaningful for cameras
+// currently in the corresponding "on" state. Pre-filtering keeps the toast
+// count honest (no false "N failed" for offline / not-recording cameras).
+
+export function filterStopStreamTargets<T extends Pick<CameraRow, 'status'>>(
+  cameras: T[],
+): T[] {
+  return cameras.filter((c) => c.status === 'online');
+}
+
+export function filterStopRecordingTargets<
+  T extends Pick<CameraRow, 'isRecording'>,
+>(cameras: T[]): T[] {
+  return cameras.filter((c) => c.isRecording);
 }
 
 export function filterEnterMaintenanceTargets<
