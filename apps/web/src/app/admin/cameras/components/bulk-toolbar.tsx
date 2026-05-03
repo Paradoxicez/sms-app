@@ -129,20 +129,20 @@ export function BulkToolbar({
       <Button
         variant="outline"
         size="sm"
-        onClick={onStartRecording}
-        disabled={processing}
-      >
-        <Circle className="mr-1.5 size-4" aria-hidden="true" />
-        Start Recording
-      </Button>
-      <Button
-        variant="outline"
-        size="sm"
         onClick={onStopStream}
         disabled={processing}
       >
         <Radio className="mr-1.5 size-4" aria-hidden="true" />
         Stop Stream
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={onStartRecording}
+        disabled={processing}
+      >
+        <Circle className="mr-1.5 size-4" aria-hidden="true" />
+        Start Recording
       </Button>
       <Button
         variant="outline"
