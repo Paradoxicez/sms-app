@@ -21,6 +21,8 @@ import {
   filterExitMaintenanceTargets,
   filterStartRecordingTargets,
   filterStartStreamTargets,
+  filterStopRecordingTargets,
+  filterStopStreamTargets,
   VERB_COPY,
 } from './bulk-actions';
 
@@ -141,6 +143,24 @@ describe('bulkAction dispatch shape', () => {
     const call1 = mockedFetch.mock.calls[0];
     const call2 = mockedFetch.mock.calls[1];
     expect(call1[0]).toBe('/api/recordings/start');
+    expect((call1[1] as RequestInit).method).toBe('POST');
+    expect(JSON.parse(String((call1[1] as RequestInit).body))).toEqual({ cameraId: 'id1' });
+    expect(JSON.parse(String((call2[1] as RequestInit).body))).toEqual({ cameraId: 'id2' });
+  });
+
+  it('stop-stream: calls POST /api/cameras/:id/stream/stop for each id', async () => {
+    await bulkAction('stop-stream', ['id1', 'id2']);
+    expect(mockedFetch).toHaveBeenCalledTimes(2);
+    expect(mockedFetch).toHaveBeenCalledWith('/api/cameras/id1/stream/stop', { method: 'POST' });
+    expect(mockedFetch).toHaveBeenCalledWith('/api/cameras/id2/stream/stop', { method: 'POST' });
+  });
+
+  it('stop-recording: POSTs /api/recordings/stop with { cameraId } body for each id', async () => {
+    await bulkAction('stop-recording', ['id1', 'id2']);
+    expect(mockedFetch).toHaveBeenCalledTimes(2);
+    const call1 = mockedFetch.mock.calls[0];
+    const call2 = mockedFetch.mock.calls[1];
+    expect(call1[0]).toBe('/api/recordings/stop');
     expect((call1[1] as RequestInit).method).toBe('POST');
     expect(JSON.parse(String((call1[1] as RequestInit).body))).toEqual({ cameraId: 'id1' });
     expect(JSON.parse(String((call2[1] as RequestInit).body))).toEqual({ cameraId: 'id2' });
@@ -271,6 +291,24 @@ describe('VERB_COPY', () => {
   it('start-recording plural(3): "3 recordings started"', () => {
     expect(VERB_COPY['start-recording'].plural(3)).toBe('3 recordings started');
   });
+  it('stop-stream singular: "Stream stopped"', () => {
+    expect(VERB_COPY['stop-stream'].singular).toBe('Stream stopped');
+  });
+  it('stop-stream plural(3): "3 streams stopped"', () => {
+    expect(VERB_COPY['stop-stream'].plural(3)).toBe('3 streams stopped');
+  });
+  it('stop-stream errorTitle: "Failed to stop streams"', () => {
+    expect(VERB_COPY['stop-stream'].errorTitle).toBe('Failed to stop streams');
+  });
+  it('stop-recording singular: "Recording stopped"', () => {
+    expect(VERB_COPY['stop-recording'].singular).toBe('Recording stopped');
+  });
+  it('stop-recording plural(3): "3 recordings stopped"', () => {
+    expect(VERB_COPY['stop-recording'].plural(3)).toBe('3 recordings stopped');
+  });
+  it('stop-recording errorTitle: "Failed to stop recordings"', () => {
+    expect(VERB_COPY['stop-recording'].errorTitle).toBe('Failed to stop recordings');
+  });
   it('enter-maintenance singular: "Camera entered maintenance"', () => {
     expect(VERB_COPY['enter-maintenance'].singular).toBe('Camera entered maintenance');
   });
@@ -309,6 +347,16 @@ describe('pre-filter helpers (Research A6/A7)', () => {
     expect(kept.map((c) => c.id)).toEqual(['b', 'c']);
   });
 
+  it('filterStopStreamTargets keeps only cameras with status=online (inverse of filterStartStreamTargets)', () => {
+    const kept = filterStopStreamTargets(cams);
+    expect(kept.map((c) => c.id)).toEqual(['a', 'c']);
+  });
+
+  it('filterStopRecordingTargets keeps only cameras with isRecording=true (inverse of filterStartRecordingTargets)', () => {
+    const kept = filterStopRecordingTargets(cams);
+    expect(kept.map((c) => c.id)).toEqual(['a', 'd']);
+  });
+
   it('filterEnterMaintenanceTargets keeps only cameras with maintenanceMode=false', () => {
     const kept = filterEnterMaintenanceTargets(cams);
     expect(kept.map((c) => c.id)).toEqual(['a', 'b']);
@@ -323,6 +371,8 @@ describe('pre-filter helpers (Research A6/A7)', () => {
     const snapshot = [...cams];
     filterStartStreamTargets(cams);
     filterStartRecordingTargets(cams);
+    filterStopStreamTargets(cams);
+    filterStopRecordingTargets(cams);
     filterEnterMaintenanceTargets(cams);
     filterExitMaintenanceTargets(cams);
     expect(cams).toEqual(snapshot);
